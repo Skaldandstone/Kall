@@ -1,7 +1,20 @@
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_DATABASE_URL = "sqlite:///./kall.db"
+
+
+def build_database_url_from_parts(host: str, port: int, name: str, user: str, password: str) -> str:
+    """Compose a DATABASE_URL from separate fields instead of one pre-assembled string.
+
+    Lets a deployment inject DB_PASSWORD straight from a secrets manager (e.g. ECS
+    pulling an RDS-managed secret) without any tooling ever needing to read the
+    password value to build a connection string containing it.
+    """
+    return f"postgresql+psycopg://{quote(user, safe='')}:{quote(password, safe='')}@{host}:{port}/{name}"
 
 
 def normalize_database_url(url: str, ssl_mode: str = "require") -> str:
@@ -24,11 +37,19 @@ def normalize_database_url(url: str, ssl_mode: str = "require") -> str:
 class Settings(BaseSettings):
     app_env: str = "development"
     app_secret_key: str = "change-me"
-    database_url: str = "sqlite:///./kall.db"
+    database_url: str = _DEFAULT_DATABASE_URL
     # "require" encrypts the connection without verifying the server's certificate.
     # Use "verify-full" plus database_ssl_root_cert once a CA bundle (e.g. RDS's) is available.
     database_ssl_mode: str = "require"
     database_ssl_root_cert: str | None = None
+    # Alternative to DATABASE_URL: set these instead when the password should come
+    # from the platform's own secret injection (e.g. an ECS `secrets` block) rather
+    # than being assembled into a URL by anything that isn't the running container.
+    db_host: str | None = None
+    db_port: int = 5432
+    db_name: str | None = None
+    db_user: str | None = None
+    db_password: str | None = None
     frontend_url: str = "http://localhost:3000"
     auto_create_tables: bool = True
     session_days: int = 30
@@ -57,6 +78,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def normalize_and_validate(self) -> "Settings":
+        if self.database_url == _DEFAULT_DATABASE_URL and self.db_host:
+            self.database_url = build_database_url_from_parts(
+                self.db_host, self.db_port, self.db_name or "", self.db_user or "", self.db_password or ""
+            )
         self.database_url = normalize_database_url(self.database_url, self.database_ssl_mode)
         if self.database_ssl_root_cert and "sslrootcert=" not in self.database_url:
             separator = "&" if "?" in self.database_url else "?"
