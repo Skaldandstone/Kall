@@ -1,7 +1,19 @@
 import pytest
-from kall.models import Achievement, Job, ResumeDocument, ResumeSelection, TailoringChange, TailoringProposal, User
+from kall.models import (
+    Job,
+    ResumeDocument,
+    ResumeSelection,
+    TailoringChange,
+    TailoringProposal,
+    User,
+)
 from kall.services.documents import finalized_resume_content
-from kall.services.tailoring import create_tailoring_proposal, finalize_proposal, preserves_immutable_facts, review_change
+from kall.services.tailoring import (
+    create_tailoring_proposal,
+    finalize_proposal,
+    preserves_immutable_facts,
+    review_change,
+)
 from sqlmodel import Session, SQLModel, create_engine
 
 
