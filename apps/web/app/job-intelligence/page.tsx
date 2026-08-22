@@ -1,6 +1,8 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import AppNav from '../components/AppNav';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
 
 const API = '/api/kall';
@@ -54,14 +56,26 @@ async function responseMessage(response: Response, fallback: string): Promise<st
 }
 
 export default function JobIntelligencePage() {
-  const [profileId, setProfileId] = useState('');
-  const [jobId, setJobId] = useState('');
+  return <Suspense fallback={null}><JobIntelligenceContent /></Suspense>;
+}
+
+function JobIntelligenceContent() {
+  const params = useSearchParams();
+  const [profileId, setProfileId] = useState(params.get('profile') || '');
+  const [jobId, setJobId] = useState(params.get('job') || '');
   const [result, setResult] = useState<Result | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  async function build(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    // Arriving from a job's detail view already carries both IDs -- run the
+    // analysis immediately instead of making the user press the button again.
+    if (params.get('job') && params.get('profile')) void build();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function build(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!profileId) {
       setMessage('Create or select a professional profile first.');
       return;
@@ -146,14 +160,8 @@ export default function JobIntelligencePage() {
   }
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <a className="brand" href="/">Kall</a>
-        <nav aria-label="Job intelligence navigation">
-          <a href="/search">Opportunities</a>
-          <a href="/resume-intelligence">Resume Studio</a>
-        </nav>
-      </header>
+    <main className="app-shell">
+      <AppNav current="opportunities" />
 
       <section className="hero" style={{ paddingTop: 8, paddingBottom: 42 }}>
         <span className="eyebrow">Opportunity review</span>

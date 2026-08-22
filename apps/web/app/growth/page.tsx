@@ -64,7 +64,7 @@ export default function GrowthPage() {
   }
 
   return <main className="shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/profiles">Profiles</a><a href="/opportunities">Opportunities</a><a href="/resume-intelligence">Resume Intelligence</a></nav></header>
+    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/profiles">Profiles</a><a href="/search">Opportunities</a><a href="/resume-intelligence">Resume Intelligence</a></nav></header>
     <section className="hero" style={{paddingTop:8,paddingBottom:42}}><span className="eyebrow">Career growth and education</span><h1 style={{fontSize:'clamp(44px,7vw,76px)'}}>Turn the role you want into a path you can follow.</h1><p>Define a destination, generate a practical plan, explore focused resources, and keep evidence of your progress.</p></section>
 
     <section className="card"><h2>Create a career goal</h2><form className="form" onSubmit={createGoal}>

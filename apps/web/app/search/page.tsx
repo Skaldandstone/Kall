@@ -1,154 +1,47 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
-import GoogleJobSearchResults from '../components/GoogleJobSearchResults';
-import { hiddenSearchResultCount, restoreHiddenSearchResults } from '../lib/searchResultState';
-import { showToast } from '../components/ToastHost';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import AppNav from '../components/AppNav';
+import SearchTab from './SearchTab';
+import DiscoveryTab from './DiscoveryTab';
+import SourcesTab from './SourcesTab';
 
-type AtsSearch = { query: string };
-type SearchGroup = { id: string; label: string; terms: string[] };
-
-function cleanTerm(value: string) {
-  return value.trim().replace(/^site:/i, '').replace(/^['"]|['"]$/g, '').trim();
-}
-
-function parseQuery(value: string): SearchGroup[] {
-  const groups: SearchGroup[] = [];
-  const parenthetical = [...value.matchAll(/\(([^()]+)\)/g)].map((match) => match[1]);
-  parenthetical.forEach((content, index) => {
-    const terms = [...new Set(content.split(/\s+OR\s+/i).map(cleanTerm).filter(Boolean))];
-    if (!terms.length) return;
-    const isSites = terms.every((term) => /\.[a-z]{2,}(?:\/|$)/i.test(term));
-    const lower = terms.map((term) => term.toLowerCase());
-    const isWork = lower.some((term) => ['remote', 'work from home', 'hybrid', 'on site', 'onsite'].includes(term));
-    groups.push({ id: `profile-${index}`, label: isSites ? 'Sites' : isWork ? 'Work type' : index === 1 ? 'Job titles' : 'Search terms', terms });
-  });
-  if (!groups.length && value.trim()) groups.push({ id: 'profile-query', label: 'Search terms', terms: [cleanTerm(value)] });
-  return groups;
-}
-
-function splitNewTerms(value: string) {
-  const terms = value.split(/[,\n]+/).map(cleanTerm).filter(Boolean);
-  return terms.length ? terms : value.trim() ? [value.trim()] : [];
-}
-
-function buildQuery(groups: SearchGroup[]) {
-  return groups.filter((group) => group.terms.length).map((group) => {
-    const terms = group.terms.map((term) => group.label === 'Sites' ? `site:${term}` : `"${term.replace(/"/g, '')}"`);
-    return terms.length === 1 ? terms[0] : `(${terms.join(' OR ')})`;
-  }).join(' ');
-}
+const TABS = [
+  ['search', 'Search'],
+  ['discovery', 'Tracked'],
+  ['sources', 'Sources'],
+] as const;
 
 export default function SearchPage() {
-  const [profileId, setProfileId] = useState('');
-  const [queryInput, setQueryInput] = useState('');
-  const [groups, setGroups] = useState<SearchGroup[]>([]);
-  const [activeQuery, setActiveQuery] = useState('');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [hiddenCount, setHiddenCount] = useState(0);
+  return <Suspense fallback={null}><SearchPageContent /></Suspense>;
+}
 
-  useEffect(() => {
-    document.documentElement.classList.add('search-page-active');
-    document.body.classList.add('search-page-active');
-    const params = new URLSearchParams(window.location.search);
-    const selectedProfile = params.get('profile');
-    const selectedQuery = params.get('q');
-    if (selectedProfile) setProfileId(selectedProfile);
-    if (selectedQuery) { const parsed = parseQuery(selectedQuery); setGroups(parsed); setActiveQuery(buildQuery(parsed)); }
-    setHiddenCount(hiddenSearchResultCount());
-    const updateHiddenCount = () => setHiddenCount(hiddenSearchResultCount());
-    window.addEventListener('kall:search-results-changed', updateHiddenCount);
-    return () => {
-      document.documentElement.classList.remove('search-page-active');
-      document.body.classList.remove('search-page-active');
-      window.removeEventListener('kall:search-results-changed', updateHiddenCount);
-    };
-  }, []);
+function SearchPageContent() {
+  const params = useSearchParams();
+  const tab = params.get('tab') || 'search';
 
-  async function buildProfileQuery(selectedProfile = profileId) {
-    if (!selectedProfile) return '';
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return ''; }
-    const response = await fetch(`/api/kall/discovery/ats-search/${selectedProfile}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return ''; }
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Unable to build a profile search.');
-    return (data.queries?.[0] as AtsSearch | undefined)?.query || '';
-  }
-
-  async function searchJobs(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    try {
-      let nextGroups = groups;
-      if (!nextGroups.length && profileId) nextGroups = parseQuery(await buildProfileQuery(profileId));
-      const additions = splitNewTerms(queryInput);
-      if (additions.length) nextGroups = [...nextGroups, { id: `custom-${Date.now()}`, label: 'Added terms', terms: additions }];
-      const finalQuery = buildQuery(nextGroups);
-      if (!finalQuery) { showToast('Enter a job title or select a professional profile.', 'error'); return; }
-      setGroups(nextGroups);
-      setQueryInput('');
-      setActiveQuery(finalQuery);
-      const url = new URL(window.location.href);
-      url.searchParams.set('q', finalQuery);
-      if (profileId) url.searchParams.set('profile', profileId); else url.searchParams.delete('profile');
-      window.history.replaceState({}, '', url);
-      setMessage('Showing Google job results in the results column.');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to start the job search.', 'error');
-    } finally { setLoading(false); }
-  }
-
-  function removeTerm(groupId: string, term: string) {
-    const next = groups.map((group) => group.id === groupId ? { ...group, terms: group.terms.filter((item) => item !== term) } : group).filter((group) => group.terms.length);
-    setGroups(next);
-    const regenerated = buildQuery(next);
-    setActiveQuery(regenerated);
-    const url = new URL(window.location.href);
-    if (regenerated) url.searchParams.set('q', regenerated); else url.searchParams.delete('q');
-    window.history.replaceState({}, '', url);
-  }
-
-  function clearResults() {
-    setGroups([]); setActiveQuery(''); setQueryInput('');
-    const url = new URL(window.location.href); url.searchParams.delete('q'); window.history.replaceState({}, '', url);
-    setMessage('Search results cleared.');
-  }
-
-  function restoreResults() {
-    const currentQuery = activeQuery;
-    restoreHiddenSearchResults();
-    setHiddenCount(0);
-    showToast('Past search results restored.', 'success');
-    if (currentQuery) {
-      setActiveQuery('');
-      window.setTimeout(() => setActiveQuery(currentQuery), 0);
-    }
-  }
-
-  const termCount = useMemo(() => groups.reduce((count, group) => count + group.terms.length, 0), [groups]);
-
-  return <main className="shell search-page-shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/opportunities">Opportunities</a><a href="/profiles">Profiles</a></nav></header>
-    <section className="hero search-page-hero"><span className="eyebrow">Unified job search</span><h1>Search the job market from one place.</h1><p>Kall searches configured ATS and public job sites and keeps the results inside Kall.</p></section>
-    <section className="search-page-columns" aria-label="Job search workspace">
-      <article className="card search-page-controls-column">
-        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Search jobs</span><h2 style={{ marginTop: 14 }}>Build your search</h2></div></div>
-        <form className="form" onSubmit={searchJobs}>
-          <ProfessionalProfileSelect value={profileId} onChange={(value) => { setProfileId(value); setGroups([]); setActiveQuery(''); const url = new URL(window.location.href); if (value) url.searchParams.set('profile', value); else url.searchParams.delete('profile'); url.searchParams.delete('q'); window.history.replaceState({}, '', url); }} required={false} />
-          <label><span className="muted">Job title or search terms</span><input className="input" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder={termCount ? 'Add more titles, keywords, or sites…' : 'Director of Quality Engineering remote'} /></label>
-          <div className="search-page-actions"><button className="button" type="submit" disabled={loading}>{loading ? 'Preparing search…' : 'Search jobs'}</button>{activeQuery && <button className="button ghost" type="button" onClick={clearResults}>Clear results</button>}</div>
-        </form>
-        {!!groups.length && <section className="active-search-terms" aria-label="Active search terms"><div className="active-search-heading"><h3>Active search terms</h3><span>{termCount}</span></div>{groups.map((group) => <div className="search-term-group" key={group.id}><p>{group.label}</p><div className="search-term-chips">{group.terms.map((term) => <button type="button" className="search-term-chip" key={term} onClick={() => removeTerm(group.id, term)}><span>{term}</span><b aria-hidden="true">×</b><span className="sr-only">Remove {term}</span></button>)}</div></div>)}</section>}
-        {hiddenCount > 0 && <button className="button secondary restore-results-button" type="button" onClick={restoreResults}>Restore past results ({hiddenCount})</button>}
-        <p className="notice" aria-live="polite">{message}</p>
-      </article>
-      <article className="card search-page-results-column">
-        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Results</span><h2 style={{ marginTop: 14 }}>Current job matches</h2></div><p>Applied jobs are hidden until restored.</p></div>
-        {activeQuery ? <GoogleJobSearchResults query={activeQuery} profileId={profileId || undefined} /> : <div className="search-empty-state"><h2>No search results yet</h2><p>Select a professional profile or enter a title, then press Search jobs.</p></div>}
-      </article>
+  return <main className="app-shell search-page-shell">
+    <AppNav current="opportunities" />
+    <section className="hero search-page-hero">
+      <span className="eyebrow">Opportunities</span>
+      <h1>Search the job market from one place.</h1>
+      <p>Search the open web, run configured ATS discovery against your company boards, and manage which boards Kall watches.</p>
     </section>
+    <nav className="section-tabs" aria-label="Opportunities sections" style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      {TABS.map(([key, label]) => (
+        <a
+          key={key}
+          href={key === 'search' ? '/search' : `/search?tab=${key}`}
+          className={`button ${tab === key ? '' : 'secondary'}`}
+          aria-current={tab === key ? 'page' : undefined}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+    {tab === 'search' && <SearchTab />}
+    {tab === 'discovery' && <DiscoveryTab />}
+    {tab === 'sources' && <SourcesTab />}
   </main>;
 }
