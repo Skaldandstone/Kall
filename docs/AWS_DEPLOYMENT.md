@@ -47,8 +47,7 @@ There's no CI trigger wired up yet — deploys are manual:
 aws codebuild start-build --project-name kall-api-build --profile agent-toolkit --region us-east-2
 aws codebuild start-build --project-name kall-web-build --profile agent-toolkit --region us-east-2
 
-# Both build from the `agent/sso-passkey-account-linking` branch's HEAD right now —
-# update sourceVersion (aws codebuild update-project) once that PR merges to main.
+# Both build from main's HEAD.
 
 # Force ECS to pull the new :latest image
 aws ecs update-service --cluster kall-cluster --service kall-api --force-new-deployment --profile agent-toolkit --region us-east-2
@@ -57,7 +56,6 @@ aws ecs update-service --cluster kall-cluster --service kall-web --force-new-dep
 
 ## Known gaps / next steps
 
-- **CodeBuild's source is pinned to a feature branch**, not `main` — `main` is currently missing this work (see the PR it lives on). Repoint `sourceVersion` once merged.
 - **No custom domain / ACM cert on the ALB.** CloudFront's default domain covers the "properly encrypted" requirement for now; revisit if a real domain shows up.
 - **No CI/CD trigger** — CodeBuild has to be started manually per the commands above. A GitHub webhook or CodePipeline would close this gap.
 - **Backup retention is 1 day** (free-tier ceiling) and this is **single-AZ** — both are reasonable for a $100-credit bootstrap phase, not for a real production SLA. Revisit if/when the account moves off the free tier.
