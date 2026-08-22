@@ -1,277 +1,60 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AppNav from '../components/AppNav';
+import StrategyTab from './StrategyTab';
+import IdentityTab from './IdentityTab';
+import RecordTab from './RecordTab';
+import GrowthTab from './GrowthTab';
+import AchievementsTab from './AchievementsTab';
+import ReferencesTab from './ReferencesTab';
 import styles from './page.module.css';
 
-const API = '/api/kall';
-
-type Profile = {
-  id: number;
-  name: string;
-  target_titles: string[];
-  industries: string[];
-  include_keywords: string[];
-  countries: string[];
-  states_regions: string[];
-  work_types: string[];
-  minimum_base: number | null;
-  target_base: number | null;
-  stretch_base: number | null;
-  target_total_comp: number | null;
-  travel_max_percent: number | null;
-  relocation_preference: string | null;
-  default_resume_id: number | null;
-  default_resume_name: string | null;
-  is_active: boolean;
-  match_count: number;
-  best_match_score: number | null;
-  completeness: { score: number };
-};
-
-type Resume = { id: number; name: string; version: number };
-type UploadedResume = { id: number; name: string };
-
-const csv = (value: FormDataEntryValue | null) =>
-  String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
-const money = (value: number | null) =>
-  value ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) : 'Not set';
+const TABS = [
+  ['strategy', 'Strategy'],
+  ['identity', 'Identity'],
+  ['record', 'Professional record'],
+  ['growth', 'Growth'],
+  ['achievements', 'Achievements'],
+  ['references', 'References'],
+] as const;
 
 export default function ProfilesPage() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [uploadingProfileId, setUploadingProfileId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  return <Suspense fallback={null}><ProfilesPageContent /></Suspense>;
+}
 
-  function token() {
-    const value = localStorage.getItem('kall_token');
-    if (!value) window.location.replace('/login');
-    return value;
-  }
-
-  async function load() {
-    const auth = token();
-    if (!auth) return;
-    setLoading(true);
-    try {
-      const headers = { Authorization: `Bearer ${auth}` };
-      const [profilesResponse, resumesResponse] = await Promise.all([
-        fetch(`${API}/me/career-profiles`, { headers }),
-        fetch(`${API}/me/resume-studio`, { headers }),
-      ]);
-      if (profilesResponse.status === 401 || resumesResponse.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
-        return;
-      }
-      if (!profilesResponse.ok) throw new Error('Unable to load career profiles.');
-      setProfiles((await profilesResponse.json()).profiles || []);
-      if (resumesResponse.ok) setResumes((await resumesResponse.json()).resumes || []);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to load career profiles.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { void load(); }, []);
-
-  async function save(event: FormEvent<HTMLFormElement>, profile: Profile) {
-    event.preventDefault();
-    const auth = token();
-    if (!auth) return;
-    const form = new FormData(event.currentTarget);
-    const body = {
-      name: String(form.get('name') || profile.name),
-      target_titles: csv(form.get('target_titles')),
-      industries: csv(form.get('industries')),
-      functional_areas: [],
-      include_keywords: csv(form.get('include_keywords')),
-      exclude_keywords: [],
-      countries: csv(form.get('countries')),
-      states_regions: csv(form.get('states_regions')),
-      work_types: csv(form.get('work_types')),
-      minimum_base: Number(form.get('minimum_base')) || null,
-      target_base: Number(form.get('target_base')) || null,
-      stretch_base: Number(form.get('stretch_base')) || null,
-      target_total_comp: Number(form.get('target_total_comp')) || null,
-      travel_max_percent: Number(form.get('travel_max_percent')) || null,
-      relocation_preference: String(form.get('relocation_preference') || '') || null,
-      is_active: true,
-    };
-    const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (response.status === 401) {
-      localStorage.removeItem('kall_token');
-      window.location.replace('/login');
-      return;
-    }
-    setMessage(response.ok ? `${body.name} updated.` : 'Unable to update profile.');
-    if (response.ok) {
-      setEditingId(null);
-      await load();
-    }
-  }
-
-  async function assignResume(profileId: number, resumeId: string, successMessage = 'Profile resume updated.') {
-    const auth = token();
-    if (!auth) return false;
-    const response = await fetch(`${API}/me/professional-profiles/${profileId}/default-resume`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resume_id: resumeId ? Number(resumeId) : null }),
-    });
-    setMessage(response.ok ? successMessage : 'Unable to associate that resume.');
-    if (response.ok) await load();
-    return response.ok;
-  }
-
-  async function uploadResume(event: ChangeEvent<HTMLInputElement>, profile: Profile) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    const auth = token();
-    if (!auth) return;
-    setUploadingProfileId(profile.id);
-    setMessage(`Uploading ${file.name}…`);
-
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const response = await fetch(`${API}/me/resumes`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${auth}` },
-        body: form,
-      });
-      if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
-        return;
-      }
-      if (!response.ok) throw new Error('Unable to upload that resume.');
-
-      const uploaded = await response.json() as UploadedResume;
-      const shouldMakeDefault = !profile.default_resume_id || window.confirm(
-        `${uploaded.name} was uploaded. Make it the default resume for ${profile.name}?`,
-      );
-
-      if (shouldMakeDefault) {
-        await assignResume(profile.id, String(uploaded.id), `${uploaded.name} uploaded and set as the default resume.`);
-      } else {
-        setMessage(`${uploaded.name} uploaded. The current default resume was kept.`);
-        await load();
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to upload that resume.');
-    } finally {
-      setUploadingProfileId(null);
-    }
-  }
+function ProfilesPageContent() {
+  const params = useSearchParams();
+  const tab = params.get('tab') || 'strategy';
 
   return (
     <main className={styles.shell}>
       <AppNav current="career" />
       <section className={styles.hero}>
         <div>
-          <p className="eyebrow">Career profiles</p>
+          <p className="eyebrow">Career</p>
           <h1>Define where your career should go.</h1>
-          <p>Each profile gives Kall a distinct search, compensation, work-mode, and resume strategy.</p>
         </div>
-        <a className="button" href="/onboarding">Create other profile</a>
       </section>
-
-      {loading ? <section className={styles.state}>Loading career profiles…</section> : !profiles.length ? (
-        <section className={styles.state}>
-          <h2>No career profiles yet.</h2>
-          <p>{message || 'Create one profile for each direction you want Kall to evaluate independently.'}</p>
-          <a className="button" href="/onboarding">Create your first profile</a>
-        </section>
-      ) : (
-        <section className={styles.list}>
-          {profiles.map((profile) => (
-            <div className={styles.profileRow} key={profile.id}>
-              <article className={styles.card}>
-                {editingId === profile.id ? (
-                  <form className={styles.form} onSubmit={(event) => save(event, profile)}>
-                    <label>Name<input name="name" defaultValue={profile.name} /></label>
-                    <label>Target titles<input name="target_titles" defaultValue={profile.target_titles.join(', ')} /></label>
-                    <label>Industries<input name="industries" defaultValue={profile.industries.join(', ')} /></label>
-                    <label>Include keywords<input name="include_keywords" defaultValue={profile.include_keywords.join(', ')} /></label>
-                    <div className={styles.two}>
-                      <label>Countries<input name="countries" defaultValue={profile.countries.join(', ')} /></label>
-                      <label>States or regions<input name="states_regions" defaultValue={profile.states_regions.join(', ')} /></label>
-                    </div>
-                    <label>Work types<input name="work_types" defaultValue={profile.work_types.join(', ')} /></label>
-                    <div className={styles.two}>
-                      <label>Minimum base<input type="number" name="minimum_base" defaultValue={profile.minimum_base ?? ''} /></label>
-                      <label>Target base<input type="number" name="target_base" defaultValue={profile.target_base ?? ''} /></label>
-                    </div>
-                    <div className={styles.two}>
-                      <label>Stretch base<input type="number" name="stretch_base" defaultValue={profile.stretch_base ?? ''} /></label>
-                      <label>Total compensation<input type="number" name="target_total_comp" defaultValue={profile.target_total_comp ?? ''} /></label>
-                    </div>
-                    <div className={styles.two}>
-                      <label>Maximum travel %<input type="number" min="0" max="100" name="travel_max_percent" defaultValue={profile.travel_max_percent ?? ''} /></label>
-                      <label>Relocation<select name="relocation_preference" defaultValue={profile.relocation_preference ?? ''}><option value="">Not specified</option><option value="none">No relocation</option><option value="consider">Will consider</option><option value="preferred">Relocation preferred</option></select></label>
-                    </div>
-                    <div className={styles.actions}>
-                      <button className="button">Save profile</button>
-                      <button className="button secondary" type="button" onClick={() => setEditingId(null)}>Cancel</button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className={styles.profileView}>
-                    <div className={styles.profileHeader}>
-                      <div><p className="eyebrow">{profile.is_active ? 'Active profile' : 'Paused profile'}</p><h2>{profile.name}</h2></div>
-                      <button className="button secondary" onClick={() => setEditingId(profile.id)}>Edit profile</button>
-                    </div>
-                    <div className={styles.tags}>{profile.target_titles.length ? profile.target_titles.map((title) => <span className={styles.tag} key={title}>{title}</span>) : <span className={styles.tag}>No target titles</span>}</div>
-                    <dl className={styles.details}>
-                      <div><dt>Industries</dt><dd>{profile.industries.join(', ') || 'Not set'}</dd></div>
-                      <div><dt>Locations</dt><dd>{[...profile.countries, ...profile.states_regions].join(', ') || 'Not set'}</dd></div>
-                      <div><dt>Work types</dt><dd>{profile.work_types.join(', ') || 'Not set'}</dd></div>
-                      <div><dt>Target base</dt><dd>{money(profile.target_base)}</dd></div>
-                      <div><dt>Total compensation</dt><dd>{money(profile.target_total_comp)}</dd></div>
-                      <div><dt>Keywords</dt><dd>{profile.include_keywords.join(', ') || 'Not set'}</dd></div>
-                    </dl>
-                    <div className={styles.metrics}>
-                      <article><strong>{profile.completeness.score}%</strong><span>Profile completeness</span></article>
-                      <article><strong>{profile.match_count}</strong><span>Stored matches</span></article>
-                      <article><strong>{profile.best_match_score ?? '—'}</strong><span>Best match score</span></article>
-                    </div>
-                  </div>
-                )}
-              </article>
-              <aside className={styles.sideCard}>
-                <h3>Profile resume</h3>
-                <p>Choose the default resume Kall should use for this profile.</p>
-                <select value={profile.default_resume_id ?? ''} onChange={(event) => void assignResume(profile.id, event.target.value)}>
-                  <option value="">No default resume</option>
-                  {resumes.map((resume) => <option value={resume.id} key={resume.id}>{resume.name} · v{resume.version}</option>)}
-                </select>
-                <label className={`button secondary ${styles.uploadButton}`}>
-                  {uploadingProfileId === profile.id ? 'Uploading…' : 'Upload resume'}
-                  <input
-                    className={styles.fileInput}
-                    type="file"
-                    accept=".pdf,.docx"
-                    disabled={uploadingProfileId !== null}
-                    onChange={(event) => void uploadResume(event, profile)}
-                  />
-                </label>
-                <a className="button secondary" href={`/search?profile=${profile.id}`}>View opportunities</a>
-              </aside>
-            </div>
-          ))}
-        </section>
-      )}
-      {message && profiles.length > 0 && <p className={styles.message}>{message}</p>}
+      <nav aria-label="Career sections" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+        {TABS.map(([key, label]) => (
+          <a
+            key={key}
+            href={key === 'strategy' ? '/profiles' : `/profiles?tab=${key}`}
+            className={`button ${tab === key ? '' : 'secondary'}`}
+            aria-current={tab === key ? 'page' : undefined}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      {tab === 'strategy' && <StrategyTab />}
+      {tab === 'identity' && <IdentityTab />}
+      {tab === 'record' && <RecordTab />}
+      {tab === 'growth' && <GrowthTab />}
+      {tab === 'achievements' && <AchievementsTab />}
+      {tab === 'references' && <ReferencesTab />}
     </main>
   );
 }

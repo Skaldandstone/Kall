@@ -2,16 +2,17 @@
 
 import { FormEvent, useState } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api/kall';
 
 export default function TestimonialSubmitPage() {
   const [message, setMessage] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const token = new URLSearchParams(window.location.search).get('token') || '';
-    const response = await fetch(`${API}/api/testimonials/submit`, {
+    const response = await fetch(`${API}/testimonials/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -25,7 +26,7 @@ export default function TestimonialSubmitPage() {
       }),
     });
     setMessage(response.ok ? 'Thank you. Your response was submitted for review.' : 'This invitation is invalid, expired, or already completed.');
-    if (response.ok) event.currentTarget.reset();
+    if (response.ok) formElement.reset();
   }
 
   return <main className="shell">
