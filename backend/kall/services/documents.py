@@ -1,8 +1,8 @@
 import hashlib
+import io
 import json
 from collections.abc import Iterable
 from datetime import datetime
-from pathlib import Path
 
 from docx import Document
 from kall.models import (
@@ -17,6 +17,7 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
+from kall.services.storage import get_storage
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
@@ -81,17 +82,18 @@ def keyword_report(
     )
 
 
-def _write_docx(path: Path, title: str, sections: Iterable[dict[str, str]]) -> bytes:
+def _write_docx(title: str, sections: Iterable[dict[str, str]]) -> bytes:
     document = Document()
     document.add_heading(title, 0)
     for item in sections:
         document.add_heading(item["section"].replace("_", " ").title(), level=1)
         document.add_paragraph(item["text"])
-    document.save(path)
-    return path.read_bytes()
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
 
 
-def _write_pdf(path: Path, title: str, sections: Iterable[dict[str, str]]) -> bytes:
+def _write_pdf(title: str, sections: Iterable[dict[str, str]]) -> bytes:
     styles = getSampleStyleSheet()
     story = [Paragraph(title, styles["Title"]), Spacer(1, 18)]
     for item in sections:
@@ -102,8 +104,9 @@ def _write_pdf(path: Path, title: str, sections: Iterable[dict[str, str]]) -> by
                 Spacer(1, 12),
             ]
         )
-    SimpleDocTemplate(str(path), pagesize=LETTER, title=title).build(story)
-    return path.read_bytes()
+    buffer = io.BytesIO()
+    SimpleDocTemplate(buffer, pagesize=LETTER, title=title).build(story)
+    return buffer.getvalue()
 
 
 def generate_resume_documents(
@@ -129,22 +132,22 @@ def generate_resume_documents(
     session.commit()
     session.refresh(generated)
 
-    output = Path("generated") / str(proposal.user_id) / f"document-{generated.id}"
-    output.mkdir(parents=True, exist_ok=True)
-    artifacts: list[tuple[str, str, bytes]] = []
-    txt = content_text.encode("utf-8")
-    txt_path = output / "resume.txt"
-    txt_path.write_bytes(txt)
-    artifacts.append(("txt", "text/plain", txt))
-    artifacts.append(("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", _write_docx(output / "resume.docx", "Tailored Resume", sections)))
-    artifacts.append(("pdf", "application/pdf", _write_pdf(output / "resume.pdf", "Tailored Resume", sections)))
+    storage = get_storage()
+    key_prefix = f"generated/{proposal.user_id}/document-{generated.id}"
+    artifacts: list[tuple[str, str, bytes]] = [
+        ("txt", "text/plain", content_text.encode("utf-8")),
+        ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", _write_docx("Tailored Resume", sections)),
+        ("pdf", "application/pdf", _write_pdf("Tailored Resume", sections)),
+    ]
 
     for extension, mime, data in artifacts:
+        key = f"{key_prefix}/resume.{extension}"
+        storage.save(key, data)
         session.add(
             DocumentArtifact(
                 generated_document_id=generated.id,
                 format=extension,
-                file_path=str(output / f"resume.{extension}"),
+                file_path=key,
                 mime_type=mime,
                 byte_size=len(data),
                 checksum=_sha(data),

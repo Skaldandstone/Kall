@@ -1,7 +1,5 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -22,6 +20,7 @@ from kall.services.documents import (
     propose_cover_letter,
     review_cover_letter_change,
 )
+from kall.services.storage import get_storage
 
 router = APIRouter(tags=["documents"])
 
@@ -91,7 +90,7 @@ def download_document(
     file_format: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
-) -> FileResponse:
+) -> Response:
     document = session.get(GeneratedDocument, document_id)
     if not document or document.user_id != current_user.id:
         raise HTTPException(404, "Document not found")
@@ -101,12 +100,15 @@ def download_document(
             DocumentArtifact.format == file_format,
         )
     ).first()
-    if not artifact or not Path(artifact.file_path).is_file():
+    storage = get_storage()
+    if not artifact or not storage.exists(artifact.file_path):
         raise HTTPException(404, "Document artifact not found")
-    return FileResponse(
-        artifact.file_path,
+    return Response(
+        content=storage.read(artifact.file_path),
         media_type=artifact.mime_type,
-        filename=f"kall-{document.document_type}-{document.id}.{artifact.format}",
+        headers={
+            "Content-Disposition": f'attachment; filename="kall-{document.document_type}-{document.id}.{artifact.format}"'
+        },
     )
 
 
