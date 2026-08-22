@@ -110,6 +110,7 @@ def create_tailoring_proposal(
     session.add_all(changes)
     session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_created", details={"provider": "deterministic"}))
     session.commit()
+    session.refresh(proposal)
     return proposal
 
 
@@ -133,7 +134,7 @@ def finalize_proposal(session: Session, proposal: TailoringProposal) -> Tailorin
     changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id == proposal.id)))
     if not changes or any(change.status == "pending" for change in changes):
         raise ValueError("Every tailoring change must be reviewed before finalization")
-    proposal.status = "approved"
+    proposal.status = "finalized"
     proposal.finalized_at = datetime.utcnow()
     session.add(proposal)
     session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_finalized"))
