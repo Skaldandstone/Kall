@@ -1,4 +1,10 @@
-"use client";
-import {FormEvent,useEffect,useState} from "react";
-const API=process.env.NEXT_PUBLIC_API_URL||"http://localhost:8000";
-export default function Sources(){const [rows,setRows]=useState<any[]>([]);const [message,setMessage]=useState("");const token=()=>localStorage.getItem("kall_token");async function load(){const r=await fetch(`${API}/api/me/search-sources`,{headers:{Authorization:`Bearer ${token()}`}});if(r.ok)setRows(await r.json())}useEffect(()=>{load()},[]);async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const r=await fetch(`${API}/api/me/search-sources`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token()}`},body:JSON.stringify({provider:f.get("provider"),company_name:f.get("company"),board_key:f.get("board_key"),enabled:true})});setMessage(r.ok?"Source added.":"Could not add source.");if(r.ok){e.currentTarget.reset();load()}}return <main className="shell"><header className="topbar"><div className="brand">Kall Sources</div><nav><a href="/jobs">Jobs</a><a href="/profiles">Profiles</a></nav></header><div className="grid"><article className="card"><h1>Add a company job board</h1><form className="form" onSubmit={submit}><select className="input" name="provider"><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option><option value="ashby">Ashby</option></select><input className="input" name="company" placeholder="Company name" required/><input className="input" name="board_key" placeholder="Board key or slug" required/><button className="button">Add source</button></form><p>{message}</p></article><article className="card"><h2>Configured sources</h2>{rows.map(r=><p key={r.id}><b>{r.company_name}</b> · {r.provider} · {r.board_key}</p>)}</article></div></main>}
+'use client';
+
+import { useEffect } from 'react';
+
+export default function SourcesRedirect() {
+  useEffect(() => {
+    window.location.replace('/search?tab=sources');
+  }, []);
+  return null;
+}

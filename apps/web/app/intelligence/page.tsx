@@ -60,7 +60,7 @@ export default function IntelligencePage() {
   return <main className='shell'>
     <header className='topbar'>
       <div className='brand'>Kall Resume Intelligence</div>
-      <nav><a href='/resumes'>Resume Studio</a><a href='/jobs'>Jobs</a></nav>
+      <nav><a href='/resumes'>Resume Studio</a><a href='/search'>Opportunities</a></nav>
     </header>
     <section className='card' style={{ marginBottom: 18 }}>
       <h1>Build your verified achievement library</h1>

@@ -1,10 +1,10 @@
-"use client";
-import { useEffect,useState } from "react";
-const API=process.env.NEXT_PUBLIC_API_URL||"http://localhost:8000";
-export default function Jobs(){const [jobs,setJobs]=useState<any[]>([]);const [profiles,setProfiles]=useState<any[]>([]);const [profile,setProfile]=useState("");const [message,setMessage]=useState("");
- const token=()=>localStorage.getItem("kall_token");
- async function loadProfiles(){const r=await fetch(`${API}/api/me/professional-profiles`,{headers:{Authorization:`Bearer ${token()}`}});if(r.ok){const d=await r.json();setProfiles(d);if(d[0])setProfile(String(d[0].id));}}
- async function loadJobs(id=profile){if(!id)return;const r=await fetch(`${API}/api/jobs/feed?professional_profile_id=${id}&min_score=35`,{headers:{Authorization:`Bearer ${token()}`}});if(r.ok)setJobs(await r.json());}
- async function run(){setMessage("Searching configured company boards…");const r=await fetch(`${API}/api/discovery/run/${profile}`,{method:"POST",headers:{Authorization:`Bearer ${token()}`}});const d=await r.json();setMessage(r.ok?`Collected ${d.jobs_collected}; added ${d.jobs_created}; matched ${d.matches_created}.`:d.detail);if(r.ok)loadJobs();}
- useEffect(()=>{loadProfiles()},[]);useEffect(()=>{if(profile)loadJobs(profile)},[profile]);
- return <main className="shell"><header className="topbar"><div className="brand">Kall Search</div><nav><a href="/profiles">Profiles</a><a href="/sources">Sources</a><a href="/resumes">Resume Studio</a></nav></header><section className="card" style={{marginBottom:18}}><div className="two"><select className="input" value={profile} onChange={e=>setProfile(e.target.value)}>{profiles.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select><button className="button" onClick={run}>Run search</button></div><p>{message}</p></section><section className="grid">{jobs.map(j=><article className="card" key={j.match_id}><span className="pill">{j.score}% match</span><h2>{j.title}</h2><b>{j.company}</b><p>{j.location||"Location not listed"} · {j.work_type||"Work type unknown"}</p>{j.salary_min&&<p>${j.salary_min.toLocaleString()}–${(j.salary_max||j.salary_min).toLocaleString()}</p>}<p>{j.strengths.slice(0,3).join(" · ")}</p><div style={{display:"flex",gap:8}}><a className="button secondary" href={j.url} target="_blank">View role</a><a className="button" href={`/apply?job=${j.job_id}&profile=${profile}`}>Prepare application</a></div></article>)}</section></main>}
+'use client';
+
+import { useEffect } from 'react';
+
+export default function JobsRedirect() {
+  useEffect(() => {
+    window.location.replace('/search?tab=discovery');
+  }, []);
+  return null;
+}
