@@ -38,7 +38,7 @@ export default function Home() {
         <a className="brand" href="/" aria-label="Kall home">
           Kall
         </a>
-        <nav aria-label="Primary navigation">
+        <nav aria-label="Primary navigation" className="marketing-nav">
           <a href="#product-demos">Explore demos</a>
           <a href="/login">Log in</a>
           <a className="button" href="/register">

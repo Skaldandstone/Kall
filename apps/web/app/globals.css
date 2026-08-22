@@ -474,9 +474,15 @@ nav a:hover {
 
   .topbar {
     align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 
-  nav a:not(:last-child) {
+  .topbar nav {
+    flex-wrap: wrap;
+  }
+
+  .marketing-nav a:not(:last-child) {
     display: none;
   }
 

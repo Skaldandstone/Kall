@@ -88,7 +88,7 @@ export default async function DemoPage({ params }: DemoPageProps) {
     <main className="shell">
       <header className="topbar">
         <a className="brand" href="/">Kall</a>
-        <nav aria-label="Demo navigation"><a href="/login">Log in</a><a className="button" href="/register">Create account</a></nav>
+        <nav aria-label="Demo navigation" className="marketing-nav"><a href="/login">Log in</a><a className="button" href="/register">Create account</a></nav>
       </header>
 
       <section className="hero" style={{ paddingBottom: 40 }}>
