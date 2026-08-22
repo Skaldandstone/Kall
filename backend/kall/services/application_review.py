@@ -7,6 +7,7 @@ from kall.models import (
     ApplicationReviewAudit,
     ScreeningQuestion,
 )
+from kall.models.enums import ApplicationStatus
 from sqlmodel import Session, select
 
 SENSITIVE_CATEGORIES = {"eeo", "work_authorization", "disability", "veteran", "demographic"}
@@ -83,6 +84,10 @@ def approve_review(session: Session, application: Application, review: Applicati
     review.status = "approved"
     review.approved_at = datetime.utcnow()
     application.user_approved_at = review.approved_at
+    # The pipeline's stage is derived from Application.status (see api_applications._stage),
+    # so approval must advance it here -- otherwise an approved application stays stuck
+    # showing "Needs review" in the pipeline forever.
+    application.status = ApplicationStatus.APPROVED
     session.add(review)
     session.add(application)
     session.add(ApplicationReviewAudit(application_id=application.id, user_id=application.user_id, event="application_approved", details={"submission_allowed": False}))

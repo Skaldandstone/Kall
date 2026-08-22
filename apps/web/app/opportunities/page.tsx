@@ -316,7 +316,7 @@ export default function OpportunitiesPage() {
               <p className="muted" style={{ marginTop: 10 }}>Source: {result.source}</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
                 <a className="button secondary" href={result.url} target="_blank" rel="noreferrer">View role</a>
-                <a className="button" href={`/apply?job=${result.job_id}&profile=${profileId}`}>Prepare application</a>
+                <a className="button" href={`/applications/new?job=${result.job_id}&profile=${profileId}`}>Prepare application</a>
                 <a className="button ghost" href={`/job-intelligence?job=${result.job_id}&profile=${profileId}`}>Analyze match</a>
               </div>
             </article>

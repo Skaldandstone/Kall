@@ -26,7 +26,7 @@ export default function BillingPage() {
   useEffect(() => { load(); }, []);
 
   return <main className="shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/opportunities">Opportunities</a><a href="/submissions">Submissions</a></nav></header>
+    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/opportunities">Opportunities</a><a href="/applications">Applications</a></nav></header>
     <section className="hero" style={{ paddingTop: 8, paddingBottom: 42 }}><span className="eyebrow">Kall Plus</span><h1 style={{ fontSize: 'clamp(44px, 7vw, 76px)' }}>Ten applications free. Then $4 a month.</h1><p>Usage is enforced on the server before Kall creates a submission attempt.</p></section>
     <section className="card">
       <span className="eyebrow">Current plan</span>
