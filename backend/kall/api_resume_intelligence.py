@@ -168,7 +168,7 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
 @router.get("/me/resume-intelligence")
 def resume_intelligence(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resumes = list(session.exec(select(ResumeDocument).where(ResumeDocument.user_id == current_user.id).order_by(ResumeDocument.updated_at.desc())))
-    profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active == True)))
+    profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active)))
     profile_titles = sorted({title for profile in profiles for title in profile.target_titles})
     rows = []
     for resume in resumes:
@@ -187,7 +187,7 @@ def resume_intelligence(current_user: User = Depends(get_current_user), session:
 @router.post("/me/resumes/{resume_id}/recommendations")
 def generate_recommendations(resume_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resume = _owned_resume(resume_id, current_user.id, session)
-    profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active == True)))
+    profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active)))
     profile_titles = sorted({title for profile in profiles for title in profile.target_titles})
     return {"resume_id": resume.id, "recommendations": _ai_recommendations(resume, profile_titles), "ai_enabled": bool(get_settings().openai_api_key)}
 
