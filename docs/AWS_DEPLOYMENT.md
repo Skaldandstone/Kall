@@ -32,7 +32,8 @@ Two identities exist for this account:
 | ALB | `kall-alb` → target group `kall-web-tg` (port 3000), HTTP listener on 80 |
 | CloudFront | `E2ZZ5V24QLF8BA` → `https://d7wb2yokfqcku.cloudfront.net` (the public URL) |
 | Secrets Manager | `kall/app-secret-key`, `kall/sensitive-data-encryption-key`, plus the RDS-managed `rds!db-...` secret |
-| IAM roles | `kall-ecs-execution-role` (ECR pull, CloudWatch Logs, reads `kall/*` and `rds!db-*` secrets), `kall-codebuild-role` (ECR push, CloudWatch Logs) |
+| S3 bucket | `kall-documents-693272753663` — resumes and generated documents (uploads/, generated/, data/generated-resumes/), private (public access blocked), SSE-S3 encrypted, versioned |
+| IAM roles | `kall-ecs-execution-role` (ECR pull, CloudWatch Logs, reads `kall/*` and `rds!db-*` secrets), `kall-api-task-role` (the `kall-api` container's own AWS calls — scoped to `s3:GetObject`/`PutObject`/`DeleteObject`/`ListBucket` on `kall-documents-693272753663` only), `kall-codebuild-role` (ECR push, CloudWatch Logs) |
 | CodeBuild projects | `kall-api-build` (`Dockerfile.api`, repo root context), `kall-web-build` (`apps/web/Dockerfile`, `apps/web` context) — both build from GitHub directly, no local Docker involved |
 | Security groups | `kall-alb-sg` (80 from internet) → `kall-web-tasks-sg` (3000 from ALB) → `kall-api-tasks-sg` (8000 from web tasks) → `kall-rds-sg` (5432 from API tasks) |
 
@@ -60,3 +61,7 @@ aws ecs update-service --cluster kall-cluster --service kall-web --force-new-dep
 - **No CI/CD trigger** — CodeBuild has to be started manually per the commands above. A GitHub webhook or CodePipeline would close this gap.
 - **Backup retention is 1 day** (free-tier ceiling) and this is **single-AZ** — both are reasonable for a $100-credit bootstrap phase, not for a real production SLA. Revisit if/when the account moves off the free tier.
 - **OAuth provider secrets aren't in Secrets Manager yet** — none were configured for this environment; add `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET` etc. as additional `kall/*` secrets and task-definition `secrets` entries when SSO is actually turned on here.
+
+## Document storage
+
+Uploaded resumes and generated documents (resume/cover-letter artifacts) go through `backend/kall/services/storage.py`, which picks a backend based on config: `AWS_S3_BUCKET` set → S3 (`kall-documents-693272753663`, via `kall-api-task-role`); unset → local filesystem (what local dev and CI use). `ResumeDocument.file_path` / `DocumentArtifact.file_path` are storage *keys* (e.g. `uploads/1/resume.pdf`), not filesystem paths — they mean whatever the active backend resolves them to. `kall-api` task definition revision 2+ carries `AWS_S3_BUCKET`/`AWS_REGION` and the `taskRoleArn`; older running tasks fall back to local disk until redeployed onto that revision.

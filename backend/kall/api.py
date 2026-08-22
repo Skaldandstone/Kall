@@ -53,6 +53,7 @@ from kall.services.billing import create_checkout_url
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
 from kall.services.resume import extract_resume_text
+from kall.services.storage import get_storage
 
 router = APIRouter()
 
@@ -222,13 +223,13 @@ def list_profiles(current_user: User = Depends(get_current_user), session: Sessi
 
 @router.post("/me/resumes", response_model=ResumeDocument)
 async def upload_resume(file: UploadFile = File(...), current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> ResumeDocument:
-    folder = Path("uploads") / str(current_user.id)
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / Path(file.filename or "resume").name
-    path.write_bytes(await file.read())
+    data = await file.read()
+    filename = Path(file.filename or "resume").name
+    key = f"uploads/{current_user.id}/{filename}"
     mime = file.content_type or "application/octet-stream"
-    text = extract_resume_text(str(path), mime)
-    row = ResumeDocument(user_id=current_user.id, name=path.name, file_path=str(path), mime_type=mime, extracted_text=text)
+    text = extract_resume_text(data, mime)
+    get_storage().save(key, data)
+    row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text)
     session.add(row)
     session.commit()
     session.refresh(row)

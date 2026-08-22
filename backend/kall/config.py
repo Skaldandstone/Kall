@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     webauthn_rp_name: str = "Kall"
     webauthn_origin: str = "http://localhost:3000"
 
+    # Object storage for uploaded resumes and generated documents. When unset,
+    # files are written to the local filesystem instead -- fine for local
+    # development and tests, but not durable across a redeploy of an
+    # ephemeral container (e.g. ECS Fargate).
+    aws_s3_bucket: str | None = None
+    aws_region: str = "us-east-2"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")

@@ -1,6 +1,6 @@
+import contextlib
 import json
 from datetime import datetime
-from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -12,6 +12,7 @@ from kall.auth import get_current_user
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
+from kall.services.storage import get_storage
 
 router = APIRouter()
 
@@ -212,12 +213,10 @@ def apply_recommendations(resume_id: int, payload: ApplyRecommendationsRequest, 
         applied.append(str(item.get("id")))
     if not applied:
         raise HTTPException(400, "The selected recommendations did not contain applicable text")
-    generated_dir = Path("data/generated-resumes")
-    generated_dir.mkdir(parents=True, exist_ok=True)
-    generated_path = generated_dir / f"resume-{current_user.id}-{uuid4().hex}.txt"
-    generated_path.write_text(revised_text, encoding="utf-8")
+    key = f"data/generated-resumes/resume-{current_user.id}-{uuid4().hex}.txt"
+    get_storage().save(key, revised_text.encode("utf-8"))
     new_resume = ResumeDocument(
-        user_id=current_user.id, name=f"{resume.name} — AI revision", file_path=str(generated_path), mime_type="text/plain",
+        user_id=current_user.id, name=f"{resume.name} — AI revision", file_path=key, mime_type="text/plain",
         tags=list(resume.tags), industries=list(resume.industries), target_titles=list(resume.target_titles), extracted_text=revised_text,
         is_default=False, version=resume.version + 1,
     )
@@ -243,12 +242,9 @@ def delete_resume(resume_id: int, current_user: User = Depends(get_current_user)
     for application in applications:
         application.base_resume_id = None
         session.add(application)
-    file_path = Path(resume.file_path)
+    file_key = resume.file_path
     session.delete(resume)
     session.commit()
-    try:
-        if file_path.is_file():
-            file_path.unlink()
-    except OSError:
-        pass
+    with contextlib.suppress(Exception):
+        get_storage().delete(file_key)
     return {"removed": True, "resume_id": resume_id}
