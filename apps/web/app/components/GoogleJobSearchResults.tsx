@@ -121,7 +121,7 @@ function decorateResults(container: HTMLElement, profileId?: string) {
       apply.textContent = 'Apply with Kall';
       const params = new URLSearchParams({ external_url: titleLink.href, title, snippet });
       if (profileId) params.set('profile', profileId);
-      apply.href = `/apply?${params.toString()}`;
+      apply.href = `/applications/new?${params.toString()}`;
 
       const view = document.createElement('a');
       view.className = 'button secondary';

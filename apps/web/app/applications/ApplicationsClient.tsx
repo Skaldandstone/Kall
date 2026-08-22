@@ -132,11 +132,11 @@ export default function ApplicationsClient() {
           <span className={`${styles.dot} ${item.requires_review ? styles.accent : item.stage === 'submitted' ? styles.success : ''}`} aria-hidden='true'/>
           <p>{item.company}{item.location ? ` · ${item.location}` : ''}</p><h3>{item.role}</h3><span>{detail(item)}{item.match_score == null ? '' : ` · ${item.match_score}% match`}</span>
           <label style={{ display: 'grid', gap: 6, marginTop: 14 }}><span className='muted'>Move to</span><select className='input' value={item.stage} disabled={busyId === item.id} onChange={event => void moveApplication(item, event.target.value)}>{STAGES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <a href={`/job-intelligence?application=${item.id}`}>Open application</a>
+          <a href={`/applications/${item.id}`}>Open application</a>
         </article>) : <div className={styles.empty}>No applications here.</div>}</div>
       </section>)}
     </section>
-    {next ? <section className={`${styles.focus} card`}><div><p className='eyebrow'>Next decision</p><h2>{next.company} is ready for review.</h2><p>{detail(next)}.</p></div><a className='button' href={`/job-intelligence?application=${next.id}`}>Review preparation</a></section> : null}
+    {next ? <section className={`${styles.focus} card`}><div><p className='eyebrow'>Next decision</p><h2>{next.company} is ready for review.</h2><p>{detail(next)}.</p></div><a className='button' href={`/applications/${next.id}`}>Review preparation</a></section> : null}
     <p className={styles.note}>Removing an application makes its job eligible to appear in search again. Closing or rejecting an application keeps the job excluded.</p>
   </main>;
 }

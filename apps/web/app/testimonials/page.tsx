@@ -63,7 +63,7 @@ export default function TestimonialsPage() {
   }
 
   return <main className="shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/profiles">Profiles</a><a href="/application-review">Applications</a></nav></header>
+    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/profiles">Profiles</a><a href="/applications">Applications</a></nav></header>
     <section className="hero" style={{ paddingTop: 8, paddingBottom: 40 }}>
       <span className="eyebrow">Career proof</span>
       <h1 style={{ fontSize: 'clamp(42px, 7vw, 74px)' }}>Testimonials & references.</h1>
