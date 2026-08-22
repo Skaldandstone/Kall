@@ -161,6 +161,7 @@ def generate_resume_documents(
         )
     )
     session.commit()
+    session.refresh(generated)
     return generated
 
 
@@ -204,6 +205,7 @@ def propose_cover_letter(
             )
         )
     session.commit()
+    session.refresh(letter)
     return letter
 
 

@@ -215,7 +215,7 @@ export default function MorningBriefClient() {
             <p className="eyebrow">Resume readiness</p>
             <h2>{brief.resumes.total ? `${brief.resumes.total} ${brief.resumes.total === 1 ? 'resume' : 'resumes'} available.` : 'No resume uploaded yet.'}</h2>
             <p>{brief.resumes.default_resume_id ? 'A default resume is selected for application preparation.' : 'Select a default resume to make preparation faster and more consistent.'}</p>
-            <a className="text-link" href="/resume-intelligence">Review resume evidence</a>
+            <a className="text-link" href="/resumes?tab=intelligence">Review resume evidence</a>
           </article>
 
           <p className={styles.note}>This brief uses stored Kall facts and deterministic heuristics. It does not invent activity.</p>
