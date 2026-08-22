@@ -4,12 +4,20 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def normalize_database_url(url: str) -> str:
-    """Use the installed psycopg v3 SQLAlchemy dialect for PostgreSQL URLs."""
+def normalize_database_url(url: str, ssl_mode: str = "require") -> str:
+    """Use the installed psycopg v3 SQLAlchemy dialect for PostgreSQL URLs.
+
+    Also enforces an encrypted connection by default. Without this, nothing
+    stops the driver from silently negotiating a plaintext connection to a
+    database holding EEO, work-authorization, and other sensitive fields.
+    """
     if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+psycopg://", 1)
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql+psycopg://") and "sslmode=" not in url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}sslmode={ssl_mode}"
     return url
 
 
@@ -17,6 +25,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_secret_key: str = "change-me"
     database_url: str = "sqlite:///./kall.db"
+    # "require" encrypts the connection without verifying the server's certificate.
+    # Use "verify-full" plus database_ssl_root_cert once a CA bundle (e.g. RDS's) is available.
+    database_ssl_mode: str = "require"
+    database_ssl_root_cert: str | None = None
     frontend_url: str = "http://localhost:3000"
     auto_create_tables: bool = True
     session_days: int = 30
@@ -45,7 +57,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def normalize_and_validate(self) -> "Settings":
-        self.database_url = normalize_database_url(self.database_url)
+        self.database_url = normalize_database_url(self.database_url, self.database_ssl_mode)
+        if self.database_ssl_root_cert and "sslrootcert=" not in self.database_url:
+            separator = "&" if "?" in self.database_url else "?"
+            self.database_url = f"{self.database_url}{separator}sslrootcert={self.database_ssl_root_cert}"
         if self.app_env == "production":
             if self.app_secret_key == "change-me" or len(self.app_secret_key) < 32:
                 raise ValueError("APP_SECRET_KEY must be at least 32 characters in production")
