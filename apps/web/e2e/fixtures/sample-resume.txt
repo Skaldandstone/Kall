@@ -1,0 +1,14 @@
+Jordan Smoke Test
+Senior Backend Engineer
+
+Summary
+Eight years building distributed systems in Python and Go, with production
+experience running services on AWS.
+
+Experience
+Senior Backend Engineer, Northwind Systems (2020-2026)
+- Led migration of a monolith to event-driven microservices
+- Owned on-call rotation for a service handling 50M requests/day
+
+Skills
+Python, Go, AWS, PostgreSQL, Kafka
