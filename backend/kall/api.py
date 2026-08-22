@@ -64,9 +64,10 @@ def health() -> dict[str, str]:
 
 @router.post("/auth/register", response_model=AuthResponse)
 def register(payload: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    if session.exec(select(User).where(User.email == payload.email)).first():
+    email = payload.email.strip().lower()
+    if session.exec(select(User).where(User.email == email)).first():
         raise HTTPException(409, "Email already registered")
-    user = User(email=payload.email, full_name=payload.full_name, country=payload.country, state_region=payload.state_region)
+    user = User(email=email, full_name=payload.full_name, country=payload.country, state_region=payload.state_region)
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -80,7 +81,7 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)) 
 
 @router.post("/auth/login", response_model=AuthResponse)
 def login(payload: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    user = session.exec(select(User).where(User.email == payload.email)).first()
+    user = session.exec(select(User).where(User.email == payload.email.strip().lower())).first()
     if not user:
         raise HTTPException(401, "Invalid credentials")
     credential = session.exec(select(UserCredential).where(UserCredential.user_id == user.id)).first()

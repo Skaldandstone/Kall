@@ -8,7 +8,10 @@ from sqlmodel import SQLModel
 
 config = context.config
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# set_main_option() writes through configparser, which treats % as its own
+# interpolation escape character. A URL-encoded password (e.g. containing %3F)
+# otherwise raises "invalid interpolation syntax" here instead of connecting.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
