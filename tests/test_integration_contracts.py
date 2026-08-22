@@ -1,10 +1,14 @@
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from fastapi.routing import APIRoute
 from kall.main import app
 from kall.models import CareerGoal
 from kall.router_registry import API_ROUTERS
 from kall.services.opportunities import analyze_growth_market
+from sqlmodel import SQLModel
+
+
+def _app_paths() -> set[str]:
+    return set(app.openapi()["paths"].keys())
 
 
 def test_router_registry_is_complete() -> None:
