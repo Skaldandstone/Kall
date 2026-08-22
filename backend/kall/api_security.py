@@ -20,7 +20,7 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers.structs import PublicKeyCredentialDescriptor
+from webauthn.helpers.structs import PublicKeyCredentialDescriptor, PublicKeyCredentialHint
 
 from kall.auth import create_session, get_current_user, utcnow
 from kall.config import get_settings
@@ -90,14 +90,16 @@ def _provider_credentials(provider: str) -> tuple[str, str]:
     return client_id, secret
 
 
-def _state(provider: str) -> str:
+def _state(provider: str, link_user_id: int | None = None) -> str:
     payload = {"provider": provider, "exp": int(time.time()) + 600, "nonce": secrets.token_urlsafe(16)}
+    if link_user_id is not None:
+        payload["link_user_id"] = link_user_id
     raw = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     signature = hmac.new(get_settings().app_secret_key.encode(), raw.encode(), hashlib.sha256).hexdigest()
     return f"{raw}.{signature}"
 
 
-def _verify_state(value: str, provider: str) -> None:
+def _verify_state(value: str, provider: str) -> dict:
     try:
         raw, signature = value.rsplit(".", 1)
         expected = hmac.new(get_settings().app_secret_key.encode(), raw.encode(), hashlib.sha256).hexdigest()
@@ -108,6 +110,7 @@ def _verify_state(value: str, provider: str) -> None:
             raise ValueError
     except Exception as exc:
         raise HTTPException(400, "Invalid or expired OAuth state") from exc
+    return payload
 
 
 def _callback_url(request: Request, provider: str) -> str:
@@ -126,10 +129,7 @@ def provider_status() -> dict[str, bool]:
     }
 
 
-@router.get("/oauth/{provider}/start")
-def oauth_start(provider: str, request: Request):
-    if provider not in PROVIDERS:
-        raise HTTPException(404, "Unknown identity provider")
+def _authorize_url(provider: str, request: Request, link_user_id: int | None = None) -> str:
     client_id, _ = _provider_credentials(provider)
     definition = PROVIDERS[provider]
     query = urlencode(
@@ -138,17 +138,38 @@ def oauth_start(provider: str, request: Request):
             "redirect_uri": _callback_url(request, provider),
             "response_type": "code",
             "scope": definition["scope"],
-            "state": _state(provider),
+            "state": _state(provider, link_user_id=link_user_id),
         }
     )
-    return RedirectResponse(f"{definition['authorize']}?{query}")
+    return f"{definition['authorize']}?{query}"
+
+
+@router.get("/oauth/{provider}/start")
+def oauth_start(provider: str, request: Request):
+    if provider not in PROVIDERS:
+        raise HTTPException(404, "Unknown identity provider")
+    return RedirectResponse(_authorize_url(provider, request))
+
+
+@router.post("/oauth/{provider}/link/start")
+def oauth_link_start(provider: str, request: Request, current: User = Depends(get_current_user)) -> dict[str, str]:
+    """Start linking an OAuth identity to the signed-in user's existing account.
+
+    Unlike /oauth/{provider}/start (a plain link the browser navigates to), this
+    requires a bearer token, so it returns the provider URL as JSON for the
+    frontend to fetch and then navigate to itself.
+    """
+    if provider not in PROVIDERS:
+        raise HTTPException(404, "Unknown identity provider")
+    return {"url": _authorize_url(provider, request, link_user_id=current.id)}
 
 
 @router.get("/oauth/{provider}/callback", name="oauth_callback")
 async def oauth_callback(provider: str, code: str, state: str, request: Request, session: Session = Depends(get_session)):
     if provider not in PROVIDERS:
         raise HTTPException(404, "Unknown identity provider")
-    _verify_state(state, provider)
+    state_payload = _verify_state(state, provider)
+    link_user_id = state_payload.get("link_user_id")
     client_id, client_secret = _provider_credentials(provider)
     definition = PROVIDERS[provider]
     async with httpx.AsyncClient(timeout=20) as client:
@@ -181,6 +202,7 @@ async def oauth_callback(provider: str, code: str, state: str, request: Request,
                 email = primary and primary.get("email")
         if not subject or not email:
             raise HTTPException(400, "The provider did not return a verified email address")
+        email = email.strip().lower()
         name = profile.get("name") or profile.get("login") or email.split("@", 1)[0]
 
     identity = session.exec(
@@ -188,6 +210,23 @@ async def oauth_callback(provider: str, code: str, state: str, request: Request,
             OAuthIdentity.provider == provider, OAuthIdentity.provider_subject == subject
         )
     ).first()
+
+    if link_user_id is not None:
+        frontend = get_settings().frontend_url.rstrip("/")
+        linked_user = session.get(User, link_user_id)
+        error = None
+        if not linked_user:
+            error = "session_expired"
+        elif identity and identity.user_id != linked_user.id:
+            error = "already_connected"
+        if error:
+            return RedirectResponse(f"{frontend}/security-setup?error={error}&provider={provider}")
+        if not identity:
+            session.add(OAuthIdentity(user_id=linked_user.id, provider=provider, provider_subject=subject, email=email))
+            session.commit()
+        token = create_session(session, linked_user.id)
+        return RedirectResponse(f"{frontend}/auth/complete#token={token}&next=/security-setup?linked={provider}")
+
     user = session.get(User, identity.user_id) if identity else None
     if not user:
         user = session.exec(select(User).where(User.email == email)).first()
@@ -253,6 +292,10 @@ def passkey_register_options(current: User = Depends(get_current_user), session:
         user_name=current.email,
         user_display_name=current.full_name,
         exclude_credentials=[PublicKeyCredentialDescriptor(id=base64.urlsafe_b64decode(row.credential_id + "==")) for row in existing],
+        # Prioritize the cross-device (QR code) flow over this device's own
+        # platform authenticator, so "create a passkey" defaults to scan-with-
+        # your-phone. The browser still lets the user pick this device instead.
+        hints=[PublicKeyCredentialHint.HYBRID],
     )
     challenge = base64.urlsafe_b64encode(options.challenge).decode().rstrip("=")
     session.add(AuthChallenge(user_id=current.id, purpose="passkey_register", challenge=challenge, expires_at=utcnow() + timedelta(minutes=10)))

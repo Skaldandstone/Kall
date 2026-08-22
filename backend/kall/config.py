@@ -53,6 +53,11 @@ class Settings(BaseSettings):
                 raise ValueError("SENSITIVE_DATA_ENCRYPTION_KEY is required in production")
             if self.database_url.startswith("sqlite"):
                 raise ValueError("Production must use PostgreSQL or another server database")
+            if self.webauthn_rp_id == "localhost" or self.webauthn_origin == "http://localhost:3000":
+                raise ValueError(
+                    "WEBAUTHN_RP_ID and WEBAUTHN_ORIGIN must be set to the production domain — "
+                    "passkeys silently fail otherwise"
+                )
         return self
 
 

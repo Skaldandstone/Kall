@@ -3,12 +3,24 @@
 import { useEffect, useState } from 'react';
 import { decodeBase64Url, encodeBase64Url } from '../../lib/webauthn-bytes';
 
+const CONNECTABLE_PROVIDERS = [
+  ['google', 'Google'],
+  ['linkedin', 'LinkedIn'],
+  ['github', 'GitHub'],
+] as const;
+
+const LINK_ERROR_MESSAGES: Record<string, string> = {
+  already_connected: 'That account is already connected to a different Kall account.',
+  session_expired: 'Your session expired before the connection finished. Please try again.',
+};
+
 export default function SecuritySetupPage() {
   const [message, setMessage] = useState('');
   const [secret, setSecret] = useState('');
   const [uri, setUri] = useState('');
   const [code, setCode] = useState('');
-  const [status, setStatus] = useState<{ totp_enabled: boolean; passkeys: { id: number; name: string }[] } | null>(null);
+  const [status, setStatus] = useState<{ totp_enabled: boolean; passkeys: { id: number; name: string }[]; providers: string[] } | null>(null);
+  const [connecting, setConnecting] = useState<string | null>(null);
 
   function token() {
     const value = localStorage.getItem('kall_token');
@@ -22,7 +34,30 @@ export default function SecuritySetupPage() {
     if (response.ok) setStatus(await response.json());
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const params = new URLSearchParams(window.location.search);
+    const linked = params.get('linked');
+    const error = params.get('error');
+    if (linked) setMessage(`Connected to ${linked[0].toUpperCase()}${linked.slice(1)}.`);
+    else if (error) setMessage(LINK_ERROR_MESSAGES[error] || 'Could not connect that account.');
+    if (linked || error) window.history.replaceState(null, '', '/security-setup');
+  }, []);
+
+  async function connectProvider(provider: string) {
+    setMessage('');
+    setConnecting(provider);
+    try {
+      const response = await fetch(`/api/kall/auth/oauth/${provider}/link/start`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+      const data = await response.json();
+      if (!response.ok) { setMessage(data.detail || 'Unable to start the connection.'); return; }
+      window.location.assign(data.url);
+    } catch {
+      setMessage('Kall could not reach the API. Please try again.');
+    } finally {
+      setConnecting(null);
+    }
+  }
 
   async function beginTotp() {
     const response = await fetch('/api/kall/auth/totp/setup', { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
@@ -61,7 +96,27 @@ export default function SecuritySetupPage() {
 
   return <main className="shell"><section className="hero" style={{ paddingBottom: 30 }}><span className="eyebrow">Account security</span><h1>Protect your Kall account.</h1><p>Add a passkey, authenticator-app 2FA, or both. You can return to this page later from Settings.</p></section>
     <div className="two">
-      <section className="card"><h2>Passkey</h2><p>Use Face ID, Touch ID, Windows Hello, or a hardware security key.</p><p>{status?.passkeys.length || 0} passkey(s) registered</p><button className="button" onClick={addPasskey}>Create a passkey</button></section>
+      <section className="card"><h2>Passkey</h2><p>Scan a QR code with your phone, or use Face ID, Touch ID, Windows Hello, or a hardware security key on this device.</p><p>{status?.passkeys.length || 0} passkey(s) registered</p><button className="button" onClick={addPasskey}>Create a passkey</button></section>
       <section className="card"><h2>Authenticator app</h2><p>{status?.totp_enabled ? 'Authenticator-app 2FA is enabled.' : 'Use a six-digit code from your preferred authenticator app.'}</p>{!secret && !status?.totp_enabled && <button className="button" onClick={beginTotp}>Set up authenticator</button>}{secret && <div className="form"><p><strong>Setup key:</strong> <code>{secret}</code></p><a href={uri}>Open in authenticator app</a><input className="input" value={code} onChange={(event) => setCode(event.target.value)} inputMode="numeric" placeholder="6-digit code" /><button className="button" onClick={verifyTotp}>Verify and enable</button></div>}</section>
-    </div><p className="notice" aria-live="polite">{message}</p><div style={{ marginTop: 24 }}><a className="button secondary" href="/onboarding">Continue to onboarding</a></div></main>;
+    </div>
+    <section className="card" style={{ marginTop: 20 }}>
+      <h2>Connected accounts</h2>
+      <p>Sign in with Google, LinkedIn, or GitHub instead of your password by connecting them here.</p>
+      <div className="form">
+        {CONNECTABLE_PROVIDERS.map(([key, label]) => {
+          const connected = status?.providers.includes(key) ?? false;
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span>{label}{connected ? ' — connected' : ''}</span>
+              {connected
+                ? <span className="muted">Connected</span>
+                : <button className="button secondary" type="button" disabled={connecting === key} onClick={() => connectProvider(key)}>
+                    {connecting === key ? 'Connecting…' : `Connect ${label}`}
+                  </button>}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+    <p className="notice" aria-live="polite">{message}</p><div style={{ marginTop: 24 }}><a className="button secondary" href="/onboarding">Continue to onboarding</a></div></main>;
 }
