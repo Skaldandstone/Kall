@@ -28,7 +28,7 @@ function SearchPageContent() {
       <h1>Search the job market from one place.</h1>
       <p>Search the open web, run configured ATS discovery against your company boards, and manage which boards Kall watches.</p>
     </section>
-    <nav className="section-tabs" aria-label="Opportunities sections" style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+    <nav className="section-tabs" aria-label="Opportunities sections" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
       {TABS.map(([key, label]) => (
         <a
           key={key}

@@ -457,6 +457,10 @@ nav a:hover {
     grid-template-columns: 1fr 1fr;
   }
 
+  .two {
+    grid-template-columns: 1fr;
+  }
+
   .topbar {
     margin-bottom: 36px;
   }
