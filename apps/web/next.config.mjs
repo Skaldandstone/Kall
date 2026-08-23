@@ -14,11 +14,15 @@ const securityHeaders = [
       // Next.js needs 'unsafe-inline' for its own bootstrap scripts and
       // 'unsafe-eval' in dev (fast refresh); style-src needs 'unsafe-inline'
       // because the app sets inline style={{}} attributes throughout.
-      "script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""),
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      // The Google Programmable Search Engine widget (job search, growth
+      // resource search) loads its own script/styles/frames/XHR from
+      // Google's domains -- without these the widget silently fails to load.
+      "script-src 'self' 'unsafe-inline' https://cse.google.com https://www.google.com https://www.gstatic.com" + (process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""),
+      "style-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
+      "img-src 'self' data: blob: https://*.google.com https://*.gstatic.com https://*.googleusercontent.com",
       "font-src 'self' data:",
-      "connect-src 'self'",
+      "connect-src 'self' https://cse.google.com https://*.google.com https://www.googleapis.com",
+      "frame-src https://cse.google.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

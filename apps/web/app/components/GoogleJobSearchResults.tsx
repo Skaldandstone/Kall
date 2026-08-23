@@ -2,51 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { clearPendingPosting, getPendingPosting, hideSearchResult, isSearchResultHidden, setPendingPosting } from '../lib/searchResultState';
+import { loadGoogleCse } from '../lib/googleCse';
 import { showToast } from './ToastHost';
 
 const GOOGLE_CSE_ID = '551e53ca5b28b4060';
-const SCRIPT_ID = 'kall-google-cse-script';
 const API = '/api/kall';
-
-type SearchElement = { execute: (query: string) => void; clearAllResults?: () => void };
-type GoogleCseApi = {
-  render: (config: { div: HTMLElement; tag: 'searchresults-only'; gname: string; attributes: Record<string, string | boolean> }) => void;
-  getElement: (gname: string) => SearchElement | null;
-};
-
-declare global {
-  interface Window {
-    __gcse?: { parsetags: 'explicit' };
-    google?: { search?: { cse?: { element?: GoogleCseApi } } };
-    __kallGoogleCsePromise?: Promise<void>;
-  }
-}
-
-function loadGoogleCse() {
-  if (window.google?.search?.cse?.element) return Promise.resolve();
-  if (window.__kallGoogleCsePromise) return window.__kallGoogleCsePromise;
-  window.__gcse = { parsetags: 'explicit' };
-  window.__kallGoogleCsePromise = new Promise<void>((resolve, reject) => {
-    const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
-    const finish = () => {
-      let attempts = 0;
-      const waitForApi = window.setInterval(() => {
-        attempts += 1;
-        if (window.google?.search?.cse?.element) { window.clearInterval(waitForApi); resolve(); }
-        else if (attempts > 100) { window.clearInterval(waitForApi); reject(new Error('Google job search did not finish loading.')); }
-      }, 50);
-    };
-    if (existing) { finish(); return; }
-    const script = document.createElement('script');
-    script.id = SCRIPT_ID;
-    script.async = true;
-    script.src = `https://cse.google.com/cse.js?cx=${GOOGLE_CSE_ID}`;
-    script.onload = finish;
-    script.onerror = () => reject(new Error('Google job search could not be loaded.'));
-    document.head.appendChild(script);
-  });
-  return window.__kallGoogleCsePromise;
-}
 
 async function trackExternalApplication(posting: { url: string; title: string; snippet: string; profileId?: string }) {
   const token = localStorage.getItem('kall_token');
@@ -158,7 +118,7 @@ export default function GoogleJobSearchResults({ query, profileId }: { query: st
 
     async function renderResults() {
       try {
-        await loadGoogleCse();
+        await loadGoogleCse(GOOGLE_CSE_ID);
         if (cancelled || !containerRef.current) return;
         containerRef.current.replaceChildren();
         const api = window.google?.search?.cse?.element;
