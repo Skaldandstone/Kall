@@ -30,6 +30,8 @@ npm run dev
 API docs: http://localhost:8000/docs
 Web app: http://localhost:3000
 
-## v0.3 stabilization
+## Status
 
-Kall v0.3 adds Alembic migrations, production environment validation, CORS configuration, logout and session revocation, password reset, email-verification tokens, login lockout protection, backend and web CI, PostgreSQL support, and a reproducible local-development guide.
+Current version: see [`VERSION`](VERSION). Full history: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+Kall runs on AWS (ECS Fargate, RDS Postgres, S3, CloudFront — see [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md)), with CI covering backend tests, a web production build, and an end-to-end browser smoke test on every push.

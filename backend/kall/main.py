@@ -22,7 +22,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Kall API",
-    version="0.8.1",
+    version="0.9.0",
     description="Career identity, scheduled opportunity discovery, growth, and review-before-submit applications",
     lifespan=lifespan,
 )
