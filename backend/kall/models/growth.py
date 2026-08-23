@@ -90,3 +90,15 @@ class GrowthProgressEntry(TimestampMixin, table=True):
     note: str
     evidence_url: str | None = None
     occurred_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class GrowthSkillAssessment(TimestampMixin, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    career_goal_id: int = Field(index=True, foreign_key="careergoal.id")
+    answer_text: str
+    applicable_skills: list[dict[str, str]] = Field(default_factory=list, sa_column=Column(JSON))
+    gaps: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    readiness_score: int
+    narrative: str
+    provider: str = "deterministic"
