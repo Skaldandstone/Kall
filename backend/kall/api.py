@@ -1,7 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
 from sqlmodel import Session, select
 
 from kall.auth import (
@@ -30,6 +30,7 @@ from kall.models import (
     UserCredential,
     UserSession,
 )
+from kall.rate_limit import limiter
 from kall.schemas import (
     ApproveApplicationRequest,
     AuthResponse,
@@ -64,7 +65,8 @@ def health() -> dict[str, str]:
 
 
 @router.post("/auth/register", response_model=AuthResponse)
-def register(payload: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
+@limiter.limit("5/hour")
+def register(request: Request, payload: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
     email = payload.email.strip().lower()
     if session.exec(select(User).where(User.email == email)).first():
         raise HTTPException(409, "Email already registered")
@@ -81,7 +83,8 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)) 
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-def login(payload: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
     user = session.exec(select(User).where(User.email == payload.email.strip().lower())).first()
     if not user:
         raise HTTPException(401, "Invalid credentials")
@@ -112,7 +115,8 @@ def logout(authorization: str | None = Header(default=None), current_user: User 
 
 
 @router.post("/auth/password-reset/request")
-def request_password_reset(payload: PasswordResetRequest, session: Session = Depends(get_session)) -> dict[str, str]:
+@limiter.limit("5/hour")
+def request_password_reset(request: Request, payload: PasswordResetRequest, session: Session = Depends(get_session)) -> dict[str, str]:
     user = session.exec(select(User).where(User.email == payload.email)).first()
     if user:
         credential = session.exec(select(UserCredential).where(UserCredential.user_id == user.id)).first()
@@ -128,7 +132,8 @@ def request_password_reset(payload: PasswordResetRequest, session: Session = Dep
 
 
 @router.post("/auth/password-reset/confirm")
-def confirm_password_reset(payload: PasswordResetConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
+@limiter.limit("10/minute")
+def confirm_password_reset(request: Request, payload: PasswordResetConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
     credential = session.exec(select(UserCredential).where(UserCredential.reset_token_hash == hash_secret(payload.token))).first()
     if not credential or not credential.reset_token_expires_at or credential.reset_token_expires_at <= utcnow():
         raise HTTPException(400, "Invalid or expired reset token")
@@ -146,7 +151,8 @@ def confirm_password_reset(payload: PasswordResetConfirm, session: Session = Dep
 
 
 @router.post("/auth/verify-email")
-def verify_email(payload: EmailVerificationConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
+@limiter.limit("10/minute")
+def verify_email(request: Request, payload: EmailVerificationConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
     credential = session.exec(select(UserCredential).where(UserCredential.verification_token_hash == hash_secret(payload.token))).first()
     if not credential:
         raise HTTPException(400, "Invalid verification token")
@@ -221,10 +227,18 @@ def list_profiles(current_user: User = Depends(get_current_user), session: Sessi
     return list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id)))
 
 
+RESUME_MAX_BYTES = 15 * 1024 * 1024
+RESUME_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
+
+
 @router.post("/me/resumes", response_model=ResumeDocument)
 async def upload_resume(file: UploadFile = File(...), current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> ResumeDocument:
-    data = await file.read()
     filename = Path(file.filename or "resume").name
+    if Path(filename).suffix.lower() not in RESUME_ALLOWED_EXTENSIONS:
+        raise HTTPException(415, "Resumes must be a .pdf, .docx, or .txt file")
+    data = await file.read()
+    if len(data) > RESUME_MAX_BYTES:
+        raise HTTPException(413, "Resume file is too large (15MB limit)")
     key = f"uploads/{current_user.id}/{filename}"
     mime = file.content_type or "application/octet-stream"
     text = extract_resume_text(data, mime)
