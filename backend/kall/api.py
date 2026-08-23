@@ -50,7 +50,6 @@ from kall.schemas import (
 )
 from kall.security import encrypt_sensitive
 from kall.services.applications import approve_application, prepare_application
-from kall.services.billing import create_checkout_url
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
 from kall.services.resume import extract_resume_text
@@ -355,8 +354,3 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
 @router.get("/discovery/runs", response_model=list[SearchRun])
 def discovery_runs(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> list[SearchRun]:
     return list(session.exec(select(SearchRun).where(SearchRun.user_id == current_user.id).order_by(SearchRun.created_at.desc())))
-
-
-@router.post("/billing/checkout")
-def checkout(current_user: User = Depends(get_current_user)) -> dict[str, str]:
-    return {"url": create_checkout_url(current_user.id)}
