@@ -16,3 +16,6 @@ htmlcov/
 uploads/
 generated/
 .DS_Store
+test-results/
+playwright-report/
+blob-report/
