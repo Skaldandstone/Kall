@@ -17,11 +17,19 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: python -m compileall -q backend tests scripts migrations
-      - run: pytest --cov=kall --cov-report=term-missing
+      - run: pytest --cov=kall --cov-report=term-missing --cov-report=json:coverage.json --junitxml=junit.xml
       - run: alembic upgrade head
         env:
           APP_ENV: test
           DATABASE_URL: sqlite:///./ci-kall.db
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: |
+            coverage.json
+            junit.xml
+          retention-days: 30
 
   web:
     runs-on: ubuntu-latest
@@ -54,6 +62,12 @@ jobs:
         working-directory: apps/web
       - run: npm run test:e2e
         working-directory: apps/web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-junit
+          path: apps/web/junit.xml
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
