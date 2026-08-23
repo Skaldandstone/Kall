@@ -3,8 +3,18 @@ export type AuthStackParamList = {
   Register: undefined;
 };
 
-export type AppStackParamList = {
-  Applications: undefined;
+export type ApplicationsStackParamList = {
+  ApplicationsHome: undefined;
   ApplicationDetail: { applicationId: number; company: string; role: string };
-  MorningBrief: undefined;
+};
+
+export type OpportunitiesStackParamList = {
+  OpportunitiesHome: undefined;
+};
+
+export type AppTabParamList = {
+  ApplicationsTab: undefined;
+  OpportunitiesTab: undefined;
+  BriefTab: undefined;
+  ProfileTab: undefined;
 };
