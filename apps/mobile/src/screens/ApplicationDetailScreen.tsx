@@ -5,9 +5,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { approveReview, confirmReview, fetchReview, type ReviewData } from '../api/applications';
 import { ApiError } from '../api/client';
 import { theme } from '../theme';
-import type { AppStackParamList } from '../navigation/types';
+import type { ApplicationsStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'ApplicationDetail'>;
+type Props = NativeStackScreenProps<ApplicationsStackParamList, 'ApplicationDetail'>;
 
 export default function ApplicationDetailScreen({ route }: Props) {
   const { applicationId, company, role } = route.params;

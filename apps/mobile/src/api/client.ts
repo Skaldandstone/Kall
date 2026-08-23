@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'kall_token';
@@ -7,15 +8,29 @@ const API_BASE_URL: string =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'https://d7wb2yokfqcku.cloudfront.net/api';
 
+// expo-secure-store has no web implementation; the app's declared web support
+// (app.json's "web" block, the "web" npm script) would otherwise break on
+// every load. localStorage isn't hardware-backed like SecureStore, but this
+// path only serves Expo's web target, not the iOS/Android builds.
+const isWeb = Platform.OS === 'web';
+
 export async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return isWeb ? window.localStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY);
 }
 
 export async function setToken(token: string): Promise<void> {
+  if (isWeb) {
+    window.localStorage.setItem(TOKEN_KEY, token);
+    return;
+  }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 export async function clearToken(): Promise<void> {
+  if (isWeb) {
+    window.localStorage.removeItem(TOKEN_KEY);
+    return;
+  }
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 

@@ -3,14 +3,12 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchPipeline, type PipelineItem } from '../api/applications';
-import { useAuth } from '../auth/AuthContext';
 import { theme } from '../theme';
-import type { AppStackParamList } from '../navigation/types';
+import type { ApplicationsStackParamList } from '../navigation/types';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'Applications'>;
+type Props = NativeStackScreenProps<ApplicationsStackParamList, 'ApplicationsHome'>;
 
 export default function ApplicationsScreen({ navigation }: Props) {
-  const { signOut } = useAuth();
   const [items, setItems] = useState<PipelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,13 +36,8 @@ export default function ApplicationsScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Applications</Text>
-          <Text style={styles.subtitle}>Review and approve what Kall has prepared.</Text>
-        </View>
-        <Pressable onPress={() => navigation.navigate('MorningBrief')}>
-          <Text style={styles.headerLink}>Brief</Text>
-        </Pressable>
+        <Text style={styles.title}>Applications</Text>
+        <Text style={styles.subtitle}>Review and approve what Kall has prepared.</Text>
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -71,20 +64,15 @@ export default function ApplicationsScreen({ navigation }: Props) {
           </Pressable>
         )}
       />
-
-      <Pressable onPress={() => void signOut()}>
-        <Text style={styles.signOut}>Sign out</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background, paddingTop: 60, paddingHorizontal: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  header: { marginBottom: 20 },
   title: { color: theme.text, fontSize: 26, fontWeight: '700' },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-  headerLink: { color: theme.accent, fontWeight: '600', fontSize: 14, paddingTop: 4 },
   error: { color: theme.danger, marginBottom: 12 },
   list: { paddingBottom: 24 },
   empty: { color: theme.textMuted, textAlign: 'center', marginTop: 60 },
@@ -101,5 +89,4 @@ const styles = StyleSheet.create({
   score: { color: theme.accent, fontWeight: '700' },
   role: { color: theme.text, fontSize: 17, fontWeight: '600', marginTop: 4 },
   stage: { color: theme.textSecondary, fontSize: 13, marginTop: 8, textTransform: 'capitalize' },
-  signOut: { color: theme.textMuted, textAlign: 'center', paddingVertical: 16 },
 });

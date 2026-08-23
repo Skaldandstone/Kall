@@ -7,6 +7,7 @@ from kall.providers.lever import LeverProvider
 from kall.services.ats_web_search import build_ats_queries
 from kall.services.matching import deterministic_match
 from kall.services.normalization import normalize_discovered
+from kall.services.opportunities import upsert_opportunity
 from sqlmodel import Session, select
 
 PROVIDERS={
@@ -68,6 +69,13 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
                     session.add(match)
                     session.commit()
                     matched += 1
+                    match_score=score
+                else:
+                    match_score=existing_match.score
+                # Every matched job also lands in the user's tracked-opportunity
+                # inbox (save/reviewing/apply/dismiss state) -- without this call
+                # the workflow-state feature has no rows to ever operate on.
+                upsert_opportunity(session, user_id=user.id, profile_id=profile.id, job=job, match_score=match_score)
         except Exception as exc:
             errors.append(f"{source.company_name}/{source.provider}: {exc}")
     run.completed_at = datetime.utcnow()
