@@ -90,10 +90,15 @@ def _provider_credentials(provider: str) -> tuple[str, str]:
     return client_id, secret
 
 
-def _state(provider: str, link_user_id: int | None = None) -> str:
+_LINK_RETURN_PATHS = {"/onboarding", "/security-setup"}
+
+
+def _state(provider: str, link_user_id: int | None = None, return_to: str | None = None) -> str:
     payload = {"provider": provider, "exp": int(time.time()) + 600, "nonce": secrets.token_urlsafe(16)}
     if link_user_id is not None:
         payload["link_user_id"] = link_user_id
+    if return_to is not None:
+        payload["return_to"] = return_to
     raw = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     signature = hmac.new(get_settings().app_secret_key.encode(), raw.encode(), hashlib.sha256).hexdigest()
     return f"{raw}.{signature}"
@@ -137,7 +142,7 @@ def provider_status() -> dict[str, bool]:
     }
 
 
-def _authorize_url(provider: str, link_user_id: int | None = None) -> str:
+def _authorize_url(provider: str, link_user_id: int | None = None, return_to: str | None = None) -> str:
     client_id, _ = _provider_credentials(provider)
     definition = PROVIDERS[provider]
     query = urlencode(
@@ -146,7 +151,7 @@ def _authorize_url(provider: str, link_user_id: int | None = None) -> str:
             "redirect_uri": _callback_url(provider),
             "response_type": "code",
             "scope": definition["scope"],
-            "state": _state(provider, link_user_id=link_user_id),
+            "state": _state(provider, link_user_id=link_user_id, return_to=return_to),
         }
     )
     return f"{definition['authorize']}?{query}"
@@ -160,16 +165,23 @@ def oauth_start(provider: str):
 
 
 @router.post("/oauth/{provider}/link/start")
-def oauth_link_start(provider: str, current: User = Depends(get_current_user)) -> dict[str, str]:
+def oauth_link_start(provider: str, return_to: str | None = None, current: User = Depends(get_current_user)) -> dict[str, str]:
     """Start linking an OAuth identity to the signed-in user's existing account.
 
     Unlike /oauth/{provider}/start (a plain link the browser navigates to), this
     requires a bearer token, so it returns the provider URL as JSON for the
     frontend to fetch and then navigate to itself.
+
+    `return_to` lets the caller (e.g. the security-setup panel rendered as a
+    modal on /onboarding vs. as a full page at /security-setup) get sent back
+    to wherever it actually was, rather than always landing on /security-setup.
+    Restricted to a fixed allowlist since it flows through an unauthenticated
+    third-party redirect -- never trust it as an open redirect target.
     """
     if provider not in PROVIDERS:
         raise HTTPException(404, "Unknown identity provider")
-    return {"url": _authorize_url(provider, link_user_id=current.id)}
+    safe_return_to = return_to if return_to in _LINK_RETURN_PATHS else None
+    return {"url": _authorize_url(provider, link_user_id=current.id, return_to=safe_return_to)}
 
 
 @router.get("/oauth/{provider}/callback", name="oauth_callback")
@@ -178,6 +190,7 @@ async def oauth_callback(provider: str, code: str, state: str, session: Session 
         raise HTTPException(404, "Unknown identity provider")
     state_payload = _verify_state(state, provider)
     link_user_id = state_payload.get("link_user_id")
+    return_to = state_payload.get("return_to") if state_payload.get("return_to") in _LINK_RETURN_PATHS else "/security-setup"
     client_id, client_secret = _provider_credentials(provider)
     definition = PROVIDERS[provider]
     async with httpx.AsyncClient(timeout=20) as client:
@@ -228,12 +241,12 @@ async def oauth_callback(provider: str, code: str, state: str, session: Session 
         elif identity and identity.user_id != linked_user.id:
             error = "already_connected"
         if error:
-            return RedirectResponse(f"{frontend}/security-setup?error={error}&provider={provider}")
+            return RedirectResponse(f"{frontend}{return_to}?error={error}&provider={provider}")
         if not identity:
             session.add(OAuthIdentity(user_id=linked_user.id, provider=provider, provider_subject=subject, email=email))
             session.commit()
         token = create_session(session, linked_user.id)
-        return RedirectResponse(f"{frontend}/auth/complete#token={token}&next=/security-setup?linked={provider}")
+        return RedirectResponse(f"{frontend}/auth/complete#token={token}&next={return_to}?linked={provider}")
 
     user = session.get(User, identity.user_id) if identity else None
     if not user:
