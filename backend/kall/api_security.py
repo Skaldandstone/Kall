@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 import httpx
 import pyotp
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -113,8 +113,16 @@ def _verify_state(value: str, provider: str) -> dict:
     return payload
 
 
-def _callback_url(request: Request, provider: str) -> str:
-    return str(request.url_for("oauth_callback", provider=provider))
+def _callback_url(provider: str) -> str:
+    # Deliberately built from the configured public origin rather than the
+    # incoming request: this endpoint can be reached either directly (mobile,
+    # and the OAuth provider's own redirect back) or proxied through the web
+    # app's internal Service Connect hop (apps/web/app/api/kall/[...path]),
+    # and request.url_for() would reflect whichever internal hop actually
+    # received the request -- producing a redirect_uri that never matches
+    # what's registered with the provider, or that isn't even publicly
+    # reachable at all.
+    return f"{get_settings().frontend_url.rstrip('/')}/api/auth/oauth/{provider}/callback"
 
 
 @router.get("/providers")
@@ -129,13 +137,13 @@ def provider_status() -> dict[str, bool]:
     }
 
 
-def _authorize_url(provider: str, request: Request, link_user_id: int | None = None) -> str:
+def _authorize_url(provider: str, link_user_id: int | None = None) -> str:
     client_id, _ = _provider_credentials(provider)
     definition = PROVIDERS[provider]
     query = urlencode(
         {
             "client_id": client_id,
-            "redirect_uri": _callback_url(request, provider),
+            "redirect_uri": _callback_url(provider),
             "response_type": "code",
             "scope": definition["scope"],
             "state": _state(provider, link_user_id=link_user_id),
@@ -145,14 +153,14 @@ def _authorize_url(provider: str, request: Request, link_user_id: int | None = N
 
 
 @router.get("/oauth/{provider}/start")
-def oauth_start(provider: str, request: Request):
+def oauth_start(provider: str):
     if provider not in PROVIDERS:
         raise HTTPException(404, "Unknown identity provider")
-    return RedirectResponse(_authorize_url(provider, request))
+    return RedirectResponse(_authorize_url(provider))
 
 
 @router.post("/oauth/{provider}/link/start")
-def oauth_link_start(provider: str, request: Request, current: User = Depends(get_current_user)) -> dict[str, str]:
+def oauth_link_start(provider: str, current: User = Depends(get_current_user)) -> dict[str, str]:
     """Start linking an OAuth identity to the signed-in user's existing account.
 
     Unlike /oauth/{provider}/start (a plain link the browser navigates to), this
@@ -161,11 +169,11 @@ def oauth_link_start(provider: str, request: Request, current: User = Depends(ge
     """
     if provider not in PROVIDERS:
         raise HTTPException(404, "Unknown identity provider")
-    return {"url": _authorize_url(provider, request, link_user_id=current.id)}
+    return {"url": _authorize_url(provider, link_user_id=current.id)}
 
 
 @router.get("/oauth/{provider}/callback", name="oauth_callback")
-async def oauth_callback(provider: str, code: str, state: str, request: Request, session: Session = Depends(get_session)):
+async def oauth_callback(provider: str, code: str, state: str, session: Session = Depends(get_session)):
     if provider not in PROVIDERS:
         raise HTTPException(404, "Unknown identity provider")
     state_payload = _verify_state(state, provider)
@@ -179,7 +187,7 @@ async def oauth_callback(provider: str, code: str, state: str, request: Request,
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "code": code,
-                "redirect_uri": _callback_url(request, provider),
+                "redirect_uri": _callback_url(provider),
                 "grant_type": "authorization_code",
             },
             headers={"Accept": "application/json"},
