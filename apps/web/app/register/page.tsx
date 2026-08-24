@@ -31,7 +31,7 @@ export default function Register() {
         setMessage(typeof detail === 'string' ? detail : 'Account creation failed.'); return;
       }
       localStorage.setItem('kall_token', data.access_token);
-      window.location.assign('/security-setup');
+      window.location.assign('/onboarding');
     } catch { setMessage('Kall could not reach the API. Please try again.'); }
     finally { setSubmitting(false); }
   }

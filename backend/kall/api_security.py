@@ -248,7 +248,7 @@ async def oauth_callback(provider: str, code: str, state: str, session: Session 
         session.add(OAuthIdentity(user_id=user.id, provider=provider, provider_subject=subject, email=email))
     session.commit()
     token = create_session(session, user.id)
-    destination = f"{get_settings().frontend_url.rstrip('/')}/auth/complete#token={token}&next=/security-setup"
+    destination = f"{get_settings().frontend_url.rstrip('/')}/auth/complete#token={token}&next=/onboarding"
     return RedirectResponse(destination)
 
 

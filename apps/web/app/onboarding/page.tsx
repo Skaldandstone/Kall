@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { countries, countryName, regionsForCountry } from '../../lib/location-data';
+import SecuritySetupPanel from '../components/SecuritySetupPanel';
 import styles from './page.module.css';
 
 const API = '/api/kall';
@@ -44,6 +45,7 @@ export default function Onboarding() {
   const [profileCreated, setProfileCreated] = useState(false);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [suggestion, setSuggestion] = useState<StrategySuggestion | null>(null);
+  const [showSecurityModal, setShowSecurityModal] = useState(true);
   const [selectedCountryCodes, setSelectedCountryCodes] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
 
@@ -210,7 +212,29 @@ export default function Onboarding() {
   }
 
   return (
-    <main className={styles.shell}>
+    <>
+      {showSecurityModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Protect your Kall account"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            background: 'rgba(0, 0, 0, 0.6)',
+          }}
+        >
+          <div className="card" style={{ maxWidth: 720, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <SecuritySetupPanel onDismiss={() => setShowSecurityModal(false)} />
+          </div>
+        </div>
+      )}
+      <main className={styles.shell}>
       <div className={styles.layout}>
         <aside className={styles.aside}>
           <div className={styles.brand}>Kall</div>
@@ -391,6 +415,7 @@ export default function Onboarding() {
           <p className={styles.message} role="status" aria-live="polite">{message}</p>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
