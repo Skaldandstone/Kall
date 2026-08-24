@@ -52,7 +52,8 @@ export default function SecuritySetupPanel({ onDismiss }: { onDismiss?: () => vo
     setMessage('');
     setConnecting(provider);
     try {
-      const response = await fetch(`/api/kall/auth/oauth/${provider}/link/start`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+      const returnTo = encodeURIComponent(window.location.pathname);
+      const response = await fetch(`/api/kall/auth/oauth/${provider}/link/start?return_to=${returnTo}`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
       const data = await response.json();
       if (!response.ok) { setMessage(data.detail || 'Unable to start the connection.'); return; }
       window.location.assign(data.url);
