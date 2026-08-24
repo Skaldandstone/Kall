@@ -17,7 +17,12 @@ const securityHeaders = [
       // The Google Programmable Search Engine widget (job search, growth
       // resource search) loads its own script/styles/frames/XHR from
       // Google's domains -- without these the widget silently fails to load.
-      "script-src 'self' 'unsafe-inline' https://cse.google.com https://www.google.com https://www.gstatic.com" + (process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""),
+      // 'unsafe-eval' is also required in production: the CSE widget's own
+      // results-rendering code evaluates a string as JavaScript at runtime
+      // (confirmed live -- without it, every search throws a visible
+      // "EvalError: Evaluating a string as JavaScript violates the CSP"
+      // banner instead of rendering results).
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cse.google.com https://www.google.com https://www.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
       "img-src 'self' data: blob: https://*.google.com https://*.gstatic.com https://*.googleusercontent.com",
       "font-src 'self' data:",
