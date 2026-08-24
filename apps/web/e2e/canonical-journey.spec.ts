@@ -24,31 +24,37 @@ test('sign-up through application review and approval', async ({ page, request, 
     await page.locator('input[name="password"]').fill(password);
     await page.locator('input[name="password_confirmation"]').fill(password);
     await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL(/\/security-setup/);
+    await expect(page).toHaveURL(/\/onboarding/);
   });
 
   const token = await page.evaluate(() => localStorage.getItem('kall_token'));
   expect(token).toBeTruthy();
 
-  await test.step('onboarding: career strategy', async () => {
-    await page.goto('/onboarding');
-    await page.locator('input[name="name"]').fill('Backend Leadership');
-    await page.locator('textarea[name="target_titles"]').fill('Senior Backend Engineer, Staff Engineer');
-    await page.locator('input[name="industries"]').fill('Software');
-    await page.getByRole('button', { name: 'Save strategy' }).click();
-    // Advancing to the resume step is the signal the profile POST succeeded.
-    await expect(page.getByRole('heading', { name: /resume Kall should understand/i })).toBeVisible();
+  await test.step('dismiss the post-signup security setup modal', async () => {
+    const securityDialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
+    await expect(securityDialog).toBeVisible();
+    await securityDialog.getByRole('button', { name: 'Skip for now' }).click();
+    await expect(securityDialog).not.toBeVisible();
   });
 
   await test.step('onboarding: resume upload', async () => {
     await page.setInputFiles('input[type="file"][name="file"]', path.join(__dirname, 'fixtures', 'sample-resume.txt'));
     await page.getByRole('button', { name: 'Upload resume' }).click();
+    // Advancing to the strategy step is the signal the upload succeeded.
+    await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible();
+  });
+
+  await test.step('onboarding: career strategy', async () => {
+    await page.locator('input[name="name"]').fill('Backend Leadership');
+    await page.locator('textarea[name="target_titles"]').fill('Senior Backend Engineer, Staff Engineer');
+    await page.locator('input[name="industries"]').fill('Software');
+    await page.getByRole('button', { name: 'Save strategy' }).click();
     await expect(page.getByRole('heading', { name: /workspace is prepared/i })).toBeVisible();
     // Both checklist items must have flipped to done -- this is the real
     // assertion that the strategy and resume actually persisted server-side,
     // not just that the wizard's local step counter advanced.
-    await expect(page.getByText('Your first direction is saved.')).toBeVisible();
     await expect(page.getByText('Your resume is in Resume Studio.')).toBeVisible();
+    await expect(page.getByText('Your first direction is saved.')).toBeVisible();
   });
 
   await test.step('morning brief renders for the new account', async () => {

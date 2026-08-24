@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { countries, countryName, regionsForCountry } from '../../lib/location-data';
+import SecuritySetupPanel from '../components/SecuritySetupPanel';
 import styles from './page.module.css';
 
 const API = '/api/kall';
@@ -13,6 +14,14 @@ const csv = (value: FormDataEntryValue | null) =>
 
 const selectedOptions = (element: HTMLSelectElement): string[] =>
   Array.from(element.selectedOptions, (option) => option.value);
+
+type StrategySuggestion = {
+  summary: string;
+  target_titles: string[];
+  industries: string[];
+  keywords: string[];
+  work_types: string[];
+};
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -35,6 +44,8 @@ export default function Onboarding() {
   const [message, setMessage] = useState('');
   const [profileCreated, setProfileCreated] = useState(false);
   const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [suggestion, setSuggestion] = useState<StrategySuggestion | null>(null);
+  const [showSecurityModal, setShowSecurityModal] = useState(true);
   const [selectedCountryCodes, setSelectedCountryCodes] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
 
@@ -61,6 +72,17 @@ export default function Onboarding() {
     }
     setToken(storedToken);
     setReady(true);
+
+    // Best-effort default so most users don't have to scroll a long country
+    // list at all; still fully editable/removable in the multi-select below.
+    try {
+      const region = new Intl.Locale(navigator.language).maximize().region;
+      if (region && countries.some((country) => country.code === region)) {
+        setSelectedCountryCodes([region]);
+      }
+    } catch {
+      // Intl.Locale isn't available everywhere -- leave the field blank.
+    }
   }, []);
 
   function changeCountries(element: HTMLSelectElement) {
@@ -117,7 +139,7 @@ export default function Onboarding() {
       }
 
       setProfileCreated(true);
-      setStep(3);
+      setStep(4);
     } catch {
       setMessage('Kall could not save your strategy. Please try again.');
     } finally {
@@ -150,13 +172,33 @@ export default function Onboarding() {
         return;
       }
 
+      const resume = await response.json();
       setResumeUploaded(true);
-      setStep(4);
+
+      try {
+        const suggestResponse = await fetch(`${API}/me/resumes/${resume.id}/suggest-strategy`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (suggestResponse.ok) {
+          const body = await suggestResponse.json();
+          setSuggestion(body.suggestion ?? null);
+        }
+      } catch {
+        // A missing suggestion just means the strategy form starts blank --
+        // not worth blocking or alarming the user over.
+      }
+
+      setStep(3);
     } catch {
       setMessage('Kall could not upload your resume. Please try again.');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function skipResume() {
+    setStep(3);
   }
 
   if (!ready) {
@@ -170,15 +212,37 @@ export default function Onboarding() {
   }
 
   return (
-    <main className={styles.shell}>
+    <>
+      {showSecurityModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Protect your Kall account"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            background: 'rgba(0, 0, 0, 0.6)',
+          }}
+        >
+          <div className="card" style={{ maxWidth: 720, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <SecuritySetupPanel onDismiss={() => setShowSecurityModal(false)} />
+          </div>
+        </div>
+      )}
+      <main className={styles.shell}>
       <div className={styles.layout}>
         <aside className={styles.aside}>
           <div className={styles.brand}>Kall</div>
           <div className={styles.steps}>
             {[
               ['Account', 'Your private career workspace'],
-              ['Strategy', 'Where you want to go'],
               ['Resume', 'What you have built'],
+              ['Strategy', 'Where you want to go'],
             ].map((item, index) => {
               const number = index + 1;
               return (
@@ -200,16 +264,60 @@ export default function Onboarding() {
         <section className={styles.panel}>
           {step === 2 && (
             <>
+              <p className="eyebrow">Resume Studio</p>
+              <h1>Add the resume Kall should understand first.</h1>
+              <p className={styles.intro}>
+                Kall extracts the document text and uses it to suggest a starting career strategy next --
+                you will review and can change anything before it is saved.
+              </p>
+              <form className={styles.form} onSubmit={uploadResume}>
+                <input className={styles.input} type="file" name="file" accept=".pdf,.docx" required />
+                <div className={styles.note}>
+                  Use a factual, current resume. Kall will not invent qualifications or silently change source facts.
+                </div>
+                <div className={styles.actions}>
+                  <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={skipResume}>
+                    Skip for now
+                  </button>
+                  <button type="submit" className={styles.button} disabled={submitting}>
+                    {submitting ? 'Uploading…' : 'Upload resume'}
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
               <p className="eyebrow">Career strategy</p>
               <h1>Where do you want your career to go?</h1>
               <p className={styles.intro}>
-                Your account is ready. Start with one focused direction; you can add more strategies later.
+                {suggestion
+                  ? 'Suggested from your resume -- review and edit anything before saving.'
+                  : 'Start with one focused direction; you can add more strategies later.'}
               </p>
               <form className={styles.form} onSubmit={createProfile}>
                 <input className={styles.input} name="name" placeholder="Strategy name, e.g. Quality Leadership" required />
-                <textarea className={styles.input} name="target_titles" rows={4} placeholder="Target titles, comma separated" required />
-                <input className={styles.input} name="industries" placeholder="Industries, comma separated" />
-                <input className={styles.input} name="include_keywords" placeholder="Important keywords, comma separated" />
+                <textarea
+                  className={styles.input}
+                  name="target_titles"
+                  rows={4}
+                  placeholder="Target titles, comma separated"
+                  defaultValue={suggestion?.target_titles.join(', ') || ''}
+                  required
+                />
+                <input
+                  className={styles.input}
+                  name="industries"
+                  placeholder="Industries, comma separated"
+                  defaultValue={suggestion?.industries.join(', ') || ''}
+                />
+                <input
+                  className={styles.input}
+                  name="include_keywords"
+                  placeholder="Important keywords, comma separated"
+                  defaultValue={suggestion?.keywords.join(', ') || ''}
+                />
 
                 <label>
                   <span>Countries</span>
@@ -256,7 +364,12 @@ export default function Onboarding() {
                   </small>
                 </label>
 
-                <input className={styles.input} name="work_types" defaultValue="remote, hybrid" placeholder="Work modes" />
+                <input
+                  className={styles.input}
+                  name="work_types"
+                  defaultValue={suggestion?.work_types.join(', ') || 'remote, hybrid'}
+                  placeholder="Work modes"
+                />
                 <div className={styles.two}>
                   <input className={styles.input} name="minimum_base" type="number" placeholder="Minimum base" />
                   <input className={styles.input} name="target_base" type="number" placeholder="Target base" />
@@ -265,30 +378,6 @@ export default function Onboarding() {
                   <span />
                   <button type="submit" className={styles.button} disabled={submitting}>
                     {submitting ? 'Saving…' : 'Save strategy'}
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-
-          {step === 3 && (
-            <>
-              <p className="eyebrow">Resume Studio</p>
-              <h1>Add the resume Kall should understand first.</h1>
-              <p className={styles.intro}>
-                Kall extracts the document text and keeps the original source. You can organize versions later.
-              </p>
-              <form className={styles.form} onSubmit={uploadResume}>
-                <input className={styles.input} type="file" name="file" accept=".pdf,.docx" required />
-                <div className={styles.note}>
-                  Use a factual, current resume. Kall will not invent qualifications or silently change source facts.
-                </div>
-                <div className={styles.actions}>
-                  <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={() => setStep(4)}>
-                    Skip for now
-                  </button>
-                  <button type="submit" className={styles.button} disabled={submitting}>
-                    {submitting ? 'Uploading…' : 'Upload resume'}
                   </button>
                 </div>
               </form>
@@ -308,12 +397,12 @@ export default function Onboarding() {
                   <div><b>Account created</b><p>Your private workspace is available.</p></div>
                 </div>
                 <div className={styles.check}>
-                  <span>{profileCreated ? '✓' : '○'}</span>
-                  <div><b>Career strategy</b><p>{profileCreated ? 'Your first direction is saved.' : 'Add a strategy from Career Profiles.'}</p></div>
-                </div>
-                <div className={styles.check}>
                   <span>{resumeUploaded ? '✓' : '○'}</span>
                   <div><b>Starting resume</b><p>{resumeUploaded ? 'Your resume is in Resume Studio.' : 'Upload one later from Resume Studio.'}</p></div>
+                </div>
+                <div className={styles.check}>
+                  <span>{profileCreated ? '✓' : '○'}</span>
+                  <div><b>Career strategy</b><p>{profileCreated ? 'Your first direction is saved.' : 'Add a strategy from Career Profiles.'}</p></div>
                 </div>
               </div>
               <div className={styles.actions}>
@@ -326,6 +415,7 @@ export default function Onboarding() {
           <p className={styles.message} role="status" aria-live="polite">{message}</p>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

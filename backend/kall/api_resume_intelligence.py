@@ -12,6 +12,7 @@ from kall.auth import get_current_user
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
+from kall.services.onboarding_ai import suggest_career_strategy
 from kall.services.storage import get_storage
 
 router = APIRouter()
@@ -191,6 +192,15 @@ def generate_recommendations(resume_id: int, current_user: User = Depends(get_cu
     profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active)))
     profile_titles = sorted({title for profile in profiles for title in profile.target_titles})
     return {"resume_id": resume.id, "recommendations": _ai_recommendations(resume, profile_titles), "ai_enabled": bool(get_settings().openai_api_key)}
+
+
+@router.post("/me/resumes/{resume_id}/suggest-strategy")
+def suggest_strategy(resume_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
+    resume = _owned_resume(resume_id, current_user.id, session)
+    return {
+        "ai_enabled": bool(get_settings().openai_api_key),
+        "suggestion": suggest_career_strategy(resume.extracted_text or ""),
+    }
 
 
 @router.post("/me/resumes/{resume_id}/apply-recommendations")
