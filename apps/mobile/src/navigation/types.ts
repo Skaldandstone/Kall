@@ -15,6 +15,7 @@ export type OpportunitiesStackParamList = {
 export type AppTabParamList = {
   ApplicationsTab: undefined;
   OpportunitiesTab: undefined;
+  GrowthTab: undefined;
   BriefTab: undefined;
   ProfileTab: undefined;
 };

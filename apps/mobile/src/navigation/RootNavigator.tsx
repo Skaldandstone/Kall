@@ -9,6 +9,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ApplicationsScreen from '../screens/ApplicationsScreen';
 import ApplicationDetailScreen from '../screens/ApplicationDetailScreen';
 import OpportunitiesScreen from '../screens/OpportunitiesScreen';
+import GrowthScreen from '../screens/GrowthScreen';
 import MorningBriefScreen from '../screens/MorningBriefScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import type { ApplicationsStackParamList, AppTabParamList, AuthStackParamList, OpportunitiesStackParamList } from './types';
@@ -89,6 +90,11 @@ function AppNavigator() {
         name="OpportunitiesTab"
         component={OpportunitiesNavigator}
         options={{ title: 'Opportunities', tabBarIcon: tabIcon('☀') }}
+      />
+      <Tab.Screen
+        name="GrowthTab"
+        component={GrowthScreen}
+        options={{ title: 'Growth', tabBarIcon: tabIcon('↑') }}
       />
       <Tab.Screen
         name="BriefTab"
