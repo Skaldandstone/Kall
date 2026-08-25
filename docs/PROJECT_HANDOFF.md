@@ -56,7 +56,7 @@ The project should currently be treated as **late alpha / pre-beta**. Feature br
 
 ## Confirmed gaps and risks
 
-### P0 — restore a green baseline
+### P0 - restore a green baseline
 
 The latest CI run for `main` failed in the backend Ruff step; the web job passed. Local Ruff reproduced eight errors:
 
@@ -67,31 +67,31 @@ Because lint runs before pytest and migrations, the current commit has no comple
 
 Latest audited run: <https://github.com/Grunklegrok/Kall/actions/runs/30845685524>
 
-### P0 — prove the canonical user journey
+### P0 - prove the canonical user journey
 
 There is no automated browser test covering sign-in → onboarding → career profile → resume upload → Morning Brief → opportunity review → application preparation/review. Add one seeded end-to-end smoke test and a production-like manual checklist. This is the most important evidence needed for an MVP exit decision.
 
-### P1 — production integrations are incomplete
+### P1 - production integrations are incomplete
 
 - Notification delivery currently prints email/push actions; provider credentials and real delivery adapters are not implemented.
 - Discovery schedules and due-date logic exist, but no production scheduler/worker process is configured.
 - Greenhouse/Lever/Ashby providers collect jobs. The submission domain validates and records attempts, but no concrete production ATS submission connector was found; the only `submit` implementation is the mock provider.
 - Resume uploads and generated artifacts are written to local paths. Compose mounts `uploads` and `generated`, but the Render blueprint does not declare persistent disks or object storage. A redeploy may therefore orphan database records or lose files.
 
-### P1 — security and release validation
+### P1 - security and release validation
 
 - The web client stores bearer tokens in `localStorage` across most authenticated screens. Before public exposure, perform an XSS/session-storage threat review and decide whether to migrate to secure, HTTP-only cookies.
 - Run an authorization/ownership audit against every mutable route, with special attention to file downloads, deletes, application stage changes, and recommendation application.
 - Validate encryption-key rotation/recovery, backup/restore, Stripe webhook replay, rate limiting, upload limits/content validation, and log redaction.
 - Accessibility is a stated WCAG 2.2 AA target but no automated or recorded audit is present.
 
-### P1 — documentation and version drift
+### P1 - documentation and version drift
 
 Version signals disagree: `VERSION` and the FastAPI app report `0.8.1`, `pyproject.toml` and the changelog report `0.3.0`, the latest release notes are `0.7.0`, and the root `package.json` describes an unrelated Vite app at `0.1.0`. The top-level README also stops at v0.3. Select one release source of truth, update the onboarding/deployment docs, and remove or clearly explain the root Vite package.
 
 The committed `backend/kall_career_platform.egg-info` metadata is also stale relative to `pyproject.toml`. Generated package metadata should normally be removed from source control and ignored.
 
-### P2 — engineering quality and maintainability
+### P2 - engineering quality and maintainability
 
 - The web package has no committed npm lockfile, so CI dependencies are not exactly reproducible.
 - The web app has no test script and no unit/component/browser test suite; GitHub CI only performs a production build.

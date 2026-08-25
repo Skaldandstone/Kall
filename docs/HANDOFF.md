@@ -63,10 +63,10 @@ The following checks were run against commit `0fbd893` on 2026-08-21:
 
 | Check | Result |
 | --- | --- |
-| Remote HEAD comparison | Pass — remote `main` is `0fbd893`. |
-| GitHub Actions, latest `main` run | Fail — backend failed at Ruff; web passed. [Run 30845685524](https://github.com/Grunklegrok/Kall/actions/runs/30845685524) |
-| Ruff | Fail — 8 errors. |
-| Pytest | Fail — 53 passed, 3 failed, 56% reported coverage, 90 warnings. |
+| Remote HEAD comparison | Pass - remote `main` is `0fbd893`. |
+| GitHub Actions, latest `main` run | Fail - backend failed at Ruff; web passed. [Run 30845685524](https://github.com/Grunklegrok/Kall/actions/runs/30845685524) |
+| Ruff | Fail - 8 errors. |
+| Pytest | Fail - 53 passed, 3 failed, 56% reported coverage, 90 warnings. |
 | Alembic clean upgrade | Fail at `20260802_0014_strong_auth.py` with duplicate `totp_secret_encrypted`. |
 | Next.js production compilation/type checking | Pass with CSS compatibility warnings; the GitHub Actions web build also passed. Local final standalone trace packaging was blocked by Windows/pnpm symlink permissions, not a TypeScript or application compilation error. |
 | Open GitHub issues/PRs/releases | None. No release tags were found. |
@@ -174,17 +174,17 @@ Do not hold beta on three simultaneous ATS submission connectors. One honest, ob
 
 ## Key files for the next owner
 
-- `README.md` — current setup instructions, but stale version narrative.
-- `docs/prd/01-mvp-requirements.md` — best statement of the canonical journey and MVP exit criteria.
-- `docs/prd/02-roadmap.md` — more accurate than the stale top-level `docs/ROADMAP.md`.
-- `docs/architecture/engineering-contract.md` — intended API and quality contract.
-- `backend/kall/main.py` and `backend/kall/router_registry.py` — application composition and API registration.
-- `migrations/versions/20260802_0001_initial.py` and `20260802_0014_strong_auth.py` — clean-bootstrap failure.
-- `tests/test_integration_contracts.py` — immediate lint/test breakage.
-- `.github/workflows/ci.yml` — present quality gates and their sequencing.
-- `render.yaml`, `Dockerfile.api`, and `apps/web/Dockerfile` — deployment topology.
-- `backend/kall/services/submissions.py`, `notifications.py`, and `discovery.py` — clearest view of integration boundaries.
-- `apps/web/app/api/kall/[...path]/route.ts` — production API proxy.
+- `README.md` - current setup instructions, but stale version narrative.
+- `docs/prd/01-mvp-requirements.md` - best statement of the canonical journey and MVP exit criteria.
+- `docs/prd/02-roadmap.md` - more accurate than the stale top-level `docs/ROADMAP.md`.
+- `docs/architecture/engineering-contract.md` - intended API and quality contract.
+- `backend/kall/main.py` and `backend/kall/router_registry.py` - application composition and API registration.
+- `migrations/versions/20260802_0001_initial.py` and `20260802_0014_strong_auth.py` - clean-bootstrap failure.
+- `tests/test_integration_contracts.py` - immediate lint/test breakage.
+- `.github/workflows/ci.yml` - present quality gates and their sequencing.
+- `render.yaml`, `Dockerfile.api`, and `apps/web/Dockerfile` - deployment topology.
+- `backend/kall/services/submissions.py`, `notifications.py`, and `discovery.py` - clearest view of integration boundaries.
+- `apps/web/app/api/kall/[...path]/route.ts` - production API proxy.
 
 ## Handoff definition of done
 
@@ -199,4 +199,4 @@ The stabilization milestone is complete when:
 - version, roadmap, changelog, and release notes agree;
 - the release is tagged and has a rollback/restore note.
 
-Until those conditions are met, treat Kall as a promising internal alpha with a large implemented surface—not as a production beta.
+Until those conditions are met, treat Kall as a promising internal alpha with a large implemented surface-not as a production beta.

@@ -11,10 +11,10 @@ This directory is the authoritative, version-controlled source for Kall product,
 
 ## Structure
 
-- `prd/` — product vision, MVP requirements, experience flows, roadmap, and change history.
-- `khig/` — Kall Human Interface Guidelines.
-- `architecture/` — system architecture, APIs, data, AI, integrations, and engineering contracts.
-- `adr/` — durable architecture and product decision records.
+- `prd/` - product vision, MVP requirements, experience flows, roadmap, and change history.
+- `khig/` - Kall Human Interface Guidelines.
+- `architecture/` - system architecture, APIs, data, AI, integrations, and engineering contracts.
+- `adr/` - durable architecture and product decision records.
 
 ## Governance
 
