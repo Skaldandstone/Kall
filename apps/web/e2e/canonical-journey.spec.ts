@@ -111,3 +111,29 @@ test('sign-up through application review and approval', async ({ page, request, 
     await expect(page.getByRole('button', { name: 'Prepare immutable preview' })).toBeVisible();
   });
 });
+
+/**
+ * Regression for a real "I keep getting logged out" report: a signed-in user
+ * who lands back on the bare marketing homepage (closing and reopening the
+ * browser to a bookmarked/typed root URL is the common way this happens) saw
+ * the "Log in / Create account" marketing page with no sign they were still
+ * signed in, since "/" never checked for an existing session. It should
+ * recognize a valid stored token and send them straight to the dashboard.
+ */
+test('a signed-in user landing on the marketing homepage is sent to their dashboard', async ({ page }) => {
+  const unique = Date.now();
+  const email = `home-redirect-${unique}@example.com`;
+  const password = 'CanonicalJourney123!';
+
+  await page.goto('/register');
+  await page.locator('input[name="full_name"]').fill('Home Redirect Test');
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill(password);
+  await page.locator('input[name="password_confirmation"]').fill(password);
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page).toHaveURL(/\/onboarding/);
+
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByText('Make your next move clear.')).toBeVisible();
+});

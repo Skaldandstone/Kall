@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 const modules = [
   {
     title: 'Career identity',
@@ -32,6 +36,21 @@ const modules = [
 ];
 
 export default function Home() {
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('kall_token');
+    if (!token) { setCheckingSession(false); return; }
+    fetch('/api/kall/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => {
+        if (response.ok) { window.location.replace('/dashboard'); return; }
+        setCheckingSession(false);
+      })
+      .catch(() => setCheckingSession(false));
+  }, []);
+
+  if (checkingSession) return null;
+
   return (
     <main className="shell">
       <header className="topbar">
