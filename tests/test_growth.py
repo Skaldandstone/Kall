@@ -1,13 +1,8 @@
-from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from kall.db import get_session
-from kall.main import app
 from kall.models import CareerGoal
 from kall.services.growth_ai import analyze_skills, generate_ai_plan
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
 
 
 def _goal(**overrides) -> CareerGoal:
@@ -58,28 +53,6 @@ def test_generate_ai_plan_parses_a_canned_response(monkeypatch: pytest.MonkeyPat
     assert result is not None
     assert result["summary"] == "A plan."
     assert result["milestones"][0]["title"] == "Map the role"
-
-
-@pytest.fixture
-def client() -> Iterator[TestClient]:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine)
-
-    def override_get_session() -> Iterator[Session]:
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-    try:
-        with TestClient(app) as test_client:
-            register = test_client.post(
-                "/api/auth/register",
-                json={"email": "growth-test@example.com", "password": "TestPassword123!", "full_name": "Growth Test"},
-            )
-            test_client.headers["Authorization"] = f"Bearer {register.json()['access_token']}"
-            yield test_client
-    finally:
-        app.dependency_overrides.pop(get_session, None)
 
 
 def _create_goal_and_plan(client: TestClient) -> tuple[int, dict]:

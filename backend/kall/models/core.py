@@ -12,7 +12,11 @@ class TimestampMixin(SQLModel):
 
 
 class User(TimestampMixin, table=True):
+    # The integer id stays the identity across ~60 foreign keys; Clerk's user id
+    # is carried alongside it rather than replacing it, so identity lives in
+    # Clerk while all application data keeps keying off this row.
     id: int | None = Field(default=None, primary_key=True)
+    clerk_user_id: str | None = Field(default=None, index=True, unique=True)
     email: str = Field(index=True, unique=True)
     full_name: str
     country: str | None = None

@@ -1,5 +1,4 @@
 from kall.models.application_review import *
-from kall.models.auth import *
 from kall.models.billing import *
 from kall.models.core import *
 from kall.models.discovery import *
