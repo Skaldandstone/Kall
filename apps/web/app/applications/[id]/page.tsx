@@ -28,12 +28,6 @@ async function errorMessage(response: Response, fallback: string) {
   } catch { return fallback; }
 }
 
-function token() {
-  const value = localStorage.getItem('kall_token');
-  if (!value) { window.location.replace('/login'); throw new Error('Missing session'); }
-  return value;
-}
-
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const applicationId = params.id;
@@ -45,8 +39,8 @@ export default function ApplicationDetailPage() {
   const [message, setMessage] = useState('');
 
   const loadItem = useCallback(async () => {
-    const response = await fetch(`${API}/me/applications`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    const response = await fetch(`${API}/me/applications`);
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (!response.ok) { setLoadState('error'); return; }
     const pipeline = await response.json();
     const found = (pipeline.stages || []).flatMap((stage: { items: PipelineItem[] }) => stage.items).find((row: PipelineItem) => String(row.id) === applicationId);
@@ -56,13 +50,13 @@ export default function ApplicationDetailPage() {
   }, [applicationId]);
 
   const loadReview = useCallback(async () => {
-    await fetch(`${API}/applications/${applicationId}/review`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
-    const response = await fetch(`${API}/applications/${applicationId}/review`, { headers: { Authorization: `Bearer ${token()}` } });
+    await fetch(`${API}/applications/${applicationId}/review`, { method: 'POST' });
+    const response = await fetch(`${API}/applications/${applicationId}/review`);
     if (response.ok) setReview(await response.json());
   }, [applicationId]);
 
   const loadSubmission = useCallback(async () => {
-    const list = await fetch(`${API}/submissions`, { headers: { Authorization: `Bearer ${token()}` } });
+    const list = await fetch(`${API}/submissions`);
     if (!list.ok) return;
     const submissions: Submission[] = await list.json();
     const existing = submissions.find((row) => String(row.application_id) === applicationId);
@@ -82,7 +76,7 @@ export default function ApplicationDetailPage() {
   async function decide(answer: Answer, decision: string) {
     const input = document.getElementById(`answer-${answer.id}`) as HTMLInputElement | null;
     const response = await fetch(`${API}/applications/${applicationId}/answers/${answer.id}`, {
-      method: 'PUT', headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: input?.value || '', value_json: {}, decision }),
     });
     if (response.ok) { showToast('Answer decision saved.', 'success'); void loadReview(); }
@@ -91,7 +85,7 @@ export default function ApplicationDetailPage() {
 
   async function confirmAll() {
     const response = await fetch(`${API}/applications/${applicationId}/review`, {
-      method: 'PUT', headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ documents_confirmed: true, answers_confirmed: true, sensitive_fields_confirmed: true, attestations_confirmed: true }),
     });
     showToast(response.ok ? 'Review confirmations saved.' : await errorMessage(response, 'Unable to confirm review.'), response.ok ? 'success' : 'error');
@@ -99,13 +93,13 @@ export default function ApplicationDetailPage() {
   }
 
   async function approve() {
-    const response = await fetch(`${API}/applications/${applicationId}/review/approve`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/applications/${applicationId}/review/approve`, { method: 'POST' });
     if (response.ok) { showToast('Application approved. Preparing the submission preview…', 'success'); await loadItem(); }
     else showToast(await errorMessage(response, 'Complete every review item before approval.'), 'error');
   }
 
   async function prepareSubmission() {
-    const response = await fetch(`${API}/applications/${applicationId}/submission-preview`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/applications/${applicationId}/submission-preview`, { method: 'POST' });
     if (!response.ok) { showToast(await errorMessage(response, 'Unable to prepare a submission preview.'), 'error'); return; }
     setSubmission(await response.json());
     setMessage('Immutable preview prepared. Review every field before confirming.');
@@ -113,7 +107,7 @@ export default function ApplicationDetailPage() {
 
   async function confirmSubmission() {
     if (!submission) return;
-    const response = await fetch(`${API}/submissions/${submission.id}/confirm`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/submissions/${submission.id}/confirm`, { method: 'POST' });
     const body = await response.json();
     setSubmission(body);
     setMessage(body.status === 'confirmed' ? 'Submission confirmed. A fresh attempt may now be created.' : body.failure_detail || 'Submission blocked.');
@@ -121,7 +115,7 @@ export default function ApplicationDetailPage() {
 
   async function attemptSubmission() {
     if (!submission) return;
-    const response = await fetch(`${API}/submissions/${submission.id}/attempt`, { method: 'POST', headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/submissions/${submission.id}/attempt`, { method: 'POST' });
     showToast(response.ok ? 'Idempotent submission attempt created. Provider transport remains controlled by the connector adapter.' : await errorMessage(response, 'A fresh confirmation is required.'), response.ok ? 'success' : 'error');
   }
 

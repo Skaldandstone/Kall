@@ -55,13 +55,11 @@ function NewApplicationForm() {
   const [loadingOptions, setLoadingOptions] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return; }
     Promise.all([
-      fetch(`${API}/me/resumes`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API}/me/professional-profiles`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API}/me/resumes`),
+      fetch(`${API}/me/professional-profiles`),
     ]).then(async ([resumeResponse, profileResponse]) => {
-      if (resumeResponse.status === 401 || profileResponse.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+      if (resumeResponse.status === 401 || profileResponse.status === 401) {window.location.replace('/sign-in'); return; }
       const loadedResumes = resumeResponse.ok ? await resumeResponse.json() : [];
       const loadedProfiles = profileResponse.ok ? await profileResponse.json() : [];
       setResumes(loadedResumes); setProfiles(loadedProfiles);
@@ -74,12 +72,12 @@ function NewApplicationForm() {
     }).catch(() => { setMessage('Unable to load your profiles and resumes.'); setLoadingOptions(false); });
   }, [profileId]);
 
-  async function resolveJobId(token: string) {
+  async function resolveJobId() {
     if (existingJobId) return Number(existingJobId);
     if (!externalUrl) throw new Error('No job was selected. Return to Opportunities and choose Apply with Kall.');
     const response = await fetch(`${API}/jobs/import-search-result`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: externalUrl, title: externalTitle, snippet: externalSnippet, source: 'google_cse' }),
     });
     if (!response.ok) throw new Error(await errorMessage(response, 'Unable to import this job into Kall.'));
@@ -89,15 +87,13 @@ function NewApplicationForm() {
 
   async function prepare() {
     if (!profileId) { showToast('Select a professional profile first.', 'error'); return; }
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return; }
     setPreparing(true);
     setMessage('Importing the role and preparing your application…');
     try {
-      const jobId = await resolveJobId(token);
+      const jobId = await resolveJobId();
       const response = await fetch(`${API}/applications/prepare-options`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: jobId,
           professional_profile_id: Number(profileId),

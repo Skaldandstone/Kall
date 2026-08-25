@@ -55,11 +55,9 @@ export default function ApplicationsClient() {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const loadPipeline = useCallback(async () => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { setState('signed-out'); return; }
     try {
-      const response = await fetch(`${API}/me/applications`, { headers: { Authorization: `Bearer ${token}` } });
-      if (response.status === 401) { localStorage.removeItem('kall_token'); setState('signed-out'); return; }
+      const response = await fetch(`${API}/me/applications`);
+      if (response.status === 401) {setState('signed-out'); return; }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Unable to load applications.');
       if (!isPipeline(data)) throw new Error('The applications API returned an unexpected response.');
@@ -73,12 +71,10 @@ export default function ApplicationsClient() {
 
   async function moveApplication(item: PipelineItem, stage: string) {
     if (stage === item.stage) return;
-    const token = localStorage.getItem('kall_token');
-    if (!token) return;
     setBusyId(item.id);
     try {
       const response = await fetch(`${API}/me/applications/${item.id}/stage`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage }),
       });
       const data = await response.json().catch(() => ({}));
@@ -95,12 +91,10 @@ export default function ApplicationsClient() {
 
   async function removeApplication(item: PipelineItem) {
     if (!window.confirm(`Remove ${item.role} at ${item.company} from your applications?`)) return;
-    const token = localStorage.getItem('kall_token');
-    if (!token) return;
     setBusyId(item.id);
     try {
       const response = await fetch(`${API}/me/applications/${item.id}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE'
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Unable to remove application.');
@@ -114,7 +108,7 @@ export default function ApplicationsClient() {
   }
 
   if (state === 'loading') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Gathering your pipeline.</h1></div></section></main>;
-  if (state === 'signed-out') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Sign in to view your applications.</h1></div><a className='button' href='/login'>Sign in</a></section></main>;
+  if (state === 'signed-out') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Sign in to view your applications.</h1></div><a className='button' href='/sign-in'>Sign in</a></section></main>;
   if (state === 'error' || !pipeline) return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Your pipeline could not be loaded.</h1><p>{error}</p></div><button className='button' onClick={() => void loadPipeline()}>Try again</button></section></main>;
 
   const next = pipeline.next_decision;

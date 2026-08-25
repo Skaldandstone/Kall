@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import KallMark from './components/KallMark';
 
 const modules = [
@@ -37,20 +38,20 @@ const modules = [
 ];
 
 export default function Home() {
-  const [checkingSession, setCheckingSession] = useState(true);
+  // Someone already signed in who lands on the marketing page (a bookmark, a
+  // typed URL, a browser restore) should go straight to their workspace rather
+  // than be shown "Log in / Create account" as though they were a stranger.
+  // Clerk knows this client-side, so there is no API round trip and no flash.
+  const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { setCheckingSession(false); return; }
-    fetch('/api/kall/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => {
-        if (response.ok) { window.location.replace('/dashboard'); return; }
-        setCheckingSession(false);
-      })
-      .catch(() => setCheckingSession(false));
-  }, []);
+    if (isLoaded && isSignedIn) window.location.replace('/dashboard');
+  }, [isLoaded, isSignedIn]);
 
-  if (checkingSession) return null;
+  // Only blank the page while a confirmed sign-in is being redirected. This
+  // must not wait on isLoaded: the marketing page is public, and gating it on
+  // Clerk means a slow or blocked Clerk script shows visitors nothing at all.
+  if (isLoaded && isSignedIn) return null;
 
   return (
     <main className="shell">
@@ -61,8 +62,8 @@ export default function Home() {
         </a>
         <nav aria-label="Primary navigation" className="marketing-nav">
           <a href="#product-demos">Explore demos</a>
-          <a href="/login">Log in</a>
-          <a className="button" href="/register">
+          <a href="/sign-in">Log in</a>
+          <a className="button" href="/sign-up">
             Create account
           </a>
         </nav>
@@ -76,7 +77,7 @@ export default function Home() {
           applications, and career memory into one calm, private workspace.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <a className="button" href="/register">
+          <a className="button" href="/sign-up">
             Create your Kall profile
           </a>
           <a className="button secondary" href="/demo/opportunity-intelligence">

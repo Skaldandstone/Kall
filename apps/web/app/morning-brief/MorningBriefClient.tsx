@@ -56,21 +56,13 @@ export default function MorningBriefClient() {
   const [message, setMessage] = useState('Preparing your brief…');
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      setMessage('Sign in to view your personal Morning Brief.');
-      return;
-    }
-
     const controller = new AbortController();
     fetch(`${API}/me/morning-brief`, {
-      headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
       .then(async (response) => {
         if (response.status === 401) {
-          localStorage.removeItem('kall_token');
-          window.location.replace('/login');
+          window.location.replace('/sign-in');
           throw new Error('Your session expired. Please sign in again.');
         }
         if (!response.ok) throw new Error(await responseMessage(response));
@@ -110,7 +102,7 @@ export default function MorningBriefClient() {
           </div>
         </section>
         {message.startsWith('Sign in') ? (
-          <a className="button" href="/login">Sign in</a>
+          <a className="button" href="/sign-in">Sign in</a>
         ) : message !== 'Preparing your brief…' ? (
           <button className="button" type="button" onClick={() => window.location.reload()}>Try again</button>
         ) : null}

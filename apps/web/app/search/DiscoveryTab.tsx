@@ -78,28 +78,20 @@ export default function DiscoveryTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
-  const token = useCallback(() => localStorage.getItem('kall_token'), []);
 
   const authenticatedFetch = useCallback(async (url: string, init: RequestInit = {}) => {
-    const accessToken = token();
-    if (!accessToken) {
-      window.location.replace('/login');
-      throw new Error('Authentication required');
-    }
     const response = await fetch(url, {
       ...init,
       headers: {
         ...init.headers,
-        Authorization: `Bearer ${accessToken}`,
-      },
+        },
     });
     if (response.status === 401) {
-      localStorage.removeItem('kall_token');
-      window.location.replace('/login');
+      window.location.replace('/sign-in');
       throw new Error('Session expired');
     }
     return response;
-  }, [token]);
+  }, []);
 
   const loadResults = useCallback(async (selectedProfile = profileId, score = minimumScore) => {
     if (!selectedProfile) {

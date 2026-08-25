@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
 function apiBaseUrl(): string | null {
   const configured = process.env.KALL_API_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -22,9 +23,23 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const headers = new Headers();
   const contentType = request.headers.get('content-type');
-  const authorization = request.headers.get('authorization');
   if (contentType) headers.set('content-type', contentType);
-  if (authorization) headers.set('authorization', authorization);
+
+  // The token is minted here, server-side, from whatever session Clerk
+  // resolves -- normally the httpOnly cookie, so the browser never holds a
+  // token of its own.
+  //
+  // Note what this does and does not do. The incoming `authorization` header
+  // is never copied through: a garbage one is discarded rather than forwarded
+  // to the API (verified -- it 404s at the middleware exactly like no header
+  // at all). But Clerk's own auth() does accept a *valid* Clerk token
+  // presented that way as a real session, which is deliberate: the mobile app
+  // calls the API with a bearer token and no cookie. So this is not a
+  // header-rejecting proxy; it is a proxy that re-derives the token from the
+  // session rather than trusting the caller's copy of it.
+  const { getToken } = await auth();
+  const token = await getToken();
+  if (token) headers.set('authorization', `Bearer ${token}`);
 
   const response = await fetch(target, {
     method: request.method,

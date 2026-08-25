@@ -87,12 +87,6 @@ function JobIntelligenceContent() {
       return;
     }
 
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.replace('/login');
-      return;
-    }
-
     setIsLoading(true);
     setResult(null);
     setMessage('Preparing match intelligence…');
@@ -104,13 +98,11 @@ function JobIntelligenceContent() {
       // be triggered here or every job 409s with "Analyze the job
       // requirements before ranking resumes".
       const analyze = await fetch(`${API}/intelligence/jobs/${normalizedJobId}/analyze`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        method: 'POST'
       });
 
       if (analyze.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!analyze.ok) {
@@ -119,13 +111,11 @@ function JobIntelligenceContent() {
       }
 
       const run = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        method: 'POST'
       });
 
       if (run.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!run.ok) {
@@ -133,13 +123,10 @@ function JobIntelligenceContent() {
         return;
       }
 
-      const response = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`);
 
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!response.ok) {
@@ -162,15 +149,9 @@ function JobIntelligenceContent() {
   }
 
   async function selectResume(resumeId: number) {
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.replace('/login');
-      return;
-    }
     const response = await fetch(`${API}/jobs/${jobId.trim()}/intelligence/${profileId}/selection`, {
       method: 'PUT',
       headers: {
-        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ resume_id: resumeId }),

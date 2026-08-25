@@ -35,13 +35,9 @@ export default function OpportunitiesAtsSearch() {
 
   useEffect(() => {
     if (pathname !== '/opportunities' || !profileId) return;
-    const token = localStorage.getItem('kall_token');
-    if (!token) return;
     setLoading(true);
     setMessage('Preparing the Google Programmable Search query…');
-    fetch(`/api/kall/discovery/ats-search/${profileId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`/api/kall/discovery/ats-search/${profileId}`)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) {

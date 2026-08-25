@@ -44,25 +44,16 @@ export default function StrategyTab() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
-  function token() {
-    const value = localStorage.getItem('kall_token');
-    if (!value) window.location.replace('/login');
-    return value;
-  }
-
   async function load() {
-    const auth = token();
-    if (!auth) return;
     setLoading(true);
     try {
-      const headers = { Authorization: `Bearer ${auth}` };
+      const headers = { };
       const [profilesResponse, resumesResponse] = await Promise.all([
         fetch(`${API}/me/career-profiles`, { headers }),
         fetch(`${API}/me/resume-studio`, { headers }),
       ]);
       if (profilesResponse.status === 401 || resumesResponse.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!profilesResponse.ok) throw new Error('Unable to load career profiles.');
@@ -79,8 +70,6 @@ export default function StrategyTab() {
 
   async function save(event: FormEvent<HTMLFormElement>, profile: Profile) {
     event.preventDefault();
-    const auth = token();
-    if (!auth) return;
     const form = new FormData(event.currentTarget);
     const body = {
       name: String(form.get('name') || profile.name),
@@ -102,12 +91,11 @@ export default function StrategyTab() {
     };
     const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (response.status === 401) {
-      localStorage.removeItem('kall_token');
-      window.location.replace('/login');
+      window.location.replace('/sign-in');
       return;
     }
     setMessage(response.ok ? `${body.name} updated.` : 'Unable to update profile.');
@@ -118,11 +106,9 @@ export default function StrategyTab() {
   }
 
   async function assignResume(profileId: number, resumeId: string, successMessage = 'Profile resume updated.') {
-    const auth = token();
-    if (!auth) return false;
     const response = await fetch(`${API}/me/professional-profiles/${profileId}/default-resume`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resume_id: resumeId ? Number(resumeId) : null }),
     });
     setMessage(response.ok ? successMessage : 'Unable to associate that resume.');
@@ -135,8 +121,6 @@ export default function StrategyTab() {
     event.target.value = '';
     if (!file) return;
 
-    const auth = token();
-    if (!auth) return;
     setUploadingProfileId(profile.id);
     setMessage(`Uploading ${file.name}…`);
 
@@ -145,12 +129,10 @@ export default function StrategyTab() {
       form.append('file', file);
       const response = await fetch(`${API}/me/resumes`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${auth}` },
         body: form,
       });
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!response.ok) throw new Error('Unable to upload that resume.');

@@ -22,10 +22,9 @@ export default function ReferencesTab() {
   const [message, setMessage] = useState('');
   const [invite, setInvite] = useState('');
 
-  const token = () => localStorage.getItem('kall_token') || '';
 
   async function load() {
-    const response = await fetch(`${API}/testimonials`, { headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/testimonials`);
     if (response.ok) setItems(await response.json());
   }
 
@@ -37,7 +36,7 @@ export default function ReferencesTab() {
     const form = new FormData(formElement);
     const response = await fetch(`${API}/testimonials/requests`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         recipient_name: form.get('name'),
         recipient_email: form.get('email'),
@@ -56,7 +55,7 @@ export default function ReferencesTab() {
   async function moderate(item: Testimonial, profile: boolean, applications: boolean) {
     const response = await fetch(`${API}/testimonials/${item.id}`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'approved', include_on_profile: profile, include_in_applications: applications }),
     });
     setMessage(response.ok ? 'Visibility updated.' : 'Author permission is required before publishing.');

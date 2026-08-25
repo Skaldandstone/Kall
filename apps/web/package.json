@@ -8,6 +8,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.8.2",
     "country-region-data": "^4.1.0",
     "next": "^15.4.0",
     "qrcode": "^1.5.4",

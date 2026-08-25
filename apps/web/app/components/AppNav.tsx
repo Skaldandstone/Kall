@@ -18,9 +18,7 @@ function initialsFor(user:User|null){
 export default function AppNav({current}:AppNavProps){
   const[user,setUser]=useState<User|null>(null);
   useEffect(()=>{
-    const token=localStorage.getItem('kall_token');
-    if(!token)return;
-    fetch('/api/kall/me',{headers:{Authorization:`Bearer ${token}`}})
+    fetch('/api/kall/me')
       .then(response=>response.ok?response.json():null)
       .then(data=>{if(data)setUser(data)})
       .catch(()=>undefined);

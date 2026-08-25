@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { countries, countryName, regionsForCountry } from '../../lib/location-data';
-import SecuritySetupPanel from '../components/SecuritySetupPanel';
 import styles from './page.module.css';
 
 const API = '/api/kall';
@@ -45,7 +44,6 @@ export default function Onboarding() {
   const [profileCreated, setProfileCreated] = useState(false);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [suggestion, setSuggestion] = useState<StrategySuggestion | null>(null);
-  const [showSecurityModal, setShowSecurityModal] = useState(true);
   const [selectedCountryCodes, setSelectedCountryCodes] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
 
@@ -65,12 +63,8 @@ export default function Onboarding() {
   );
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('kall_token');
-    if (!storedToken) {
-      window.location.replace('/register');
-      return;
-    }
-    setToken(storedToken);
+    // Reaching this page at all means Clerk's middleware already let the
+    // request through, so there is nothing further to check here.
     setReady(true);
 
     // Best-effort default so most users don't have to scroll a long country
@@ -96,8 +90,6 @@ export default function Onboarding() {
 
   async function createProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token) return;
-
     setMessage('');
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
@@ -106,7 +98,6 @@ export default function Onboarding() {
       const response = await fetch(`${API}/me/professional-profiles`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -129,8 +120,7 @@ export default function Onboarding() {
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!response.ok) {
@@ -149,8 +139,6 @@ export default function Onboarding() {
 
   async function uploadResume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token) return;
-
     setMessage('');
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
@@ -158,13 +146,11 @@ export default function Onboarding() {
     try {
       const response = await fetch(`${API}/me/resumes`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
 
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!response.ok) {
@@ -177,8 +163,7 @@ export default function Onboarding() {
 
       try {
         const suggestResponse = await fetch(`${API}/me/resumes/${resume.id}/suggest-strategy`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          method: 'POST'
         });
         if (suggestResponse.ok) {
           const body = await suggestResponse.json();
@@ -213,27 +198,6 @@ export default function Onboarding() {
 
   return (
     <>
-      {showSecurityModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Protect your Kall account"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 24,
-            background: 'rgba(0, 0, 0, 0.6)',
-          }}
-        >
-          <div className="card" style={{ maxWidth: 720, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-            <SecuritySetupPanel onDismiss={() => setShowSecurityModal(false)} />
-          </div>
-        </div>
-      )}
       <main className={styles.shell}>
       <div className={styles.layout}>
         <aside className={styles.aside}>

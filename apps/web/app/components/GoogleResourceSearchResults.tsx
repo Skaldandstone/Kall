@@ -8,19 +8,13 @@ const GOOGLE_CSE_ID = '551e53ca5b28b4060';
 const API = '/api/kall';
 
 async function saveResource(planId: number, posting: { url: string; title: string; snippet: string }) {
-  const token = localStorage.getItem('kall_token');
-  if (!token) {
-    window.location.replace('/login');
-    return false;
-  }
   const response = await fetch(`${API}/growth/plans/${planId}/resources`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: posting.url, title: posting.title, description: posting.snippet || null }),
   });
   if (response.status === 401) {
-    localStorage.removeItem('kall_token');
-    window.location.replace('/login');
+    window.location.replace('/sign-in');
     return false;
   }
   if (!response.ok) {

@@ -9,10 +9,9 @@ type Source = { id: number; provider: string; company_name: string; board_key: s
 export default function SourcesTab() {
   const [rows, setRows] = useState<Source[]>([]);
   const [message, setMessage] = useState('');
-  const token = () => localStorage.getItem('kall_token');
 
   async function load() {
-    const response = await fetch(`${API}/me/search-sources`, { headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/me/search-sources`);
     if (response.ok) setRows(await response.json());
   }
 
@@ -27,7 +26,7 @@ export default function SourcesTab() {
     const form = new FormData(formElement);
     const response = await fetch(`${API}/me/search-sources`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: form.get('provider'), company_name: form.get('company'), board_key: form.get('board_key'), enabled: true }),
     });
     setMessage(response.ok ? 'Source added.' : 'Could not add source.');

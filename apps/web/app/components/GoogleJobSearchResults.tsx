@@ -9,15 +9,13 @@ const GOOGLE_CSE_ID = '551e53ca5b28b4060';
 const API = '/api/kall';
 
 async function trackExternalApplication(posting: { url: string; title: string; snippet: string; profileId?: string }) {
-  const token = localStorage.getItem('kall_token');
-  if (!token) { window.location.replace('/login'); return false; }
   if (!posting.profileId) {
     showToast('Select a professional profile before marking this job as applied.', 'error');
     return false;
   }
   const response = await fetch(`${API}/applications/track-external`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: posting.url,
       title: posting.title,
@@ -26,7 +24,7 @@ async function trackExternalApplication(posting: { url: string; title: string; s
       source: 'google_cse',
     }),
   });
-  if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return false; }
+  if (response.status === 401) {window.location.replace('/sign-in'); return false; }
   if (!response.ok) {
     let message = 'Unable to track that application.';
     try { const data = await response.json(); if (typeof data.detail === 'string') message = data.detail; } catch { /* keep fallback */ }

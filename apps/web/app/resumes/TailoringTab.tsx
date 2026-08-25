@@ -22,7 +22,6 @@ export default function TailoringTab() {
   const [changes, setChanges] = useState<Change[]>([]);
   const [unsupported, setUnsupported] = useState<string[]>([]);
   const [proposalStatus, setProposalStatus] = useState('');
-  const token = typeof window !== 'undefined' ? localStorage.getItem('kall_token') : '';
 
   async function createProposal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,7 +29,7 @@ export default function TailoringTab() {
     const data = new FormData(event.currentTarget);
     const response = await fetch(`${API}/tailoring/proposals`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json', Authorization:`Bearer ${token}`},
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({job_id:Number(data.get('job_id')), professional_profile_id:Number(profileId)})
     });
     const proposal = await response.json();
@@ -40,7 +39,7 @@ export default function TailoringTab() {
   }
 
   async function load(id = proposalId) {
-    const response = await fetch(`${API}/tailoring/proposals/${id}`, {headers:{Authorization:`Bearer ${token}`}});
+    const response = await fetch(`${API}/tailoring/proposals/${id}`);
     const data = await response.json();
     if (!response.ok) return alert(data.detail || 'Unable to load proposal');
     setChanges(data.changes);
@@ -51,7 +50,7 @@ export default function TailoringTab() {
   async function decide(change: Change, status: string, edited_text?: string) {
     const response = await fetch(`${API}/tailoring/changes/${change.id}`, {
       method:'PATCH',
-      headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({status, edited_text: edited_text || null})
     });
     const data = await response.json();
@@ -61,8 +60,7 @@ export default function TailoringTab() {
 
   async function finalize() {
     const response = await fetch(`${API}/tailoring/proposals/${proposalId}/finalize`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      method: 'POST'
     });
     const data = await response.json();
     if (!response.ok) return alert(data.detail || 'Unable to finalize proposal');

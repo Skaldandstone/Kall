@@ -1,8 +1,17 @@
+// Clerk serves its JS, frontend API, images and bot-protection challenge from
+// its own origins. Every one of these must be allowed or authentication does
+// not load at all -- the failure is total and silent apart from a console CSP
+// violation, so it is worth stating the reason for each entry.
+//   *.clerk.accounts.dev  -- development instances (and the FAPI they talk to)
+//   *.clerk.com           -- img.clerk.com (avatars) and production FAPI
+//   challenges.cloudflare.com -- Clerk's bot protection (Turnstile)
+const CLERK_ORIGINS = "https://*.clerk.accounts.dev https://*.clerk.com";
+const TURNSTILE = "https://challenges.cloudflare.com";
+
 const securityHeaders = [
-  // Bearer tokens live in localStorage, so an XSS bug is the realistic path
-  // to account takeover here. These headers don't fix that at the source,
-  // but they shrink how an attacker could actually land a script in the
-  // first place, and limit the blast radius if one gets in.
+  // The session token now lives in Clerk's httpOnly cookie rather than
+  // localStorage, so script injection can no longer read it directly. These
+  // headers still shrink how an attacker could land a script at all.
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -22,12 +31,14 @@ const securityHeaders = [
       // (confirmed live -- without it, every search throws a visible
       // "EvalError: Evaluating a string as JavaScript violates the CSP"
       // banner instead of rendering results).
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cse.google.com https://www.google.com https://www.gstatic.com",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cse.google.com https://www.google.com https://www.gstatic.com ${CLERK_ORIGINS} ${TURNSTILE}`,
       "style-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
-      "img-src 'self' data: blob: https://*.google.com https://*.gstatic.com https://*.googleusercontent.com",
+      `img-src 'self' data: blob: https://*.google.com https://*.gstatic.com https://*.googleusercontent.com ${CLERK_ORIGINS}`,
       "font-src 'self' data:",
-      "connect-src 'self' https://cse.google.com https://*.google.com https://www.googleapis.com",
-      "frame-src https://cse.google.com https://www.google.com",
+      `connect-src 'self' https://cse.google.com https://*.google.com https://www.googleapis.com ${CLERK_ORIGINS}`,
+      `frame-src https://cse.google.com https://www.google.com ${CLERK_ORIGINS} ${TURNSTILE}`,
+      // Clerk runs part of its handshake in a worker created from a blob URL.
+      "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
