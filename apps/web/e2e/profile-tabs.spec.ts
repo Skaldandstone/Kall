@@ -7,7 +7,8 @@ test.describe('profile tabs', () => {
     const unique = Date.now();
     await signInAsNewUser(page);
 
-    await page.goto('/profiles?tab=identity');
+    // Identity lives under account settings, not on the career page.
+    await page.goto('/settings/identity');
     // The form loads its initial values asynchronously and overwrites
     // whatever's already typed when it resolves -- wait for that load to
     // land (preferred_name defaults to the account's full name) before typing.
@@ -119,6 +120,23 @@ test.describe('redirect shims', () => {
     await signInAsNewUser(page);
     await page.goto('/testimonials');
     await expect(page).toHaveURL(/\/profiles\?tab=references/);
+  });
+
+  test('/profiles?tab=identity redirects to account settings', async ({ page }) => {
+    const unique = Date.now();
+    await signInAsNewUser(page);
+    await page.goto('/profiles?tab=identity');
+    await expect(page).toHaveURL(/\/settings\/identity/);
+    // Not just the URL: the panel itself has to be there, or the redirect is
+    // sending bookmarks somewhere useless.
+    await expect(page.locator('input[name="preferred_name"]')).toBeVisible();
+  });
+
+  test('/profile redirects to account settings', async ({ page }) => {
+    const unique = Date.now();
+    await signInAsNewUser(page);
+    await page.goto('/profile');
+    await expect(page).toHaveURL(/\/settings\/identity/);
   });
 
   test('/submissions redirects to the applications pipeline', async ({ page }) => {

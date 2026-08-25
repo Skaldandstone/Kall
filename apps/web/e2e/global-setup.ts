@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { clerkSetup } from '@clerk/testing/playwright';
 import { backendEnv, dbPath, repoRoot } from './env';
+import { purgeTestUsers } from './purge-test-users';
 
 /**
  * Runs once before either webServer starts. Migrations run here, synchronously,
@@ -31,6 +32,12 @@ export default async function globalSetup(): Promise<void> {
     env: { ...process.env, ...backendEnv },
     stdio: 'inherit',
   });
+
+  // Clerk dev instances cap at 100 users and every spec creates one, so
+  // without this the suite works for a handful of runs and then fails
+  // everywhere at once with an error that does not mention quotas.
+  const purged = await purgeTestUsers(process.env.CLERK_SECRET_KEY as string);
+  if (purged) console.log(`Purged ${purged} Clerk user(s) left by earlier runs.`);
 
   await clerkSetup();
 }

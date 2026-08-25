@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { countries, regionsForCountry } from '../../lib/location-data';
+import { countries, regionsForCountry } from '../../../lib/location-data';
 
 type IdentityProfile = {
   email: string;
@@ -37,7 +37,7 @@ function countryCodeForName(name: string | null): string {
   return countries.find((country) => country.name === name)?.code ?? '';
 }
 
-export default function IdentityTab() {
+export default function IdentityPanel() {
   const [profile, setProfile] = useState<IdentityProfile>(emptyProfile);
   const [countryCode, setCountryCode] = useState('');
   const [message, setMessage] = useState('Loading your profile…');
@@ -126,8 +126,6 @@ export default function IdentityTab() {
 
   return (
     <div className="card">
-      <h1>Identity profile</h1>
-      <p>Your registration and onboarding information is loaded automatically. Update it here whenever your details change.</p>
       <form className="form" onSubmit={save}>
         <div className="two">
           <label>

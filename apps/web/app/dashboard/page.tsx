@@ -6,7 +6,7 @@ const primaryActions = [
 ] as const;
 
 const setupItems = [
-  ['Complete identity', 'Add websites, portfolios and contact preferences.', '/profiles?tab=identity'],
+  ['Complete identity', 'Add websites, portfolios and contact preferences.', '/settings/identity'],
   ['Upload resumes', 'Build your Resume Studio and tag each version.', '/resumes'],
   ['Review privacy', 'Choose which fields can tailor, autofill or stay private.', '/privacy'],
 ] as const;
