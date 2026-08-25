@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api/kall';
 const fields = ['identity.phone', 'identity.address', 'eeo.veteran_status', 'eeo.disability_status', 'work_authorization.citizenship', 'references.contact'];
 
 export default function PrivacyPage() {
@@ -11,18 +11,20 @@ export default function PrivacyPage() {
   const token = () => localStorage.getItem('kall_token');
 
   async function load() {
-    const response = await fetch(`${API}/api/profile/privacy`, { headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/profile/privacy`, { headers: { Authorization: `Bearer ${token()}` } });
+    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
     if (response.ok) setRules(await response.json());
   }
 
   useEffect(() => { load(); }, []);
 
   async function save(field: string, scopes: string[], confirm = true) {
-    const response = await fetch(`${API}/api/profile/privacy/${field}`, {
+    const response = await fetch(`${API}/profile/privacy/${field}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
       body: JSON.stringify({ field_path: field, scopes, require_confirmation: confirm }),
     });
+    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
     setMessage(response.ok ? 'Privacy setting saved.' : 'Unable to save privacy setting.');
     if (response.ok) load();
   }
@@ -31,11 +33,12 @@ export default function PrivacyPage() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const payload = Object.fromEntries(form.entries());
-    const response = await fetch(`${API}/api/profile/${endpoint}`, {
+    const response = await fetch(`${API}/profile/${endpoint}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
       body: JSON.stringify(payload),
     });
+    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
     setMessage(response.ok ? 'Encrypted profile saved.' : 'Unable to save profile.');
   }
 
