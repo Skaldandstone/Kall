@@ -1,7 +1,16 @@
 name: CI
 
+# push+pull_request both firing for every commit on an open PR branch in
+# this repo ran the entire suite twice per commit (one push-triggered run,
+# one pull_request-triggered run) -- pure waste, and the two duplicate e2e
+# runs for the same commit have been observed to disagree (one clean pass,
+# one cascading failure), which is one flake source not worth chasing
+# further while this duplication exists. Restricting push to main leaves
+# pull_request as the only trigger for PR branches, so each commit runs
+# once.
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
