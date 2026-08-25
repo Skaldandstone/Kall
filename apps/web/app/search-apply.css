@@ -106,6 +106,19 @@ body.search-page-active {
   font-size: 13px;
 }
 
+/* Pushed to the trailing edge so it reads as a separate kind of action from
+   the two that move an application forward, and muted so it is not competing
+   with them for the click. */
+.kall-search-result-actions .kall-result-dead {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+}
+
+.kall-search-result-actions .kall-result-dead:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 .application-prep-columns {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);

@@ -7,12 +7,23 @@ from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Application, CareerProfile, Job, ResumeDocument, User
+from kall.models import Application, CareerProfile, Job, ResumeDocument, SuppressedResult, User
 from kall.models.enums import ApplicationStatus
 from kall.schemas import ExternalJobImportRequest, PrepareApplicationRequest
 from kall.services.applications import prepare_application
+from kall.services.suppression import VALID_REASONS, normalize_url
 
 router = APIRouter()
+
+
+class SuppressResultRequest(BaseModel):
+    url: HttpUrl
+    title: str | None = None
+    reason: str = "dead_link"
+
+
+class RestoreResultRequest(BaseModel):
+    url: HttpUrl
 
 
 class TrackExternalApplicationRequest(BaseModel):
@@ -130,3 +141,85 @@ def prepare_with_options(
         generate_cover_letter=payload.generate_cover_letter,
         application_mode=payload.application_mode,
     )
+
+
+@router.get("/search/suppressed", response_model=list[SuppressedResult])
+def list_suppressed_results(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[SuppressedResult]:
+    return list(
+        session.exec(
+            select(SuppressedResult)
+            .where(SuppressedResult.user_id == current_user.id)
+            .order_by(SuppressedResult.suppressed_at.desc())
+        )
+    )
+
+
+@router.post("/search/suppressed", response_model=SuppressedResult)
+def suppress_result(
+    payload: SuppressResultRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SuppressedResult:
+    if payload.reason not in VALID_REASONS:
+        raise HTTPException(status_code=422, detail="Unsupported suppression reason")
+    url = normalize_url(str(payload.url))
+    row = session.exec(
+        select(SuppressedResult).where(
+            SuppressedResult.user_id == current_user.id,
+            SuppressedResult.url == url,
+        )
+    ).first()
+    if row:
+        # Re-flagging an already-hidden result upgrades the reason rather than
+        # duplicating it: a posting hidden because it was applied to can later
+        # turn out to be dead, and that is the reason worth keeping.
+        row.reason = payload.reason
+        row.title = payload.title or row.title
+        row.suppressed_at = datetime.utcnow()
+    else:
+        row = SuppressedResult(
+            user_id=current_user.id, url=url, reason=payload.reason, title=payload.title
+        )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+# The posting URL goes in the body rather than a query parameter --
+# job-board links carry their own query strings, and nesting one inside
+# another is needless encoding trouble.
+@router.delete("/search/suppressed")
+def restore_result(
+    payload: RestoreResultRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    url = normalize_url(str(payload.url))
+    row = session.exec(
+        select(SuppressedResult).where(
+            SuppressedResult.user_id == current_user.id,
+            SuppressedResult.url == url,
+        )
+    ).first()
+    if row:
+        session.delete(row)
+        session.commit()
+    return {"status": "restored"}
+
+
+@router.delete("/search/suppressed/all")
+def restore_all_results(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, int]:
+    rows = list(
+        session.exec(select(SuppressedResult).where(SuppressedResult.user_id == current_user.id))
+    )
+    for row in rows:
+        session.delete(row)
+    session.commit()
+    return {"restored": len(rows)}

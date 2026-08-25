@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { clearPendingPosting, getPendingPosting, hideSearchResult, isSearchResultHidden, setPendingPosting } from '../lib/searchResultState';
+import { clearPendingPosting, getPendingPosting, hideSearchResult, isSearchResultHidden, loadSuppressedResults, setPendingPosting } from '../lib/searchResultState';
 import { loadGoogleCse } from '../lib/googleCse';
 import { showToast } from './ToastHost';
 
@@ -89,7 +89,21 @@ function decorateResults(container: HTMLElement, profileId?: string) {
       view.rel = 'noreferrer';
       view.onclick = () => setPendingPosting(posting);
 
-      actions.append(apply, view);
+      // Dead links are the single biggest source of noise in these results:
+      // boards keep serving a page long after the role is filled. Flagging one
+      // is server-side, so it also keeps the posting out of the daily brief.
+      const dead = document.createElement('button');
+      dead.type = 'button';
+      dead.className = 'button ghost kall-result-dead';
+      dead.textContent = 'Dead link';
+      dead.title = 'Hide this posting and keep it out of future searches';
+      dead.onclick = () => {
+        hideSearchResult(posting.url, posting.title, 'dead_link');
+        result.remove();
+        showToast('Flagged as a dead link. Undo from "Restore hidden results".', 'success');
+      };
+
+      actions.append(apply, view, dead);
       result.appendChild(actions);
     }
 
@@ -116,7 +130,7 @@ export default function GoogleJobSearchResults({ query, profileId }: { query: st
 
     async function renderResults() {
       try {
-        await loadGoogleCse(GOOGLE_CSE_ID);
+        await Promise.all([loadGoogleCse(GOOGLE_CSE_ID), loadSuppressedResults()]);
         if (cancelled || !containerRef.current) return;
         containerRef.current.replaceChildren();
         const api = window.google?.search?.cse?.element;
