@@ -74,3 +74,34 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 14
+
+  mobile-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+        working-directory: apps/mobile
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/mobile
+      - run: npm run test:e2e
+        working-directory: apps/mobile
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-e2e-junit
+          path: apps/mobile/junit.xml
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: mobile-playwright-report
+          path: apps/mobile/playwright-report/
+          retention-days: 14
