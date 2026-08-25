@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import KallMark from '../components/KallMark';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import { decodeBase64Url, encodeBase64Url } from '../../lib/webauthn-bytes';
 
@@ -63,7 +64,7 @@ export default function Login() {
 
   return (
     <main className="shell"><div className="card" style={{ maxWidth: 520, margin: '70px auto' }}>
-      <a className="brand" href="/" aria-label="Kall home">Kall</a>
+      <a className="brand" href="/" aria-label="Kall home"><KallMark />Kall</a>
       <h1>Welcome back</h1>
       <SocialAuthButtons />
       <p className="muted" style={{ textAlign: 'center' }}>or use your Kall credentials</p>

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import KallMark from '../../components/KallMark';
 
 const demos = {
   'career-identity': {
@@ -87,7 +88,7 @@ export default async function DemoPage({ params }: DemoPageProps) {
   return (
     <main className="shell">
       <header className="topbar">
-        <a className="brand" href="/">Kall</a>
+        <a className="brand" href="/"><KallMark />Kall</a>
         <nav aria-label="Demo navigation" className="marketing-nav"><a href="/login">Log in</a><a className="button" href="/register">Create account</a></nav>
       </header>
 

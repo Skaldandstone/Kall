@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import KallMark from '../components/KallMark';
 
 const API = '/api/kall';
 type BillingStatus = { plan: string; subscription_status: string; used: number; free_limit: number; remaining: number | null; allowed: boolean };
@@ -29,7 +30,7 @@ export default function BillingPage() {
   useEffect(() => { load(); }, []);
 
   return <main className="shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a><nav><a href="/search">Opportunities</a><a href="/applications">Applications</a></nav></header>
+    <header className="topbar"><a className="brand" href="/"><KallMark />Kall</a><nav><a href="/search">Opportunities</a><a href="/applications">Applications</a></nav></header>
     <section className="hero" style={{ paddingTop: 8, paddingBottom: 42 }}><span className="eyebrow">Kall Plus</span><h1 style={{ fontSize: 'clamp(44px, 7vw, 76px)' }}>Ten applications free. Then $4 a month.</h1><p>Usage is enforced on the server before Kall creates a submission attempt.</p></section>
     <section className="card">
       <span className="eyebrow">Current plan</span>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import KallMark from '../components/KallMark';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -10,7 +11,7 @@ const updated = 'August 3, 2026';
 export default function PrivacyPolicyPage() {
   return (
     <main className="shell" style={{ maxWidth: 920, paddingTop: 48, paddingBottom: 72 }}>
-      <a className="brand" href="/" aria-label="Kall home">Kall</a>
+      <a className="brand" href="/" aria-label="Kall home"><KallMark />Kall</a>
       <section className="hero" style={{ paddingTop: 48, paddingBottom: 36 }}>
         <div>
           <span className="eyebrow">Legal</span>

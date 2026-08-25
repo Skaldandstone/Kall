@@ -1,0 +1,14 @@
+<!-- Horizontal lockup. Wordmark is drawn, not set in a font, so it needs no webfont and is ownable. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 32" width="150" height="32" role="img" aria-label="Kall">
+  <title>Kall</title>
+  <rect x="7.1" y="1.6" width="2.2" height="28.8" fill="#c9a86a"/>
+  <path d="M25.6 5.4 L13.2 16 L25.6 26.6" fill="none" stroke="#e8ecf2" stroke-width="4.8" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <g fill="none" stroke="#e8ecf2" stroke-width="3.6" stroke-linecap="butt" stroke-linejoin="miter">
+    <path d="M46 8 V26"/>
+    <path d="M60 8 L49.4 17 L60 26"/>
+    <path d="M70 26 L79 8 L88 26"/>
+    <path d="M73.8 19 H84.2"/>
+    <path d="M98 8 V26 H110"/>
+    <path d="M120 8 V26 H132"/>
+  </g>
+</svg>

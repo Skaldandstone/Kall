@@ -1,25 +1,43 @@
 :root {
   color-scheme: dark;
-  --canvas: #0d0f10;
-  --surface: #131617;
-  --surface-raised: #191d1f;
-  --surface-interactive: #202527;
-  --border: #2b3032;
-  --border-strong: #3a4144;
-  --text: #f1f0eb;
-  --text-secondary: #a7aaa8;
-  --text-muted: #747a78;
-  --accent: #6e9fa8;
-  --accent-hover: #8ab3ba;
-  --accent-ink: #081214;
-  --success: #7f9a82;
-  --warning: #b99a67;
-  --danger: #a96f62;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
-  --page-gutter: 1in;
+  /* Meridian x Clay. Surfaces step 8 -> 12 -> 17 -> 22 in lightness; the
+     previous palette stepped a similar distance in near-neutral grey, which
+     is why nothing appeared to layer -- the separation was there numerically
+     but invisible without hue. */
+  --canvas: #0c1420;
+  --surface: #131d2c;
+  --surface-raised: #1c2839;
+  --surface-interactive: #24334a;
+  --border: #2b3d55;
+  --border-strong: #3d5473;
+  --text: #e8ecf2;
+  --text-secondary: #94a5bc;
+  --text-muted: #6b7f99;
+  /* Brass. Marks the primary action and the single most important number on
+     a screen -- it is not a state colour, and never sits beside --warning. */
+  --accent: #c9a86a;
+  --accent-hover: #dcbf84;
+  --accent-ink: #0c1420;
+  /* Channels for tinted fills, so accent washes follow --accent instead of
+     drifting out of sync the way three hardcoded rgba() values previously did. */
+  --accent-rgb: 201 168 106;
+  --success: #6fae8f;
+  --warning: #d9a441;
+  --danger: #d97362;
+  /* Families come from next/font/google (see layout.tsx), which self-hosts
+     them at build time. A <link> to fonts.googleapis.com would be blocked --
+     the CSP's style-src and font-src only allow 'self'. */
+  --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-epilogue), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  /* Replaces a four-step breakpoint ladder (1in / 48 / 24 / 16px) with one
+     continuous value. Endpoints match what the ladder produced -- 96px on a
+     wide desktop, 16px on a phone -- but without the jumps between. */
+  --page-gutter: clamp(16px, 5vw, 96px);
 }
 
 * {
@@ -35,10 +53,10 @@ body {
   min-height: 100vh;
   padding-inline: var(--page-gutter);
   background:
-    radial-gradient(circle at 82% 0%, rgba(110, 159, 168, 0.09), transparent 34rem),
+    radial-gradient(circle at 82% 0%, rgb(var(--accent-rgb) / 0.07), transparent 34rem),
     var(--canvas);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-synthesis: none;
 }
 
@@ -84,9 +102,13 @@ a {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.04em;
+  font-weight: 800;
+  letter-spacing: -0.045em;
 }
 
 nav {
@@ -117,10 +139,11 @@ nav a:hover {
 .hero h1 {
   max-width: 820px;
   margin: 20px 0 24px;
-  font-size: clamp(48px, 8vw, 88px);
-  font-weight: 520;
-  line-height: 0.98;
-  letter-spacing: -0.065em;
+  font-family: var(--font-display);
+  font-size: clamp(44px, 7.4vw, 80px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
 .hero p {
@@ -138,13 +161,17 @@ nav a:hover {
   width: fit-content;
   min-height: 30px;
   padding: 6px 10px;
-  border: 1px solid rgba(110, 159, 168, 0.28);
-  border-radius: 999px;
-  background: rgba(110, 159, 168, 0.08);
-  color: var(--accent-hover);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
+  border: 1px solid rgb(var(--accent-rgb) / 0.4);
+  /* Square-ish rather than a full pill: badges report machine state, so they
+     are typeset like data rather than like speech. */
+  border-radius: 4px;
+  background: rgb(var(--accent-rgb) / 0.08);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .button {
@@ -157,7 +184,11 @@ nav a:hover {
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-ink);
-  font-weight: 680;
+  /* Primary is a statement, so it takes the display face; secondary and ghost
+     below revert to the body face because they are controls, not statements. */
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
 }
@@ -174,12 +205,16 @@ nav a:hover {
   border-color: var(--border);
   background: var(--surface-raised);
   color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 600;
 }
 
 .button.ghost {
   border-color: transparent;
   background: transparent;
   color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-weight: 600;
 }
 
 .grid {
@@ -205,9 +240,13 @@ nav a:hover {
 
 .card h2 {
   margin-bottom: 10px;
+  /* 19px is the floor for the display face -- below that Syne's wide
+     proportions turn mushy and it stops being legible before it stops being
+     decorative. Anything smaller uses the body or mono face. */
+  font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.025em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .card h3 {
@@ -442,17 +481,7 @@ nav a:hover {
   color: var(--text) !important;
 }
 
-@media (max-width: 1100px) {
-  :root {
-    --page-gutter: 48px;
-  }
-}
-
 @media (max-width: 860px) {
-  :root {
-    --page-gutter: 24px;
-  }
-
   .grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -467,10 +496,6 @@ nav a:hover {
 }
 
 @media (max-width: 640px) {
-  :root {
-    --page-gutter: 16px;
-  }
-
   .shell {
     width: 100%;
     padding-top: 12px;
