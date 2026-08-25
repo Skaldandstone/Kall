@@ -6,6 +6,7 @@ import AppNav from '../components/AppNav';
 import StrategyTab from './StrategyTab';
 import IdentityTab from './IdentityTab';
 import RecordTab from './RecordTab';
+import EmploymentTab from './EmploymentTab';
 import GrowthTab from './GrowthTab';
 import AchievementsTab from './AchievementsTab';
 import ReferencesTab from './ReferencesTab';
@@ -14,6 +15,7 @@ import styles from './page.module.css';
 const TABS = [
   ['strategy', 'Strategy'],
   ['identity', 'Identity'],
+  ['employment', 'Work history'],
   ['record', 'Professional record'],
   ['growth', 'Growth'],
   ['achievements', 'Achievements'],
@@ -51,6 +53,7 @@ function ProfilesPageContent() {
       </nav>
       {tab === 'strategy' && <StrategyTab />}
       {tab === 'identity' && <IdentityTab />}
+      {tab === 'employment' && <EmploymentTab />}
       {tab === 'record' && <RecordTab />}
       {tab === 'growth' && <GrowthTab />}
       {tab === 'achievements' && <AchievementsTab />}

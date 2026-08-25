@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import { showToast } from '../../components/ToastHost';
+import AutofillPanel from './AutofillPanel';
 
 const API = '/api/kall';
 
@@ -166,6 +167,7 @@ export default function ApplicationDetailPage() {
     </div>}
 
     {(item.stage === 'approved' || item.stage === 'submitted') && <div className="stack">
+      <AutofillPanel applicationId={applicationId} />
       {!submission && <section className="card"><p>No submission preview exists yet for this application.</p><button className="button" onClick={() => void prepareSubmission()}>Prepare immutable preview</button><p className="notice" aria-live="polite">{message}</p></section>}
       {submission && <section className="card">
         <span className="pill">{submission.provider}</span>

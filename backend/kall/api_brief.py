@@ -16,6 +16,7 @@ from kall.models import (
     ResumeDocument,
     User,
 )
+from kall.models.enums import ApplicationStatus
 
 router = APIRouter(tags=["morning-brief"])
 
@@ -137,7 +138,25 @@ def morning_brief(
         else current_user.full_name.split()[0]
     )
 
-    if opportunities:
+    # Approved applications are the ones where every review gate has already
+    # been cleared, so the only thing left is filling the employer's form --
+    # that is the most actionable thing in the brief when it exists.
+    ready_to_autofill = [
+        application
+        for application in applications
+        if str(application.status.value if hasattr(application.status, "value") else application.status)
+        == ApplicationStatus.APPROVED.value
+    ]
+
+    if ready_to_autofill:
+        count = len(ready_to_autofill)
+        focus = {
+            "kind": "autofill",
+            "title": f"{count} application{'' if count == 1 else 's'} ready to fill",
+            "detail": "Reviewed and approved. Open one to pre-fill the employer's form.",
+            "href": f"/applications/{ready_to_autofill[0].id}",
+        }
+    elif opportunities:
         focus = {
             "kind": "opportunity",
             "title": f"Review {opportunities[0]['title']} at {opportunities[0]['company']}",
@@ -175,6 +194,7 @@ def morning_brief(
         "applications": {
             "total": len(applications),
             "active": len(active_applications),
+            "ready_to_autofill": len(ready_to_autofill),
             "by_status": dict(status_counts),
         },
         "resumes": {

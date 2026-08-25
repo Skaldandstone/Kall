@@ -2,6 +2,7 @@ from datetime import datetime
 
 from kall.models import Application, CareerProfile, Job, ResumeDocument, User
 from kall.models.enums import ApplicationStatus
+from kall.services.autofill import autofill_payload_sections
 from kall.services.quota import assert_application_allowed
 from kall.services.resume import extract_resume_text
 from kall.services.storage import get_storage
@@ -74,6 +75,20 @@ def prepare_application(
         unanswered_questions=["Confirm application-specific screening questions"],
         sensitive_fields_present=True,
     )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+
+    # build_preview() (services/submissions.py) reads screening_answers,
+    # work_authorization, and eeo out of prepared_payload, but nothing ever
+    # wrote them -- the submission preview was permanently empty on exactly
+    # the fields that matter. Populate them from the same consent-filtered
+    # pack the autofill panel uses, so the preview and the form the user
+    # actually fills always agree.
+    application.prepared_payload = {
+        **application.prepared_payload,
+        **autofill_payload_sections(session, user, application),
+    }
     session.add(application)
     session.commit()
     session.refresh(application)
