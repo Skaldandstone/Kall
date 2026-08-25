@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import KallMark from '../components/KallMark';
 
 const API = '/api/kall';
 
@@ -30,7 +31,7 @@ export default function TestimonialSubmitPage() {
   }
 
   return <main className="shell">
-    <header className="topbar"><a className="brand" href="/">Kall</a></header>
+    <header className="topbar"><a className="brand" href="/"><KallMark />Kall</a></header>
     <section className="hero" style={{ paddingTop: 20, paddingBottom: 36 }}><span className="eyebrow">Private invitation</span><h1 style={{ fontSize: 'clamp(42px, 7vw, 72px)' }}>Share what it was like to work together.</h1><p>Your response is sent to the person who invited you. They cannot publish or attach it to an application unless you grant permission.</p></section>
     <section className="card">
       <form className="form" onSubmit={submit}>

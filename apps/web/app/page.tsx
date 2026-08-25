@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import KallMark from './components/KallMark';
 
 const modules = [
   {
@@ -55,6 +56,7 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <a className="brand" href="/" aria-label="Kall home">
+          <KallMark />
           Kall
         </a>
         <nav aria-label="Primary navigation" className="marketing-nav">

@@ -57,6 +57,11 @@ test('the autofill panel fills consented fields and withholds the rest', async (
 
   await test.step('prepare and approve an application', async () => {
     await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);
+    // Both selects populate from a fetch. Clicking before the resume one
+    // resolves sends resume_id: null and silently produces an application
+    // with no resume -- which then fails much later, at the autofill step.
+    await expect(page.getByRole('button', { name: 'Prepare application' })).toBeEnabled();
+    await expect(page.locator('select').nth(1)).not.toHaveValue('');
     await page.getByRole('button', { name: 'Prepare application' }).click();
     await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('link', { name: 'Continue to application review' }).click();

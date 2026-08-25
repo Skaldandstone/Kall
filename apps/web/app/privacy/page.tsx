@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import KallMark from '../components/KallMark';
 
 const API = '/api/kall';
 const fields = ['identity.phone', 'identity.address', 'eeo.veteran_status', 'eeo.disability_status', 'work_authorization.citizenship', 'references.contact'];
@@ -43,7 +44,7 @@ export default function PrivacyPage() {
   }
 
   return <main className="shell">
-    <header className="topbar"><div className="brand">Kall Privacy</div><a href="/profiles">Career</a></header>
+    <header className="topbar"><div className="brand"><KallMark />Kall Privacy</div><a href="/profiles">Career</a></header>
     <section className="grid">
       <article className="card"><h1>Field-level privacy</h1><p>Choose how each field may be used. Sensitive fields can never be public.</p>
         {fields.map(field => <div key={field} style={{ borderTop: '1px solid #eee', padding: '14px 0' }}><b>{field}</b><div style={{ marginTop: 8 }}>

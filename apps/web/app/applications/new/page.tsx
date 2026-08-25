@@ -48,6 +48,11 @@ function NewApplicationForm() {
   const [message, setMessage] = useState('');
   const [application, setApplication] = useState<Application | null>(null);
   const [preparing, setPreparing] = useState(false);
+  // Resume and profile selections are populated by the fetch below. Without
+  // this gate the button is clickable before they resolve, and prepare() sends
+  // resume_id: null -- silently producing an application with no resume
+  // attached, which the user only discovers later at the autofill step.
+  const [loadingOptions, setLoadingOptions] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('kall_token');
@@ -65,7 +70,8 @@ function NewApplicationForm() {
       if (firstProfile) setProfileId(String(firstProfile.id));
       const preferredResume = loadedResumes.find((item: Resume) => item.id === firstProfile?.default_resume_id) || loadedResumes.find((item: Resume) => item.is_default) || loadedResumes[0];
       if (preferredResume) setResumeId(String(preferredResume.id));
-    }).catch(() => setMessage('Unable to load your profiles and resumes.'));
+      setLoadingOptions(false);
+    }).catch(() => { setMessage('Unable to load your profiles and resumes.'); setLoadingOptions(false); });
   }, [profileId]);
 
   async function resolveJobId(token: string) {
@@ -125,7 +131,7 @@ function NewApplicationForm() {
         <label><span className="muted">Resume</span><select className="input" value={resumeId} onChange={(event) => setResumeId(event.target.value)}><option value="">No resume selected</option>{resumes.map((resume) => <option key={resume.id} value={resume.id}>{resume.name}</option>)}</select></label>
         <fieldset className="application-options"><legend>AI document preparation</legend><label className="check-row"><input type="checkbox" checked={customizeResume} onChange={(event) => setCustomizeResume(event.target.checked)} />Customize the selected resume for this role</label><label className="check-row"><input type="checkbox" checked={generateCoverLetter} onChange={(event) => setGenerateCoverLetter(event.target.checked)} />Generate a role-specific cover letter draft</label></fieldset>
         <fieldset className="application-options"><legend>Application mode</legend><label className="check-row"><input type="radio" name="mode" checked={applicationMode === 'assisted'} onChange={() => setApplicationMode('assisted')} />Assisted — Kall prepares the package and guides me through the form</label><label className="check-row"><input type="radio" name="mode" checked={applicationMode === 'automatic'} onChange={() => setApplicationMode('automatic')} />Automatic where supported — Kall prepares autofill data, then asks for final approval before submission</label></fieldset>
-        <button className="button" type="button" onClick={prepare} disabled={preparing || !profileId}>{preparing ? 'Preparing application…' : 'Prepare application'}</button>
+        <button className="button" type="button" onClick={prepare} disabled={preparing || loadingOptions || !profileId}>{preparing ? 'Preparing application…' : loadingOptions ? 'Loading your options…' : 'Prepare application'}</button>
         <p className="notice" aria-live="polite">{message}</p>
       </section>
     </div>

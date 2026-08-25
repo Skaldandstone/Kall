@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import KallMark from './KallMark';
 import styles from './AppNav.module.css';
 
 type AppNavProps={current?:'brief'|'opportunities'|'applications'|'documents'|'career'};
@@ -24,5 +25,5 @@ export default function AppNav({current}:AppNavProps){
       .then(data=>{if(data)setUser(data)})
       .catch(()=>undefined);
   },[]);
-  return <header className={styles.header}><a className={styles.brand} href='/' aria-label='Kall home'>Kall</a><nav className={styles.nav} aria-label='Primary navigation'>{items.map(([key,label,href])=><a key={key} href={href} className={`${styles.link} ${current===key?styles.active:''}`} aria-current={current===key?'page':undefined}>{label}</a>)}</nav><a className={styles.account} href='/settings' aria-label='Open account settings'>{initialsFor(user)}</a></header>
+  return <header className={styles.header}><a className={styles.brand} href='/' aria-label='Kall home'><KallMark />Kall</a><nav className={styles.nav} aria-label='Primary navigation'>{items.map(([key,label,href])=><a key={key} href={href} className={`${styles.link} ${current===key?styles.active:''}`} aria-current={current===key?'page':undefined}>{label}</a>)}</nav><a className={styles.account} href='/settings' aria-label='Open account settings'>{initialsFor(user)}</a></header>
 }
