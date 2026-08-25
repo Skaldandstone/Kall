@@ -20,6 +20,29 @@ class Education(TimestampMixin, table=True):
     state_region: str | None = None
 
 
+class Employment(TimestampMixin, table=True):
+    """Structured work history.
+
+    Employer, title, and dates previously existed only as free text inside
+    ResumeDocument.extracted_text -- Achievement carries employer/role_title
+    but has no dates and no ordering, so "most recent employer" could not be
+    derived from it. Nearly every job application form requires these fields,
+    so autofill needs them structured.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    employer: str
+    job_title: str
+    location: str | None = None
+    start_date: date | None = None
+    # None means "present" only when is_current is set; an ended role with an
+    # unknown end date is possible, so the two are tracked independently.
+    end_date: date | None = None
+    is_current: bool = False
+    description: str | None = None
+
+
 class Skill(TimestampMixin, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")

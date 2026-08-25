@@ -11,6 +11,7 @@ from kall.models import (
     Certification,
     Education,
     EEOProfile,
+    Employment,
     FieldPrivacy,
     Language,
     OnboardingProgress,
@@ -70,6 +71,7 @@ class WorkAuthorizationPayload(BaseModel):
 
 RESOURCE_MODELS = {
     "education": Education,
+    "employment": Employment,
     "skills": Skill,
     "certifications": Certification,
     "clearances": SecurityClearance,
@@ -194,7 +196,12 @@ def create_resource(
     session: Session = Depends(get_session),
 ) -> Any:
     model = _model(resource)
-    row = model(user_id=current_user.id, **_clean_data(payload.data))
+    # model_validate rather than the constructor: SQLModel's constructor takes
+    # kwargs as-is without coercion, so a JSON date like "2015-06-01" reached
+    # SQLite as a str and every date-bearing profile resource (education's
+    # graduation_date, employment's start/end dates, certification validity)
+    # died with "SQLite Date type only accepts Python date objects".
+    row = model.model_validate({**_clean_data(payload.data), "user_id": current_user.id})
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -213,12 +220,18 @@ def update_resource(
     row = session.get(model, record_id)
     if not row or row.user_id != current_user.id:
         raise HTTPException(404, "Profile record not found")
-    for key, value in _clean_data(payload.data).items():
+    cleaned = _clean_data(payload.data)
+    unknown = [key for key in cleaned if not hasattr(row, key)]
+    if unknown:
+        raise HTTPException(422, f"Unknown field: {unknown[0]}")
+    # Round-trip through the model so incoming values are coerced to their
+    # declared types (same reason as create_resource above), then copy only
+    # the keys the caller actually sent.
+    coerced = model.model_validate({**row.model_dump(), **cleaned})
+    for key in cleaned:
         if key in {"id", "user_id", "created_at"}:
             continue
-        if not hasattr(row, key):
-            raise HTTPException(422, f"Unknown field: {key}")
-        setattr(row, key, value)
+        setattr(row, key, getattr(coerced, key))
     session.add(row)
     session.commit()
     session.refresh(row)
