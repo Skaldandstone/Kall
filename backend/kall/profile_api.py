@@ -29,6 +29,7 @@ from kall.models import (
 )
 from kall.models.enums import PrivacyScope
 from kall.security import encrypt_sensitive
+from kall.services.skill_vocabulary import canonical_skill, normalize_skill, suggest_skill
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -354,3 +355,38 @@ def readiness(
     overall = round(sum(sections.values()) / len(sections))
     missing = [name for name, score in sections.items() if score < 100]
     return {"overall": overall, "sections": sections, "missing": missing}
+
+
+class SkillCheckRequest(BaseModel):
+    names: list[str] = Field(default_factory=list, max_length=100)
+
+
+class SkillCheckResult(BaseModel):
+    input: str
+    #: The vocabulary's own spelling when the term is recognised.
+    canonical: str | None = None
+    #: A likely intended spelling when it is not, or None to leave it alone.
+    suggestion: str | None = None
+
+
+@router.post("/skills/spellcheck", response_model=list[SkillCheckResult])
+def spellcheck_skills(
+    payload: SkillCheckRequest,
+    current_user: User = Depends(get_current_user),
+) -> list[SkillCheckResult]:
+    """Check typed skill names against the shared vocabulary.
+
+    Advisory only -- it never rejects anything. The vocabulary cannot be
+    complete, so an unrecognised skill comes back with no suggestion rather
+    than an error, and the caller is free to save exactly what was typed.
+    """
+    del current_user
+    return [
+        SkillCheckResult(
+            input=normalize_skill(name),
+            canonical=canonical_skill(name),
+            suggestion=suggest_skill(name),
+        )
+        for name in payload.names
+        if normalize_skill(name)
+    ]

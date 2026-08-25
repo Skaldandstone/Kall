@@ -27,20 +27,84 @@ test.describe('profile tabs', () => {
     await expect(page.locator('select[name="country"] option:checked')).toHaveText('United States');
   });
 
-  test('adding a professional record entry rejects invalid JSON and accepts valid JSON', async ({ page }) => {
+  test('skills are added comma-separated, with a spelling check', async ({ page }) => {
     const unique = Date.now();
     await signInAsNewUser(page);
 
     await page.goto('/profiles?tab=record');
-    await page.locator('select').first().selectOption('skills');
-    await page.locator('textarea[name="data"]').fill('{not valid json');
-    await page.getByRole('button', { name: /Add / }).click();
-    await expect(page.getByText('Enter valid JSON for this profile record.')).toBeVisible();
+    await page.locator('select[name="resource"]').selectOption('skills');
 
-    await page.locator('textarea[name="data"]').fill('{"name":"Python","category":"Programming","years_experience":10}');
-    await page.getByRole('button', { name: /Add / }).click();
-    await expect(page.getByText('Profile record added.')).toBeVisible();
-    await expect(page.getByText(/"name": "Python"/)).toBeVisible();
+    // One deliberate typo alongside two good terms: the check has to catch the
+    // first without second-guessing the others.
+    await page.locator('input[name="skill_names"]').fill('Python, Kubernets, Test Automation');
+    await page.getByRole('button', { name: 'Check spelling' }).click();
+
+    await expect(page.getByText('Did you mean')).toBeVisible();
+    await page.getByRole('button', { name: 'Use Kubernetes' }).click();
+    await expect(page.getByText('Did you mean')).toBeHidden();
+
+    await page.getByRole('button', { name: /Add 3 skills/ }).click();
+    await expect(page.getByText('Added 3 skills.')).toBeVisible();
+
+    // All three saved, and the corrected spelling is what landed.
+    const saved = page.locator('.record-row h3');
+    await expect(saved).toHaveCount(3);
+    await expect(page.getByRole('heading', { name: 'Kubernetes', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Python', exact: true })).toBeVisible();
+  });
+
+  test('an unrecognised skill is kept exactly as typed', async ({ page }) => {
+    const unique = Date.now();
+    await signInAsNewUser(page);
+
+    await page.goto('/profiles?tab=record');
+    await page.locator('select[name="resource"]').selectOption('skills');
+    // The vocabulary cannot be complete, so an unknown term is not an error.
+    await page.locator('input[name="skill_names"]').fill('Frobnicator Engineering');
+    await page.getByRole('button', { name: 'Check spelling' }).click();
+    await expect(page.getByText('Kept as typed')).toBeVisible();
+
+    await page.getByRole('button', { name: /Add 1 skill/ }).click();
+    await expect(page.getByRole('heading', { name: 'Frobnicator Engineering' })).toBeVisible();
+  });
+
+  test('a structured record section uses real fields, not JSON', async ({ page }) => {
+    const unique = Date.now();
+    await signInAsNewUser(page);
+
+    await page.goto('/profiles?tab=record');
+    await page.locator('select[name="resource"]').selectOption('education');
+    await page.locator('input[name="institution"]').fill('Rice University');
+    await page.locator('input[name="degree"]').fill('BS');
+    await page.locator('input[name="major"]').fill('Computer Science');
+    // A date field that reaches SQLite as a string used to break every
+    // date-bearing resource -- worth asserting it round-trips.
+    await page.locator('input[name="graduation_date"]').fill('2015-06-01');
+    // Comma-separated, rather than a JSON array.
+    await page.locator('input[name="honors"]').fill("Magna Cum Laude, Dean's List");
+    await page.getByRole('button', { name: 'Add qualification' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Rice University' })).toBeVisible();
+    await expect(page.getByText("Magna Cum Laude, Dean's List")).toBeVisible();
+    await expect(page.getByText('2015-06-01')).toBeVisible();
+  });
+
+  test("switching sections does not show the previous section's records", async ({ page }) => {
+    const unique = Date.now();
+    await signInAsNewUser(page);
+
+    await page.goto('/profiles?tab=record');
+    await page.locator('select[name="resource"]').selectOption('skills');
+    await page.locator('input[name="skill_names"]').fill('Python');
+    await page.getByRole('button', { name: 'Check spelling' }).click();
+    await page.getByRole('button', { name: /Add 1 skill/ }).click();
+    await expect(page.getByRole('heading', { name: 'Python', exact: true })).toBeVisible();
+
+    // Skill rows rendered against the education schema matched none of its
+    // fields and showed up as a list of "Untitled" entries.
+    await page.locator('select[name="resource"]').selectOption('education');
+    await expect(page.getByText('Untitled')).toHaveCount(0);
+    await expect(page.getByText('No records yet.')).toBeVisible();
   });
 
   test('parsing a resume surfaces a metric-bearing achievement that can be verified', async ({ page }) => {
