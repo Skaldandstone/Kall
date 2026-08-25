@@ -2,11 +2,11 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchBrief } from '../api/brief';
-import { useAuth } from '../auth/AuthContext';
+import { useClerk } from '@clerk/expo';
 import { theme } from '../theme';
 
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
+  const { signOut } = useClerk();
   const [name, setName] = useState('');
 
   useFocusEffect(

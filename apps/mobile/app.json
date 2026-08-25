@@ -26,7 +26,8 @@
       "expo-secure-store"
     ],
     "extra": {
-      "apiBaseUrl": "https://d7wb2yokfqcku.cloudfront.net/api"
+      "apiBaseUrl": "https://d7wb2yokfqcku.cloudfront.net/api",
+      "clerkPublishableKey": "pk_test_Y2hhcm1pbmctbW9jY2FzaW4tODc0OC5jbGVyay5hY2NvdW50cy5kZXYk"
     }
   }
 }

@@ -110,6 +110,11 @@ jobs:
         working-directory: apps/mobile
       - run: npm run test:e2e
         working-directory: apps/mobile
+        env:
+          # Same Clerk dev instance the web e2e job uses -- the mobile app
+          # signs into it for real, and the local backend verifies its tokens.
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

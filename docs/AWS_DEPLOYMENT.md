@@ -32,7 +32,7 @@ Two identities exist for this account:
 | Service Connect namespace | `kall.local` (Cloud Map HTTP namespace) — API is reachable internally at `kall-api.kall.local:8000` |
 | ALB | `kall-alb`, HTTP listener on 80. Default action → `kall-web-tg` (port 3000). Rule (priority 1, path `/api/*`) → `kall-api-tg` (port 8000, target type `ip`) |
 | CloudFront | `E2ZZ5V24QLF8BA` → `https://d7wb2yokfqcku.cloudfront.net` (the public URL) |
-| Secrets Manager | `kall/app-secret-key`, `kall/sensitive-data-encryption-key`, plus the RDS-managed `rds!db-...` secret |
+| Secrets Manager | `kall/app-secret-key`, `kall/sensitive-data-encryption-key`, `kall/clerk-secret-key`, `kall/clerk-publishable-key`, plus the RDS-managed `rds!db-...` secret |
 | S3 bucket | `kall-documents-693272753663` — resumes and generated documents (uploads/, generated/, data/generated-resumes/), private (public access blocked), SSE-S3 encrypted, versioned |
 | IAM roles | `kall-ecs-execution-role` (ECR pull, CloudWatch Logs, reads `kall/*` and `rds!db-*` secrets), `kall-api-task-role` (the `kall-api` container's own AWS calls — scoped to `s3:GetObject`/`PutObject`/`DeleteObject`/`ListBucket` on `kall-documents-693272753663` only), `kall-codebuild-role` (ECR push, CloudWatch Logs) |
 | CodeBuild projects | `kall-api-build` (`Dockerfile.api`, repo root context), `kall-web-build` (`apps/web/Dockerfile`, `apps/web` context) — both build from GitHub directly, no local Docker involved |
@@ -61,7 +61,16 @@ aws ecs update-service --cluster kall-cluster --service kall-web --force-new-dep
 - **No custom domain / ACM cert on the ALB.** CloudFront's default domain covers the "properly encrypted" requirement for now; revisit if a real domain shows up.
 - **No CI/CD trigger** — CodeBuild has to be started manually per the commands above. A GitHub webhook or CodePipeline would close this gap.
 - **Backup retention is 1 day** (free-tier ceiling) and this is **single-AZ** — both are reasonable for a $100-credit bootstrap phase, not for a real production SLA. Revisit if/when the account moves off the free tier.
-- **OAuth provider secrets aren't in Secrets Manager yet** — none were configured for this environment; add `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET` etc. as additional `kall/*` secrets and task-definition `secrets` entries when SSO is actually turned on here.
+- **Social sign-in providers are configured in Clerk, not here.** Enabling Google/GitHub/etc. is a Clerk dashboard change; no AWS secret or task-definition edit is involved, which is one of the reasons identity moved to Clerk.
+
+## Identity (Clerk)
+
+Authentication is Clerk's, not Kall's — see `backend/kall/auth.py`. Two consequences for deployment:
+
+- **Both services need Clerk credentials or every request 401s.** `kall-api` verifies Clerk session tokens and needs `CLERK_SECRET_KEY`; `kall-web` needs `CLERK_SECRET_KEY` (its `/api/kall/[...path]` proxy mints the backend token server-side) and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. Store both as `kall/*` Secrets Manager secrets and reference them from the task definitions' `secrets` blocks, exactly like `kall/app-secret-key`. **Add these before rolling out the Clerk revision** — a task that starts without `CLERK_SECRET_KEY` returns 503 on every authenticated route.
+- **The publishable key is baked into the web image at build time.** `NEXT_PUBLIC_*` values are inlined by `next build`, so `kall-web-build` needs it as a CodeBuild environment variable too; setting it only on the task definition is not enough.
+
+The mobile app reads `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` at build time via `apps/mobile/app.config.js`.
 
 ## Public API path (for the native mobile app)
 
