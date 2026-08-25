@@ -75,6 +75,30 @@ def test_an_existing_account_with_the_same_email_is_adopted_rather_than_collidin
     assert len(db.exec(select(User)).all()) == 1
 
 
+def test_concurrent_first_requests_do_not_collide(engine, clerk_profile) -> None:
+    """Regression: a freshly signed-in user's first page load fires several API
+    calls at once. All of them arrive before any has committed, so all see no
+    user and all try to insert the same row -- the losers hit the unique
+    constraint on User.email and 500'd. Found by e2e, not by unit tests, because
+    a single sequential call never races."""
+    ids = []
+    sessions = [Session(engine) for _ in range(4)]
+    try:
+        for s in sessions:
+            # Read the id before the session closes -- a detached instance
+            # cannot refresh its attributes.
+            ids.append(ensure_local_user(s, "user_racy").id)
+    finally:
+        for s in sessions:
+            s.close()
+
+    assert len(set(ids)) == 1, f"every caller should get the same row, got {ids}"
+
+    with Session(engine) as check:
+        assert len(check.exec(select(User)).all()) == 1
+        assert len(check.exec(select(CandidateProfile)).all()) == 1
+
+
 def test_a_missing_bearer_token_is_rejected(db: Session) -> None:
     with pytest.raises(HTTPException) as caught:
         get_current_user(authorization=None, session=db)

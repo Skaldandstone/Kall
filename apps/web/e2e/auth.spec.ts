@@ -1,88 +1,75 @@
 import { test, expect } from '@playwright/test';
+import { clerk } from '@clerk/testing/playwright';
+import { signInAsNewUser } from './helpers';
 
 /**
- * Session lifecycle coverage: sign-up, sign-out, sign back in, a rejected
- * password, and an anonymous visit to a protected page. These are the exact
- * seams a "users get logged out too easily" style report comes from, so this
- * exists to catch a regression there before a user does.
+ * Kall's side of the auth boundary now that Clerk owns identity.
+ *
+ * Deliberately does NOT test password rules, lockout, MFA or social sign-in:
+ * none of that is Kall's code any more, and asserting on it would only test
+ * Clerk. What remains ours is the wiring -- which routes are protected, that
+ * signing out really ends access, and that the proxy hands the API a token
+ * derived from the session rather than from anything the client supplies.
  */
-test.describe('authentication', () => {
-  test('register, sign out, and sign back in', async ({ page }) => {
-    const unique = Date.now();
-    const email = `auth-roundtrip-${unique}@example.com`;
-    const password = 'AuthRoundTrip123!';
+test.describe('authentication boundary', () => {
+  test('a signed-out visitor cannot reach a protected page or the API', async ({ page }) => {
+    await page.goto('/applications');
+    // Clerk's middleware redirects to Kall's own sign-in, not its hosted
+    // accounts.dev domain, and preserves where the visitor was heading.
+    await expect(page).toHaveURL(/\/sign-in/);
+    expect(new URL(page.url()).searchParams.get('redirect_url')).toContain('/applications');
 
-    await test.step('register', async () => {
-      await page.goto('/register');
-      await page.locator('input[name="full_name"]').fill('Auth Roundtrip Test');
-      await page.locator('input[name="email"]').fill(email);
-      await page.locator('input[name="password"]').fill(password);
-      await page.locator('input[name="password_confirmation"]').fill(password);
-      await page.getByRole('button', { name: 'Create account' }).click();
-      await expect(page).toHaveURL(/\/onboarding/);
-    });
-
-    const firstToken = await page.evaluate(() => localStorage.getItem('kall_token'));
-    expect(firstToken).toBeTruthy();
-
-    await test.step('dismiss the post-signup security setup modal', async () => {
-      const dialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole('button', { name: 'Skip for now' }).click();
-    });
-
-    await test.step('sign out from settings', async () => {
-      await page.goto('/settings');
-      await page.getByRole('button', { name: 'Sign out' }).click();
-      await expect(page).toHaveURL(/\/login/);
-      const tokenAfterSignOut = await page.evaluate(() => localStorage.getItem('kall_token'));
-      expect(tokenAfterSignOut).toBeNull();
-    });
-
-    await test.step('the old token is rejected server-side, not just forgotten client-side', async () => {
-      const response = await page.evaluate(async (token) => {
-        const result = await fetch('/api/kall/me', { headers: { Authorization: `Bearer ${token}` } });
-        return result.status;
-      }, firstToken);
-      expect(response).toBe(401);
-    });
-
-    await test.step('a signed-out visitor sees a sign-in prompt, not application data', async () => {
-      await page.goto('/applications');
-      await expect(page.getByRole('heading', { name: 'Sign in to view your applications.' })).toBeVisible();
-    });
-
-    await test.step('sign back in with the same credentials', async () => {
-      await page.goto('/login');
-      await page.locator('input[name="email"]').fill(email);
-      await page.locator('input[name="password"]').fill(password);
-      await page.getByRole('button', { name: 'Log in', exact: true }).click();
-      await expect(page).toHaveURL(/\/dashboard/);
-    });
-
-    const secondToken = await page.evaluate(() => localStorage.getItem('kall_token'));
-    expect(secondToken).toBeTruthy();
-    expect(secondToken).not.toBe(firstToken);
+    const api = await page.request.get('/api/kall/me');
+    expect(api.ok()).toBeFalsy();
   });
 
-  test('a wrong password is rejected without creating a session', async ({ page, request, baseURL }) => {
-    const unique = Date.now();
-    const email = `auth-wrongpass-${unique}@example.com`;
-    const password = 'CorrectPassword123!';
+  test('the marketing page and a testimonial invitation stay public', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: "Build your life's work." })).toBeVisible();
 
-    const registerResponse = await request.post(`${baseURL}/api/kall/auth/register`, {
-      data: { email, password, full_name: 'Wrong Password Test' },
+    // Opened by a former colleague from an emailed link, so it must work with
+    // no Kall account at all.
+    await page.goto('/testimonial-submit?token=not-a-real-token');
+    await expect(page.getByRole('heading', { name: /Share what it was like/i })).toBeVisible();
+  });
+
+  test('signing in, then out, ends access to the API', async ({ page }) => {
+    await signInAsNewUser(page, 'Session Boundary Test');
+
+    const signedIn = await page.request.get('/api/kall/me');
+    expect(signedIn.ok()).toBeTruthy();
+
+    await clerk.signOut({ page });
+
+    const signedOut = await page.request.get('/api/kall/me');
+    expect(signedOut.ok()).toBeFalsy();
+  });
+
+  test('the browser never holds a session token of its own', async ({ page }) => {
+    await signInAsNewUser(page, 'Token Storage Test');
+
+    // The whole point of moving to Clerk's httpOnly cookie: script injection
+    // cannot read the session out of storage, because it is not there.
+    const stored = await page.evaluate(() => ({
+      local: Object.keys(window.localStorage),
+      session: Object.keys(window.sessionStorage),
+    }));
+    expect(stored.local.join(',')).not.toContain('kall_token');
+    expect(stored.session.join(',')).not.toContain('kall_token');
+
+    // And the app still works without one, because the proxy supplies it.
+    const me = await page.request.get('/api/kall/me');
+    expect(me.ok()).toBeTruthy();
+  });
+
+  test('the proxy does not forward a client-supplied Authorization header', async ({ page }) => {
+    // A garbage bearer token must not reach the API. If it were forwarded,
+    // FastAPI would answer with its own JSON 401; instead Clerk sees no valid
+    // session and the request never gets past the middleware.
+    const response = await page.request.get('/api/kall/me', {
+      headers: { Authorization: 'Bearer not.a.real.token' },
     });
-    expect(registerResponse.ok()).toBeTruthy();
-
-    await page.goto('/login');
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill('DefinitelyWrongPassword!');
-    await page.getByRole('button', { name: 'Log in', exact: true }).click();
-
-    await expect(page.getByText('Invalid credentials')).toBeVisible();
-    await expect(page).toHaveURL(/\/login/);
-    const token = await page.evaluate(() => localStorage.getItem('kall_token'));
-    expect(token).toBeNull();
+    expect(response.ok()).toBeFalsy();
+    expect(await response.text()).not.toContain('Invalid or expired session');
   });
 });

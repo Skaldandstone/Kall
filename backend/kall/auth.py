@@ -13,6 +13,7 @@ from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import TokenVerificationError, VerifyTokenOptions
 from clerk_backend_api.security.verifytoken import verify_token
 from fastapi import Depends, Header, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from kall.config import get_settings
@@ -69,6 +70,10 @@ def _clerk_profile(clerk_user_id: str) -> tuple[str, str]:
     return email, full_name or email
 
 
+def _find_user(session: Session, clerk_user_id: str) -> User | None:
+    return session.exec(select(User).where(User.clerk_user_id == clerk_user_id)).first()
+
+
 def ensure_local_user(session: Session, clerk_user_id: str) -> User:
     """Resolves the local User for a Clerk id, creating it on first sight.
 
@@ -80,8 +85,14 @@ def ensure_local_user(session: Session, clerk_user_id: str) -> User:
     CandidateProfile is created alongside User deliberately: `GET /me/identity`
     degrades to null fields rather than erroring when it is missing, so a gap
     here surfaces as a silently broken onboarding rather than a visible fault.
+
+    The check-then-insert here is deliberately racy-tolerant. A freshly signed-in
+    user's first page load fires several API calls at once, and every one of them
+    arrives before any has committed -- so they all see no user and all try to
+    insert the same row. One wins; the rest must recover rather than 500. Losing
+    that race is the normal case on first load, not an edge case.
     """
-    user = session.exec(select(User).where(User.clerk_user_id == clerk_user_id)).first()
+    user = _find_user(session, clerk_user_id)
     if user:
         return user
 
@@ -95,14 +106,27 @@ def ensure_local_user(session: Session, clerk_user_id: str) -> User:
         user.clerk_user_id = clerk_user_id
     else:
         user = User(clerk_user_id=clerk_user_id, email=email, full_name=full_name)
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+
+    try:
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    except IntegrityError:
+        session.rollback()
+        user = _find_user(session, clerk_user_id) or session.exec(
+            select(User).where(User.email == email)
+        ).first()
+        if user is None:
+            raise
 
     profile = session.exec(select(CandidateProfile).where(CandidateProfile.user_id == user.id)).first()
     if not profile:
-        session.add(CandidateProfile(user_id=user.id, preferred_name=full_name))
-        session.commit()
+        try:
+            session.add(CandidateProfile(user_id=user.id, preferred_name=full_name))
+            session.commit()
+        except IntegrityError:
+            # CandidateProfile.user_id is unique; a parallel request got there first.
+            session.rollback()
     return user
 
 

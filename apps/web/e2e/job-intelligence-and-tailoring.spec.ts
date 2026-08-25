@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers';
+import { signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
 
 /**
  * Covers the chain that turns a job posting into finished application
@@ -11,18 +11,13 @@ import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers'
  * this path (see backend/kall/services/match_intelligence.py,
  * services/tailoring.py, services/documents.py).
  */
-test('job intelligence, tailoring, and document generation', async ({ page, request, baseURL }) => {
+test('job intelligence, tailoring, and document generation', async ({ page }) => {
   const unique = Date.now();
-  const token = await registerAndDismissModal(page, `job-intel-${unique}@example.com`, 'JobIntelTest123!');
+  await signInAsNewUser(page);
   await completeOnboarding(page);
 
-  const profileId: number = await page.evaluate(async () => {
-    const response = await fetch('/api/kall/me/professional-profiles', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('kall_token')}` },
-    });
-    return (await response.json())[0].id;
-  });
-  const job = await seedJob(request, baseURL!, token);
+  const profileId = await firstProfileId(page);
+  const job = await seedJob(page);
 
   await test.step('build match intelligence and select a resume', async () => {
     await page.goto(`/job-intelligence?job=${job.id}&profile=${profileId}`);

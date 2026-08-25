@@ -11,6 +11,12 @@ const isPublicRoute = createRouteMatcher([
   '/demo(.*)',
   '/privacy-policy',
   '/testimonial-submit(.*)',
+  // The API calls that page makes must be public too, or the recipient can
+  // open the form and never be able to submit it. Both endpoints authenticate
+  // on the single-use invitation token itself (api_testimonials.py), not on a
+  // Kall session -- the person answering has no account by definition.
+  '/api/kall/testimonials/submit',
+  '/api/kall/testimonials/withdraw',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

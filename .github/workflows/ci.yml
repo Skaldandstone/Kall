@@ -52,6 +52,8 @@ jobs:
           node-version: "22"
       - run: npm install
       - run: npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
 
   e2e:
     runs-on: ubuntu-latest
@@ -71,6 +73,12 @@ jobs:
         working-directory: apps/web
       - run: npm run test:e2e
         working-directory: apps/web
+        env:
+          # Identity lives in Clerk, so e2e signs into a real dev instance.
+          # Without these every spec fails at sign-in -- global setup checks
+          # for them up front and says so rather than failing one-by-one.
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -16,6 +16,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.30",
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.6",

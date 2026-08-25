@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers';
+import { signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
 
 /**
  * One-click apply: Kall pre-fills the employer's form, the user submits it
@@ -12,9 +12,9 @@ import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers'
  * this specific application, and opt-in fields like phone must stay withheld
  * until a privacy rule grants them.
  */
-test('the autofill panel fills consented fields and withholds the rest', async ({ page, request, baseURL }) => {
+test('the autofill panel fills consented fields and withholds the rest', async ({ page }) => {
   const unique = Date.now();
-  const token = await registerAndDismissModal(page, `autofill-${unique}@example.com`, 'AutofillPanelTest123!', 'Ada Lovelace');
+  await signInAsNewUser(page, 'Ada Lovelace');
   await completeOnboarding(page);
 
   await test.step('save identity details and a current role', async () => {
@@ -37,8 +37,7 @@ test('the autofill panel fills consented fields and withholds the rest', async (
   });
 
   await test.step('record work authorization', async () => {
-    const response = await request.put(`${baseURL}/api/kall/profile/work-authorization`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await page.request.put(`/api/kall/profile/work-authorization`, {
       data: {
         country: 'United States', authorization_type: 'Citizen', citizenship_status: 'US Citizen',
         requires_current_sponsorship: false, requires_future_sponsorship: false,
@@ -47,13 +46,8 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     expect(response.ok()).toBeTruthy();
   });
 
-  const profileId: number = await page.evaluate(async () => {
-    const response = await fetch('/api/kall/me/professional-profiles', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('kall_token')}` },
-    });
-    return (await response.json())[0].id;
-  });
-  const job = await seedJob(request, baseURL!, token);
+  const profileId = await firstProfileId(page);
+  const job = await seedJob(page);
 
   await test.step('prepare and approve an application', async () => {
     await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);

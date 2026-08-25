@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { signInAsNewUser } from './helpers';
 
 /**
  * Covers the Opportunities workspace's non-live-network surface: adding a
@@ -12,30 +13,13 @@ import { test, expect } from '@playwright/test';
  * session) is already covered by tests/test_opportunities.py with a fake
  * provider; this spec only exercises the UI around it.
  */
-test('adding a search source and scheduling automatic discovery', async ({ page, request, baseURL }) => {
-  const unique = Date.now();
-  const email = `discovery-${unique}@example.com`;
-  const password = 'DiscoverySourcesTest123!';
-
-  await page.goto('/register');
-  await page.locator('input[name="full_name"]').fill('Discovery Sources Test');
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('input[name="password_confirmation"]').fill(password);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
-
-  const dialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Skip for now' }).click();
+test('adding a search source and scheduling automatic discovery', async ({ page }) => {
+  await signInAsNewUser(page, 'Discovery Sources Test');
 
   // The schedule form (like every ProfessionalProfileSelect consumer) is
-  // disabled until a professional profile exists. Create one directly
-  // rather than walking the full onboarding wizard, which this spec
-  // doesn't otherwise need.
-  const token = await page.evaluate(() => localStorage.getItem('kall_token'));
-  const profileResponse = await request.post(`${baseURL}/api/kall/me/professional-profiles`, {
-    headers: { Authorization: `Bearer ${token}` },
+  // disabled until a professional profile exists. Create one directly rather
+  // than walking the onboarding wizard, which this spec doesn't otherwise need.
+  const profileResponse = await page.request.post('/api/kall/me/professional-profiles', {
     data: { name: 'Backend Leadership', target_titles: ['Senior Backend Engineer'] },
   });
   expect(profileResponse.ok()).toBeTruthy();

@@ -28,7 +28,16 @@ export default defineConfig({
     {
       command: 'npm run dev',
       cwd: __dirname,
-      env: { PORT: String(WEB_PORT), KALL_API_URL: apiURL },
+      env: {
+        PORT: String(WEB_PORT),
+        KALL_API_URL: apiURL,
+        // Passed explicitly so a CI run works from repository secrets, where
+        // there is no .env.local for Next.js to pick these up from.
+        CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? '',
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
+        NEXT_PUBLIC_CLERK_SIGN_IN_URL: '/sign-in',
+        NEXT_PUBLIC_CLERK_SIGN_UP_URL: '/sign-up',
+      },
       url: baseURL,
       timeout: 60_000,
       reuseExistingServer: false,
