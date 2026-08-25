@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api/kall';
 type BillingStatus = { plan: string; subscription_status: string; used: number; free_limit: number; remaining: number | null; allowed: boolean };
 
 export default function BillingPage() {
@@ -11,13 +11,16 @@ export default function BillingPage() {
 
   async function load() {
     const token = localStorage.getItem('kall_token');
-    const response = await fetch(`${API}/api/billing/status`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!token) { window.location.replace('/login'); return; }
+    const response = await fetch(`${API}/billing/status`, { headers: { Authorization: `Bearer ${token}` } });
+    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
     if (response.ok) setStatus(await response.json());
   }
 
   async function open(path: 'checkout' | 'portal') {
     const token = localStorage.getItem('kall_token');
-    const response = await fetch(`${API}/api/billing/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetch(`${API}/billing/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
     if (!response.ok) return setMessage('Billing is not available yet. Check Stripe configuration.');
     const data = await response.json();
     window.location.href = data.url;

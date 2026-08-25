@@ -98,6 +98,26 @@ function JobIntelligenceContent() {
     setMessage('Preparing match intelligence…');
 
     try {
+      // Building match intelligence for a job requires its requirements to
+      // already be analyzed (a separate, one-time JobRequirementAnalysis
+      // row) -- nothing else in the product creates that row, so it has to
+      // be triggered here or every job 409s with "Analyze the job
+      // requirements before ranking resumes".
+      const analyze = await fetch(`${API}/intelligence/jobs/${normalizedJobId}/analyze`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (analyze.status === 401) {
+        localStorage.removeItem('kall_token');
+        window.location.replace('/login');
+        return;
+      }
+      if (!analyze.ok) {
+        setMessage(await responseMessage(analyze, 'Unable to analyze the job requirements.'));
+        return;
+      }
+
       const run = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

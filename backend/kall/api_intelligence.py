@@ -43,6 +43,11 @@ def parse_resume_endpoint(
             skills=item.get("skills", []),
         ))
     session.commit()
+    # This commit expires every object the session has loaded, including
+    # `row` from the commit above -- without a refresh, FastAPI serializes
+    # an object whose attributes have been expired out from under it, which
+    # silently produces an empty {} response body instead of a real error.
+    session.refresh(row)
     return row
 
 

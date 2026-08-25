@@ -21,6 +21,7 @@ export default function TailoringTab() {
   const [proposalId, setProposalId] = useState('');
   const [changes, setChanges] = useState<Change[]>([]);
   const [unsupported, setUnsupported] = useState<string[]>([]);
+  const [proposalStatus, setProposalStatus] = useState('');
   const token = typeof window !== 'undefined' ? localStorage.getItem('kall_token') : '';
 
   async function createProposal(event: FormEvent<HTMLFormElement>) {
@@ -44,6 +45,7 @@ export default function TailoringTab() {
     if (!response.ok) return alert(data.detail || 'Unable to load proposal');
     setChanges(data.changes);
     setUnsupported(data.proposal.unsupported_requirements || []);
+    setProposalStatus(data.proposal.status);
   }
 
   async function decide(change: Change, status: string, edited_text?: string) {
@@ -55,6 +57,16 @@ export default function TailoringTab() {
     const data = await response.json();
     if (!response.ok) return alert(data.detail || 'Unable to save decision');
     setChanges(current => current.map(item => item.id === data.id ? data : item));
+  }
+
+  async function finalize() {
+    const response = await fetch(`${API}/tailoring/proposals/${proposalId}/finalize`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) return alert(data.detail || 'Unable to finalize proposal');
+    setProposalStatus(data.status);
   }
 
   return <>
@@ -75,7 +87,17 @@ export default function TailoringTab() {
       <div className="two"><div><h3>Original</h3><p>{change.original_text}</p></div><div><h3>Proposed</h3><textarea className="input" id={`edit-${change.id}`} defaultValue={change.edited_text || change.proposed_text} rows={8}/></div></div>
       <p><strong>Evidence:</strong> {change.evidence.map(item => item.text).join(' · ')}</p>
       <div style={{display:'flex',gap:10}}><button className="button" onClick={() => decide(change,'accepted')}>Accept</button><button className="button secondary" onClick={() => decide(change,'edited',(document.getElementById(`edit-${change.id}`) as HTMLTextAreaElement).value)}>Save edit</button><button className="button secondary" onClick={() => decide(change,'rejected')}>Reject</button></div>
-      <p>Status: {change.status}{proposalId ? <> · Proposal <code>{proposalId}</code> — use this ID in Generate.</> : null}</p>
+      <p>Status: {change.status}{proposalId ? <> · Proposal <code>{proposalId}</code></> : null}</p>
     </section>)}
+    {changes.length > 0 && <section className="card">
+      {proposalStatus === 'finalized' ? (
+        <p>Proposal <code>{proposalId}</code> is finalized — use this ID in Generate.</p>
+      ) : (
+        <>
+          <button className="button" disabled={changes.some(change => change.status === 'pending')} onClick={finalize}>Finalize proposal</button>
+          {changes.some(change => change.status === 'pending') && <p className="muted">Every change above must be accepted, edited, or rejected before this proposal can be finalized.</p>}
+        </>
+      )}
+    </section>}
   </>;
 }
