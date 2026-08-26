@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Flagging a dead job posting has to survive more than the current tab -- that
