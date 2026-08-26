@@ -39,6 +39,27 @@ function loadEnvFiles(): void {
 
 loadEnvFiles();
 
+/**
+ * Fail immediately, and legibly, when the Clerk keys are absent. Runs at
+ * config-load time because Playwright waits for the webServers to become
+ * healthy before running globalSetup -- see apps/web/e2e/env.ts for the CI
+ * failure that showed this.
+ */
+function requireClerkKeys(): void {
+  const missing = ['CLERK_SECRET_KEY', 'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY'].filter(
+    (name) => !process.env[name],
+  );
+  if (!missing.length) return;
+  throw new Error(
+    `Missing ${missing.join(' and ')}. Identity lives in Clerk, so this test needs a real ` +
+      'Clerk dev instance. Locally the keys are read from apps/web/.env.local; in CI they must ' +
+      'be set as the repository secrets CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY ' +
+      '(Settings > Secrets and variables > Actions).',
+  );
+}
+
+requireClerkKeys();
+
 export const WEB_PORT = 8199;
 export const API_PORT = 8210;
 export const baseURL = `http://127.0.0.1:${WEB_PORT}`;

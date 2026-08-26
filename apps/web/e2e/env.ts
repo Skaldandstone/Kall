@@ -26,6 +26,35 @@ function loadEnvLocal(): void {
 
 loadEnvLocal();
 
+/**
+ * Fail immediately, and legibly, when the Clerk keys are absent.
+ *
+ * This runs at config-load time on purpose. Playwright waits for every
+ * `webServer` to become healthy before it runs globalSetup, and without a
+ * publishable key the Next.js server 500s on every request and never becomes
+ * healthy -- so the run died after 60s on "Timed out waiting from
+ * config.webServer", preceded by a wall of Clerk stack traces, with nothing
+ * anywhere naming the actual cause.
+ *
+ * Deliberately a hard failure rather than skipping the suite. A skip would
+ * turn this into a green check that proves nothing, and these specs have
+ * already caught real production bugs.
+ */
+function requireClerkKeys(): void {
+  const missing = ['CLERK_SECRET_KEY', 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'].filter(
+    (name) => !process.env[name],
+  );
+  if (!missing.length) return;
+  throw new Error(
+    `Missing ${missing.join(' and ')}. Identity lives in Clerk, so these tests need a real ` +
+      'Clerk dev instance. Locally they are read from apps/web/.env.local; in CI they must be ' +
+      'set as the repository secrets CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY ' +
+      '(Settings > Secrets and variables > Actions).',
+  );
+}
+
+requireClerkKeys();
+
 export const WEB_PORT = 3100;
 export const API_PORT = 8110;
 export const baseURL = `http://127.0.0.1:${WEB_PORT}`;
