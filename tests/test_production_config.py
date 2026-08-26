@@ -23,9 +23,9 @@ def test_production_requires_clerk_secret_key() -> None:
 
     Failing at startup is deliberate: the alternative is a container that
     boots happily and 503s every authenticated request. It is also load
-    bearing for deployment -- render.yaml and the ECS task definitions must
-    supply CLERK_SECRET_KEY, and this guard is what turns forgetting it into
-    a failed deploy rather than a silently broken one.
+    bearing for deployment -- the ECS task definitions must supply
+    CLERK_SECRET_KEY, and this guard is what turns forgetting it into a
+    failed deploy rather than a silently broken one.
     """
     with pytest.raises(ValidationError, match="CLERK_SECRET_KEY"):
         Settings(

@@ -12,9 +12,9 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # next build inlines NEXT_PUBLIC_* values into the client bundle, and it runs
-# *here*, inside the image build -- so setting this on the Render service or
-# the CodeBuild project is not enough on its own, it has to be passed through
-# as a build arg. Without it @clerk/nextjs fails the build outright with
+# *here*, inside the image build -- so setting this on the CodeBuild project
+# is not enough on its own, it has to be passed through as a build arg.
+# Without it @clerk/nextjs fails the build outright with
 # "Missing publishableKey".
 #
 # Safe as a build arg precisely because a publishable key is public: it only

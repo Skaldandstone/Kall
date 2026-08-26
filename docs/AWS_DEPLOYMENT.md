@@ -1,6 +1,6 @@
 # AWS deployment
 
-Kall's backend and web app run on AWS (account `693272753663`, region `us-east-2`), replacing the earlier Render setup described in `docs/PRODUCTION_DEPLOYMENT.md`. This document records what was actually built, why it's shaped the way it is, and how to operate it — so a future session doesn't have to rediscover it by hitting access-denied errors the way this one did.
+Kall's backend and web app run on AWS (account `693272753663`, region `us-east-2`), replacing an earlier Render setup, which has now been removed entirely. `docs/PRODUCTION_DEPLOYMENT.md` covers the host-independent layer on top: application configuration and the Stripe test-to-live cutover. This document records what was actually built, why it's shaped the way it is, and how to operate it — so a future session doesn't have to rediscover it by hitting access-denied errors the way this one did.
 
 ## Account context
 

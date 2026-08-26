@@ -1,16 +1,12 @@
 # Kall production deployment
 
-This runbook deploys Kall as three resources: a PostgreSQL database, the FastAPI service, and the Next.js service. The included `render.yaml` is a starting blueprint; equivalent container settings can be used on Railway, Fly.io, AWS, Azure, or Google Cloud.
+Kall runs as three resources: a PostgreSQL database, the FastAPI service, and the Next.js service.
 
-## 1. Create the services
+**Infrastructure lives in [`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md)** — ECS, RDS, CodeBuild, CloudFront, and the actual account topology. This runbook covers what sits on top of it and is not AWS-specific: the application configuration, and the Stripe test-to-live cutover.
 
-1. Connect `Grunklegrok/Kall` to the hosting provider.
-2. Create the PostgreSQL database.
-3. Create the API service from `Dockerfile.api`.
-4. Create the web service from `apps/web/Dockerfile`, with `apps/web` as its build context.
-5. Keep automatic deploys enabled only for `main` after CI succeeds.
+## 1. Before you start
 
-The API container runs `alembic upgrade head` before starting Uvicorn. It must use a database account permitted to run migrations.
+The services must already exist per `AWS_DEPLOYMENT.md`. The API container runs `alembic upgrade head` before starting Uvicorn, so its database account must be permitted to run migrations.
 
 ## 2. Configure Clerk
 
