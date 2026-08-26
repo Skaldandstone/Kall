@@ -1,6 +1,5 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 test.describe('profile tabs', () => {
   test('identity settings persist across a reload', async ({ page }) => {

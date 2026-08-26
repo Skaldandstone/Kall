@@ -1,6 +1,5 @@
-import { test, expect } from '@playwright/test';
 import { clerk } from '@clerk/testing/playwright';
-import { signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Kall's side of the auth boundary now that Clerk owns identity.

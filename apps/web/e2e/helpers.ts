@@ -1,8 +1,41 @@
-import { Page, expect } from '@playwright/test';
+import { Page, expect, test as base } from '@playwright/test';
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
 import path from 'node:path';
 
 const CLERK_API = 'https://api.clerk.com/v1';
+
+/**
+ * Clerk users created by the currently running test.
+ *
+ * Each is deleted when its test finishes (see the `test` fixture below).
+ * Without that, a dev instance's 100-user cap is reached after a handful of
+ * runs and then every spec fails at sign-in with `user_quota_exceeded` -- an
+ * error that names nothing relevant. The age-gated sweep in
+ * purge-test-users.ts is the backstop for users a crashed run left behind;
+ * this is what keeps the steady state clean.
+ */
+const createdUserIds: string[] = [];
+
+async function deleteClerkUser(id: string): Promise<void> {
+  await fetch(`${CLERK_API}/users/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${secretKey()}` },
+  }).catch(() => undefined);
+}
+
+/**
+ * Use this instead of Playwright's own `test` so the Clerk users a spec
+ * creates are cleaned up even when it fails.
+ */
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    await use(page);
+    const ids = createdUserIds.splice(0);
+    await Promise.all(ids.map(deleteClerkUser));
+  },
+});
+
+export { expect };
 const E2E_PASSWORD = 'KallE2ePassword!2026';
 
 function secretKey() {
@@ -48,6 +81,7 @@ export async function signInAsNewUser(page: Page, fullName = 'E2E Test User') {
   if (!response.ok) {
     throw new Error(`Could not create a Clerk test user: ${response.status} ${await response.text()}`);
   }
+  createdUserIds.push(((await response.json()) as { id: string }).id);
 
   // Bypasses Clerk's bot protection for this browser context.
   await setupClerkTestingToken({ page });
@@ -57,10 +91,28 @@ export async function signInAsNewUser(page: Page, fullName = 'E2E Test User') {
   // sign-in attempt leaves the form sitting there un-submitted.
   await page.goto('/');
   await clerk.loaded({ page });
-  await clerk.signIn({
-    page,
-    signInParams: { strategy: 'password', identifier: email, password: E2E_PASSWORD },
-  });
+
+  // The user was just created through the Backend API and is being signed in
+  // through the Frontend API, which does not always see it yet: CI observed
+  // "Couldn't find your account" seconds after a successful create. That burnt
+  // Playwright's one retry on a false failure and hid the real result, so
+  // absorb the propagation lag here instead.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await clerk.signIn({
+        page,
+        signInParams: { strategy: 'password', identifier: email, password: E2E_PASSWORD },
+      });
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!/Couldn't find your account/i.test(String(error))) throw error;
+      await page.waitForTimeout(1_000 * (attempt + 1));
+    }
+  }
+  if (lastError) throw lastError;
 
   // The instance verifies unrecognised devices, so password alone leaves the
   // sign-in at `needs_client_trust` -- silently, with no error thrown, which

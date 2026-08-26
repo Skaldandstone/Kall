@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
 
 /**
  * Covers the chain that turns a job posting into finished application

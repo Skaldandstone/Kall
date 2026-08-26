@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Regression coverage for a real bug found while building this suite:
