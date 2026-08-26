@@ -5,6 +5,11 @@
   "type": "module",
   "description": "Pre-fills employer application forms from Kall. The user always submits.",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js && playwright test",
+    "test:unit": "node --test test/*.test.js",
+    "test:dom": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }
