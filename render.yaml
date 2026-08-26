@@ -37,6 +37,11 @@ services:
         value: price_1U08lPIjMKrx5dSp2XBsn8to
       - key: OPENAI_API_KEY
         sync: false
+      # Identity is Clerk's. config.py refuses to start in production without
+      # this, so a service missing it fails its health check and the deploy
+      # fails -- which is exactly what happened when Clerk landed on main.
+      - key: CLERK_SECRET_KEY
+        sync: false
 
   - type: web
     name: kall-web
@@ -48,4 +53,11 @@ services:
     autoDeploy: true
     envVars:
       - key: NEXT_PUBLIC_API_URL
+        sync: false
+      # Read at runtime by /api/kall/[...path], which mints the backend token
+      # from the Clerk session server-side.
+      - key: CLERK_SECRET_KEY
+        sync: false
+      # Also needed at *build* time -- see the ARG in apps/web/Dockerfile.
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
         sync: false
