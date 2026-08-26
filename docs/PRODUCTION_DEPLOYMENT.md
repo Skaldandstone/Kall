@@ -1,18 +1,21 @@
 # Kall production deployment
 
-This runbook deploys Kall as three resources: a PostgreSQL database, the FastAPI service, and the Next.js service. The included `render.yaml` is a starting blueprint; equivalent container settings can be used on Railway, Fly.io, AWS, Azure, or Google Cloud.
+Kall runs as three resources: a PostgreSQL database, the FastAPI service, and the Next.js service.
 
-## 1. Create the services
+**Infrastructure lives in [`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md)** — ECS, RDS, CodeBuild, CloudFront, and the actual account topology. This runbook covers what sits on top of it and is not AWS-specific: the application configuration, and the Stripe test-to-live cutover.
 
-1. Connect `Grunklegrok/Kall` to the hosting provider.
-2. Create the PostgreSQL database.
-3. Create the API service from `Dockerfile.api`.
-4. Create the web service from `apps/web/Dockerfile`, with `apps/web` as its build context.
-5. Keep automatic deploys enabled only for `main` after CI succeeds.
+## 1. Before you start
 
-The API container runs `alembic upgrade head` before starting Uvicorn. It must use a database account permitted to run migrations.
+The services must already exist per `AWS_DEPLOYMENT.md`. The API container runs `alembic upgrade head` before starting Uvicorn, so its database account must be permitted to run migrations.
 
-## 2. Configure API secrets
+## 2. Configure Clerk
+
+Identity is Clerk's, not Kall's. Both services need credentials or the deploy fails outright:
+
+- `kall-api` needs `CLERK_SECRET_KEY`. `config.py` refuses to start in production without it, so the container dies and the health check never passes.
+- `kall-web` needs `CLERK_SECRET_KEY` at runtime (its `/api/kall` proxy mints the backend token from the session) and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` at **build** time, passed through `apps/web/Dockerfile`'s `ARG` - `next build` runs inside the image build and inlines the value, so a service-level variable alone does not reach it.
+
+## 3. Configure API secrets
 
 Set every API environment variable listed in `.env.production.example`. Never commit actual keys.
 
@@ -33,7 +36,7 @@ STRIPE_PRICE_ID=price_1U08lPIjMKrx5dSp2XBsn8to
 
 The Stripe secret key and webhook signing secret must come from the same test-mode account as the price.
 
-## 3. Configure service URLs
+## 4. Configure service URLs
 
 Before a custom domain is available, use the provider-generated HTTPS URLs:
 
@@ -53,7 +56,7 @@ GET https://<api-service-host>/ready
 
 Both endpoints must return HTTP 200 before configuring Stripe.
 
-## 4. Configure the Stripe test webhook
+## 5. Configure the Stripe test webhook
 
 Create or update a test-mode snapshot webhook destination:
 
@@ -72,7 +75,7 @@ Enable at least:
 
 Copy that destination's `whsec_...` value into `STRIPE_WEBHOOK_SECRET`, then restart the API service. Do not use a Connect thin-event destination for this billing endpoint.
 
-## 5. Sandbox verification
+## 6. Sandbox verification
 
 1. Register a new Kall user.
 2. Open Billing and confirm the page shows the free allowance.
@@ -85,7 +88,7 @@ Copy that destination's `whsec_...` value into `STRIPE_WEBHOOK_SECRET`, then res
 
 Do not switch to live credentials until all eight checks pass.
 
-## 6. Custom domain later
+## 7. Custom domain later
 
 After acquiring a domain, use separate hosts:
 
@@ -96,7 +99,7 @@ api.<domain>  -> FastAPI service
 
 Update `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`, Stripe success/cancel URLs through the application configuration, and the Stripe webhook destination. Wait for valid TLS before enabling live event delivery.
 
-## 7. Live-mode cutover
+## 8. Live-mode cutover
 
 Live mode needs a separate product/price, secret key, and webhook signing secret. Test-mode IDs cannot be mixed with live-mode credentials.
 

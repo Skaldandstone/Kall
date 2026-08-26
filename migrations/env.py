@@ -17,10 +17,11 @@ if config.config_file_name is not None:
 
 target_metadata = SQLModel.metadata
 
-# A stable, application-specific PostgreSQL advisory-lock key. Render can briefly
-# start multiple service instances during a deploy; without serialization, two
-# Alembic processes can both pass SQLAlchemy's existence checks and race to
-# create the same table.
+# A stable, application-specific PostgreSQL advisory-lock key. A rolling deploy
+# briefly runs more than one instance of the service at once -- an ECS
+# deployment overlaps the new and old tasks by design -- and the API container
+# runs migrations on startup. Without serialization, two Alembic processes can
+# both pass SQLAlchemy's existence checks and race to create the same table.
 MIGRATION_LOCK_KEY = 1262570572
 
 

@@ -1,6 +1,6 @@
 # AWS deployment
 
-Kall's backend and web app run on AWS (account `693272753663`, region `us-east-2`), replacing the earlier Render setup described in `docs/PRODUCTION_DEPLOYMENT.md`. This document records what was actually built, why it's shaped the way it is, and how to operate it - so a future session doesn't have to rediscover it by hitting access-denied errors the way this one did.
+Kall's backend and web app run on AWS (account `693272753663`, region `us-east-2`), replacing an earlier Render setup, which has now been removed entirely. `docs/PRODUCTION_DEPLOYMENT.md` covers the host-independent layer on top: application configuration and the Stripe test-to-live cutover. This document records what was actually built, why it's shaped the way it is, and how to operate it - so a future session doesn't have to rediscover it by hitting access-denied errors the way this one did.
 
 ## Account context
 
@@ -68,7 +68,13 @@ aws ecs update-service --cluster kall-cluster --service kall-web --force-new-dep
 Authentication is Clerk's, not Kall's - see `backend/kall/auth.py`. Two consequences for deployment:
 
 - **Both services need Clerk credentials or every request 401s.** `kall-api` verifies Clerk session tokens and needs `CLERK_SECRET_KEY`; `kall-web` needs `CLERK_SECRET_KEY` (its `/api/kall/[...path]` proxy mints the backend token server-side) and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`. Store both as `kall/*` Secrets Manager secrets and reference them from the task definitions' `secrets` blocks, exactly like `kall/app-secret-key`. **Add these before rolling out the Clerk revision** - a task that starts without `CLERK_SECRET_KEY` returns 503 on every authenticated route.
-- **The publishable key is baked into the web image at build time.** `NEXT_PUBLIC_*` values are inlined by `next build`, so `kall-web-build` needs it as a CodeBuild environment variable too; setting it only on the task definition is not enough.
+- **The publishable key is baked into the web image at build time, and needs a build arg.** `NEXT_PUBLIC_*` values are inlined by `next build`, which runs *inside* the Docker build - so a CodeBuild environment variable does not reach it on its own. `apps/web/Dockerfile` declares `ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and the build has to pass it through:
+
+  ```
+  docker build --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" -t kall-web apps/web
+  ```
+
+  Setting it only on the task definition builds an image with no key in it, and every page then fails with "Missing publishableKey". A publishable key is public by design, so a build arg is fine here - but `CLERK_SECRET_KEY` must never be passed that way, because build args are recorded in the image history. It is a runtime secret on both services.
 
 The mobile app reads `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` at build time via `apps/mobile/app.config.js`.
 

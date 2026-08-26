@@ -20,7 +20,7 @@ The project should currently be treated as **late alpha / pre-beta**. Feature br
 | Web | Broad functional surface | Next.js app with 34 route pages; latest GitHub web build passed. |
 | Database | Migration foundation present | 14 sequential Alembic revisions through strong authentication. Migration execution is configured in CI and the API container. |
 | Tests | Present but currently blocked | 56 Python test functions. Backend CI stops at Ruff before pytest. No automated web unit or end-to-end suite is present. |
-| Deployment | Configured, not verified live | Render blueprint, Dockerfiles, PostgreSQL configuration, health/readiness routes, and a deployment runbook exist. No live environment status can be inferred from the repository. |
+| Deployment | Configured, not verified live | Dockerfiles, PostgreSQL configuration, health/readiness routes, and a deployment runbook exist. No live environment status can be inferred from the repository. (Since superseded: deployment is AWS ECS -- see `docs/AWS_DEPLOYMENT.md`.) |
 | Mobile/Desktop | Placeholder only | Each surface contains a README, not an application. |
 
 ## What is implemented
@@ -76,7 +76,7 @@ There is no automated browser test covering sign-in → onboarding → career pr
 - Notification delivery currently prints email/push actions; provider credentials and real delivery adapters are not implemented.
 - Discovery schedules and due-date logic exist, but no production scheduler/worker process is configured.
 - Greenhouse/Lever/Ashby providers collect jobs. The submission domain validates and records attempts, but no concrete production ATS submission connector was found; the only `submit` implementation is the mock provider.
-- Resume uploads and generated artifacts are written to local paths. Compose mounts `uploads` and `generated`, but the Render blueprint does not declare persistent disks or object storage. A redeploy may therefore orphan database records or lose files.
+- Resume uploads and generated artifacts are written to local paths. Compose mounts `uploads` and `generated`. (Since resolved on AWS: `AWS_S3_BUCKET` routes both to S3 -- see `docs/AWS_DEPLOYMENT.md`.)
 
 ### P1 - security and release validation
 
@@ -129,7 +129,7 @@ Audit commands and results on August 21, 2026:
 - Domain models: `backend/kall/models/`
 - Web routes and navigation: `apps/web/app/`, `apps/web/app/components/AppNav.tsx`
 - Database migrations: `migrations/versions/`
-- Deployment blueprint/runbook: `render.yaml`, `docs/PRODUCTION_DEPLOYMENT.md`
+- Deployment runbooks: `docs/AWS_DEPLOYMENT.md`, `docs/PRODUCTION_DEPLOYMENT.md`
 - CI definition: `.github/workflows/ci.yml`
 
 ## Handoff definition of done

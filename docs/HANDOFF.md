@@ -23,7 +23,7 @@ The right next milestone is not another feature slice. It is a stabilization rel
 | Backend/API | Red | 116 route operations and broad domain coverage exist, but current lint and test gates fail. |
 | Database migrations | Red | The chain has one head and reaches `0014`, but a clean upgrade fails because the baseline creates current `usercredential` columns and `0014` tries to add them again. |
 | Product integrations | Yellow/Red | Greenhouse, Lever, and Ashby discovery clients exist. ATS submission transport, real notifications, and the scheduler runner are not implemented. |
-| Deployment | Red | Render and Docker configuration exist, but the API container runs migrations on startup; the clean-migration failure is therefore a deployment blocker. No live environment was verified during this assessment. |
+| Deployment | Red | Docker configuration exists, but the API container runs migrations on startup; the clean-migration failure is therefore a deployment blocker. No live environment was verified during this assessment. (Since superseded: deployment is AWS ECS -- see `docs/AWS_DEPLOYMENT.md`.) |
 | Documentation | Yellow | Strong product/architecture material exists, but the top-level roadmap, changelog, review marker, and package version still describe v0.3 while the runtime identifies as v0.8.1 and later billing/submission features are present. |
 | Mobile/desktop | Gray | These are README-level boundaries only; no Expo or Tauri applications have been scaffolded. |
 
@@ -51,7 +51,7 @@ The backend includes:
 - resume parsing, achievement verification, match intelligence, evidence-grounded tailoring, generated resume artifacts, and cover-letter review;
 - application preparation, review, explicit approval, testimonial/reference controls, controlled submission previews, confirmations, checksums, idempotent attempts, and quota checks;
 - Stripe Checkout, Customer Portal, webhook, subscription, and usage foundations;
-- liveness/readiness endpoints and Docker/Render deployment definitions.
+- liveness/readiness endpoints and Docker deployment definitions.
 
 ### Safety posture
 
@@ -182,7 +182,7 @@ Do not hold beta on three simultaneous ATS submission connectors. One honest, ob
 - `migrations/versions/20260802_0001_initial.py` and `20260802_0014_strong_auth.py` - clean-bootstrap failure.
 - `tests/test_integration_contracts.py` - immediate lint/test breakage.
 - `.github/workflows/ci.yml` - present quality gates and their sequencing.
-- `render.yaml`, `Dockerfile.api`, and `apps/web/Dockerfile` - deployment topology.
+- `Dockerfile.api` and `apps/web/Dockerfile` - container builds; `docs/AWS_DEPLOYMENT.md` - deployment topology.
 - `backend/kall/services/submissions.py`, `notifications.py`, and `discovery.py` - clearest view of integration boundaries.
 - `apps/web/app/api/kall/[...path]/route.ts` - production API proxy.
 
