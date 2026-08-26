@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Covers the Opportunities workspace's non-live-network surface: adding a

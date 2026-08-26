@@ -1,6 +1,5 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { signInAsNewUser, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end

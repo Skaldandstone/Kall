@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
 
 /**
  * One-click apply: Kall pre-fills the employer's form, the user submits it
