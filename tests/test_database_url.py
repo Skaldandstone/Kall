@@ -1,7 +1,9 @@
 from kall.config import Settings, build_database_url_from_parts, normalize_database_url
 
 
-def test_normalizes_render_postgres_url_to_psycopg_v3() -> None:
+def test_normalizes_bare_postgres_scheme_to_psycopg_v3() -> None:
+    # Managed Postgres providers hand out postgres:// URLs; SQLAlchemy 2 needs
+    # an explicit driver.
     assert (
         normalize_database_url("postgres://user:pass@host/db")
         == "postgresql+psycopg://user:pass@host/db?sslmode=require"
