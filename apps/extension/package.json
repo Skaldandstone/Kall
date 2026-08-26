@@ -1,0 +1,10 @@
+{
+  "name": "kall-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pre-fills employer application forms from Kall. The user always submits.",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
