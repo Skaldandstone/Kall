@@ -52,8 +52,6 @@ class Settings(BaseSettings):
     db_password: str | None = None
     frontend_url: str = "http://localhost:3000"
     auto_create_tables: bool = True
-    session_days: int = 30
-    password_reset_minutes: int = 30
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.1-mini"
     stripe_secret_key: str | None = None
@@ -61,18 +59,11 @@ class Settings(BaseSettings):
     stripe_price_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
-    google_oauth_client_id: str | None = None
-    google_oauth_client_secret: str | None = None
-    github_oauth_client_id: str | None = None
-    github_oauth_client_secret: str | None = None
-    microsoft_oauth_client_id: str | None = None
-    microsoft_oauth_client_secret: str | None = None
-    linkedin_oauth_client_id: str | None = None
-    linkedin_oauth_client_secret: str | None = None
-
-    webauthn_rp_id: str = "localhost"
-    webauthn_rp_name: str = "Kall"
-    webauthn_origin: str = "http://localhost:3000"
+    # Clerk owns identity: sign-in, sign-up, sessions, MFA, passkeys and social
+    # connections. The backend only verifies the session token Clerk issues and
+    # maps it to a local User row -- see kall/auth.py.
+    clerk_secret_key: str | None = None
+    clerk_publishable_key: str | None = None
 
     # Object storage for uploaded resumes and generated documents. When unset,
     # files are written to the local filesystem instead -- fine for local
@@ -100,10 +91,10 @@ class Settings(BaseSettings):
                 raise ValueError("SENSITIVE_DATA_ENCRYPTION_KEY is required in production")
             if self.database_url.startswith("sqlite"):
                 raise ValueError("Production must use PostgreSQL or another server database")
-            if self.webauthn_rp_id == "localhost" or self.webauthn_origin == "http://localhost:3000":
+            if not self.clerk_secret_key:
                 raise ValueError(
-                    "WEBAUTHN_RP_ID and WEBAUTHN_ORIGIN must be set to the production domain — "
-                    "passkeys silently fail otherwise"
+                    "CLERK_SECRET_KEY is required in production — without it every "
+                    "authenticated request fails token verification"
                 )
         return self
 

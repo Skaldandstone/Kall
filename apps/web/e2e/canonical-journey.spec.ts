@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { test, expect, signInAsNewUser, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end
@@ -12,30 +12,10 @@ import path from 'node:path';
  * search result) instead of live Greenhouse/Lever/Ashby discovery, since
  * those require real provider credentials this test environment doesn't have.
  */
-test('sign-up through application review and approval', async ({ page, request, baseURL }) => {
+test('sign-up through application review and approval', async ({ page }) => {
   const unique = Date.now();
-  const email = `smoke-${unique}@example.com`;
-  const password = 'CanonicalJourney123!';
-
-  await test.step('register', async () => {
-    await page.goto('/register');
-    await page.locator('input[name="full_name"]').fill('Jordan Smoke Test');
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill(password);
-    await page.locator('input[name="password_confirmation"]').fill(password);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL(/\/onboarding/);
-  });
-
-  const token = await page.evaluate(() => localStorage.getItem('kall_token'));
-  expect(token).toBeTruthy();
-
-  await test.step('dismiss the post-signup security setup modal', async () => {
-    const securityDialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-    await expect(securityDialog).toBeVisible();
-    await securityDialog.getByRole('button', { name: 'Skip for now' }).click();
-    await expect(securityDialog).not.toBeVisible();
-  });
+  await signInAsNewUser(page, 'Jordan Smoke Test');
+  await page.goto('/onboarding');
 
   await test.step('onboarding: resume upload', async () => {
     await page.setInputFiles('input[type="file"][name="file"]', path.join(__dirname, 'fixtures', 'sample-resume.txt'));
@@ -65,18 +45,11 @@ test('sign-up through application review and approval', async ({ page, request, 
     await expect(page.getByRole('heading', { name: /Good morning|career, prepared quietly/i })).toBeVisible();
   });
 
-  const profileId: number = await page.evaluate(async () => {
-    const response = await fetch('/api/kall/me/professional-profiles', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('kall_token')}` },
-    });
-    const profiles = await response.json();
-    return profiles[0].id;
-  });
+  const profileId = await firstProfileId(page);
   expect(profileId).toBeGreaterThan(0);
 
   const job = await test.step('seed an opportunity to apply to', async () => {
-    const response = await request.post(`${baseURL}/api/kall/jobs/import-search-result`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await page.request.post(`/api/kall/jobs/import-search-result`, {
       data: {
         url: `https://boards.example.com/jobs/${unique}`,
         title: 'Senior Backend Engineer',
@@ -121,17 +94,7 @@ test('sign-up through application review and approval', async ({ page, request, 
  * recognize a valid stored token and send them straight to the dashboard.
  */
 test('a signed-in user landing on the marketing homepage is sent to their dashboard', async ({ page }) => {
-  const unique = Date.now();
-  const email = `home-redirect-${unique}@example.com`;
-  const password = 'CanonicalJourney123!';
-
-  await page.goto('/register');
-  await page.locator('input[name="full_name"]').fill('Home Redirect Test');
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('input[name="password_confirmation"]').fill(password);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await signInAsNewUser(page, 'Home Redirect Test');
 
   await page.goto('/');
   await expect(page).toHaveURL(/\/dashboard/);

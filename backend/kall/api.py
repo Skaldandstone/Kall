@@ -1,21 +1,9 @@
-from datetime import timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session, select
 
-from kall.auth import (
-    bearer_token,
-    create_session,
-    get_current_user,
-    hash_secret,
-    new_one_time_token,
-    password_hash,
-    revoke_session,
-    utcnow,
-    verify_password,
-)
-from kall.config import get_settings
+from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import (
     Application,
@@ -27,24 +15,14 @@ from kall.models import (
     SearchRun,
     SearchSource,
     User,
-    UserCredential,
-    UserSession,
 )
-from kall.rate_limit import limiter
 from kall.schemas import (
     ApproveApplicationRequest,
-    AuthResponse,
-    EmailVerificationConfirm,
     IdentityProfileResponse,
     IdentityProfileUpdate,
     JobCreate,
-    LoginRequest,
-    LogoutResponse,
-    PasswordResetConfirm,
-    PasswordResetRequest,
     PrepareApplicationRequest,
     ProfessionalProfileCreate,
-    RegisterRequest,
     ResumeMetadataUpdate,
     SearchSourceCreate,
 )
@@ -61,105 +39,6 @@ router = APIRouter()
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "product": "Kall"}
-
-
-@router.post("/auth/register", response_model=AuthResponse)
-@limiter.limit("5/hour")
-def register(request: Request, payload: RegisterRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    email = payload.email.strip().lower()
-    if session.exec(select(User).where(User.email == email)).first():
-        raise HTTPException(409, "Email already registered")
-    user = User(email=email, full_name=payload.full_name, country=payload.country, state_region=payload.state_region)
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    verification_token, verification_hash = new_one_time_token()
-    del verification_token
-    session.add(UserCredential(user_id=user.id, password_hash=password_hash(payload.password), verification_token_hash=verification_hash))
-    session.add(CandidateProfile(user_id=user.id, preferred_name=payload.full_name, country=payload.country, state_region=payload.state_region))
-    session.commit()
-    return AuthResponse(user_id=user.id, access_token=create_session(session, user.id))
-
-
-@router.post("/auth/login", response_model=AuthResponse)
-@limiter.limit("10/minute")
-def login(request: Request, payload: LoginRequest, session: Session = Depends(get_session)) -> AuthResponse:
-    user = session.exec(select(User).where(User.email == payload.email.strip().lower())).first()
-    if not user:
-        raise HTTPException(401, "Invalid credentials")
-    credential = session.exec(select(UserCredential).where(UserCredential.user_id == user.id)).first()
-    if not credential:
-        raise HTTPException(401, "Invalid credentials")
-    if credential.locked_until and credential.locked_until > utcnow():
-        raise HTTPException(423, "Account temporarily locked")
-    if not verify_password(payload.password, credential.password_hash):
-        credential.failed_login_count += 1
-        if credential.failed_login_count >= 5:
-            credential.locked_until = utcnow() + timedelta(minutes=15)
-        session.add(credential)
-        session.commit()
-        raise HTTPException(401, "Invalid credentials")
-    credential.failed_login_count = 0
-    credential.locked_until = None
-    session.add(credential)
-    session.commit()
-    return AuthResponse(user_id=user.id, access_token=create_session(session, user.id))
-
-
-@router.post("/auth/logout", response_model=LogoutResponse)
-def logout(authorization: str | None = Header(default=None), current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> LogoutResponse:
-    del current_user
-    revoke_session(session, bearer_token(authorization))
-    return LogoutResponse()
-
-
-@router.post("/auth/password-reset/request")
-@limiter.limit("5/hour")
-def request_password_reset(request: Request, payload: PasswordResetRequest, session: Session = Depends(get_session)) -> dict[str, str]:
-    user = session.exec(select(User).where(User.email == payload.email)).first()
-    if user:
-        credential = session.exec(select(UserCredential).where(UserCredential.user_id == user.id)).first()
-        if credential:
-            token, token_hash = new_one_time_token()
-            credential.reset_token_hash = token_hash
-            credential.reset_token_expires_at = utcnow() + timedelta(minutes=get_settings().password_reset_minutes)
-            session.add(credential)
-            session.commit()
-            if get_settings().app_env == "development":
-                return {"status": "accepted", "development_token": token}
-    return {"status": "accepted"}
-
-
-@router.post("/auth/password-reset/confirm")
-@limiter.limit("10/minute")
-def confirm_password_reset(request: Request, payload: PasswordResetConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
-    credential = session.exec(select(UserCredential).where(UserCredential.reset_token_hash == hash_secret(payload.token))).first()
-    if not credential or not credential.reset_token_expires_at or credential.reset_token_expires_at <= utcnow():
-        raise HTTPException(400, "Invalid or expired reset token")
-    credential.password_hash = password_hash(payload.new_password)
-    credential.reset_token_hash = None
-    credential.reset_token_expires_at = None
-    credential.failed_login_count = 0
-    credential.locked_until = None
-    session.add(credential)
-    for user_session in session.exec(select(UserSession).where(UserSession.user_id == credential.user_id)):
-        user_session.revoked_at = utcnow()
-        session.add(user_session)
-    session.commit()
-    return {"status": "password_updated"}
-
-
-@router.post("/auth/verify-email")
-@limiter.limit("10/minute")
-def verify_email(request: Request, payload: EmailVerificationConfirm, session: Session = Depends(get_session)) -> dict[str, str]:
-    credential = session.exec(select(UserCredential).where(UserCredential.verification_token_hash == hash_secret(payload.token))).first()
-    if not credential:
-        raise HTTPException(400, "Invalid verification token")
-    credential.email_verified = True
-    credential.verification_token_hash = None
-    session.add(credential)
-    session.commit()
-    return {"status": "verified"}
 
 
 @router.get("/me", response_model=User)

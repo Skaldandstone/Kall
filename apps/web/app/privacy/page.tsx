@@ -9,11 +9,10 @@ const fields = ['identity.phone', 'identity.address', 'eeo.veteran_status', 'eeo
 export default function PrivacyPage() {
   const [rules, setRules] = useState<any[]>([]);
   const [message, setMessage] = useState('');
-  const token = () => localStorage.getItem('kall_token');
 
   async function load() {
-    const response = await fetch(`${API}/profile/privacy`, { headers: { Authorization: `Bearer ${token()}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    const response = await fetch(`${API}/profile/privacy`);
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (response.ok) setRules(await response.json());
   }
 
@@ -22,10 +21,10 @@ export default function PrivacyPage() {
   async function save(field: string, scopes: string[], confirm = true) {
     const response = await fetch(`${API}/profile/privacy/${field}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field_path: field, scopes, require_confirmation: confirm }),
     });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     setMessage(response.ok ? 'Privacy setting saved.' : 'Unable to save privacy setting.');
     if (response.ok) load();
   }
@@ -36,10 +35,10 @@ export default function PrivacyPage() {
     const payload = Object.fromEntries(form.entries());
     const response = await fetch(`${API}/profile/${endpoint}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     setMessage(response.ok ? 'Encrypted profile saved.' : 'Unable to save profile.');
   }
 

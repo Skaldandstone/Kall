@@ -1,10 +1,6 @@
-from collections.abc import Iterator
 from datetime import date
 
-import pytest
 from fastapi.testclient import TestClient
-from kall.db import get_session
-from kall.main import app
 from kall.models import (
     Application,
     CandidateProfile,
@@ -13,6 +9,7 @@ from kall.models import (
     Employment,
     FieldPrivacy,
     Job,
+    ResumeDocument,
     User,
     WorkAuthorization,
 )
@@ -20,35 +17,7 @@ from kall.models.enums import PrivacyScope
 from kall.security import encrypt_sensitive
 from kall.services.applications import prepare_application
 from kall.services.autofill import build_autofill_pack
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def client(engine) -> Iterator[TestClient]:
-    def override_get_session() -> Iterator[Session]:
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-    try:
-        with TestClient(app) as test_client:
-            register = test_client.post(
-                "/api/auth/register",
-                json={"email": "autofill@example.com", "password": "TestPassword123!", "full_name": "Ada Lovelace"},
-            )
-            test_client.headers["Authorization"] = f"Bearer {register.json()['access_token']}"
-            test_client.user_id = register.json()["user_id"]  # type: ignore[attr-defined]
-            yield test_client
-    finally:
-        app.dependency_overrides.pop(get_session, None)
+from sqlmodel import Session, select
 
 
 def _seed(engine, user_id: int, *, with_privacy_rule: bool = False, eeo_declines: bool = True) -> int:
@@ -106,6 +75,41 @@ def _pack(engine, user_id: int, application_id: int) -> dict:
         return build_autofill_pack(session, user, application)
 
 
+def _other_user(session: Session) -> User:
+    user = session.exec(select(User).where(User.email == "mallory@example.com")).first()
+    if not user:
+        user = User(clerk_user_id="user_mallory", email="mallory@example.com", full_name="Mallory")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    return user
+
+
+def _seed_other_users_application(engine) -> int:
+    with Session(engine) as session:
+        user = _other_user(session)
+        job = Job(source="test", company="Other Co", title="Engineer", description="d",
+                  url="https://boards.example.com/jobs/other")
+        profile = CareerProfile(user_id=user.id, name="Theirs")
+        session.add(job)
+        session.add(profile)
+        session.commit()
+        session.refresh(job)
+        session.refresh(profile)
+        return prepare_application(session, user, job, profile, None).id
+
+
+def _seed_other_users_resume(engine) -> int:
+    with Session(engine) as session:
+        user = _other_user(session)
+        resume = ResumeDocument(user_id=user.id, name="theirs.txt",
+                                file_path="uploads/other/theirs.txt", mime_type="text/plain")
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        return resume.id
+
+
 def _paths(pack: dict) -> set[str]:
     return {row["path"] for row in pack["fields"]}
 
@@ -120,8 +124,8 @@ def test_always_tier_fields_are_filled_without_any_privacy_rule(client: TestClie
     pack = _pack(engine, user_id, application_id)
 
     filled = {row["path"]: row["value"] for row in pack["fields"]}
-    assert filled["identity.legal_name"] == "Ada Lovelace"
-    assert filled["identity.email"] == "autofill@example.com"
+    assert filled["identity.legal_name"] == "Test User"
+    assert filled["identity.email"] == "test@example.com"
     assert filled["identity.linkedin_url"] == "https://linkedin.com/in/ada"
     assert filled["employment.current_employer"] == "Northwind Systems"
     assert filled["employment.current_title"] == "Senior Backend Engineer"
@@ -229,17 +233,16 @@ def test_prepared_payload_never_stores_decrypted_sensitive_values(client: TestCl
 
 
 def test_autofill_pack_endpoint_rejects_another_users_application(client: TestClient, engine) -> None:
-    user_id = client.user_id  # type: ignore[attr-defined]
-    application_id = _seed(engine, user_id)
+    # Give the signed-in user their own application too, so the 404 below
+    # cannot pass merely because no applications exist at all.
+    _seed(engine, client.user_id)  # type: ignore[attr-defined]
 
-    other = client.post(
-        "/api/auth/register",
-        json={"email": "intruder@example.com", "password": "TestPassword123!", "full_name": "Mallory"},
-    )
-    response = client.get(
-        f"/api/applications/{application_id}/autofill-pack",
-        headers={"Authorization": f"Bearer {other.json()['access_token']}"},
-    )
+    # Seed an application owned by someone else and confirm the signed-in
+    # user cannot read it. Asserting from this direction is stronger than
+    # swapping tokens: it proves the endpoint checks ownership rather than
+    # merely that a different token sees different data.
+    intruder_application_id = _seed_other_users_application(engine)
+    response = client.get(f"/api/applications/{intruder_application_id}/autofill-pack")
     assert response.status_code == 404
 
 
@@ -300,12 +303,5 @@ def test_resume_download_rejects_another_users_resume(client: TestClient, engine
     assert mine.status_code == 200
     assert mine.content == b"Ada Lovelace\nSenior Backend Engineer"
 
-    other = client.post(
-        "/api/auth/register",
-        json={"email": "intruder2@example.com", "password": "TestPassword123!", "full_name": "Mallory"},
-    )
-    theirs = client.get(
-        f"/api/me/resumes/{resume_id}/download",
-        headers={"Authorization": f"Bearer {other.json()['access_token']}"},
-    )
+    theirs = client.get(f"/api/me/resumes/{_seed_other_users_resume(engine)}/download")
     assert theirs.status_code == 404

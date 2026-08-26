@@ -1,37 +1,26 @@
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_KEY = 'kall_token';
+import { getClerkInstance } from '@clerk/expo';
 
 const API_BASE_URL: string =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'https://d7wb2yokfqcku.cloudfront.net/api';
 
-// expo-secure-store has no web implementation; the app's declared web support
-// (app.json's "web" block, the "web" npm script) would otherwise break on
-// every load. localStorage isn't hardware-backed like SecureStore, but this
-// path only serves Expo's web target, not the iOS/Android builds.
-const isWeb = Platform.OS === 'web';
-
-export async function getToken(): Promise<string | null> {
-  return isWeb ? window.localStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY);
-}
-
-export async function setToken(token: string): Promise<void> {
-  if (isWeb) {
-    window.localStorage.setItem(TOKEN_KEY, token);
-    return;
+/**
+ * The current Clerk session token, or null when signed out.
+ *
+ * Mobile talks to the API directly -- there is no Next.js proxy in front of
+ * it as there is on web -- so the token has to be attached here. apiRequest is
+ * a plain function rather than a hook, so this reads Clerk's singleton instead
+ * of useAuth(); Clerk refreshes short-lived tokens itself, so this must be
+ * called per request rather than cached.
+ */
+async function sessionToken(): Promise<string | null> {
+  try {
+    return (await getClerkInstance().session?.getToken()) ?? null;
+  } catch {
+    return null;
   }
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
-}
-
-export async function clearToken(): Promise<void> {
-  if (isWeb) {
-    window.localStorage.removeItem(TOKEN_KEY);
-    return;
-  }
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
 export class ApiError extends Error {
@@ -70,7 +59,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth) {
-    const token = await getToken();
+    const token = await sessionToken();
     if (!token) throw new ApiError('Not signed in', 401);
     headers.Authorization = `Bearer ${token}`;
   }
@@ -82,7 +71,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   if (response.status === 401 && auth) {
-    await clearToken();
+    // Clerk owns the session; signing out is the provider's job, not ours.
+    // Surfacing the error lets the screen react without this module reaching
+    // into auth state it no longer manages.
     throw new ApiError('Your session expired. Please sign in again.', 401);
   }
   if (!response.ok) {

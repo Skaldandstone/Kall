@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Coverage for the Growth section (career goal -> AI-or-deterministic plan
@@ -8,29 +8,9 @@ import { test, expect } from '@playwright/test';
  * fallback path (backend/kall/api_growth.py's `_deterministic_plan_content`)
  * -- the path every CI run and most local dev actually takes.
  */
-test('creating a career goal produces a plan, and resources can be saved and pinned', async ({ page, request, baseURL }) => {
-  const unique = Date.now();
-  const email = `growth-${unique}@example.com`;
-  const password = 'GrowthSectionTest123!';
+test('creating a career goal produces a plan, and resources can be saved and pinned', async ({ page }) => {
 
-  await test.step('register', async () => {
-    await page.goto('/register');
-    await page.locator('input[name="full_name"]').fill('Growth Section Test');
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill(password);
-    await page.locator('input[name="password_confirmation"]').fill(password);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL(/\/onboarding/);
-  });
-
-  const token = await page.evaluate(() => localStorage.getItem('kall_token'));
-  expect(token).toBeTruthy();
-
-  await test.step('dismiss the post-signup security setup modal', async () => {
-    const dialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Skip for now' }).click();
-  });
+  await signInAsNewUser(page, 'Growth Section Test');
 
   await page.goto('/profiles?tab=growth');
 
@@ -59,18 +39,14 @@ test('creating a career goal produces a plan, and resources can be saved and pin
   });
 
   const planId: number = await test.step('read back the plan id for direct resource seeding', async () => {
-    const dashboard = await page.evaluate(async (bearer) => {
-      const response = await fetch('/api/kall/growth', { headers: { Authorization: `Bearer ${bearer}` } });
-      return response.json();
-    }, token);
+    const dashboard = await (await page.request.get('/api/kall/growth')).json();
     return dashboard.goals[0].plan.plan.id;
   });
   expect(planId).toBeGreaterThan(0);
 
   await test.step('save a resource directly (the web UI only offers this via the Google widget) and pin it from the UI', async () => {
     const resource = await (
-      await request.post(`${baseURL}/api/kall/growth/plans/${planId}/resources`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await page.request.post(`/api/kall/growth/plans/${planId}/resources`, {
         data: { url: 'https://example.com/engineering-management-course', title: 'Engineering Management 101' },
       })
     ).json();

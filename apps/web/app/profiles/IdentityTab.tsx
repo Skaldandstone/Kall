@@ -46,21 +46,13 @@ export default function IdentityTab() {
   const regions = useMemo(() => regionsForCountry(countryCode), [countryCode]);
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.assign('/login');
-      return;
-    }
-
     async function load() {
       try {
         const response = await fetch('/api/kall/me/identity', {
-          headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         });
         if (response.status === 401) {
-          localStorage.removeItem('kall_token');
-          window.location.assign('/login');
+          window.location.assign('/sign-in');
           return;
         }
         const data = (await response.json()) as IdentityProfile & { detail?: string };
@@ -95,12 +87,6 @@ export default function IdentityTab() {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.assign('/login');
-      return;
-    }
-
     setSaving(true);
     setMessage('');
     try {
@@ -108,8 +94,7 @@ export default function IdentityTab() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+          },
         body: JSON.stringify({
           preferred_name: profile.preferred_name || null,
           phone: null,
@@ -128,8 +113,7 @@ export default function IdentityTab() {
       });
       const data = (await response.json()) as { detail?: string };
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.assign('/login');
+        window.location.assign('/sign-in');
         return;
       }
       setMessage(response.ok ? 'Identity saved.' : data.detail || 'Unable to save your profile.');

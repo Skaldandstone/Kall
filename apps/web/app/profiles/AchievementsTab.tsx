@@ -18,10 +18,9 @@ export default function AchievementsTab() {
   const [resumeId, setResumeId] = useState('');
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [message, setMessage] = useState('');
-  const token = () => localStorage.getItem('kall_token');
 
   async function load() {
-    const headers = { Authorization: `Bearer ${token()}` };
+    const headers = { };
     const [resumeResponse, achievementResponse] = await Promise.all([
       fetch(`${API}/me/resumes`, { headers }),
       fetch(`${API}/intelligence/achievements`, { headers }),
@@ -40,8 +39,7 @@ export default function AchievementsTab() {
     if (!resumeId) return;
     setMessage('Parsing resume into structured sections and achievement candidates…');
     const response = await fetch(`${API}/intelligence/resumes/${resumeId}/parse`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token()}` },
+      method: 'POST'
     });
     const data = await response.json();
     setMessage(response.ok ? `Parse complete. ${data.warnings.length} warning(s).` : data.detail || 'Parse failed.');
@@ -51,7 +49,7 @@ export default function AchievementsTab() {
   async function verify(id: number, status: 'verified' | 'rejected') {
     const response = await fetch(`${API}/intelligence/achievements/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ verification_status: status }),
     });
     if (response.ok) void load();

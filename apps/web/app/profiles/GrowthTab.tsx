@@ -14,15 +14,13 @@ type Goal = { id:number; title:string; target_role:string; target_industry?:stri
 type Dashboard = { goals:Array<{goal:Goal; plan:Plan|null}> };
 
 function authHeaders(json=false) {
-  const token = localStorage.getItem('kall_token');
-  return { Authorization:`Bearer ${token}`, ...(json ? {'Content-Type':'application/json'} : {}) };
+  return { ...(json ? {'Content-Type':'application/json'} : {}) };
 }
 
 async function request(path:string, init?:RequestInit) {
   const response = await fetch(`${API}${path}`, init);
   if (response.status === 401) {
-    localStorage.removeItem('kall_token');
-    window.location.replace('/login');
+    window.location.replace('/sign-in');
     throw new Error('signed-out');
   }
   const body = await response.json().catch(() => ({}));
@@ -36,8 +34,6 @@ export default function GrowthTab() {
   const [busy,setBusy]=useState(false);
 
   async function load() {
-    const token = localStorage.getItem('kall_token');
-    if (!token) return window.location.replace('/login');
     try { setData(await request('/growth',{headers:authHeaders()})); setMessage(''); }
     catch(error) { if ((error as Error).message !== 'signed-out') setMessage((error as Error).message); }
   }

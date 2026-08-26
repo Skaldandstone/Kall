@@ -16,8 +16,7 @@ type Employment = {
 };
 
 function authHeaders(json = false) {
-  const token = localStorage.getItem('kall_token');
-  return { Authorization: `Bearer ${token}`, ...(json ? { 'Content-Type': 'application/json' } : {}) };
+  return { ...(json ? { 'Content-Type': 'application/json' } : {}) };
 }
 
 // "2020-01-01" through `new Date()` is parsed as UTC midnight and then shown
@@ -37,10 +36,8 @@ export default function EmploymentTab() {
   const [busy, setBusy] = useState(false);
 
   async function load() {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return; }
     const response = await fetch(`${API}/profile/resources/employment`, { headers: authHeaders() });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (!response.ok) { setMessage('Unable to load your work history.'); return; }
     setRows(await response.json());
     setMessage('');

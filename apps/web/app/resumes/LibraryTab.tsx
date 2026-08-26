@@ -39,28 +39,13 @@ export default function LibraryTab() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
-  function requireToken() {
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.replace('/login');
-      return null;
-    }
-    return token;
-  }
-
   async function load() {
-    const token = requireToken();
-    if (!token) return;
-
     setLoading(true);
     try {
-      const response = await fetch(`${API}/me/resume-studio`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(`${API}/me/resume-studio`);
 
       if (response.status === 401) {
-        localStorage.removeItem('kall_token');
-        window.location.replace('/login');
+        window.location.replace('/sign-in');
         return;
       }
       if (!response.ok) {
@@ -82,15 +67,11 @@ export default function LibraryTab() {
   }, []);
 
   async function assign(profileId: number, resumeId: number | null) {
-    const token = requireToken();
-    if (!token) return;
-
     const response = await fetch(
       `${API}/me/professional-profiles/${profileId}/default-resume`,
       {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ resume_id: resumeId }),
@@ -98,8 +79,7 @@ export default function LibraryTab() {
     );
 
     if (response.status === 401) {
-      localStorage.removeItem('kall_token');
-      window.location.replace('/login');
+      window.location.replace('/sign-in');
       return;
     }
 

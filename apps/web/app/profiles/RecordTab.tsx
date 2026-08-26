@@ -9,10 +9,9 @@ export default function RecordTab() {
   const [resource, setResource] = useState('skills');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [message, setMessage] = useState('');
-  const token = () => localStorage.getItem('kall_token');
 
   async function load(selected = resource) {
-    const response = await fetch(`${API}/profile/resources/${selected}`, { headers: { Authorization: `Bearer ${token()}` } });
+    const response = await fetch(`${API}/profile/resources/${selected}`);
     if (response.ok) setRows(await response.json());
   }
 
@@ -31,7 +30,7 @@ export default function RecordTab() {
     }
     const response = await fetch(`${API}/profile/resources/${resource}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data }),
     });
     setMessage(response.ok ? 'Profile record added.' : 'Unable to add record.');

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, signInAsNewUser } from './helpers';
 
 /**
  * Regression coverage for a real bug found while building this suite:
@@ -13,22 +13,8 @@ import { test, expect } from '@playwright/test';
  * error against a nonexistent localhost:8000).
  */
 test.describe('privacy and billing', () => {
-  async function registerAndDismissModal(page: import('@playwright/test').Page, email: string, password: string) {
-    await page.goto('/register');
-    await page.locator('input[name="full_name"]').fill('Privacy Billing Test');
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="password"]').fill(password);
-    await page.locator('input[name="password_confirmation"]').fill(password);
-    await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL(/\/onboarding/);
-    const dialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Skip for now' }).click();
-  }
-
   test('field-level privacy settings can be changed and encrypted profiles saved', async ({ page }) => {
-    const unique = Date.now();
-    await registerAndDismissModal(page, `privacy-${unique}@example.com`, 'PrivacyPageTest123!');
+    await signInAsNewUser(page, 'Privacy Billing Test');
 
     await page.goto('/privacy');
     await expect(page.getByText('identity.phone')).toBeVisible();
@@ -42,8 +28,7 @@ test.describe('privacy and billing', () => {
   });
 
   test('billing shows the free plan and upgrade gracefully reports Stripe is unconfigured', async ({ page }) => {
-    const unique = Date.now();
-    await registerAndDismissModal(page, `billing-${unique}@example.com`, 'BillingPageTest123!');
+    await signInAsNewUser(page, 'Privacy Billing Test');
 
     await page.goto('/billing');
     await expect(page.getByText('free', { exact: true })).toBeVisible();

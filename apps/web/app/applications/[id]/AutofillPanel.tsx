@@ -37,11 +37,9 @@ export default function AutofillPanel({ applicationId }: { applicationId: string
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return; }
-    fetch(`${API}/applications/${applicationId}/autofill-pack`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API}/applications/${applicationId}/autofill-pack`)
       .then(async (response) => {
-        if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+        if (response.status === 401) {window.location.replace('/sign-in'); return; }
         if (!response.ok) { setMessage('Unable to load the autofill preview.'); return; }
         setPack(await response.json());
         setMessage('');

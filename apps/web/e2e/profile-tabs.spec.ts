@@ -1,11 +1,10 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { registerAndDismissModal } from './helpers';
+import { test, expect, signInAsNewUser } from './helpers';
 
 test.describe('profile tabs', () => {
   test('identity settings persist across a reload', async ({ page }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `identity-${unique}@example.com`, 'IdentityTabTest123!');
+    await signInAsNewUser(page);
 
     await page.goto('/profiles?tab=identity');
     // The form loads its initial values asynchronously and overwrites
@@ -28,7 +27,7 @@ test.describe('profile tabs', () => {
 
   test('adding a professional record entry rejects invalid JSON and accepts valid JSON', async ({ page }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `record-${unique}@example.com`, 'RecordTabTest123!');
+    await signInAsNewUser(page);
 
     await page.goto('/profiles?tab=record');
     await page.locator('select').first().selectOption('skills');
@@ -44,10 +43,11 @@ test.describe('profile tabs', () => {
 
   test('parsing a resume surfaces a metric-bearing achievement that can be verified', async ({ page }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `achievements-${unique}@example.com`, 'AchievementsTabTest123!');
+    await signInAsNewUser(page);
 
     // Achievement extraction reads from an uploaded resume's extracted text,
     // so onboarding's resume-upload step has to run first.
+    await page.goto('/onboarding');
     await page.setInputFiles('input[type="file"][name="file"]', path.join(__dirname, 'fixtures', 'sample-resume.txt'));
     await page.getByRole('button', { name: 'Upload resume' }).click();
     await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible();
@@ -72,7 +72,7 @@ test.describe('profile tabs', () => {
 
   test('a testimonial request can be sent, submitted by the recipient, and moderated', async ({ page, browser }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `testimonial-${unique}@example.com`, 'TestimonialTest123!');
+    await signInAsNewUser(page);
 
     await page.goto('/profiles?tab=references');
     await page.locator('input[name="name"]').fill('Alex Coworker');
@@ -81,7 +81,7 @@ test.describe('profile tabs', () => {
     await page.getByRole('button', { name: 'Create invitation' }).click();
     await expect(page.getByText('Invitation created. Copy the secure link and send it to your former coworker.')).toBeVisible();
 
-    const inviteLink = await page.locator('div.notice', { hasText: '/testimonial-submit?token=' }).innerText();
+    const inviteLink = (await page.locator('div.notice', { hasText: '/testimonial-submit?token=' }).textContent())?.trim() ?? '';
     expect(inviteLink).toContain('/testimonial-submit?token=');
 
     // The recipient never has a Kall session -- use a fresh, unauthenticated
@@ -115,14 +115,14 @@ test.describe('profile tabs', () => {
 test.describe('redirect shims', () => {
   test('/testimonials redirects to the references tab', async ({ page }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `redirect-testimonials-${unique}@example.com`, 'RedirectShimTest123!');
+    await signInAsNewUser(page);
     await page.goto('/testimonials');
     await expect(page).toHaveURL(/\/profiles\?tab=references/);
   });
 
   test('/submissions redirects to the applications pipeline', async ({ page }) => {
     const unique = Date.now();
-    await registerAndDismissModal(page, `redirect-submissions-${unique}@example.com`, 'RedirectShimTest123!');
+    await signInAsNewUser(page);
     await page.goto('/submissions');
     await expect(page).toHaveURL(/\/applications/);
   });

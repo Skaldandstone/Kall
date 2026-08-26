@@ -1,12 +1,9 @@
-from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from kall.db import get_session
-from kall.main import app
+from kall.models import ResumeDocument, User
 from kall.services.onboarding_ai import suggest_career_strategy
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 
 def test_suggest_career_strategy_returns_none_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -63,28 +60,6 @@ def test_suggest_career_strategy_parses_a_canned_response(monkeypatch: pytest.Mo
     assert result["work_types"] == ["remote"]
 
 
-@pytest.fixture
-def client() -> Iterator[TestClient]:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine)
-
-    def override_get_session() -> Iterator[Session]:
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-    try:
-        with TestClient(app) as test_client:
-            register = test_client.post(
-                "/api/auth/register",
-                json={"email": "onboarding-ai@example.com", "password": "TestPassword123!", "full_name": "Onboarding Test"},
-            )
-            test_client.headers["Authorization"] = f"Bearer {register.json()['access_token']}"
-            yield test_client
-    finally:
-        app.dependency_overrides.pop(get_session, None)
-
-
 def test_suggest_strategy_endpoint_without_api_key_returns_no_suggestion(client: TestClient) -> None:
     upload = client.post(
         "/api/me/resumes",
@@ -99,20 +74,22 @@ def test_suggest_strategy_endpoint_without_api_key_returns_no_suggestion(client:
     assert body["suggestion"] is None
 
 
-def test_suggest_strategy_endpoint_rejects_other_users_resume(client: TestClient) -> None:
-    upload = client.post(
-        "/api/me/resumes",
-        files={"file": ("resume.txt", b"Director of Quality Engineering.", "text/plain")},
-    )
-    resume_id = upload.json()["id"]
+def test_suggest_strategy_endpoint_rejects_other_users_resume(client: TestClient, engine) -> None:
+    # The signed-in user has a resume of their own, so a 404 below cannot pass
+    # just because no resumes exist.
+    client.post("/api/me/resumes", files={"file": ("mine.txt", b"Director of Quality Engineering.", "text/plain")})
 
-    other_token = client.post(
-        "/api/auth/register",
-        json={"email": "other-onboarding-ai@example.com", "password": "TestPassword123!", "full_name": "Other User"},
-    ).json()["access_token"]
+    with Session(engine) as session:
+        other = User(clerk_user_id="user_other_onboarding", email="other-onboarding@example.com", full_name="Other User")
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+        theirs = ResumeDocument(user_id=other.id, name="theirs.txt",
+                                file_path="uploads/other/theirs.txt", mime_type="text/plain")
+        session.add(theirs)
+        session.commit()
+        session.refresh(theirs)
+        theirs_id = theirs.id
 
-    response = client.post(
-        f"/api/me/resumes/{resume_id}/suggest-strategy",
-        headers={"Authorization": f"Bearer {other_token}"},
-    )
+    response = client.post(f"/api/me/resumes/{theirs_id}/suggest-strategy")
     assert response.status_code == 404

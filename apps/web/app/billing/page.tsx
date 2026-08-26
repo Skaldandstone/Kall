@@ -11,17 +11,14 @@ export default function BillingPage() {
   const [message, setMessage] = useState('');
 
   async function load() {
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return; }
-    const response = await fetch(`${API}/billing/status`, { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    const response = await fetch(`${API}/billing/status`);
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (response.ok) setStatus(await response.json());
   }
 
   async function open(path: 'checkout' | 'portal') {
-    const token = localStorage.getItem('kall_token');
-    const response = await fetch(`${API}/billing/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return; }
+    const response = await fetch(`${API}/billing/${path}`, { method: 'POST' });
+    if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (!response.ok) return setMessage('Billing is not available yet. Check Stripe configuration.');
     const data = await response.json();
     window.location.href = data.url;

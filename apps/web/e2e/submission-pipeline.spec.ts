@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
 
 /**
  * Continues past where canonical-journey.spec.ts stops (application
@@ -18,18 +17,13 @@ import { registerAndDismissModal, completeOnboarding, seedJob } from './helpers'
  * three configured ATS providers), so this test asserts that outcome
  * rather than forcing an artificial fully-automated path.
  */
-test('an approved application from an unsupported connector lands on manual completion', async ({ page, request, baseURL }) => {
+test('an approved application from an unsupported connector lands on manual completion', async ({ page }) => {
   const unique = Date.now();
-  const token = await registerAndDismissModal(page, `submission-${unique}@example.com`, 'SubmissionPipelineTest123!');
+  await signInAsNewUser(page);
   await completeOnboarding(page);
 
-  const profileId: number = await page.evaluate(async () => {
-    const response = await fetch('/api/kall/me/professional-profiles', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('kall_token')}` },
-    });
-    return (await response.json())[0].id;
-  });
-  const job = await seedJob(request, baseURL!, token);
+  const profileId = await firstProfileId(page);
+  const job = await seedJob(page);
 
   let applicationId = '';
   await test.step('prepare and approve the application', async () => {

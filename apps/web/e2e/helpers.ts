@@ -1,31 +1,145 @@
-import { Page, APIRequestContext, expect } from '@playwright/test';
+import { Page, expect, test as base } from '@playwright/test';
+import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
 import path from 'node:path';
 
+const CLERK_API = 'https://api.clerk.com/v1';
+
 /**
- * Shared setup for specs that need a signed-in account past the post-signup
- * security modal. Registration itself is deliberately left inline in specs
- * that test it directly (auth.spec.ts, canonical-journey.spec.ts) so a
- * regression there is caught at the point it actually happens, but every
- * other spec just needs a account to exist and gets it here instead of
- * re-deriving the same six lines.
+ * Clerk users created by the currently running test.
+ *
+ * Each is deleted when its test finishes (see the `test` fixture below).
+ * Without that, a dev instance's 100-user cap is reached after a handful of
+ * runs and then every spec fails at sign-in with `user_quota_exceeded` -- an
+ * error that names nothing relevant. The age-gated sweep in
+ * purge-test-users.ts is the backstop for users a crashed run left behind;
+ * this is what keeps the steady state clean.
  */
-export async function registerAndDismissModal(page: Page, email: string, password: string, fullName = 'E2E Test User') {
-  await page.goto('/register');
-  await page.locator('input[name="full_name"]').fill(fullName);
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('input[name="password_confirmation"]').fill(password);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+const createdUserIds: string[] = [];
 
-  const dialog = page.getByRole('dialog', { name: 'Protect your Kall account' });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Skip for now' }).click();
-  await expect(dialog).not.toBeVisible();
+async function deleteClerkUser(id: string): Promise<void> {
+  await fetch(`${CLERK_API}/users/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${secretKey()}` },
+  }).catch(() => undefined);
+}
 
-  const token = await page.evaluate(() => localStorage.getItem('kall_token'));
-  if (!token) throw new Error('Registration did not produce a session token.');
-  return token;
+/**
+ * Use this instead of Playwright's own `test` so the Clerk users a spec
+ * creates are cleaned up even when it fails.
+ */
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    await use(page);
+    const ids = createdUserIds.splice(0);
+    await Promise.all(ids.map(deleteClerkUser));
+  },
+});
+
+export { expect };
+const E2E_PASSWORD = 'KallE2ePassword!2026';
+
+function secretKey() {
+  const key = process.env.CLERK_SECRET_KEY;
+  if (!key) {
+    throw new Error(
+      'CLERK_SECRET_KEY is required to run these tests. Identity lives in Clerk now, ' +
+        'so e2e needs a real Clerk dev instance -- see apps/web/.env.local locally, ' +
+        'or the repository secret in CI.',
+    );
+  }
+  return key;
+}
+
+/**
+ * Creates a fresh Clerk user and signs the browser in as them.
+ *
+ * Every spec used to register through Kall's own /register form. Sign-up now
+ * happens inside Clerk, so tests create the user through Clerk's Backend API
+ * and sign in with Clerk's Playwright helper instead of driving its UI --
+ * driving a third party's markup would make this suite break whenever Clerk
+ * ships a design change.
+ *
+ * Emails use Clerk's `+clerk_test` convention: those accounts skip the
+ * email-code check that would otherwise block a sign-in from an unrecognised
+ * device, which is unreachable from a test runner.
+ */
+export async function signInAsNewUser(page: Page, fullName = 'E2E Test User') {
+  const [firstName, ...rest] = fullName.split(' ');
+  const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}+clerk_test@example.com`;
+
+  const response = await fetch(`${CLERK_API}/users`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${secretKey()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email_address: [email],
+      password: E2E_PASSWORD,
+      first_name: firstName,
+      last_name: rest.join(' ') || 'User',
+      skip_password_checks: true,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Could not create a Clerk test user: ${response.status} ${await response.text()}`);
+  }
+  createdUserIds.push(((await response.json()) as { id: string }).id);
+
+  // Bypasses Clerk's bot protection for this browser context.
+  await setupClerkTestingToken({ page });
+
+  // Sign in from a page that has Clerk loaded but is NOT rendering the
+  // <SignIn> component: driving the client while that component owns the
+  // sign-in attempt leaves the form sitting there un-submitted.
+  await page.goto('/');
+  await clerk.loaded({ page });
+
+  // The user was just created through the Backend API and is being signed in
+  // through the Frontend API, which does not always see it yet: CI observed
+  // "Couldn't find your account" seconds after a successful create. That burnt
+  // Playwright's one retry on a false failure and hid the real result, so
+  // absorb the propagation lag here instead.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await clerk.signIn({
+        page,
+        signInParams: { strategy: 'password', identifier: email, password: E2E_PASSWORD },
+      });
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!/Couldn't find your account/i.test(String(error))) throw error;
+      await page.waitForTimeout(1_000 * (attempt + 1));
+    }
+  }
+  if (lastError) throw lastError;
+
+  // The instance verifies unrecognised devices, so password alone leaves the
+  // sign-in at `needs_client_trust` -- silently, with no error thrown, which
+  // is why this is worth handling explicitly rather than assuming success.
+  // `+clerk_test` addresses accept Clerk's fixed code, so the factor can be
+  // completed without a mailbox. Guarded on status so this stays correct if
+  // device verification is ever turned off for the instance.
+  await page.evaluate(async () => {
+    const clerkClient = (window as { Clerk?: any }).Clerk;
+    const signIn = clerkClient?.client?.signIn;
+    if (!signIn || signIn.status === 'complete') return;
+    await signIn.prepareSecondFactor({ strategy: 'email_code' });
+    const result = await signIn.attemptSecondFactor({ strategy: 'email_code', code: '424242' });
+    if (result?.createdSessionId) await clerkClient.setActive({ session: result.createdSessionId });
+  });
+
+  // Activating the session redirects "/" to /dashboard, which tears down any
+  // in-flight evaluate; let that settle before touching the page again.
+  await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+
+  // The local User and CandidateProfile rows are created lazily on the first
+  // authenticated request (kall.auth.ensure_local_user), so make one before
+  // any spec assumes they exist.
+  const me = await page.request.get('/api/kall/me');
+  expect(me.ok(), 'first authenticated request should succeed after sign-in').toBeTruthy();
+
+  return { email, fullName };
 }
 
 /**
@@ -34,6 +148,7 @@ export async function registerAndDismissModal(page: Page, email: string, passwor
  * job intelligence, tailoring, applications) require to function.
  */
 export async function completeOnboarding(page: Page, strategyName = 'Backend Leadership') {
+  await page.goto('/onboarding');
   await page.setInputFiles('input[type="file"][name="file"]', path.join(__dirname, 'fixtures', 'sample-resume.txt'));
   await page.getByRole('button', { name: 'Upload resume' }).click();
   await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible();
@@ -45,11 +160,24 @@ export async function completeOnboarding(page: Page, strategyName = 'Backend Lea
   await expect(page.getByRole('heading', { name: /workspace is prepared/i })).toBeVisible();
 }
 
-/** Seeds an importable job the same way canonical-journey.spec.ts does, via the same endpoint the real "Apply with Kall" flow uses for an external search result. */
-export async function seedJob(request: APIRequestContext, baseURL: string, token: string, overrides: Record<string, unknown> = {}) {
-  const unique = Date.now();
-  const response = await request.post(`${baseURL}/api/kall/jobs/import-search-result`, {
-    headers: { Authorization: `Bearer ${token}` },
+/** The signed-in user's professional profile id, which most flows need. */
+export async function firstProfileId(page: Page): Promise<number> {
+  const response = await page.request.get('/api/kall/me/professional-profiles');
+  expect(response.ok()).toBeTruthy();
+  return (await response.json())[0].id;
+}
+
+/**
+ * Seeds an importable job through the same endpoint the real "Apply with
+ * Kall" flow uses for an external search result.
+ *
+ * Uses page.request rather than the standalone `request` fixture: it carries
+ * the browser's Clerk cookie, so the call authenticates through the /api/kall
+ * proxy exactly as the app's own fetches do. No bearer token to pass around.
+ */
+export async function seedJob(page: Page, overrides: Record<string, unknown> = {}) {
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const response = await page.request.post('/api/kall/jobs/import-search-result', {
     data: {
       url: `https://boards.example.com/jobs/${unique}`,
       title: 'Senior Backend Engineer',

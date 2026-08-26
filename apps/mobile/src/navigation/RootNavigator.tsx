@@ -2,7 +2,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '@clerk/expo';
 import { theme } from '../theme';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -111,9 +111,9 @@ function AppNavigator() {
 }
 
 export default function RootNavigator() {
-  const { isSignedIn, loading } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={theme.text} />

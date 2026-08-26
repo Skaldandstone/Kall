@@ -40,7 +40,13 @@ export default defineConfig({
       // different env var value.
       command: `npx expo start --web --port ${WEB_PORT} --clear`,
       cwd: __dirname,
-      env: { API_BASE_URL: `${apiURL}/api`, CI: '1' },
+      env: {
+        API_BASE_URL: `${apiURL}/api`,
+        CI: '1',
+        // app.config.js reads this to hand ClerkProvider its key; without it
+        // the app boots signed-out with no way to sign in.
+        EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
+      },
       url: baseURL,
       timeout: 120_000,
       reuseExistingServer: false,

@@ -69,10 +69,8 @@ export default function SearchTab() {
 
   async function buildProfileQuery(selectedProfile = profileId) {
     if (!selectedProfile) return '';
-    const token = localStorage.getItem('kall_token');
-    if (!token) { window.location.replace('/login'); return ''; }
-    const response = await fetch(`/api/kall/discovery/ats-search/${selectedProfile}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); return ''; }
+    const response = await fetch(`/api/kall/discovery/ats-search/${selectedProfile}`);
+    if (response.status === 401) {window.location.replace('/sign-in'); return ''; }
     const data = await response.json();
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Unable to build a profile search.');
     return (data.queries?.[0] as AtsSearch | undefined)?.query || '';

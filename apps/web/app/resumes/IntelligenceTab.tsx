@@ -10,10 +10,8 @@ type ResumeInsight = { id: number; name: string; version: number; is_default: bo
 type Dashboard = { summary: { resume_count: number; profile_count: number; best_resume_id?: number | null; best_score?: number | null; default_resume_id?: number | null }; resumes: ResumeInsight[]; profile_titles: string[] };
 
 async function api(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('kall_token');
-  if (!token) { window.location.replace('/login'); throw new Error('signed-out'); }
-  const response = await fetch(`${API}${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
-  if (response.status === 401) { localStorage.removeItem('kall_token'); window.location.replace('/login'); throw new Error('signed-out'); }
+  const response = await fetch(`${API}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  if (response.status === 401) {window.location.replace('/sign-in'); throw new Error('signed-out'); }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'The request could not be completed.');
   return body;

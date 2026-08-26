@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
 import ToastHost from './components/ToastHost';
@@ -64,14 +65,24 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${syne.variable} ${epilogue.variable} ${plexMono.variable}`}>
       <body>
-        <ToastHost />
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1 }}>
-            {children}
-            <OpportunitiesAtsSearch />
+        {/* Inside <body>, per Clerk's placement rule for this SDK version.
+            Telemetry is off deliberately: the CSP blocks clerk-telemetry.com
+            anyway, so leaving it on only produced console errors on every
+            page -- and this app handles EEO and work-authorization data, so
+            fewer third-party beacons is the right default regardless. */}
+        {/* signInUrl/signUpUrl keep redirects on Kall's own branded pages --
+            without them a protected route bounces to Clerk's hosted
+            accounts.dev domain, which throws the user out of the product. */}
+        <ClerkProvider telemetry={false} signInUrl="/sign-in" signUpUrl="/sign-up">
+          <ToastHost />
+          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1 }}>
+              {children}
+              <OpportunitiesAtsSearch />
+            </div>
+            <SiteFooter />
           </div>
-          <SiteFooter />
-        </div>
+        </ClerkProvider>
       </body>
     </html>
   );

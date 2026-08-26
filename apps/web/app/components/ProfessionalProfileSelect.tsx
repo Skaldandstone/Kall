@@ -33,19 +33,10 @@ export default function ProfessionalProfileSelect({
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('kall_token');
-    if (!token) {
-      window.location.replace('/login');
-      return;
-    }
-
-    fetch('/api/kall/me/professional-profiles', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch('/api/kall/me/professional-profiles')
       .then(async (response) => {
         if (response.status === 401) {
-          localStorage.removeItem('kall_token');
-          window.location.replace('/login');
+          window.location.replace('/sign-in');
           return [];
         }
         if (!response.ok) throw new Error('Unable to load profiles');

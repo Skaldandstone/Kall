@@ -34,10 +34,6 @@ export default function GenerateTab() {
   const [busy, setBusy] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
-  function token() {
-    return localStorage.getItem('kall_token');
-  }
-
   async function generateResume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -49,16 +45,13 @@ export default function GenerateTab() {
       const response = await fetch(`${API}/tailoring/${proposalId}/documents`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ template_key: templateKey }),
       });
       const generated = await response.json();
       if (!response.ok) throw new Error(generated.detail || 'Generation failed');
-      const detail = await fetch(`${API}/documents/${generated.id}`, {
-        headers: { Authorization: `Bearer ${token()}` },
-      });
+      const detail = await fetch(`${API}/documents/${generated.id}`);
       setDocumentResult(await detail.json());
       setMessage('Resume package generated.');
     } catch (error) {
@@ -77,7 +70,6 @@ export default function GenerateTab() {
       const response = await fetch(`${API}/tailoring/${proposalId}/cover-letter`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -89,9 +81,7 @@ export default function GenerateTab() {
       });
       const proposal = await response.json();
       if (!response.ok) throw new Error(proposal.detail || 'Cover letter generation failed');
-      const detail = await fetch(`${API}/cover-letters/${proposal.id}`, {
-        headers: { Authorization: `Bearer ${token()}` },
-      });
+      const detail = await fetch(`${API}/cover-letters/${proposal.id}`);
       setCoverLetter(await detail.json());
       setMessage('Cover letter draft is ready for review.');
     } catch (error) {
@@ -105,7 +95,6 @@ export default function GenerateTab() {
     const response = await fetch(`${API}/cover-letter-changes/${changeId}`, {
       method: 'PUT',
       headers: {
-        Authorization: `Bearer ${token()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ decision }),
@@ -129,7 +118,7 @@ export default function GenerateTab() {
     try {
       const response = await fetch(
         `${API}/documents/${documentResult.document.id}/download/${artifact.format}`,
-        { headers: { Authorization: `Bearer ${token()}` } },
+        { },
       );
       if (!response.ok) throw new Error('Unable to download this file.');
       const blob = await response.blob();
