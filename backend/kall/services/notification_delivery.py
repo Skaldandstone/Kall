@@ -24,12 +24,12 @@ still something they asked to see, just not right now.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import datetime, timedelta
 
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
 from kall.services.notifications import NotConfiguredError, NotificationService
+from kall.services.scheduling import local_hour
 from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
@@ -278,23 +278,13 @@ def drain(session: Session, *, now: datetime | None = None, limit: int = 500) ->
 
 
 #: Defaults used for anyone with no NotificationPreference row at all --
-#: there is no settings UI for this yet, so most accounts have none. Treated
-#: as "use these defaults" rather than "excluded": email_enabled defaults to
-#: True on the model itself, which only means something if the absence of a
-#: row is read the same way.
+#: settings/notifications lets someone set these explicitly now, but an
+#: account that has never opened that page still has no row, so this is what
+#: "unset" means for them. Treated as "use these defaults" rather than
+#: "excluded": email_enabled defaults to True on the model itself, which only
+#: means something if the absence of a row is read the same way.
 _DEFAULT_DIGEST_HOUR = 8
 _DEFAULT_TIMEZONE = "UTC"
-
-
-def _local_hour(timezone_name: str, now: datetime) -> int:
-    try:
-        zone = ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
-        # A stored value that no longer resolves (typo, renamed IANA zone)
-        # should not crash the whole run over one account -- fall back to UTC
-        # for that account rather than skipping every user after it.
-        zone = ZoneInfo(_DEFAULT_TIMEZONE)
-    return now.replace(tzinfo=UTC).astimezone(zone).hour
 
 
 def queue_daily_briefs(session: Session, *, now: datetime | None = None) -> int:
@@ -320,7 +310,7 @@ def queue_daily_briefs(session: Session, *, now: datetime | None = None) -> int:
         timezone_name = preference.timezone if preference else _DEFAULT_TIMEZONE
         if not email_enabled:
             continue
-        if _local_hour(timezone_name, now) != digest_hour:
+        if local_hour(timezone_name, now) != digest_hour:
             continue
         queue(session, user_id=user.id, kind="morning_brief")
         queued += 1
