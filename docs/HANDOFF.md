@@ -1,3 +1,20 @@
+> **This is a point-in-time audit snapshot from 2026-08-21, not a living
+> document.** A lot has changed since: CI has been green on every merge for
+> weeks, the integration-contract test below (`_app_paths`/`SQLModel`) is
+> intact and passing, mobile is a real Expo app with its own e2e suite (not
+> a plan), `NotificationService` sends real email through SES with a
+> drain worker and retry logic (see `services/notification_delivery.py`),
+> and the document-download claim below does not hold up under a same-origin
+> proxy -- a plain anchor to `/api/kall/...` is a real browser navigation and
+> correctly carries the httpOnly session cookie; there is no bearer token to
+> attach at that layer. Verify anything below against the current code
+> before acting on it -- do not assume the gaps it lists are still open.
+>
+> Kept as-is otherwise: this is a record of what an audit found on that
+> date, not something to silently rewrite into a false "current state" claim
+> of its own. `docs/NEEDS_DECISION.md` is where current, load-bearing gaps
+> actually live.
+
 # Kall Project Handoff
 
 **Assessment date:** 2026-08-21  
