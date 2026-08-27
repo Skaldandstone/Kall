@@ -9,6 +9,7 @@ from kall.services.submissions import (
     confirm_submission,
     create_attempt,
     find_attempt,
+    mark_application_submitted,
     prepare_submission,
     validate_submission,
 )
@@ -74,7 +75,12 @@ def attempt(
     session: Session = Depends(get_session),
 ) -> SubmissionAttempt:
     item = owned_submission(session, user, submission_id)
-    if item.status != "confirmed":
+    # "submitted" is allowed here too -- a successful attempt moves the
+    # submission there (see mark_application_submitted), and a client retry
+    # of that same request (a timeout, a flaky connection) must still be able
+    # to replay the identical idempotent attempt rather than being told to
+    # re-confirm something that already succeeded.
+    if item.status not in ("confirmed", "submitted"):
         raise HTTPException(422, "Fresh submission confirmation is required")
     # A connector submission is the same "applying" event the applications
     # meter already counts for a manual kanban move (see move_application in
@@ -89,8 +95,10 @@ def attempt(
     result = create_attempt(session, item)
     if is_new_attempt:
         quota.record_completed_application(session, user)
-        # record_completed_application's own commit expires every object
-        # tracked by this session, `result` included -- refresh it back so
-        # the response has data instead of an emptied-out row.
+        mark_application_submitted(session, item)
+        # record_completed_application's and mark_application_submitted's own
+        # commits expire every object tracked by this session, `result`
+        # included -- refresh it back so the response has data instead of an
+        # emptied-out row.
         session.refresh(result)
     return result

@@ -11,6 +11,7 @@ from kall.models import (
     SubmissionAttempt,
     SubmissionAudit,
 )
+from kall.models.enums import ApplicationStatus
 from sqlmodel import Session, select
 
 SUPPORTED_PROVIDERS = {"greenhouse", "lever", "ashby"}
@@ -129,3 +130,27 @@ def create_attempt(session: Session, submission: ApplicationSubmission) -> Submi
     session.commit()
     session.refresh(attempt)
     return attempt
+
+
+def mark_application_submitted(session: Session, submission: ApplicationSubmission) -> None:
+    """A successful connector attempt is the same "applying" event a manual
+    kanban move to Submitted already is (see move_application in
+    api_applications.py) -- without this, the linked Application never
+    leaves its pre-submission stage. Left unfixed, that stuck card looks
+    like it still needs submitting, "Create submission attempt" stays
+    clickable forever (apps/web/app/applications/[id]/page.tsx disables it
+    only once submission.status leaves "confirmed"), and a later manual drag
+    to Submitted charges the applications quota a second time for one real
+    application.
+    """
+    now = datetime.utcnow()
+    submission.status = "submitted"
+    submission.submitted_at = submission.submitted_at or now
+    session.add(submission)
+
+    application = session.get(Application, submission.application_id)
+    if application and application.status != ApplicationStatus.SUBMITTED:
+        application.status = ApplicationStatus.SUBMITTED
+        application.submitted_at = application.submitted_at or now
+        session.add(application)
+    session.commit()

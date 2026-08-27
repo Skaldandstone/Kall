@@ -116,6 +116,15 @@ export default function ApplicationDetailPage() {
   async function attemptSubmission() {
     if (!submission) return;
     const response = await fetch(`${API}/submissions/${submission.id}/attempt`, { method: 'POST' });
+    if (response.ok) {
+      // A successful attempt moves both the submission and its Application to
+      // Submitted server-side -- reload both so the card leaves the
+      // pre-submission stage instead of looking stuck.
+      await Promise.all([
+        fetch(`${API}/submissions/${submission.id}`).then((r) => r.ok && r.json()).then((body) => body && setSubmission(body.submission)),
+        loadItem(),
+      ]);
+    }
     showToast(response.ok ? 'Idempotent submission attempt created. Provider transport remains controlled by the connector adapter.' : await errorMessage(response, 'A fresh confirmation is required.'), response.ok ? 'success' : 'error');
   }
 
