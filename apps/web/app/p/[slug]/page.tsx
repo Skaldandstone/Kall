@@ -41,10 +41,25 @@ function SampleBlock({ sample }: { sample: Sample }) {
   if (!sample.frame_url) {
     // Not a provider we embed. A link is the honest fallback; guessing an
     // iframe for an arbitrary URL is how a public page becomes a liability.
+    // Beside two rich embeds, a bare line of text reads as something that
+    // failed to load. Give it a card of its own so it looks like a deliberate
+    // link rather than a broken video.
+    let host = '';
+    try {
+      host = new URL(sample.url).hostname.replace(/^www\./, '');
+    } catch {
+      host = '';
+    }
     return (
       <article className={styles.sample}>
-        <a href={sample.url} rel="noopener noreferrer nofollow" target="_blank">
-          {sample.title || sample.url}
+        <a
+          className={styles.sampleLink}
+          href={sample.url}
+          rel="noopener noreferrer nofollow"
+          target="_blank"
+        >
+          <span className={styles.sampleLinkTitle}>{sample.title || sample.url}</span>
+          {host ? <span className={styles.sampleLinkHost}>{host} ↗</span> : null}
         </a>
         {sample.caption ? <p>{sample.caption}</p> : null}
       </article>
