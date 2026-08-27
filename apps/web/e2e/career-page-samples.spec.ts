@@ -56,3 +56,29 @@ test('a work sample embeds on the public page, and an unknown link does not', as
     await expect(page.locator('iframe')).toHaveCount(1);
   });
 });
+
+test('the editor says whether a pasted link will actually play', async ({ page }) => {
+  await signInAsNewUser(page, 'Sample Editor User');
+  await page.request.patch('/api/kall/me/career-page', {
+    data: { slug: `editor-samples-${Date.now()}`, display_name: 'Editor User' },
+  });
+  // A new page is seeded with a samples section already; use that one rather
+  // than adding a second.
+  await page.goto('/settings/career-page');
+
+  const samples = page.getByLabel('Work sample title').first();
+  const link = page.getByLabel('Work sample link').first();
+  const add = page.getByRole('button', { name: 'Add sample' }).first();
+
+  await samples.fill('Launch demo');
+  await link.fill('https://vimeo.com/123456789');
+  await add.click();
+
+  // The server decided this one embeds, and the editor reflects that rather
+  // than leaving the user guessing.
+  await expect(page.getByText('vimeo')).toBeVisible();
+
+  await link.fill('https://example.com/deck.pdf');
+  await add.click();
+  await expect(page.getByText('link only')).toBeVisible();
+});

@@ -117,11 +117,22 @@ export default function CareerPageEditor() {
     // Update locally first so typing and toggling stay responsive; the row is
     // small and the request is the source of truth on reload.
     setSections((current) => current.map((s) => (s.id === id ? { ...s, ...data } : s)));
-    await fetch(`${API}/me/career-page/sections/${id}`, {
+    const response = await fetch(`${API}/me/career-page/sections/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    // Options are the one field the server rewrites rather than stores as
+    // sent: a work sample's URL comes back reduced to a provider. Without
+    // taking that back, someone pasting a link gets no answer to the only
+    // question they have -- will this actually play on my page? Only options
+    // is re-synced, so a slow response cannot clobber what they are typing.
+    if (response.ok && data.options) {
+      const saved: Section = await response.json();
+      setSections((current) =>
+        current.map((s) => (s.id === id ? { ...s, options: saved.options } : s)),
+      );
+    }
   }
 
   async function move(id: number, direction: -1 | 1) {
