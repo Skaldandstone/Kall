@@ -103,6 +103,12 @@ jobs:
         working-directory: apps/extension
       - run: npx playwright install --with-deps chromium
         working-directory: apps/extension
+      # popup.js now imports @clerk/chrome-extension, a real npm package a
+      # browser cannot load bare -- this only catches a broken import or
+      # syntax error; neither test suite below exercises the built bundle's
+      # runtime auth behavior, which needs a live Clerk instance and browser.
+      - run: npm run build
+        working-directory: apps/extension
       # Two suites. The matcher decides where a person's details land on
       # someone else's form, so its refusals matter as much as its matches;
       # the DOM suite drives the real content script against a fixture form,

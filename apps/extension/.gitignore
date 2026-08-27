@@ -1,3 +1,5 @@
 node_modules/
 test-results/
 playwright-report/
+src/popup.bundle.js
+src/popup.bundle.js.map

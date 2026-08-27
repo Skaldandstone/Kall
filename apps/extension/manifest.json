@@ -3,13 +3,17 @@
   "name": "Kall Apply",
   "version": "0.1.0",
   "description": "Pre-fills employer application forms from your Kall profile. You always review and submit the form yourself.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw+D8EnmqZEVApggJ6AkdnmeOtTsSWQCRsSwNE/nhDHH84YaNGi2eqycMS0DP4qP27RbDmuWQKssdGinAzuDcCh4SjGFIPetBco4UoR0PypUkOboTXo++1HN8gx+JeQSQLMEl9iJtwpxEvSTBDXxSKVU2n969q5k0DLAunQ0Yg1SgajcuQrEk5az9dagykBqniitDcbeDXNTa4kVawrfumZbtUyxaHCH30OGNCr6utDAPIIr977c1PhLIzn/HdiSIF8OADF1pved5e3GALBfbUKm5Li2Yogm81NsWmzyoruirZpgrsP1SOrM2Oueu7oc3LLYlDIgZj/Yx88fTLDlldQIDAQAB",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "cookies"
   ],
   "host_permissions": [
-    "https://d7wb2yokfqcku.cloudfront.net/*"
+    "https://d7wb2yokfqcku.cloudfront.net/*",
+    "https://*.clerk.accounts.dev/*",
+    "https://*.clerk.com/*"
   ],
   "action": {
     "default_title": "Fill this application with Kall",

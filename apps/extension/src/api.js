@@ -1,44 +1,60 @@
 /**
  * Talks to Kall.
  *
- * The extension deliberately holds no credential of its own. Every request
- * goes to Kall's own origin with `credentials: 'include'`, so the browser
- * attaches Clerk's httpOnly session cookie and the /api/kall proxy mints the
- * backend token server-side -- exactly what the web app does.
+ * Calls the backend's public API directly -- the same path the mobile app
+ * uses (docs/AWS_DEPLOYMENT.md's "Public API path"), not the web app's
+ * `/api/kall/[...path]` proxy. That proxy exists to mint a backend token
+ * from the browser's own Clerk session cookie, but that cookie is
+ * SameSite=Lax and a fetch from the extension's own chrome-extension://
+ * origin is cross-site by definition -- the browser never attached it, so
+ * the popup always looked signed out no matter what the web app showed.
  *
- * That is worth being explicit about, because the obvious alternative is to
- * store an API token in extension storage. Extension storage is readable by
- * anything that compromises the extension, and this account holds EEO and
- * work-authorization data. Holding nothing is the stronger position: revoking
- * the Kall session revokes the extension with it, and there is no token to
- * scope, rotate, or leak.
+ * auth.js's synced Clerk session solves that at the source: it gives the
+ * extension its own bearer token, kept in step with the web app's session,
+ * which travels in an Authorization header rather than depending on any
+ * cookie policy at all.
  */
 
-const DEFAULT_ORIGIN = 'https://d7wb2yokfqcku.cloudfront.net';
+import { origin } from './config.js';
+
+/**
+ * Where this module gets a bearer token, and Kall's origin. Deliberately
+ * NOT a static import of auth.js: auth.js pulls in @clerk/chrome-extension,
+ * which throws at import time outside a real browser extension context
+ * (it detects the environment eagerly, not lazily) -- so this file could
+ * never be imported in a plain Node test if it imported that chain itself,
+ * even without ever calling anything from it.
+ *
+ * popup.js -- the only place that needs both api.js and auth.js -- wires
+ * the real getSessionToken into `deps` once at startup, below. A test wires
+ * in a fake instead, and never touches auth.js or Clerk at all.
+ */
+export const deps = {
+  getSessionToken: null,
+  origin,
+};
 
 /** Signed-out and network failures are different problems; keep them apart. */
 export class NotSignedInError extends Error {
   constructor() {
-    super('Sign in to Kall in your browser, then try again.');
+    super('Sign in to Kall, then try again.');
     this.name = 'NotSignedInError';
   }
 }
 
-export async function origin() {
-  const stored = await chrome.storage.sync.get('origin');
-  return stored.origin || DEFAULT_ORIGIN;
+async function authorizedHeaders(extra = {}) {
+  if (!deps.getSessionToken) {
+    throw new Error('api.js: deps.getSessionToken was never configured. See popup.js.');
+  }
+  const token = await deps.getSessionToken();
+  if (!token) throw new NotSignedInError();
+  return { Authorization: `Bearer ${token}`, ...extra };
 }
 
 async function request(path, init = {}) {
-  const response = await fetch(`${await origin()}/api/kall${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: { Accept: 'application/json', ...(init.headers || {}) },
-  });
-  // The proxy 404s rather than 401s an unauthenticated call (its middleware
-  // treats the route as non-public), so treat both as "not signed in" rather
-  // than reporting a confusing "not found" for a path that plainly exists.
-  if (response.status === 401 || response.status === 404) throw new NotSignedInError();
+  const headers = await authorizedHeaders({ Accept: 'application/json', ...(init.headers || {}) });
+  const response = await fetch(`${await deps.origin()}/api${path}`, { ...init, headers });
+  if (response.status === 401) throw new NotSignedInError();
   if (!response.ok) throw new Error(`Kall returned ${response.status}.`);
   return response.json();
 }
@@ -57,15 +73,14 @@ export async function autofillPack(applicationId) {
  * The resume bytes, as a data URL.
  *
  * Content scripts cannot fetch from Kall's origin (they run on the employer's
- * origin, and Kall's cookie is not theirs to send), and chrome.runtime
- * messages must be JSON-serializable -- so the bytes are fetched here and
- * handed over encoded rather than as a Blob.
+ * origin, and this extension's bearer token is not theirs to send), and
+ * chrome.runtime messages must be JSON-serializable -- so the bytes are
+ * fetched here and handed over encoded rather than as a Blob.
  */
 export async function resumeDataUrl(downloadPath) {
-  const response = await fetch(`${await origin()}${downloadPath.replace(/^\/api/, '/api/kall')}`, {
-    credentials: 'include',
-  });
-  if (response.status === 401 || response.status === 404) throw new NotSignedInError();
+  const headers = await authorizedHeaders();
+  const response = await fetch(`${await deps.origin()}${downloadPath}`, { headers });
+  if (response.status === 401) throw new NotSignedInError();
   if (!response.ok) throw new Error(`Could not download the resume (${response.status}).`);
 
   const blob = await response.blob();
