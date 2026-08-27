@@ -149,6 +149,28 @@ def test_opt_in_field_is_filled_once_granted(client: TestClient, engine) -> None
     assert "identity.address" not in filled
 
 
+def test_postal_code_is_withheld_until_a_privacy_rule_grants_autofill(client: TestClient, engine) -> None:
+    """identity.postal_code is OPT_IN like phone and address, but the privacy
+    settings page (apps/web/app/privacy/page.tsx) never listed it -- so
+    nobody could ever grant it, even though the backend wiring worked. This
+    guards the backend half of that fix: granting the scope actually works."""
+    user_id = client.user_id  # type: ignore[attr-defined]
+    application_id = _seed(engine, user_id)
+    pack = _pack(engine, user_id, application_id)
+    assert "identity.postal_code" not in _paths(pack)
+    assert "privacy settings" in _omitted(pack)["identity.postal_code"]
+
+    with Session(engine) as session:
+        session.add(FieldPrivacy(
+            user_id=user_id, field_path="identity.postal_code", scopes=[PrivacyScope.AUTOFILL.value],
+        ))
+        session.commit()
+
+    granted_pack = _pack(engine, user_id, application_id)
+    filled = {row["path"]: row["value"] for row in granted_pack["fields"]}
+    assert filled["identity.postal_code"] == "78701"
+
+
 def test_work_authorization_always_requires_confirmation(client: TestClient, engine) -> None:
     user_id = client.user_id  # type: ignore[attr-defined]
     pack = _pack(engine, user_id, _seed(engine, user_id))
