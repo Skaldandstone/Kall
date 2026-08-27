@@ -41,6 +41,20 @@ switched on yet -- checkout returns 503 and the UI says so -- and everything
 needed to turn it on, including the second price and what to verify first,
 is in [`STRIPE_SETUP.md`](STRIPE_SETUP.md).
 
+## 3b. Confirm the AI model answers
+
+```bash
+python -m kall.jobs.check_ai
+```
+
+Exit 0 means the configured model replied; 1 means no key is set (valid, but
+every AI feature is then running on its deterministic fallback); 2 means the
+key or the model is wrong, and the reason is printed.
+
+Worth running before any demo. OpenAI retires model ids on a schedule, and
+every AI call site here falls back silently by design -- so a retired model
+looks exactly like the feature being switched off, with nothing raised.
+
 ## 4. Configure service URLs
 
 Before a custom domain is available, use the provider-generated HTTPS URLs:
