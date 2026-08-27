@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     aws_s3_bucket: str | None = None
     aws_region: str = "us-east-2"
 
+    #: The verified SES sender address. Notifications (opportunity digests,
+    #: the morning brief, anything from services/jobs/notifications.py) are
+    #: not sent at all until this is set -- see that module for why "not
+    #: configured" is logged loudly rather than silently doing nothing.
+    ses_sender_email: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="after")

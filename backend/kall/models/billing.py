@@ -17,6 +17,13 @@ class Subscription(TimestampMixin, table=True):
     price_id: str | None = None
     current_period_end: datetime | None = None
     cancel_at_period_end: bool = False
+    #: When the first unresolved payment failure was seen. Set on the first
+    #: invoice.payment_failed for a subscription that was not already
+    #: failing (so a second retry does not restart the grace window), and
+    #: cleared the moment payment recovers. jobs/billing_grace_period.py
+    #: downgrades any subscription still failing PAYMENT_GRACE_PERIOD_HOURS
+    #: after this timestamp.
+    payment_failed_at: datetime | None = None
 
 
 class ApplicationUsage(TimestampMixin, table=True):
