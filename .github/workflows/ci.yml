@@ -92,6 +92,26 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 14
 
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+        working-directory: apps/extension
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/extension
+      # Two suites. The matcher decides where a person's details land on
+      # someone else's form, so its refusals matter as much as its matches;
+      # the DOM suite drives the real content script against a fixture form,
+      # covering the browser-shaped mistakes -- React ignoring a direct .value
+      # assignment, a dropdown with no matching option, and above all that
+      # nothing ever submits the form.
+      - run: npm test
+        working-directory: apps/extension
+
   mobile-e2e:
     runs-on: ubuntu-latest
     steps:

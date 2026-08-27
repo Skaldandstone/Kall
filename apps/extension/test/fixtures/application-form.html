@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Careers at Northwind - Senior Backend Engineer</title>
+  </head>
+  <body>
+    <h1>Apply: Senior Backend Engineer</h1>
+
+    <!--
+      Shaped after a real ATS form rather than an idealised one: labels bound
+      by `for`, a label wrapping its input, a group labelled only by a heading,
+      a <select> whose options do not match Kall's stored wording, and several
+      traps that must NOT be filled.
+    -->
+    <form id="application" action="/submit" method="post">
+      <div>
+        <label for="applicant_name">Full Name*</label>
+        <input id="applicant_name" name="name" type="text" />
+      </div>
+
+      <div>
+        <label for="email">Email*</label>
+        <input id="email" name="email" type="email" autocomplete="email" />
+      </div>
+
+      <div>
+        <label for="email_confirm">Confirm Email*</label>
+        <input id="email_confirm" name="email_confirm" type="email" />
+      </div>
+
+      <div>
+        <label>Phone Number
+          <input name="phone" type="tel" />
+        </label>
+      </div>
+
+      <div>
+        <label for="linkedin">LinkedIn Profile</label>
+        <input id="linkedin" name="linkedin" type="url" />
+      </div>
+
+      <div>
+        <label for="employer">Current Employer</label>
+        <input id="employer" name="employer" type="text" />
+      </div>
+
+      <!-- Trap: a company field that is not the applicant's name. -->
+      <div>
+        <label for="company_name">Company Name (if applying on behalf of a firm)</label>
+        <input id="company_name" name="company_name" type="text" />
+      </div>
+
+      <!-- Trap: a reference's phone, not the applicant's. -->
+      <div>
+        <label for="ref_phone">Reference's Phone</label>
+        <input id="ref_phone" name="reference_phone" type="tel" />
+      </div>
+
+      <!-- Group labelled by a heading rather than a <label>. -->
+      <fieldset>
+        <legend>State / Province</legend>
+        <input name="state" type="text" />
+      </fieldset>
+
+      <!-- A dropdown whose options will not match the stored value verbatim. -->
+      <div>
+        <label for="veteran">Protected Veteran Status</label>
+        <select id="veteran" name="veteran">
+          <option value="">Select…</option>
+          <option value="not_protected">I am not a protected veteran</option>
+          <option value="protected">I identify as a protected veteran</option>
+          <option value="decline">I decline to answer</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="resume">Resume / CV</label>
+        <input id="resume" name="resume" type="file" />
+      </div>
+
+      <!-- Must never be filled: no Kall value corresponds to it. -->
+      <div>
+        <label for="source">How did you hear about us?</label>
+        <input id="source" name="source" type="text" />
+      </div>
+
+      <!-- Must never be clicked. -->
+      <button id="submit" type="submit">Submit Application</button>
+    </form>
+
+    <script>
+      // Records a submission so a test can prove the extension never triggers one.
+      window.__submitted = false;
+      document
+        .querySelector('#application')
+        .addEventListener('submit', (event) => {
+          event.preventDefault();
+          window.__submitted = true;
+        });
+
+      // Records input/change events, which is how React-based forms notice a
+      // value. Setting .value directly fires neither.
+      window.__events = [];
+      for (const element of document.querySelectorAll('input, select, textarea')) {
+        for (const type of ['input', 'change']) {
+          element.addEventListener(type, () =>
+            window.__events.push(`${element.name}:${type}`),
+          );
+        }
+      }
+    </script>
+  </body>
+</html>

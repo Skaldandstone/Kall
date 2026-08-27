@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kall Apply</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0c1420;
+        --surface: #131d2c;
+        --border: #2b3d55;
+        --text: #e8ecf2;
+        --muted: #94a5bc;
+        --accent: #c9a86a;
+        --ink: #0c1420;
+        --warning: #d9a441;
+        --danger: #d97362;
+      }
+      body {
+        width: 360px;
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--text);
+        font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      h1 { margin: 0 0 4px; font-size: 15px; }
+      p.lede { margin: 0 0 14px; color: var(--muted); }
+      label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+      select, button { width: 100%; font: inherit; }
+      select {
+        padding: 8px; margin-bottom: 12px; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      }
+      button {
+        padding: 10px; border: 0; border-radius: 8px; cursor: pointer;
+        background: var(--accent); color: var(--ink); font-weight: 600;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      section { margin-top: 14px; }
+      h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+      ul { margin: 0; padding-left: 16px; }
+      li { margin-bottom: 3px; }
+      .withheld { color: var(--warning); }
+      .problem { color: var(--danger); }
+      .note { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <h1>Fill this application</h1>
+    <p class="lede">Kall fills what it can. You review everything and submit the form yourself.</p>
+
+    <label for="application">Application</label>
+    <select id="application"><option>Loading…</option></select>
+    <button id="fill" disabled>Fill this form</button>
+
+    <div id="status" role="status"></div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

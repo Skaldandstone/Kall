@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Kall Apply",
+  "version": "0.1.0",
+  "description": "Pre-fills employer application forms from your Kall profile. You always review and submit the form yourself.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://d7wb2yokfqcku.cloudfront.net/*"
+  ],
+  "action": {
+    "default_title": "Fill this application with Kall",
+    "default_popup": "src/popup.html"
+  }
+}
