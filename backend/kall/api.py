@@ -37,6 +37,7 @@ from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
 from kall.services.resume import extract_resume_text
 from kall.services.storage import get_storage
+from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
 
 router = APIRouter()
 
@@ -275,7 +276,12 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Professional profile not found")
     rows = session.exec(select(JobMatch, Job).join(Job, JobMatch.job_id == Job.id).where(JobMatch.user_id == current_user.id, JobMatch.career_profile_id == professional_profile_id, JobMatch.score >= min_score).order_by(JobMatch.score.desc())).all()
-    return [{"match_id": match.id, "job_id": job.id, "score": match.score, "recommendation": match.recommendation, "strengths": match.strengths, "gaps": match.gaps, "company": job.company, "title": job.title, "location": job.location, "work_type": job.work_type, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "source": job.source} for match, job in rows]
+    # Marking a posting dead_link (search workspace, "not real anymore") only
+    # ever blocked future ingestion (see discovery.py) -- a JobMatch created
+    # before that flag existed had nothing re-checking it, so a dead posting
+    # kept showing up in this feed forever.
+    blocked = suppressed_urls(session, current_user.id, reasons=DISCOVERY_BLOCKING_REASONS)
+    return [{"match_id": match.id, "job_id": job.id, "score": match.score, "recommendation": match.recommendation, "strengths": match.strengths, "gaps": match.gaps, "company": job.company, "title": job.title, "location": job.location, "work_type": job.work_type, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "source": job.source} for match, job in rows if not is_suppressed(job.url, blocked)]
 
 
 @router.get("/discovery/runs", response_model=list[SearchRun])

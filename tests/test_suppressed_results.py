@@ -141,6 +141,48 @@ async def test_a_dead_link_never_returns_to_the_opportunity_inbox(
 
 
 @pytest.mark.anyio
+async def test_flagging_a_posting_dead_after_it_was_already_matched_removes_it_from_the_feed_and_inbox(
+    client, engine, monkeypatch
+) -> None:
+    """dead_link suppression only ever blocked future ingestion (see
+    test_a_dead_link_never_returns_to_the_opportunity_inbox above) -- it did
+    nothing for a JobMatch/Opportunity a previous run had already created.
+    A user telling Kall "this posting is dead" must remove it from the feed
+    and inbox they're already looking at, not just stop it reappearing.
+    """
+    from kall.services import discovery
+
+    monkeypatch.setitem(discovery.PROVIDERS, "greenhouse", _StubProvider)
+    dead_url = "https://boards.example.com/acme/jobs/1?gh_jid=1"
+
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        profile = CareerProfile(user_id=user.id, name="Engineer")
+        session.add(profile)
+        session.add(
+            SearchSource(user_id=user.id, provider="greenhouse", company_name="Acme", board_key="acme")
+        )
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+
+    with Session(engine) as session:
+        await run_discovery(session, session.get(User, client.user_id), session.get(CareerProfile, profile_id))
+
+    feed_before = client.get(f"/api/jobs/feed?professional_profile_id={profile_id}")
+    assert len(feed_before.json()) == 1
+    inbox_before = client.get("/api/opportunities")
+    assert len(inbox_before.json()) == 1
+
+    client.post(API, json={"url": dead_url, "reason": "dead_link"})
+
+    feed_after = client.get(f"/api/jobs/feed?professional_profile_id={profile_id}")
+    assert feed_after.json() == []
+    inbox_after = client.get("/api/opportunities")
+    assert inbox_after.json() == []
+
+
+@pytest.mark.anyio
 async def test_an_applied_flag_does_not_block_discovery(client, engine, monkeypatch) -> None:
     """Only dead links are withheld -- an application in flight must stay visible."""
     from kall.services import discovery
