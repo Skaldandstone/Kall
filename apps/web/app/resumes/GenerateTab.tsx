@@ -4,7 +4,9 @@ import { FormEvent, useState } from 'react';
 
 const API = '/api/kall';
 
-type Artifact = { id: number; format: string; byte_size: number };
+// byte_size is null until that format has actually been rendered, which
+// happens on the first download rather than at generation time.
+type Artifact = { id: number | null; format: string; byte_size: number | null };
 type Coverage = {
   required_percent: number;
   preferred_percent: number;
@@ -37,7 +39,7 @@ export default function GenerateTab() {
   async function generateResume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    setMessage('Generating private document artifacts…');
+    setMessage('Generating your tailored document…');
     const form = new FormData(event.currentTarget);
     const proposalId = form.get('proposal_id');
     const templateKey = form.get('template_key');
@@ -204,9 +206,13 @@ export default function GenerateTab() {
           </div>
           <div className="grid">
             {documentResult.artifacts.map((artifact) => (
-              <article className="card" key={artifact.id}>
+              <article className="card" key={artifact.format}>
                 <h3>{artifact.format.toUpperCase()}</h3>
-                <div className="metric"><strong>{Math.ceil(artifact.byte_size / 1024)}</strong><span className="muted">KB</span></div>
+                <div className="metric">
+                  {artifact.byte_size === null
+                    ? <span className="muted">Ready to download</span>
+                    : <><strong>{Math.ceil(artifact.byte_size / 1024)}</strong><span className="muted">KB</span></>}
+                </div>
                 <button className="button secondary" type="button" disabled={downloadingFormat === artifact.format} onClick={() => void downloadArtifact(artifact)}>
                   {downloadingFormat === artifact.format ? 'Downloading…' : 'Download'}
                 </button>
