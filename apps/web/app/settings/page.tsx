@@ -39,6 +39,7 @@ export default function SettingsPage(){
       <a className='card' href='/settings/identity'><h2>Identity & contact</h2><p>Update your name, location, links, and professional summary.</p></a>
       <a className='card' href='/account'><h2>Sign-in & security</h2><p>Add passkeys, connect identity providers, and enable authenticator-app 2FA.</p></a>
       <a className='card' href='/profiles'><h2>Career profiles</h2><p>Manage target roles, industries, compensation, and work preferences.</p></a>
+      <a className='card' href='/settings/career-page'><h2>Career page</h2><p>Build and publish the page you send instead of a resume.</p></a>
       <a className='card' href='/privacy'><h2>Privacy controls</h2><p>Choose which profile fields Kall may use, share, or omit.</p></a>
       <a className='card' href='/billing'><h2>Plan & billing</h2><p>Review your subscription and payment options.</p></a>
     </section>

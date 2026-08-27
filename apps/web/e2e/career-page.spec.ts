@@ -53,3 +53,44 @@ test('a published page is readable signed out, an unpublished one is not', async
 
   await visitor.close();
 });
+
+test('the editor composes a page and the order survives a reload', async ({ page }) => {
+  await signInAsNewUser(page, 'James Shattuck');
+  for (const record of [
+    { employer: 'Vaettir Systems', job_title: 'Head of Technology', start_date: '2021-03-01', is_current: true },
+    { employer: 'Northwind Systems', job_title: 'Director of Quality Engineering', start_date: '2017-01-01', end_date: '2021-02-01' },
+  ]) {
+    await page.request.post('/api/kall/profile/resources/employment', { data: { data: record } });
+  }
+
+  await page.goto('/settings/career-page');
+  const titles = page.locator('input[aria-label$="title"]');
+  // The editor loads its sections asynchronously; everything below depends on
+  // them being there, so wait rather than racing the fetch.
+  await expect(titles.first()).toBeVisible();
+
+  await expect(page.getByRole('heading', { name: 'Not published' })).toBeVisible();
+
+  const read = () => titles.evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value));
+  const before = await read();
+  await page.getByRole('button', { name: `Move ${before[2]} up` }).click();
+  await expect.poll(async () => (await read())[1]).toBe(before[2]);
+
+  await page.reload();
+  await expect(titles.first()).toBeVisible();
+  expect((await read())[1]).toBe(before[2]);
+
+  await test.step('hiding a section keeps it in the editor', async () => {
+    const shows = page.getByRole('checkbox', { name: 'Show' });
+    await shows.first().uncheck();
+    await page.reload();
+    await expect(titles.first()).toBeVisible();
+    await expect(titles).toHaveCount(before.length);
+  });
+
+  await test.step('publishing exposes the link', async () => {
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Published' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View' })).toBeVisible();
+  });
+});
