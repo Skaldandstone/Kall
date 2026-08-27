@@ -16,6 +16,7 @@ from kall.db import get_session
 from kall.models.core import AdminAction, User
 from kall.models.enums import SubscriptionPlan
 from kall.services import quota
+from kall.services.account_deletion import delete_account
 from kall.services.admin import find_users, record_action, require_admin
 
 router = APIRouter(tags=["admin"], prefix="/admin")
@@ -30,6 +31,15 @@ class PlanChange(BaseModel):
 
 class ExemptChange(BaseModel):
     billing_exempt: bool
+    reason: str = ""
+
+
+class DeletionRequest(BaseModel):
+    #: The target's own email, typed by the admin -- the same friction as the
+    #: self-service path, and for the same reason: this is the one admin
+    #: action with no undo, so clicking the wrong row in a list must not be
+    #: enough on its own.
+    confirm_email: str
     reason: str = ""
 
 
@@ -168,8 +178,41 @@ def reset_usage(
     return _summary(session, user)
 
 
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    payload: DeletionRequest,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> None:
+    """Delete an account on a support request. Irreversible.
+
+    Recorded in AdminAction before the deletion runs, since the deletion
+    itself is what nulls that row's target_user_id (see
+    services/account_deletion.py's PRESERVE_TABLES) -- the target's email
+    goes into `detail` so the entry still reads sensibly afterward, the same
+    reason actor_email exists at all.
+    """
+    user = _target(session, user_id)
+    if payload.confirm_email.strip().lower() != (user.email or "").strip().lower():
+        raise HTTPException(422, "That does not match the account's email.")
+
+    record_action(
+        session, admin,
+        action="delete_account",
+        target_user_id=user.id,
+        detail={"target_email": user.email, "reason": payload.reason},
+    )
+    delete_account(session, user.id, reason="admin")
+
+
 @router.get("/audit")
 def audit_log(
+    # A delete_user call nulls the very target_user_id this filter matches
+    # on, so its own delete_account entry drops out of a target-scoped view
+    # the moment it is created. It still appears in the unfiltered log, with
+    # detail.target_email naming who it concerned -- the same tradeoff
+    # actor_email/target_user_id nulling makes everywhere else in this file.
     target_user_id: int | None = None,
     limit: int = Query(default=100, le=500),
     admin: User = Depends(require_admin),

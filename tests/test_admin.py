@@ -213,3 +213,38 @@ def test_there_is_no_way_to_edit_or_delete_an_audit_entry(admin_client, engine) 
     for method in ("PATCH", "DELETE", "PUT"):
         response = admin_client.request(method, f"/api/admin/audit/{entry_id}")
         assert response.status_code in {404, 405}, f"{method} should not exist"
+
+
+def test_an_admin_can_delete_an_account_with_confirmation(admin_client, engine) -> None:
+    with Session(engine) as session:
+        target = make_user(session, "gone@example.com")
+        target_id = target.id
+
+    refused = admin_client.request(
+        "DELETE", f"/api/admin/users/{target_id}",
+        json={"confirm_email": "wrong@example.com"},
+    )
+    assert refused.status_code == 422
+
+    with Session(engine) as session:
+        assert session.get(User, target_id) is not None, "a mismatched email must not delete anything"
+
+    response = admin_client.request(
+        "DELETE", f"/api/admin/users/{target_id}",
+        json={"confirm_email": "GONE@example.com", "reason": "requested by user via support ticket"},
+    )
+    assert response.status_code == 204
+
+    with Session(engine) as session:
+        assert session.get(User, target_id) is None
+
+    # Not filterable by target_user_id any more -- that is exactly the column
+    # this deletion just nulled, which is why detail.target_email exists.
+    audit = admin_client.get("/api/admin/audit").json()
+    entry = next(row for row in audit if row["action"] == "delete_account")
+    assert entry["detail"]["target_email"] == "gone@example.com"
+    assert entry["detail"]["reason"] == "requested by user via support ticket"
+    # The nulling this same deletion performs on AdminAction rows is what
+    # makes target_user_id come back None here -- proof the two features
+    # (deletion, preserved audit log) actually compose correctly end to end.
+    assert entry["target_user_id"] is None

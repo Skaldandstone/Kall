@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -29,6 +30,7 @@ from kall.schemas import (
 )
 from kall.security import encrypt_sensitive
 from kall.services import quota
+from kall.services.account_deletion import delete_account
 from kall.services.admin import is_admin
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
@@ -54,6 +56,36 @@ def me(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
     nothing but a link to a 404.
     """
     return {**current_user.model_dump(), "is_admin": is_admin(current_user)}
+
+
+class AccountDeletionRequest(BaseModel):
+    #: The account's own email, typed back rather than clicked past -- there
+    #: is no password to re-enter (identity is Clerk's), so this is the
+    #: equivalent friction for an action with no undo.
+    confirm_email: str
+
+
+@router.delete("/me", status_code=204)
+def delete_my_account(
+    payload: AccountDeletionRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    """Permanently delete the signed-in account and everything in it.
+
+    Irreversible: see services/account_deletion.py for what "everything"
+    covers and what it deliberately does not (the audit log of actions taken
+    by or against this account is preserved, with the account's own
+    identifying columns nulled rather than the rows removed).
+
+    This does not revoke the Clerk session -- Clerk is the identity provider
+    here, and this repository does not hold a password to check. The account
+    disappears from Kall immediately; the browser's existing Clerk session
+    continues until it expires on its own or is revoked at Clerk directly.
+    """
+    if payload.confirm_email.strip().lower() != (current_user.email or "").strip().lower():
+        raise HTTPException(422, "That does not match the email on this account.")
+    delete_account(session, current_user.id, reason="self_service")
 
 
 @router.get("/me/identity", response_model=IdentityProfileResponse)

@@ -180,9 +180,41 @@ class AdminAction(TimestampMixin, table=True):
     """
 
     id: int | None = Field(default=None, primary_key=True)
-    actor_user_id: int = Field(index=True, foreign_key="user.id")
+    #: Nullable so deleting the actor's account does not have to choose
+    #: between erasing this log or blocking the deletion -- actor_email
+    #: already carries who did this and survives either way.
+    actor_user_id: int | None = Field(default=None, index=True, foreign_key="user.id")
     actor_email: str
     action: str = Field(index=True)
-    target_user_id: int = Field(index=True, foreign_key="user.id")
+    #: Nullable for the same reason: deleting the target's account nulls this
+    #: rather than deleting the row, so the record of a support action is not
+    #: itself erased by the person it concerns leaving.
+    target_user_id: int | None = Field(default=None, index=True, foreign_key="user.id")
     detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     occurred_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class AccountDeletionRecord(TimestampMixin, table=True):
+    """A durable trace that an account existed and was removed.
+
+    Deliberately not a foreign key to user.id -- the whole point is to answer
+    "was this account deleted, and when" after the account itself is gone.
+    email is a plain string for the same reason AdminAction.actor_email is:
+    captured at the moment it was still true, so it survives the row it
+    describes being removed. Holds nothing else -- no name, no profile data --
+    since carrying more here would recreate the exact problem deletion exists
+    to solve.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    #: Not a foreign key either, for the same reason. Checked by
+    #: ensure_local_user before it would otherwise create a fresh account for
+    #: a Clerk session that is still valid after the Kall side was deleted --
+    #: without this, deleting the account is invisible to someone whose
+    #: browser still holds a live Clerk token, since their very next request
+    #: would silently recreate it.
+    clerk_user_id: str = Field(index=True)
+    #: "self_service" or "admin"; who requested the deletion.
+    reason: str
+    deleted_at: datetime = Field(default_factory=datetime.utcnow, index=True)
