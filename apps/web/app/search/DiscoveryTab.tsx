@@ -28,6 +28,7 @@ type SearchRun = {
   started_at: string;
   completed_at?: string | null;
   providers_requested: string[];
+  ats_search_query?: string | null;
   jobs_collected: number;
   jobs_created: number;
   matches_created: number;
@@ -363,6 +364,12 @@ export default function DiscoveryTab() {
                 <div><div className="metric"><strong>{run.jobs_created}</strong></div><p>new jobs</p></div>
                 <div><div className="metric"><strong>{run.matches_created}</strong></div><p>matches</p></div>
               </div>
+              {run.ats_search_query && (
+                <p style={{ marginTop: 16 }}>
+                  <strong style={{ color: 'var(--text)' }}>Hidden-market search:</strong>{' '}
+                  <code style={{ fontSize: 13 }}>{run.ats_search_query}</code>
+                </p>
+              )}
               {run.errors.length > 0 && <p style={{ marginTop: 16 }}><strong style={{ color: 'var(--text)' }}>Issues:</strong> {run.errors.join(' · ')}</p>}
             </article>
           ))}

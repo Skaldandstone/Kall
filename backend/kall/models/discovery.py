@@ -21,6 +21,11 @@ class SearchRun(TimestampMixin, table=True):
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
     providers_requested: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    # The exact hidden-market search string this run generated from the
+    # profile's own criteria at the time -- captured per run because the
+    # profile's titles/keywords/exclusions can change between runs, and a
+    # past run's query should stay what it actually searched for.
+    ats_search_query: str | None = None
     jobs_collected: int = 0
     jobs_created: int = 0
     jobs_skipped: int = 0

@@ -107,6 +107,34 @@ async def test_run_discovery_populates_the_tracked_opportunity_inbox(monkeypatch
         assert len(opportunities_after) == 1
 
 
+@pytest.mark.asyncio
+async def test_run_discovery_records_the_actual_query_it_searched_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    """build_ats_queries() was called but its return value discarded, so
+    "ATS Search records the broader hidden-market query in run history" was
+    only a comment -- run history showed the provider name and nothing else.
+    """
+    monkeypatch.setitem(__import__("kall.services.discovery", fromlist=["PROVIDERS"]).PROVIDERS, "greenhouse", _FakeProvider)
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="query@example.com", full_name="Query Test", hashed_password="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        profile = CareerProfile(user_id=user.id, name="Game Art", target_titles=["Environment Artist"])
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+
+        run = await run_discovery(session, user, profile)
+
+        assert run.ats_search_query
+        assert "Environment Artist" in run.ats_search_query
+        assert "site:boards.greenhouse.io" in run.ats_search_query
+
+
 def test_a_schedule_is_not_due_outside_its_chosen_hour() -> None:
     """run_at_local was stored and never actually consulted -- a schedule
     used to be "due" the instant it was created, regardless of the hour

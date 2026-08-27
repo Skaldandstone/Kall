@@ -26,14 +26,17 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
     sources = list(session.exec(select(SearchSource).where(SearchSource.user_id == user.id, SearchSource.enabled)))
     # Build the same unified ATS query used by the web workspace for every
     # immediate or scheduled run. Structured providers continue importing jobs;
-    # ATS Search records the broader hidden-market query in run history.
-    build_ats_queries(profile)
+    # ATS Search records the broader hidden-market query on the run itself, so
+    # run history shows what was actually searched for at the time, even
+    # after the profile's own criteria change.
+    ats_query = build_ats_queries(profile)[0]["query"]
     requested_providers = {s.provider for s in sources}
     requested_providers.add("ats_search")
     run=SearchRun(
         user_id=user.id,
         professional_profile_id=profile.id,
         providers_requested=sorted(requested_providers),
+        ats_search_query=ats_query,
     )
     session.add(run)
     session.commit()
