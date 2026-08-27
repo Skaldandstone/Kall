@@ -17,7 +17,7 @@ test('the autofill panel fills consented fields and withholds the rest', async (
   await completeOnboarding(page);
 
   await test.step('save identity details and a current role', async () => {
-    await page.goto('/profiles?tab=identity');
+    await page.goto('/settings/identity');
     await expect(page.locator('input[name="preferred_name"]')).toHaveValue('Ada Lovelace');
     await page.locator('input[name="city"]').fill('Austin');
     await page.locator('input[name="linkedin_url"]').fill('https://linkedin.com/in/ada');
