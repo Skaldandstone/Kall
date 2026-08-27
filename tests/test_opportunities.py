@@ -105,3 +105,95 @@ async def test_run_discovery_populates_the_tracked_opportunity_inbox(monkeypatch
         await run_discovery(session, user, profile)
         opportunities_after = list(session.exec(select(Opportunity).where(Opportunity.user_id == user.id)))
         assert len(opportunities_after) == 1
+
+
+def test_a_schedule_is_not_due_outside_its_chosen_hour() -> None:
+    """run_at_local was stored and never actually consulted -- a schedule
+    used to be "due" the instant it was created, regardless of the hour
+    someone picked. This is the case that used to be silently wrong."""
+    from datetime import time as time_
+
+    from kall.services.opportunities import due_schedule
+
+    schedule = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="UTC",
+    )
+    assert due_schedule(schedule, datetime(2026, 8, 27, 14, 0)) is False
+    assert due_schedule(schedule, datetime(2026, 8, 27, 8, 0)) is True
+
+
+def test_a_freshly_created_schedule_waits_for_its_first_matching_hour() -> None:
+    """last_run_at is None means it has never run -- that alone must not
+    make it due at any hour; it still waits for run_at_local."""
+    from datetime import time as time_
+
+    from kall.services.opportunities import due_schedule
+
+    schedule = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="UTC",
+    )
+    assert schedule.last_run_at is None
+    assert due_schedule(schedule, datetime(2026, 8, 27, 20, 0)) is False
+
+
+def test_a_daily_schedule_does_not_run_twice_on_the_same_matching_hour() -> None:
+    from datetime import time as time_
+
+    from kall.services.opportunities import due_schedule
+
+    schedule = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="UTC",
+        last_run_at=datetime(2026, 8, 27, 8, 0),
+    )
+    # A few hours later the same day, hour no longer matches anyway --
+    # the real guard is the day that follows, checked below.
+    assert due_schedule(schedule, datetime(2026, 8, 27, 14, 0)) is False
+    # Next day, same hour: due again.
+    assert due_schedule(schedule, datetime(2026, 8, 28, 8, 0)) is True
+
+
+def test_a_weekday_only_schedule_skips_the_weekend() -> None:
+    from datetime import time as time_
+
+    from kall.services.opportunities import due_schedule
+
+    schedule = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="UTC",
+        cadence="weekdays",
+    )
+    # 2026-08-29 is a Saturday.
+    assert due_schedule(schedule, datetime(2026, 8, 29, 8, 0)) is False
+    # 2026-08-31 is a Monday.
+    assert due_schedule(schedule, datetime(2026, 8, 31, 8, 0)) is True
+
+
+def test_a_timezone_shifts_which_utc_hour_counts_as_due() -> None:
+    """The whole point: two schedules both asking for 8am should not run at
+    the same UTC instant if they are in different timezones."""
+    from datetime import time as time_
+
+    from kall.services.opportunities import due_schedule
+
+    pacific = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="America/Los_Angeles",
+    )
+    # 8am Pacific in August (UTC-7) is 15:00 UTC.
+    assert due_schedule(pacific, datetime(2026, 8, 27, 8, 0)) is False
+    assert due_schedule(pacific, datetime(2026, 8, 27, 15, 0)) is True
+
+
+def test_advance_schedule_clears_the_lock_and_estimates_a_sensible_next_run() -> None:
+    from datetime import time as time_
+
+    from kall.services.opportunities import advance_schedule
+
+    schedule = DiscoverySchedule(
+        user_id=1, professional_profile_id=1, run_at_local=time_(8, 0), timezone="UTC",
+        running_since=datetime(2026, 8, 27, 8, 0),
+    )
+    now = datetime(2026, 8, 27, 8, 3)
+    advance_schedule(schedule, now)
+
+    assert schedule.running_since is None
+    assert schedule.last_run_at == now
+    assert schedule.next_run_at == datetime(2026, 8, 28, 8, 0)

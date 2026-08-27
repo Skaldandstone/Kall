@@ -13,17 +13,32 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Four jobs now need scheduling.** `python -m kall.jobs.retention`,
+**Five jobs now need scheduling.** `python -m kall.jobs.retention`,
 `python -m kall.jobs.notifications`, `python -m kall.jobs.billing_grace_period`,
-and `python -m kall.jobs.daily_brief` all exist and all do nothing until
-something calls them. Retention wants a daily ECS scheduled task (nothing is
-a year old yet, so no urgency); the grace period job wants hourly (the
-deadline is 72 hours, not 72 minutes); daily_brief wants hourly too (it
-queues for whoever's local hour matches right now, so it needs to check
-often enough that "8am" actually lands near 8am); notifications wants
-something more frequent once a real email provider is picked (a queued
+`python -m kall.jobs.daily_brief`, and `python -m kall.jobs.run_discovery` all
+exist and all do nothing until something calls them. Retention wants a daily
+ECS scheduled task (nothing is a year old yet, so no urgency); the grace
+period job wants hourly (the deadline is 72 hours, not 72 minutes);
+daily_brief wants hourly too (it queues for whoever's local hour matches
+right now, so it needs to check often enough that "8am" actually lands near
+8am); run_discovery wants hourly for the same reason -- it's what makes
+`DiscoverySchedule.run_at_local` mean anything at all, see below; notifications
+wants something more frequent once a real email provider is picked (a queued
 digest sitting for hours is a stale digest). See the setup runbook for the
 exact ECS console steps.
+
+**Automatic opportunity discovery now actually runs.** `DiscoverySchedule` had
+a full data model, a create endpoint, and the UI already said "Next automatic
+run" -- but nothing ever read `run_at_local`/`timezone`, and `run_discovery()`
+had no caller except the manual "search now" button. A schedule someone
+created just sat there, `enabled=True`, forever pending. `services/scheduled_discovery.py`'s
+`run_due_schedules()` is the missing piece: it finds every schedule due right
+now (gated on the account's real chosen hour, timezone, and weekday cadence),
+runs the search, queues a digest through the existing notification outbox for
+whatever's sitting in `state == "new"`, and disables (rather than endlessly
+retrying) any schedule whose user or profile has since been deleted. Needs
+the same hourly scheduling as the jobs above -- see `jobs/run_discovery.py --dry-run`
+to check what would run without running it.
 
 **The daily brief now emails, and it's personalizable.** `services/brief.py`
 is the exact same logic `GET /me/morning-brief` already showed in the app --

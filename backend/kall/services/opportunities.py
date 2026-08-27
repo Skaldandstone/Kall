@@ -12,6 +12,7 @@ from kall.models import (
     NotificationDelivery,
     Opportunity,
 )
+from kall.services.scheduling import local_hour, local_weekday, next_local_occurrence
 from sqlmodel import Session, select
 
 
@@ -72,20 +73,49 @@ def mark_state(row: Opportunity, state: str) -> Opportunity:
     return row
 
 
+#: How much of a cadence's interval has to elapse before a schedule is due
+#: again, expressed as a shortfall from the full interval. run_scheduled
+#: discovery is meant to run roughly hourly, so a schedule due at exactly 24
+#: hours could otherwise be skipped by up to an hour depending on tick
+#: timing; allowing it to fire slightly early keeps "daily at 8am" actually
+#: landing at 8am rather than drifting later each day.
+_CADENCE_SLACK = timedelta(hours=2)
+
+
 def due_schedule(schedule: DiscoverySchedule, now: datetime) -> bool:
-    return schedule.enabled and not schedule.running_since and (
-        schedule.next_run_at is None or schedule.next_run_at <= now
-    )
+    """Whether `schedule` should run right now.
+
+    Gated on the account's actual chosen run_at_local/timezone -- those
+    columns existed and were stored, but nothing ever read them for this
+    decision. A schedule used to be "due" the moment next_run_at (computed
+    with no awareness of run_at_local at all) passed, which meant "run daily
+    at 8am" was never really true: the very first run happened immediately
+    regardless of the hour, and every run after that landed at whatever time
+    the scheduling job happened to have last ticked, not at 8am.
+    """
+    if not schedule.enabled or schedule.running_since:
+        return False
+    if local_hour(schedule.timezone, now) != schedule.run_at_local.hour:
+        return False
+    if schedule.cadence == "weekdays" and local_weekday(schedule.timezone, now) >= 5:
+        return False
+    if schedule.last_run_at is None:
+        return True
+    required = timedelta(days=7 if schedule.cadence == "weekly" else 1)
+    return now - schedule.last_run_at >= required - _CADENCE_SLACK
 
 
 def advance_schedule(schedule: DiscoverySchedule, now: datetime) -> None:
-    days = 7 if schedule.cadence == "weekly" else 1
-    candidate = now + timedelta(days=days)
-    if schedule.cadence == "weekdays":
-        while candidate.weekday() >= 5:
-            candidate += timedelta(days=1)
     schedule.last_run_at = now
-    schedule.next_run_at = candidate
+    # For display only (DiscoveryTab's "Next automatic run") -- due_schedule
+    # re-checks the real local hour on its own next tick rather than trusting
+    # this value to the minute, so this only needs to be a good estimate.
+    days_ahead = 7 if schedule.cadence == "weekly" else 1
+    estimate = now + timedelta(days=days_ahead)
+    if schedule.cadence == "weekdays":
+        while estimate.weekday() >= 5:
+            estimate += timedelta(days=1)
+    schedule.next_run_at = next_local_occurrence(schedule.timezone, schedule.run_at_local.hour, estimate - timedelta(days=1))
     schedule.running_since = None
 
 
