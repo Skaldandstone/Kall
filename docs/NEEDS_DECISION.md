@@ -47,9 +47,16 @@ real signup volume when that changes.
 ## Needs you specifically
 
 **The Chrome extension has never been loaded unpacked against a live posting.**
-The whole writing half is unverified outside DOM tests, and the `country`
-combobox in particular. This needs a human with a browser and a real
-application form; I cannot do it from here.
+The whole writing half is unverified outside DOM tests. The `country` field
+specifically was worse than unverified -- characterizing it against a
+synthetic fixture found it silently failed on any ARIA-combobox picker
+(Workday, Greenhouse's newer forms, Lever all use one): it reported success
+and showed the right text while the widget's own click handler, the thing
+that actually sets what the form submits, never ran. Fixed in #118 by
+dispatching a real click on the matching listbox option. That fix is tested
+against a synthetic fixture, not a real ATS -- it still needs a human with a
+browser against a live posting before it can be trusted; I cannot do that
+from here.
 
 ## Worth knowing
 
