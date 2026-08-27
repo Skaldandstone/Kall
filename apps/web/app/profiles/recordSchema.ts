@@ -71,6 +71,7 @@ export const RECORD_SCHEMAS: Record<string, RecordSchema> = {
       { name: 'obtained_on', label: 'Obtained on', kind: 'date' },
       { name: 'expires_on', label: 'Expires on', kind: 'date' },
       { name: 'renewal_required', label: 'Renewal required', kind: 'checkbox' },
+      { name: 'reminder_days_before', label: 'Remind me this many days before it expires', kind: 'number' },
     ],
   },
   languages: {
