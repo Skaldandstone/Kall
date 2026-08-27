@@ -11,6 +11,9 @@ const isPublicRoute = createRouteMatcher([
   '/demo(.*)',
   '/privacy-policy',
   '/testimonial-submit(.*)',
+  // A published career page is meant to be opened by someone with no Kall
+  // account -- a recruiter, a hiring manager. That is the entire feature.
+  '/p/(.*)',
   // The API calls that page makes must be public too, or the recipient can
   // open the form and never be able to submit it. Both endpoints authenticate
   // on the single-use invitation token itself (api_testimonials.py), not on a
