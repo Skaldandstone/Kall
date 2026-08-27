@@ -122,11 +122,17 @@ clearest gap in the economics model. Recomputed: about $3.50 a month at 100k
 users. The real issue was retention, not spend. `docs/UNIT_ECONOMICS.md` says
 so now.
 
-**A paying Premium subscriber could be wrongly capped submitting an application.**
-`services/billing.py`'s `assert_submission_allowed` predates the tiered plan
-system and hardcodes a "plus"-only check against a separate, disconnected
-usage counter than the real one in `quota.py` -- still live on the actual
-submission-attempt endpoint. Flagged as its own task rather than fixed inline,
-since the fix needs a product call first: is a submission attempt gated by
-the same weekly "applications" meter everything else uses, or does it deserve
-its own limit?
+**A paying Premium subscriber could be wrongly capped submitting an application -- fixed.**
+`services/billing.py`'s `assert_submission_allowed` predated the tiered plan
+system and hardcoded a "plus"-only check against a separate, disconnected
+usage counter than the real one in `quota.py`, on the live submission-attempt
+endpoint (`POST /submissions/{id}/attempt`). Decided: a connector submission
+is the same "applying" event the `applications` meter already counts for a
+manual kanban move to Submitted, so it draws on that same weekly meter rather
+than getting its own. It only consumes on a genuinely new attempt --
+`find_attempt` distinguishes that from an idempotent replay of an
+already-attempted submission, so retrying a submission never double-charges.
+The old dead machinery (`quota_status`, `assert_submission_allowed`,
+`ApplicationUsage`, `FREE_APPLICATION_LIMIT`, `GET /billing/status`) is
+removed -- `GET /me/usage` (`quota.snapshot`) was already the live equivalent
+and nothing in apps/web called the old route.

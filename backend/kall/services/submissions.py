@@ -109,11 +109,21 @@ def confirm_submission(session: Session, submission: ApplicationSubmission) -> A
     return submission
 
 
-def create_attempt(session: Session, submission: ApplicationSubmission) -> SubmissionAttempt:
+def find_attempt(session: Session, submission: ApplicationSubmission) -> SubmissionAttempt | None:
+    """The existing attempt for this submission's current preview, if any.
+
+    Exposed separately from create_attempt so a caller (the quota check) can
+    tell a fresh attempt from an idempotent replay before creating anything.
+    """
     key = checksum({"submission_id": submission.id, "preview_checksum": submission.preview_checksum})
-    existing = session.exec(select(SubmissionAttempt).where(SubmissionAttempt.idempotency_key == key)).first()
+    return session.exec(select(SubmissionAttempt).where(SubmissionAttempt.idempotency_key == key)).first()
+
+
+def create_attempt(session: Session, submission: ApplicationSubmission) -> SubmissionAttempt:
+    existing = find_attempt(session, submission)
     if existing:
         return existing
+    key = checksum({"submission_id": submission.id, "preview_checksum": submission.preview_checksum})
     attempt = SubmissionAttempt(submission_id=submission.id, idempotency_key=key, request_json=submission.preview_json)
     session.add(attempt)
     session.commit()

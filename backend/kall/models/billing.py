@@ -26,21 +26,11 @@ class Subscription(TimestampMixin, table=True):
     payment_failed_at: datetime | None = None
 
 
-class ApplicationUsage(TimestampMixin, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, foreign_key="user.id")
-    application_id: int | None = Field(default=None, index=True, foreign_key="application.id")
-    event: str
-    units: int = 1
-    metadata_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 class UsageCounter(TimestampMixin, table=True):
     """How much of one metered thing a user has spent in one period.
 
-    Separate from ApplicationUsage, which is an event log: this is the running
-    total the quota check reads, so it stays a single row per period rather
-    than a count over history.
+    A single row per period holding the running total, rather than an event
+    log the quota check would have to sum on every read.
     """
 
     __table_args__ = (

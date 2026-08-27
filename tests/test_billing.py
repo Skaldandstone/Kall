@@ -1,5 +1,4 @@
 from fastapi.routing import APIRoute
-from kall.services.billing import FREE_APPLICATION_LIMIT
 
 
 def _app_paths(app) -> set[str]:
@@ -16,10 +15,6 @@ def _app_paths(app) -> set[str]:
     return paths
 
 
-def test_free_application_limit_is_ten():
-    assert FREE_APPLICATION_LIMIT == 10
-
-
 def test_plus_plan_statuses_are_explicit():
     from kall.services.billing import ACTIVE_STATUSES
 
@@ -30,7 +25,7 @@ def test_billing_routes_are_registered():
     from kall.main import app
 
     paths = _app_paths(app)
-    assert "/api/billing/status" in paths
     assert "/api/billing/checkout" in paths
     assert "/api/billing/portal" in paths
     assert "/api/billing/webhook" in paths
+    assert "/api/me/usage" in paths
