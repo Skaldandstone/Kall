@@ -153,3 +153,67 @@ test('a realistic form fills the obvious fields and withholds the rest', () => {
   assert.deepEqual(confirm.map((f) => f.ref), ['gender'], 'gender is proposed, not filled');
   assert.deepEqual(unmatched, [], 'everything in the pack found a home');
 });
+
+/**
+ * Captured from a live Greenhouse application form, verbatim, by running
+ * content.js's own collectFields() against it. Greenhouse is the most common
+ * ATS in this market, and this shape is what actually broke the matcher: the
+ * name is split in two and there is no full-name control anywhere.
+ *
+ * The trailing entries with no signals at all are real -- they are the hidden
+ * text inputs behind Greenhouse's custom comboboxes. They must attract
+ * nothing.
+ */
+const GREENHOUSE_FORM = [
+  control('f0', { id: 'first_name', autocomplete: 'given-name', label: 'First Name*' }),
+  control('f1', { id: 'last_name', autocomplete: 'family-name', label: 'Last Name*' }),
+  control('f2', { id: 'email', autocomplete: 'email', label: 'Email*' }),
+  control('f3', { id: 'country', autocomplete: 'off', label: 'Country' }),
+  control('f4', { id: 'phone', autocomplete: 'off', type: 'tel', label: 'Phone' }),
+  control('f5', { id: 'question_14364081008', autocomplete: 'off', label: 'Please note that you will not be considered unless you complete the Co' }),
+  control('f6', {}),
+  control('f7', { id: 'question_18371453008', autocomplete: 'off', label: 'Please read the arbitration agreement below*' }),
+  control('f8', {}),
+  control('f9', { id: 'question_18374455008', autocomplete: 'off', label: 'Agreement to Arbitrate*' }),
+  control('f10', {}),
+];
+
+test('a real Greenhouse form gets the split name, and custom questions are left alone', () => {
+  const pack = [
+    NAME,
+    EMAIL,
+    PHONE,
+    packField('identity.country', 'Country', 'United States'),
+  ];
+  const { fill, unmatched } = matchFields(pack, GREENHOUSE_FORM);
+  const byRef = Object.fromEntries(fill.map((f) => [f.ref, f.value]));
+
+  assert.equal(byRef.f0, 'Ada', 'first name');
+  assert.equal(byRef.f1, 'Lovelace', 'last name');
+  assert.equal(byRef.f2, 'ada@example.com');
+  assert.equal(byRef.f4, '+1 512 555 0100');
+  assert.equal(byRef.f3, 'United States');
+
+  // Arbitration agreements and screening questions are the applicant's to
+  // answer. Kall must not put anything in them.
+  for (const ref of ['f5', 'f6', 'f7', 'f8', 'f9', 'f10']) {
+    assert.equal(byRef[ref], undefined, `${ref} must be left alone`);
+  }
+  assert.deepEqual(unmatched, [], 'the whole pack found a home');
+});
+
+test('the split name is not reported as missing when the form takes it whole', () => {
+  const form = [control('a', { label: 'Full Name' })];
+  const { fill, unmatched } = matchFields([NAME], form);
+  assert.equal(fill.length, 1);
+  assert.equal(fill[0].path, 'identity.legal_name');
+  // "First name has nowhere to go" is not something a user can act on.
+  assert.deepEqual(unmatched, []);
+});
+
+test('a single-token name is not split into a blank surname', () => {
+  const mononym = packField('identity.legal_name', 'Full name', 'Prince');
+  const form = [control('a', { autocomplete: 'given-name' }), control('b', { autocomplete: 'family-name' })];
+  const { fill } = matchFields([mononym], form);
+  assert.deepEqual(fill, [], 'better to leave both empty than invent a surname');
+});
