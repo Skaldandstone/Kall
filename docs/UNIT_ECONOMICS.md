@@ -73,10 +73,14 @@ resents for the rest of the month.
 
 ## What would change these numbers
 
-- **Generated documents are not billed to anyone.** Tailored resumes and cover
-  letters are Kall's output, and `stored_bytes` deliberately excludes them. They
-  are real S3 objects that accumulate forever. There is no retention policy
-  today; that is the clearest known gap in this model.
+- **Generated documents are not billed to anyone**, and should not be. Tailored
+  resumes and cover letters are Kall's output, and `stored_bytes` deliberately
+  excludes them. This was written up here as the clearest gap in the model,
+  which was wrong: at 100k users generating twenty documents each it comes to
+  roughly $3.50 a month. It was never a cost problem -- it was a *retention*
+  problem, since those files hold someone's employment history and nothing
+  deleted them. They are now rendered on demand rather than eagerly and expire
+  after twelve months, rebuilding byte-identically if anyone asks again.
 - **Portfolio work samples, if they are ever uploads rather than embeds.** The
   career page is public, so egress scales with viewers rather than with the
   account. This is why the plan is embeds.
