@@ -201,3 +201,46 @@ test('never submits the form', async ({ page }) => {
   // sends it themselves.
   expect(await page.evaluate(() => window.__submitted)).toBe(false);
 });
+
+test('an ARIA combobox is filled by clicking its own listbox option', async ({ page }) => {
+  // A true <select> is matched by option -- see the two tests above. An ARIA
+  // combobox (Workday, Greenhouse's newer forms, Lever all use this pattern
+  // for country) is a plain <input> as far as SELECTOR is concerned, so
+  // writing text into it is not enough: the widget only treats a value as
+  // chosen when its own handler sees a click on a listbox option. The
+  // assertion on __countryCommitted() is the one that matters -- it is the
+  // fixture's stand-in for "the framework's own state actually changed",
+  // which inputValue() alone cannot tell you.
+  await loadPage(page);
+  const { fields } = await send(page, { type: 'collect' });
+  const country = fields.find((f) => f.id === 'country-input');
+  expect(country, 'the combobox input should still be collected as a field').toBeTruthy();
+
+  const { applied } = await send(page, {
+    type: 'fill',
+    fills: [{ path: 'identity.country', label: 'Country', value: 'United States', ref: country.ref }],
+  });
+
+  expect(applied).toHaveLength(1);
+  expect(await page.locator('#country-input').inputValue()).toBe('United States');
+  expect(await page.evaluate(() => window.__countryCommitted())).toBe('United States');
+});
+
+test('an ARIA combobox with no matching option is reported, not left looking filled', async ({ page }) => {
+  // Same rule as a <select> with no matching option: text sitting in the box
+  // while the widget never registered a choice is worse than an empty field,
+  // because it reads as filled in on review.
+  await loadPage(page);
+  const { fields } = await send(page, { type: 'collect' });
+  const country = fields.find((f) => f.id === 'country-input');
+
+  const { applied, failed } = await send(page, {
+    type: 'fill',
+    fills: [{ path: 'identity.country', label: 'Country', value: 'Wakanda', ref: country.ref }],
+  });
+
+  expect(applied).toEqual([]);
+  expect(failed).toHaveLength(1);
+  expect(failed[0].reason).toMatch(/Could not confirm/);
+  expect(await page.evaluate(() => window.__countryCommitted())).toBe('');
+});

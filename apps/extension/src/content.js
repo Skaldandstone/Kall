@@ -95,6 +95,69 @@ function setValue(element, value) {
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/**
+ * An ARIA combobox: a text input plus a popup listbox, not a native <select>.
+ * This is how Workday, Greenhouse's newer forms, and Lever render pickers
+ * like country -- SELECTOR only sees the <input>, and typing into it alone
+ * does not "select" anything. The widget's own state (and the hidden field a
+ * form actually submits) only updates when its own handler sees a click or a
+ * keypress on one of its listbox options.
+ *
+ * This rests on the ARIA authoring contract (role="combobox",
+ * aria-controls/aria-owns pointing at role="listbox" options) rather than any
+ * one vendor's internals, which is the only part of a JS-driven widget that
+ * is safe to assume across sites. A widget that skips ARIA roles entirely --
+ * unfortunately not rare -- is not something this can detect, and this never
+ * pretends to have confirmed a selection it did not actually see accepted.
+ */
+function comboboxListbox(element) {
+  const id = element.getAttribute('aria-controls') || element.getAttribute('aria-owns');
+  return id ? document.getElementById(id) : null;
+}
+
+function findComboboxOption(listbox, value) {
+  const wanted = String(value).trim().toLowerCase();
+  return [...listbox.querySelectorAll('[role="option"]')].find(
+    (option) => option.textContent.trim().toLowerCase() === wanted,
+  ) || null;
+}
+
+/**
+ * Click an option the way a person would. Some widgets commit on mousedown
+ * (so a later blur cannot close the popup before the choice registers),
+ * others wait for click -- firing the whole sequence covers both without
+ * needing to know which.
+ */
+function clickOption(option) {
+  for (const type of ['mousedown', 'mouseup', 'click']) {
+    option.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Try to fill an ARIA combobox. Returns true only if an option was actually
+ * clicked -- never for "we typed something and hoped". Some widgets fetch or
+ * filter their option list asynchronously after the input event, so this
+ * waits briefly and checks once more before giving up.
+ */
+async function fillCombobox(element, value) {
+  setValue(element, value);
+  for (const delay of [0, 150]) {
+    if (delay) await wait(delay);
+    const listbox = comboboxListbox(element);
+    const option = listbox && findComboboxOption(listbox, value);
+    if (option) {
+      clickOption(option);
+      return true;
+    }
+  }
+  return false;
+}
+
 /** For a <select>, find the option that actually corresponds to `value`. */
 function selectOption(element, value) {
   const wanted = String(value).trim().toLowerCase();
@@ -109,7 +172,7 @@ function selectOption(element, value) {
 }
 
 /** Write the values the popup decided on. Returns what actually landed. */
-function applyFills(fills) {
+async function applyFills(fills) {
   const applied = [];
   const failed = [];
 
@@ -125,6 +188,14 @@ function applyFills(fills) {
         // Never force an arbitrary option: picking the wrong one on a
         // dropdown is a wrong answer, not an empty one.
         failed.push({ ...fill, reason: 'No matching option in that dropdown.' });
+        continue;
+      }
+    } else if (element.getAttribute('role') === 'combobox') {
+      if (!(await fillCombobox(element, value))) {
+        // Same rule as a <select>: text sitting in the box while the widget
+        // never registered a choice is a worse outcome than an empty field,
+        // because it looks filled in on review.
+        failed.push({ ...fill, reason: 'Could not confirm a selection in that dropdown.' });
         continue;
       }
     } else {
@@ -161,8 +232,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
   if (message.type === 'fill') {
-    sendResponse(applyFills(message.fills));
-    return false;
+    applyFills(message.fills).then(sendResponse);
+    return true; // async response: a combobox fill waits briefly on the page
   }
   if (message.type === 'attachResume') {
     attachResume(message.resume).then(sendResponse);
