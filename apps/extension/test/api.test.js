@@ -7,23 +7,29 @@
  * /api/* path -- not the web app's /api/kall/* proxy path this used to call,
  * which is the whole reason the extension could not see a real sign-in
  * before this change (see docs/EXTENSION_CLERK_SETUP.md).
+ *
+ * deps is overridden directly rather than mocked -- api.js exports a plain
+ * object precisely so tests do not need a module-mocking mechanism. Node's
+ * built-in one is still experimental and behaved differently in CI than it
+ * did locally, which is the failure this file replaced.
  */
 
 import assert from 'node:assert/strict';
-import { mock, test } from 'node:test';
+import { beforeEach, test } from 'node:test';
 
 global.chrome = {
   storage: { sync: { get: async () => ({}) } },
 };
 
-mock.module('../src/auth.js', {
-  exports: { getSessionToken: async () => global.__testToken ?? null },
+const { listApplications, resumeDataUrl, NotSignedInError, deps } = await import('../src/api.js');
+
+beforeEach(() => {
+  deps.origin = async () => 'https://d7wb2yokfqcku.cloudfront.net';
+  deps.getSessionToken = null; // each test sets its own, or leaves it unconfigured on purpose
 });
 
-const { listApplications, resumeDataUrl, NotSignedInError } = await import('../src/api.js');
-
 test('no session token throws NotSignedInError without calling fetch', async () => {
-  global.__testToken = null;
+  deps.getSessionToken = async () => null;
   let called = false;
   global.fetch = async () => { called = true; return { ok: true, status: 200, json: async () => [] }; };
 
@@ -32,7 +38,7 @@ test('no session token throws NotSignedInError without calling fetch', async () 
 });
 
 test('a token is sent as a bearer header against the real /api path, not /api/kall', async () => {
-  global.__testToken = 'test-token-123';
+  deps.getSessionToken = async () => 'test-token-123';
   let seenUrl, seenHeaders;
   global.fetch = async (url, init) => {
     seenUrl = url;
@@ -48,7 +54,7 @@ test('a token is sent as a bearer header against the real /api path, not /api/ka
 });
 
 test('a 401 from the backend is reported the same as no token at all', async () => {
-  global.__testToken = 'test-token-123';
+  deps.getSessionToken = async () => 'test-token-123';
   global.fetch = async () => ({ ok: false, status: 401 });
 
   await assert.rejects(() => listApplications(), NotSignedInError);
@@ -64,7 +70,7 @@ test('resumeDataUrl requests the download_url path as-is -- it is already /api/.
     get result() { return 'data:application/pdf;base64,AAAA'; }
   };
 
-  global.__testToken = 'test-token-123';
+  deps.getSessionToken = async () => 'test-token-123';
   let seenUrl;
   global.fetch = async (url) => {
     seenUrl = url;

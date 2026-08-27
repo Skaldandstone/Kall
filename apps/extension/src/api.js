@@ -15,8 +15,24 @@
  * cookie policy at all.
  */
 
-import { getSessionToken } from './auth.js';
 import { origin } from './config.js';
+
+/**
+ * Where this module gets a bearer token, and Kall's origin. Deliberately
+ * NOT a static import of auth.js: auth.js pulls in @clerk/chrome-extension,
+ * which throws at import time outside a real browser extension context
+ * (it detects the environment eagerly, not lazily) -- so this file could
+ * never be imported in a plain Node test if it imported that chain itself,
+ * even without ever calling anything from it.
+ *
+ * popup.js -- the only place that needs both api.js and auth.js -- wires
+ * the real getSessionToken into `deps` once at startup, below. A test wires
+ * in a fake instead, and never touches auth.js or Clerk at all.
+ */
+export const deps = {
+  getSessionToken: null,
+  origin,
+};
 
 /** Signed-out and network failures are different problems; keep them apart. */
 export class NotSignedInError extends Error {
@@ -27,14 +43,17 @@ export class NotSignedInError extends Error {
 }
 
 async function authorizedHeaders(extra = {}) {
-  const token = await getSessionToken();
+  if (!deps.getSessionToken) {
+    throw new Error('api.js: deps.getSessionToken was never configured. See popup.js.');
+  }
+  const token = await deps.getSessionToken();
   if (!token) throw new NotSignedInError();
   return { Authorization: `Bearer ${token}`, ...extra };
 }
 
 async function request(path, init = {}) {
   const headers = await authorizedHeaders({ Accept: 'application/json', ...(init.headers || {}) });
-  const response = await fetch(`${await origin()}/api${path}`, { ...init, headers });
+  const response = await fetch(`${await deps.origin()}/api${path}`, { ...init, headers });
   if (response.status === 401) throw new NotSignedInError();
   if (!response.ok) throw new Error(`Kall returned ${response.status}.`);
   return response.json();
@@ -60,7 +79,7 @@ export async function autofillPack(applicationId) {
  */
 export async function resumeDataUrl(downloadPath) {
   const headers = await authorizedHeaders();
-  const response = await fetch(`${await origin()}${downloadPath}`, { headers });
+  const response = await fetch(`${await deps.origin()}${downloadPath}`, { headers });
   if (response.status === 401) throw new NotSignedInError();
   if (!response.ok) throw new Error(`Could not download the resume (${response.status}).`);
 

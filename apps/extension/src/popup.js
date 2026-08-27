@@ -7,9 +7,13 @@
  * receives Kall data it was not matched to.
  */
 
-import { autofillPack, listApplications, NotSignedInError, resumeDataUrl } from './api.js';
-import { getClerk, onAuthChange, openSignIn } from './auth.js';
+import { autofillPack, deps, listApplications, NotSignedInError, resumeDataUrl } from './api.js';
+import { getClerk, getSessionToken, onAuthChange, openSignIn } from './auth.js';
 import { matchFields } from './matcher.js';
+
+// api.js does not import auth.js itself (see api.js's own comment on `deps`)
+// so this is the one place that connects them.
+deps.getSessionToken = getSessionToken;
 
 const applicationSelect = document.querySelector('#application');
 const fillButton = document.querySelector('#fill');
