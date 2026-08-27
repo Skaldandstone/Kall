@@ -554,3 +554,115 @@ nav a:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Professional record: the spelling check and saved-record rows. Both replaced
+   a raw JSON textarea and a <pre> dump respectively. */
+.skill-check {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.skill-check h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.skill-check-list {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-check-list li {
+  display: grid;
+  gap: 6px;
+}
+
+.skill-check-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skill-check-name {
+  font-weight: 600;
+}
+
+.skill-check-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--warning);
+  font-size: 13px;
+}
+
+.skill-check-suggestion .button {
+  min-height: 32px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+/* The shared .grid is three columns, which left this page with a dead third
+   column and a cramped form. Entry stays a fixed, comfortable width; the saved
+   records take whatever is left. */
+.record-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.record-intro {
+  margin: 12px 0 20px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .record-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.record-row {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.record-row:first-of-type {
+  border-top: 0;
+  margin-top: 0;
+}
+
+.record-row h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.record-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.record-details dt {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.record-details dd {
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.45;
+}

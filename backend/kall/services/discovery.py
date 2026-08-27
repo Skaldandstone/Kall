@@ -8,6 +8,11 @@ from kall.services.ats_web_search import build_ats_queries
 from kall.services.matching import deterministic_match
 from kall.services.normalization import normalize_discovered
 from kall.services.opportunities import upsert_opportunity
+from kall.services.suppression import (
+    DISCOVERY_BLOCKING_REASONS,
+    is_suppressed,
+    suppressed_urls,
+)
 from sqlmodel import Session, select
 
 PROVIDERS={
@@ -33,7 +38,13 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
     session.add(run)
     session.commit()
     session.refresh(run)
+    # Postings the user has flagged as dead. Loaded once per run rather than
+    # queried per job, and applied before any Job/JobMatch/Opportunity row is
+    # touched -- otherwise a dead posting quietly reappears in the daily brief
+    # every time the board still lists it.
+    blocked = suppressed_urls(session, user.id, reasons=DISCOVERY_BLOCKING_REASONS)
     collected=created=matched=0
+    skipped=0
     errors=[]
     for source in sources:
         provider_type=PROVIDERS.get(source.provider)
@@ -45,6 +56,9 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
             collected += len(jobs)
             for discovered in jobs:
                 normalized=normalize_discovered(discovered)
+                if is_suppressed(normalized["url"], blocked):
+                    skipped += 1
+                    continue
                 existing=session.exec(select(Job).where(Job.url==normalized["url"])) .first()
                 if existing:
                     job=existing
@@ -80,6 +94,10 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
             errors.append(f"{source.company_name}/{source.provider}: {exc}")
     run.completed_at = datetime.utcnow()
     run.jobs_collected = collected
+    # Its own field, not an entry in `errors` -- a skip is a deliberate user
+    # choice, and putting it there would flip the run's status to
+    # completed_with_errors and read as a malfunction in run history.
+    run.jobs_skipped = skipped
     run.jobs_created = created
     run.matches_created = matched
     run.errors = errors

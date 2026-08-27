@@ -2,7 +2,7 @@
 
 **Baseline:** 1.0 Alpha
 
-## Alpha — Current Foundation
+## Alpha - Current Foundation
 
 - Dark Nordic web foundation and shared navigation.
 - Morning Brief using stored user data and deterministic readiness signals.
