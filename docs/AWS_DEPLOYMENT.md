@@ -32,7 +32,7 @@ Two identities exist for this account:
 | Service Connect namespace | `kall.local` (Cloud Map HTTP namespace) - API is reachable internally at `kall-api.kall.local:8000` |
 | ALB | `kall-alb`, HTTP listener on 80. Default action → `kall-web-tg` (port 3000). Rule (priority 1, path `/api/*`) → `kall-api-tg` (port 8000, target type `ip`) |
 | CloudFront | `E2ZZ5V24QLF8BA` → `https://d7wb2yokfqcku.cloudfront.net` (the public URL) |
-| Secrets Manager | `kall/app-secret-key`, `kall/sensitive-data-encryption-key`, `kall/clerk-secret-key`, `kall/clerk-publishable-key`, plus the RDS-managed `rds!db-...` secret |
+| Secrets Manager | `kall/app-secret-key`, `kall/sensitive-data-encryption-key`, `kall/clerk-secret-key`, `kall/clerk-publishable-key`, plus the RDS-managed `rds!db-...` secret. Three `kall/*-oauth-client-secret` entries survive from the pre-Clerk auth system and are unreferenced - see below. |
 | S3 bucket | `kall-documents-693272753663` - resumes and generated documents (uploads/, generated/, data/generated-resumes/), private (public access blocked), SSE-S3 encrypted, versioned |
 | IAM roles | `kall-ecs-execution-role` (ECR pull, CloudWatch Logs, reads `kall/*` and `rds!db-*` secrets), `kall-api-task-role` (the `kall-api` container's own AWS calls - scoped to `s3:GetObject`/`PutObject`/`DeleteObject`/`ListBucket` on `kall-documents-693272753663` only), `kall-codebuild-role` (ECR push, CloudWatch Logs) |
 | CodeBuild projects | `kall-api-build` (`Dockerfile.api`, repo root context), `kall-web-build` (`apps/web/Dockerfile`, `apps/web` context) - both build from GitHub directly, no local Docker involved |
@@ -77,6 +77,37 @@ Authentication is Clerk's, not Kall's - see `backend/kall/auth.py`. Two conseque
   Setting it only on the task definition builds an image with no key in it, and every page then fails with "Missing publishableKey". A publishable key is public by design, so a build arg is fine here - but `CLERK_SECRET_KEY` must never be passed that way, because build args are recorded in the image history. It is a runtime secret on both services.
 
 The mobile app reads `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` at build time via `apps/mobile/app.config.js`.
+
+### What is already configured
+
+Done, and verified against the live account:
+
+| Change | Detail |
+| --- | --- |
+| Secrets created | `kall/clerk-secret-key`, `kall/clerk-publishable-key` |
+| `kall-api` revision 4 | Adds `CLERK_SECRET_KEY`; drops the dead `GOOGLE_/GITHUB_/LINKEDIN_OAUTH_CLIENT_ID` + `WEBAUTHN_RP_ID`/`WEBAUTHN_ORIGIN` env vars and the three OAuth client-secret references |
+| `kall-web` revision 2 | Adds `CLERK_SECRET_KEY` (the proxy needs it at runtime) |
+| `kall-web-build` buildspec | Reads the publishable key from Secrets Manager and passes it as `--build-arg` |
+| `kall-codebuild-role` | New inline policy `kall-codebuild-clerk-publishable-read`, scoped to the publishable key alone - the build has no business reading the secret key or the database password |
+
+The execution role needed no change: its existing `kall/*` wildcard already covers both new secrets.
+
+**Nothing is deployed.** The services still run `kall-api:3` and `kall-web:1`, which are the pre-Clerk images. Rolling out is a deliberate two-step:
+
+```bash
+aws codebuild start-build --project-name kall-api-build --region us-east-2
+aws codebuild start-build --project-name kall-web-build --region us-east-2
+# once both images are pushed
+aws ecs update-service --cluster kall-cluster --service kall-api --task-definition kall-api:4 --region us-east-2
+aws ecs update-service --cluster kall-cluster --service kall-web --task-definition kall-web:2 --region us-east-2
+```
+
+Order matters. Revision 4 on the old image would run pre-Clerk code against a task definition it does not understand, and the API container runs `alembic upgrade head` on start - so the image must contain the Clerk migration before the service moves to it.
+
+### Two things still outstanding
+
+- **These are development Clerk keys.** No production Clerk instance exists yet. A `pk_test_`/`sk_test_` pair works, but the instance carries a 100-user cap and dev-instance semantics. Creating a production instance and rotating both secrets is a prerequisite for real users.
+- **Three dead OAuth secrets remain** in Secrets Manager: `kall/google-oauth-client-secret`, `kall/github-oauth-client-secret`, `kall/linkedin-oauth-client-secret`. Nothing references them any more. They hold live credentials, so revoke them at Google/GitHub/LinkedIn first, then delete the secrets.
 
 ## Public API path (for the native mobile app)
 
