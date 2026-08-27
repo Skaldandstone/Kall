@@ -86,6 +86,9 @@ class ResumeDocument(TimestampMixin, table=True):
     name: str
     file_path: str
     mime_type: str
+    #: Bytes on disk. DocumentArtifact has always tracked this; resumes did
+    #: not, which left half the stored data unmeasurable.
+    byte_size: int = 0
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     industries: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     target_titles: list[str] = Field(default_factory=list, sa_column=Column(JSON))

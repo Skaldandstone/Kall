@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlmodel import JSON, Column, Field
+from sqlmodel import JSON, Column, Field, UniqueConstraint
 
 from kall.models.core import TimestampMixin
 
@@ -26,6 +26,27 @@ class ApplicationUsage(TimestampMixin, table=True):
     event: str
     units: int = 1
     metadata_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+class UsageCounter(TimestampMixin, table=True):
+    """How much of one metered thing a user has spent in one period.
+
+    Separate from ApplicationUsage, which is an event log: this is the running
+    total the quota check reads, so it stays a single row per period rather
+    than a count over history.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "meter", "period", name="uq_usagecounter_user_meter_period"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    #: applications | ai_actions
+    meter: str = Field(index=True)
+    #: "lifetime", or "YYYY-MM" for a monthly allowance.
+    period: str = Field(index=True)
+    used: int = 0
 
 
 class BillingEvent(TimestampMixin, table=True):

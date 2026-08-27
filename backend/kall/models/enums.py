@@ -76,6 +76,7 @@ class ApplicationStatus(StrEnum):
 class SubscriptionPlan(StrEnum):
     FREE = "free"
     PLUS = "plus"
+    PREMIUM = "premium"
 
 
 class Proficiency(StrEnum):

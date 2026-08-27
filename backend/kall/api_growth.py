@@ -19,6 +19,7 @@ from kall.models import (
     User,
 )
 from kall.services.growth_ai import analyze_skills, generate_ai_plan
+from kall.services.quota import assert_ai_allowed, record_ai_action
 
 router = APIRouter()
 
@@ -148,7 +149,12 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
         return _plan_payload(session, existing)
 
     resume_text = _default_resume_text(session, current_user.id)
+    assert_ai_allowed(session, current_user)
     ai_content = generate_ai_plan(goal, resume_text)
+    # The deterministic plan is the fallback when no key is configured or the
+    # call fails, and it costs nothing -- so it must not consume an allowance.
+    if ai_content:
+        record_ai_action(session, current_user)
     content = ai_content or _deterministic_plan_content(goal)
     provider = "openai" if ai_content else "deterministic"
     provider_version = "growth-plan-ai-v1" if ai_content else "growth-plan-v1"
@@ -220,8 +226,10 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
 def create_skills_analysis(goal_id: int, payload: SkillsAnalysisRequest, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> GrowthSkillAssessment:
     goal = _owned_goal(session, current_user.id, goal_id)
     resume_text = _default_resume_text(session, current_user.id)
+    assert_ai_allowed(session, current_user)
     ai_result = analyze_skills(goal, payload.answer, resume_text)
     if ai_result:
+        record_ai_action(session, current_user)
         assessment = GrowthSkillAssessment(
             user_id=current_user.id,
             career_goal_id=goal.id,

@@ -14,6 +14,7 @@ from kall.services.billing import (
     get_subscription,
     quota_status,
 )
+from kall.services.quota import snapshot
 
 router = APIRouter(tags=["billing"])
 
@@ -80,3 +81,16 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
     session.add(record)
     session.commit()
     return {"received": True}
+
+
+@router.get("/me/usage")
+def get_usage(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """What this account has used, and what its plan allows.
+
+    Exists so the product can show a limit approaching rather than only
+    reporting one that has already been hit.
+    """
+    return snapshot(session, current_user)

@@ -20,7 +20,7 @@ def prepare_application(
     generate_cover_letter: bool = True,
     application_mode: str = "assisted",
 ) -> Application:
-    assert_application_allowed(user)
+    assert_application_allowed(session, user)
     storage = get_storage()
     generated_prefix = f"generated/{user.id}/{job.company}-{job.id}"
 
