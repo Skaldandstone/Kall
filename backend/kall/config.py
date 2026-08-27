@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     clerk_secret_key: str | None = None
     clerk_publishable_key: str | None = None
 
+    # Shared secret for the staff-only /api/admin/* endpoints used by the
+    # Skald & Stone Adminhelper portal (see kall/api_admin.py). When unset,
+    # every admin route refuses with 401 -- the surface is opt-in per deploy.
+    admin_api_token: str | None = None
+
     # Object storage for uploaded resumes and generated documents. When unset,
     # files are written to the local filesystem instead -- fine for local
     # development and tests, but not durable across a redeploy of an

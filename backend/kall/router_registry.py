@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from kall.api import router
+from kall.api_admin import router as admin_router
 from kall.api_application_review import router as application_review_router
 from kall.api_applications import router as applications_router
 from kall.api_autofill import router as autofill_router
@@ -41,6 +42,7 @@ API_ROUTERS = (
     submissions_router,
     billing_router,
     autofill_router,
+    admin_router,
 )
 
 
