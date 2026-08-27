@@ -160,3 +160,44 @@
 .addButtons .button {
   text-transform: capitalize;
 }
+
+/* Work samples ----------------------------------------------------------- */
+
+.samples {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sampleList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sampleList li {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.sampleTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sampleAdd {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+}
+
+@media (max-width: 640px) {
+  .sampleAdd {
+    grid-template-columns: 1fr;
+  }
+}

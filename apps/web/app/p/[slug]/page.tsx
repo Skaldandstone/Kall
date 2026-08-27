@@ -14,13 +14,64 @@ import styles from './page.module.css';
 
 type Item = Record<string, string | number | boolean | string[] | null>;
 
+/**
+ * A work sample. `frame_url` is built on the server from a provider allowlist
+ * and is null for anything unrecognised, which renders as a link instead --
+ * this component never constructs an embed URL from user input.
+ */
+type Sample = {
+  title: string;
+  caption: string;
+  provider: string;
+  url: string;
+  frame_url: string | null;
+  aspect_ratio: number | null;
+};
+
 type Section = {
   kind: string;
   title: string;
   body: string | null;
   layout: 'list' | 'grid' | 'timeline';
   items: Item[];
+  samples?: Sample[];
 };
+
+function SampleBlock({ sample }: { sample: Sample }) {
+  if (!sample.frame_url) {
+    // Not a provider we embed. A link is the honest fallback; guessing an
+    // iframe for an arbitrary URL is how a public page becomes a liability.
+    return (
+      <article className={styles.sample}>
+        <a href={sample.url} rel="noopener noreferrer nofollow" target="_blank">
+          {sample.title || sample.url}
+        </a>
+        {sample.caption ? <p>{sample.caption}</p> : null}
+      </article>
+    );
+  }
+  return (
+    <article className={styles.sample}>
+      {sample.title ? <h3>{sample.title}</h3> : null}
+      <div
+        className={styles.frame}
+        style={{ paddingBottom: `${sample.aspect_ratio ?? 56.25}%` }}
+      >
+        <iframe
+          src={sample.frame_url}
+          title={sample.title || `${sample.provider} work sample`}
+          loading="lazy"
+          allowFullScreen
+          // Least privilege: enough for a video or prototype to run, nothing
+          // that would let the frame reach back into the page.
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+      {sample.caption ? <p>{sample.caption}</p> : null}
+    </article>
+  );
+}
 
 type PublicPage = {
   slug: string;
@@ -177,7 +228,11 @@ export default async function CareerPage({ params }: { params: Promise<{ slug: s
   const themeName = page.theme === 'meridian' ? 'meridian' : 'parchment';
   const theme = themeName === 'meridian' ? styles.meridian : styles.parchment;
   const visible = page.sections.filter(
-    (section) => section.body || section.items.length > 0 || section.kind === 'intro',
+    (section) =>
+      section.body ||
+      section.items.length > 0 ||
+      (section.samples?.length ?? 0) > 0 ||
+      section.kind === 'intro',
   );
 
   return (
@@ -225,6 +280,13 @@ export default async function CareerPage({ params }: { params: Promise<{ slug: s
           <section key={section.kind + section.title} id={section.kind} className={styles.section}>
             <h2>{section.title}</h2>
             {section.body ? <p className={styles.lede}>{section.body}</p> : null}
+            {section.samples && section.samples.length > 0 ? (
+              <div className={styles.samples}>
+                {section.samples.map((sample, index) => (
+                  <SampleBlock key={`${section.kind}-sample-${index}`} sample={sample} />
+                ))}
+              </div>
+            ) : null}
             {section.items.length > 0 ? (
               <div className={section.layout === 'grid' ? styles.grid : styles.stack}>
                 {section.items.map((item, index) => (
