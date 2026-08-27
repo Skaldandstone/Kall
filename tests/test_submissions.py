@@ -2,7 +2,14 @@ from datetime import datetime
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from kall.models import Application, ApplicationReview, CareerProfile, Job, SubmissionAttempt
+from kall.models import (
+    Application,
+    ApplicationReview,
+    ApplicationSubmission,
+    CareerProfile,
+    Job,
+    SubmissionAttempt,
+)
 from kall.models.enums import ApplicationStatus
 from kall.services.quota import PLAN_LIMITS
 from kall.services.submissions import checksum
@@ -94,6 +101,69 @@ def test_replaying_an_idempotent_attempt_does_not_double_charge_quota(client: Te
     submission_id = _seed_confirmed_submission(client, engine)
     first = client.post(f"/api/submissions/{submission_id}/attempt")
     assert first.status_code == 200, first.text
+    second = client.post(f"/api/submissions/{submission_id}/attempt")
+    assert second.status_code == 200, second.text
+    assert first.json()["id"] == second.json()["id"]
+
+
+def test_a_manual_kanban_drag_after_a_connector_attempt_does_not_double_charge(client: TestClient, engine) -> None:
+    """The real-world failure mode a stuck Application.status enabled: after
+    a connector attempt already charged the quota once, dragging the same
+    card to "Submitted" on the kanban board must be a no-op, not a second
+    charge for one real application."""
+    limit = PLAN_LIMITS["free"]["applications"].amount
+    submission_id = _seed_confirmed_submission(client, engine)
+    attempt_response = client.post(f"/api/submissions/{submission_id}/attempt")
+    assert attempt_response.status_code == 200, attempt_response.text
+
+    with Session(engine) as session:
+        application_id = session.get(ApplicationSubmission, submission_id).application_id
+
+    drag_response = client.patch(f"/api/me/applications/{application_id}/stage", json={"stage": "submitted"})
+    assert drag_response.status_code == 200, drag_response.text
+
+    # One more full round of legitimate attempts must still fit inside the
+    # weekly limit -- if the drag above had double-charged, this would 402.
+    for _ in range(limit - 1):
+        submission_id = _seed_confirmed_submission(client, engine)
+        response = client.post(f"/api/submissions/{submission_id}/attempt")
+        assert response.status_code == 200, response.text
+
+
+def test_a_successful_attempt_moves_the_application_and_submission_to_submitted(client: TestClient, engine) -> None:
+    """Regression test: a connector attempt created a SubmissionAttempt and
+    charged the applications quota, but never advanced Application.status or
+    ApplicationSubmission.status -- so the application stayed stuck on its
+    pre-submission stage forever, "Create submission attempt" stayed
+    clickable, and a later manual kanban drag to Submitted would have
+    charged the same quota a second time for one real application.
+    """
+    submission_id = _seed_confirmed_submission(client, engine)
+    response = client.post(f"/api/submissions/{submission_id}/attempt")
+    assert response.status_code == 200, response.text
+
+    with Session(engine) as session:
+        submission = session.get(ApplicationSubmission, submission_id)
+        assert submission.status == "submitted"
+        assert submission.submitted_at is not None
+
+        application = session.get(Application, submission.application_id)
+        assert application.status == ApplicationStatus.SUBMITTED
+        assert application.submitted_at is not None
+
+
+def test_replaying_an_attempt_after_it_already_submitted_still_works(client: TestClient, engine) -> None:
+    """The "confirmed" status gate must not block a retry of the same request
+    after mark_application_submitted has already moved the submission to
+    "submitted" -- a client-side timeout retrying an already-succeeded
+    attempt must not be told to re-confirm from scratch."""
+    submission_id = _seed_confirmed_submission(client, engine)
+    first = client.post(f"/api/submissions/{submission_id}/attempt")
+    assert first.status_code == 200, first.text
+
+    with Session(engine) as session:
+        assert session.get(ApplicationSubmission, submission_id).status == "submitted"
+
     second = client.post(f"/api/submissions/{submission_id}/attempt")
     assert second.status_code == 200, second.text
     assert first.json()["id"] == second.json()["id"]
