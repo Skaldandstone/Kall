@@ -31,6 +31,13 @@ or deferred. Worth planning deliberately rather than squeezing in.
 handling. Someone whose card fails mid-search should not be locked out that
 instant. Needs a policy before Stripe goes live -- see `docs/STRIPE_SETUP.md`.
 
+**Android app id -- I picked `com.skaldandstone.kall`, sanity-check it.**
+You installed Android Studio to start the Android app, and `app.json` had no
+`android.package` at all, which blocks any native build outright. I set it so
+the first thing you tried would not just fail. **This is permanent once
+published to Google Play** -- worth a deliberate look before that happens
+rather than after.
+
 ## Deferred by you
 
 **Production Clerk instance.** Still on development keys with a 100-user cap.
