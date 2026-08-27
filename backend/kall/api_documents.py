@@ -8,15 +8,17 @@ from kall.db import get_session
 from kall.models import (
     CoverLetterChange,
     CoverLetterProposal,
-    DocumentArtifact,
     GeneratedDocument,
     KeywordCoverageReport,
     TailoringProposal,
     User,
 )
 from kall.services.documents import (
+    ARTIFACT_FORMATS,
+    ensure_artifact,
     finalize_cover_letter,
     generate_resume_documents,
+    offered_artifacts,
     propose_cover_letter,
     review_cover_letter_change,
 )
@@ -71,11 +73,9 @@ def get_document(
     document = session.get(GeneratedDocument, document_id)
     if not document or document.user_id != current_user.id:
         raise HTTPException(404, "Document not found")
-    artifacts = list(
-        session.exec(
-            select(DocumentArtifact).where(DocumentArtifact.generated_document_id == document.id)
-        )
-    )
+    # Every format is offered whether or not it has been rendered yet; a
+    # size appears once one has.
+    artifacts = offered_artifacts(session, document)
     coverage = session.exec(
         select(KeywordCoverageReport).where(
             KeywordCoverageReport.generated_document_id == document.id
@@ -94,15 +94,12 @@ def download_document(
     document = session.get(GeneratedDocument, document_id)
     if not document or document.user_id != current_user.id:
         raise HTTPException(404, "Document not found")
-    artifact = session.exec(
-        select(DocumentArtifact).where(
-            DocumentArtifact.generated_document_id == document.id,
-            DocumentArtifact.format == file_format,
-        )
-    ).first()
-    storage = get_storage()
-    if not artifact or not storage.exists(artifact.file_path):
+    if file_format not in ARTIFACT_FORMATS:
         raise HTTPException(404, "Document artifact not found")
+    # Rendered here if this is the first request for this format, or if the
+    # file was expired by the retention job. Either way the bytes are the same.
+    artifact = ensure_artifact(session, document, file_format)
+    storage = get_storage()
     return Response(
         content=storage.read(artifact.file_path),
         media_type=artifact.mime_type,

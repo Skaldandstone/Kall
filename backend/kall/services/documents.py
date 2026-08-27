@@ -1,8 +1,10 @@
+import contextlib
 import hashlib
 import io
 import json
+import zipfile
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from docx import Document
 from kall.models import (
@@ -82,15 +84,51 @@ def keyword_report(
     )
 
 
+#: A fixed timestamp for everything that would otherwise record "now".
+#:
+#: Rendering has to be reproducible: the product shows a checksum and calls
+#: these artifacts traceable, and a checksum nobody can recompute is
+#: decoration. It also lets an expired artifact be rebuilt and shown to be the
+#: same file, which is what makes expiry safe rather than lossy.
+_FIXED_TIMESTAMP = datetime(2020, 1, 1)
+_FIXED_ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+
+
+def _normalize_zip(data: bytes) -> bytes:
+    """Rewrite a zip's entry timestamps to a fixed date.
+
+    A .docx is a zip. python-docx stamps each entry with the wall clock at
+    save time, so two renders of identical content differ in the archive
+    headers even though every byte of every entry matches. Order, compression
+    and attributes are preserved -- only the dates change.
+    """
+    source = zipfile.ZipFile(io.BytesIO(data))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for info in source.infolist():
+            replacement = zipfile.ZipInfo(info.filename, date_time=_FIXED_ZIP_DATE)
+            replacement.compress_type = info.compress_type
+            replacement.external_attr = info.external_attr
+            target.writestr(replacement, source.read(info.filename))
+    return out.getvalue()
+
+
 def _write_docx(title: str, sections: Iterable[dict[str, str]]) -> bytes:
     document = Document()
     document.add_heading(title, 0)
     for item in sections:
         document.add_heading(item["section"].replace("_", " ").title(), level=1)
         document.add_paragraph(item["text"])
+    # Core properties record created/modified/revision; pin them so the only
+    # thing the bytes depend on is the content.
+    properties = document.core_properties
+    properties.created = _FIXED_TIMESTAMP
+    properties.modified = _FIXED_TIMESTAMP
+    properties.last_modified_by = ""
+    properties.revision = 1
     buffer = io.BytesIO()
     document.save(buffer)
-    return buffer.getvalue()
+    return _normalize_zip(buffer.getvalue())
 
 
 def _write_pdf(title: str, sections: Iterable[dict[str, str]]) -> bytes:
@@ -105,7 +143,9 @@ def _write_pdf(title: str, sections: Iterable[dict[str, str]]) -> bytes:
             ]
         )
     buffer = io.BytesIO()
-    SimpleDocTemplate(buffer, pagesize=LETTER, title=title).build(story)
+    # invariant=1 drops the embedded creation date and document id, which are
+    # the only non-deterministic parts of a reportlab PDF.
+    SimpleDocTemplate(buffer, pagesize=LETTER, title=title, invariant=1).build(story)
     return buffer.getvalue()
 
 
@@ -132,27 +172,11 @@ def generate_resume_documents(
     session.commit()
     session.refresh(generated)
 
-    storage = get_storage()
-    key_prefix = f"generated/{proposal.user_id}/document-{generated.id}"
-    artifacts: list[tuple[str, str, bytes]] = [
-        ("txt", "text/plain", content_text.encode("utf-8")),
-        ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", _write_docx("Tailored Resume", sections)),
-        ("pdf", "application/pdf", _write_pdf("Tailored Resume", sections)),
-    ]
-
-    for extension, mime, data in artifacts:
-        key = f"{key_prefix}/resume.{extension}"
-        storage.save(key, data)
-        session.add(
-            DocumentArtifact(
-                generated_document_id=generated.id,
-                format=extension,
-                file_path=key,
-                mime_type=mime,
-                byte_size=len(data),
-                checksum=_sha(data),
-            )
-        )
+    # Nothing is rendered here. Every generation used to write txt, docx and
+    # pdf immediately, three files for a document most people download in at
+    # most one format -- and often none, because the coverage report is what
+    # they came to look at. Rendering is deterministic and cheap, so it now
+    # happens on the first download of each format instead. See ensure_artifact.
     report = keyword_report(session, generated, proposal.job_id, content_text)
     session.add(report)
     session.add(
@@ -241,3 +265,146 @@ def finalize_cover_letter(session: Session, proposal: CoverLetterProposal) -> Co
     session.commit()
     session.refresh(proposal)
     return proposal
+
+
+# --- Rendering on demand, and letting rendered files expire -----------------
+#
+# A generated document is two things kept apart on purpose:
+#
+#   GeneratedDocument.content_json  the tailored content, in Postgres. Small,
+#                                   derived from an AI call, and the thing
+#                                   that would be expensive to lose.
+#   DocumentArtifact                a rendered txt/docx/pdf in object storage.
+#                                   Derived from content_json by pure
+#                                   templating -- no model call, no quota
+#                                   consumed, byte-for-byte reproducible.
+#
+# Because the second is reproducible from the first, artifacts are disposable.
+# They are rendered when someone asks for one and deleted when they go stale;
+# the record of what was generated never expires.
+
+#: Formats a generated document can be produced in.
+ARTIFACT_FORMATS: dict[str, str] = {
+    "txt": "text/plain",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+
+#: How long a rendered file is kept after it was last produced.
+#:
+#: Not a cost control -- at any plausible scale these files are a few dollars a
+#: month. It is a data-retention rule: they contain someone's employment
+#: history, and keeping them forever with no expiry is a liability rather than
+#: a feature. Twelve months is long enough that nobody loses something they
+#: still care about, and re-rendering returns the identical file anyway.
+ARTIFACT_RETENTION_DAYS = 365
+
+
+def _document_title(document: GeneratedDocument) -> str:
+    return "Tailored Resume" if document.document_type == "resume" else "Cover Letter"
+
+
+def render_artifact(document: GeneratedDocument, file_format: str) -> bytes:
+    """Produce one format from the stored content. Deterministic."""
+    if file_format not in ARTIFACT_FORMATS:
+        raise ValueError(f"Unsupported format: {file_format}")
+    sections = document.content_json.get("sections", [])
+    if file_format == "txt":
+        return "\n\n".join(item["text"] for item in sections).encode("utf-8")
+    title = _document_title(document)
+    if file_format == "docx":
+        return _write_docx(title, sections)
+    return _write_pdf(title, sections)
+
+
+def ensure_artifact(
+    session: Session,
+    document: GeneratedDocument,
+    file_format: str,
+) -> DocumentArtifact:
+    """Return the rendered artifact, producing it if it is absent or expired.
+
+    Safe to call for a document whose files were expired years ago: the bytes
+    come back identical, which is the whole reason expiry is acceptable.
+    """
+    storage = get_storage()
+    existing = session.exec(
+        select(DocumentArtifact).where(
+            DocumentArtifact.generated_document_id == document.id,
+            DocumentArtifact.format == file_format,
+        )
+    ).first()
+    if existing and storage.exists(existing.file_path):
+        return existing
+
+    data = render_artifact(document, file_format)
+    key = f"generated/{document.user_id}/document-{document.id}/{document.document_type}.{file_format}"
+    storage.save(key, data)
+
+    artifact = existing or DocumentArtifact(
+        generated_document_id=document.id,
+        format=file_format,
+        file_path=key,
+        mime_type=ARTIFACT_FORMATS[file_format],
+        byte_size=len(data),
+        checksum=_sha(data),
+    )
+    # Re-rendering an expired file: the row is reused so the checksum recorded
+    # when it was first generated stays put, and a mismatch would be a real
+    # signal rather than an artifact of the clock.
+    artifact.file_path = key
+    artifact.byte_size = len(data)
+    artifact.mime_type = ARTIFACT_FORMATS[file_format]
+    session.add(artifact)
+    session.commit()
+    session.refresh(artifact)
+    return artifact
+
+
+def offered_artifacts(session: Session, document: GeneratedDocument) -> list[dict[str, object]]:
+    """Every format on offer, with a size for the ones already rendered.
+
+    The product lists formats to download; whether a file happens to exist yet
+    is an implementation detail, so all three are always offered.
+    """
+    rendered = {
+        row.format: row
+        for row in session.exec(
+            select(DocumentArtifact).where(
+                DocumentArtifact.generated_document_id == document.id
+            )
+        )
+    }
+    return [
+        {
+            "id": rendered[fmt].id if fmt in rendered else None,
+            "format": fmt,
+            "mime_type": mime,
+            "byte_size": rendered[fmt].byte_size if fmt in rendered else None,
+            "checksum": rendered[fmt].checksum if fmt in rendered else None,
+        }
+        for fmt, mime in ARTIFACT_FORMATS.items()
+    ]
+
+
+def expire_artifacts(session: Session, older_than_days: int = ARTIFACT_RETENTION_DAYS) -> int:
+    """Delete rendered files older than the retention window.
+
+    Deletes the stored object and the row that describes it. The
+    GeneratedDocument is untouched, so the document remains listed,
+    downloadable, and identical when someone asks for it again.
+
+    Returns the number of artifacts removed.
+    """
+    cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+    storage = get_storage()
+    stale = list(
+        session.exec(select(DocumentArtifact).where(DocumentArtifact.created_at < cutoff))
+    )
+    for artifact in stale:
+        # A file already gone is the desired end state; the row still goes.
+        with contextlib.suppress(Exception):
+            storage.delete(artifact.file_path)
+        session.delete(artifact)
+    session.commit()
+    return len(stale)
