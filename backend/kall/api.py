@@ -212,7 +212,11 @@ def list_search_sources(current_user: User = Depends(get_current_user), session:
 
 
 @router.post("/jobs", response_model=Job)
-def create_job(payload: JobCreate, session: Session = Depends(get_session)) -> Job:
+def create_job(payload: JobCreate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> Job:
+    # Jobs are shared rows with no owner column (matches and applications are
+    # what belong to a user), so the sign-in requirement is the whole point of
+    # the dependency -- same shape as /jobs/import-search-result.
+    del current_user
     row = Job(**payload.model_dump())
     session.add(row)
     session.commit()
