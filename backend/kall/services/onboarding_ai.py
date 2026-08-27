@@ -1,7 +1,6 @@
-import json
 
-import httpx
 from kall.config import get_settings
+from kall.services.openai_json import ask_for_json
 
 _STRATEGY_SCHEMA = {
     "type": "object",
@@ -41,26 +40,9 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         "(e.g. 'remote' if they've worked remotely) -- if nothing is implied, return an empty list.\n\n"
         f"RESUME:\n{text[:30000]}"
     )
-    try:
-        response = httpx.post(
-            "https://api.openai.com/v1/responses",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
-            json={
-                "model": settings.openai_model,
-                "input": prompt,
-                "text": {"format": {"type": "json_schema", "name": "career_strategy_suggestion", "strict": True, "schema": _STRATEGY_SCHEMA}},
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        output_text = payload.get("output_text")
-        if not output_text:
-            for item in payload.get("output", []):
-                for content in item.get("content", []):
-                    if content.get("type") == "output_text":
-                        output_text = content.get("text")
-                        break
-        return json.loads(output_text or "{}")
-    except Exception:
-        return None
+    return ask_for_json(
+        prompt,
+        schema_name="career_strategy_suggestion",
+        schema=_STRATEGY_SCHEMA,
+        purpose="career strategy suggestion",
+    )

@@ -1,11 +1,9 @@
 import contextlib
-import json
 from datetime import datetime
 from uuid import uuid4
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -14,6 +12,7 @@ from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
 from kall.services import quota
 from kall.services.onboarding_ai import suggest_career_strategy
+from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.storage import get_storage
 
@@ -143,29 +142,21 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
         "Proposed text may improve clarity and positioning, but use placeholders such as [add verified metric] when evidence is missing. "
         f"Target roles: {', '.join(profile_titles or resume.target_titles) or 'not specified'}.\n\nRESUME:\n{resume_text[:30000]}"
     )
+    parsed = ask_for_json(
+        prompt,
+        schema_name="resume_recommendations",
+        schema=schema,
+        purpose="resume recommendations",
+    )
+    if parsed is None:
+        return _fallback_recommendations(resume)
     try:
-        response = httpx.post(
-            "https://api.openai.com/v1/responses",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
-            json={
-                "model": settings.openai_model,
-                "input": prompt,
-                "text": {"format": {"type": "json_schema", "name": "resume_recommendations", "strict": True, "schema": schema}},
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        output_text = payload.get("output_text")
-        if not output_text:
-            for item in payload.get("output", []):
-                for content in item.get("content", []):
-                    if content.get("type") == "output_text":
-                        output_text = content.get("text")
-                        break
-        parsed = json.loads(output_text or "{}")
-        return [ResumeRecommendation.model_validate(item).model_dump() for item in parsed.get("recommendations", [])]
-    except Exception:
+        return [
+            ResumeRecommendation.model_validate(item).model_dump()
+            for item in parsed.get("recommendations", [])
+        ]
+    except ValidationError:
+        # Well-formed JSON that is not the shape we asked for.
         return _fallback_recommendations(resume)
 
 
