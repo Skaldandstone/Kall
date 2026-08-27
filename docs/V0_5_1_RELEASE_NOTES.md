@@ -1,4 +1,4 @@
-# Kall v0.5.1 — Resume Intelligence Foundation
+# Kall v0.5.1 - Resume Intelligence Foundation
 
 ## Included
 

@@ -8,7 +8,7 @@
 - Application tracking
 - First 10 completed applications
 
-## Plus — $4/month
+## Plus - $4/month
 - Unlimited completed applications
 - AI resume tailoring
 - Cover letters

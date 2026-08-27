@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
 import GoogleJobSearchResults from '../components/GoogleJobSearchResults';
-import { hiddenSearchResultCount, restoreHiddenSearchResults } from '../lib/searchResultState';
+import { deadLinkCount, hiddenSearchResultCount, loadSuppressedResults, restoreHiddenSearchResults } from '../lib/searchResultState';
 import { showToast } from '../components/ToastHost';
 
 type AtsSearch = { query: string };
@@ -48,6 +48,7 @@ export default function SearchTab() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [hiddenCount, setHiddenCount] = useState(0);
+  const [deadCount, setDeadCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.add('search-page-active');
@@ -57,8 +58,11 @@ export default function SearchTab() {
     const selectedQuery = params.get('q');
     if (selectedProfile) setProfileId(selectedProfile);
     if (selectedQuery) { const parsed = parseQuery(selectedQuery); setGroups(parsed); setActiveQuery(buildQuery(parsed)); }
-    setHiddenCount(hiddenSearchResultCount());
-    const updateHiddenCount = () => setHiddenCount(hiddenSearchResultCount());
+    const updateHiddenCount = () => { setHiddenCount(hiddenSearchResultCount()); setDeadCount(deadLinkCount()); };
+    updateHiddenCount();
+    // The list lives on the server now, so the counts start empty and fill in
+    // once it arrives; loadSuppressedResults fires the same change event.
+    void loadSuppressedResults();
     window.addEventListener('kall:search-results-changed', updateHiddenCount);
     return () => {
       document.documentElement.classList.remove('search-page-active');
@@ -119,7 +123,8 @@ export default function SearchTab() {
     const currentQuery = activeQuery;
     restoreHiddenSearchResults();
     setHiddenCount(0);
-    showToast('Past search results restored.', 'success');
+    setDeadCount(0);
+    showToast('Hidden results restored, including flagged dead links.', 'success');
     if (currentQuery) {
       setActiveQuery('');
       window.setTimeout(() => setActiveQuery(currentQuery), 0);
@@ -138,11 +143,11 @@ export default function SearchTab() {
           <div className="search-page-actions"><button className="button" type="submit" disabled={loading}>{loading ? 'Preparing search…' : 'Search jobs'}</button>{activeQuery && <button className="button ghost" type="button" onClick={clearResults}>Clear results</button>}</div>
         </form>
         {!!groups.length && <section className="active-search-terms" aria-label="Active search terms"><div className="active-search-heading"><h3>Active search terms</h3><span>{termCount}</span></div>{groups.map((group) => <div className="search-term-group" key={group.id}><p>{group.label}</p><div className="search-term-chips">{group.terms.map((term) => <button type="button" className="search-term-chip" key={term} onClick={() => removeTerm(group.id, term)}><span>{term}</span><b aria-hidden="true">×</b><span className="sr-only">Remove {term}</span></button>)}</div></div>)}</section>}
-        {hiddenCount > 0 && <button className="button secondary restore-results-button" type="button" onClick={restoreResults}>Restore past results ({hiddenCount})</button>}
+        {hiddenCount > 0 && <button className="button secondary restore-results-button" type="button" onClick={restoreResults} title={deadCount ? `${deadCount} flagged as dead links` : undefined}>Restore hidden results ({hiddenCount})</button>}
         <p className="notice" aria-live="polite">{message}</p>
       </article>
       <article className="card search-page-results-column">
-        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Results</span><h2 style={{ marginTop: 14 }}>Current job matches</h2></div><p>Applied jobs are hidden until restored.</p></div>
+        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Results</span><h2 style={{ marginTop: 14 }}>Current job matches</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
         {activeQuery ? <GoogleJobSearchResults query={activeQuery} profileId={profileId || undefined} /> : <div className="search-empty-state"><h2>No search results yet</h2><p>Select a professional profile or enter a title, then press Search jobs.</p></div>}
       </article>
     </section>

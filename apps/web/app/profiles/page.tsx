@@ -1,10 +1,10 @@
 'use client';
 
 import { Suspense } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AppNav from '../components/AppNav';
 import StrategyTab from './StrategyTab';
-import IdentityTab from './IdentityTab';
 import RecordTab from './RecordTab';
 import EmploymentTab from './EmploymentTab';
 import GrowthTab from './GrowthTab';
@@ -14,7 +14,6 @@ import styles from './page.module.css';
 
 const TABS = [
   ['strategy', 'Strategy'],
-  ['identity', 'Identity'],
   ['employment', 'Work history'],
   ['record', 'Professional record'],
   ['growth', 'Growth'],
@@ -29,6 +28,15 @@ export default function ProfilesPage() {
 function ProfilesPageContent() {
   const params = useSearchParams();
   const tab = params.get('tab') || 'strategy';
+
+  // Identity moved to account settings, where it belongs -- these are facts
+  // about the person, not one of several career strategies. Bookmarks and
+  // older links still point here, so send them on rather than 404-ing them
+  // into the Strategy tab with no explanation.
+  useEffect(() => {
+    if (tab === 'identity') window.location.replace('/settings/identity');
+  }, [tab]);
+  if (tab === 'identity') return null;
 
   return (
     <main className={styles.shell}>
@@ -52,7 +60,6 @@ function ProfilesPageContent() {
         ))}
       </nav>
       {tab === 'strategy' && <StrategyTab />}
-      {tab === 'identity' && <IdentityTab />}
       {tab === 'employment' && <EmploymentTab />}
       {tab === 'record' && <RecordTab />}
       {tab === 'growth' && <GrowthTab />}

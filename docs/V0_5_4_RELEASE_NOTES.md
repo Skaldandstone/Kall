@@ -1,4 +1,4 @@
-# Kall v0.5.4 — Document Studio
+# Kall v0.5.4 - Document Studio
 
 Kall v0.5.4 turns finalized, evidence-reviewed tailoring proposals into private application documents.
 
