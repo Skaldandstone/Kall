@@ -19,13 +19,31 @@ AWS it wants a daily ECS scheduled task on the existing `kall-api` image. Not
 urgent -- there is nothing a year old yet -- but it is a silent no-op until
 then.
 
-**Account deletion does not exist.** No endpoint, no Clerk-side cleanup, no
-cascade. `CandidateProfile` holds encrypted phone, address, EEO and
-work-authorization data, and there is currently no way for anyone to remove
-it. This is the largest production-readiness gap I found and it is a
-multi-part piece of work: a deletion endpoint, cascade across the foreign
-keys, Clerk user removal, and a decision about whether deletion is immediate
-or deferred. Worth planning deliberately rather than squeezing in.
+**Account deletion is now built -- one piece of it is unverified.**
+`DELETE /me` (self-service, type-your-email-to-confirm) and an admin console
+button both call `services/account_deletion.py`, which walks the schema's own
+foreign-key graph rather than a hand-written table list -- 70 of the 76
+tables in the schema currently carry a user's rows, and a test populates
+every one of them, including two-hop chains like
+GeneratedDocument -> DocumentArtifact, and asserts zero survive under real FK
+enforcement (SQLite defaults to not enforcing them; Postgres always does, so
+the test turns enforcement on rather than trusting the happy path). The
+support audit log is preserved rather than deleted -- its actor/target
+columns are nulled, the same way `actor_email` already survives an actor's
+account being removed.
+
+The one thing that needed a decision mid-build: deleting the Kall row does
+**not** sign anyone out of Clerk, so a browser with a still-valid Clerk
+session would otherwise hit `ensure_local_user`'s "create on first sight"
+path and silently resurrect a fresh, empty account on its next request. Fixed
+two ways -- a best-effort call to delete the Clerk user outright, and a local
+tombstone (`AccountDeletionRecord`, keyed by `clerk_user_id`) that refuses to
+resurrect that identity even if the Clerk call fails or no Clerk key is
+configured. The tombstone is fully unit-tested; **the actual Clerk-delete API
+call has never run against a live Clerk instance** -- I found the SDK method
+(`clerk.users.delete(user_id=...)`) and its signature by reading the
+installed package, not by calling it. Worth one real run once the production
+Clerk instance exists, alongside everything else on that line below.
 
 **Payment failure grace period.** `invoice.payment_failed` currently has no
 handling. Someone whose card fails mid-search should not be locked out that

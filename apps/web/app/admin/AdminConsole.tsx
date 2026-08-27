@@ -57,6 +57,8 @@ export default function AdminConsole() {
   const [audit, setAudit] = useState<Audit[]>([]);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const search = useCallback(async (term: string) => {
     const response = await fetchKall(`/admin/users${term ? `?q=${encodeURIComponent(term)}` : ''}`);
@@ -74,20 +76,39 @@ export default function AdminConsole() {
   async function open(account: Account) {
     setSelected(account);
     setReason('');
+    setConfirmEmail('');
+    setConfirmingDelete(false);
     setAudit((await getKall<Audit[]>(`/admin/audit?target_user_id=${account.id}`)) ?? []);
   }
 
-  async function act(path: string, body: Record<string, unknown>, label: string) {
+  async function act(
+    path: string,
+    body: Record<string, unknown>,
+    label: string,
+    method: 'PATCH' | 'POST' | 'DELETE' = path === '/reset-usage' ? 'POST' : 'PATCH',
+  ) {
     if (!selected) return;
     setBusy(true);
     const response = await fetchKall(`/admin/users/${selected.id}${path}`, {
-      method: path === '/reset-usage' ? 'POST' : 'PATCH',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...body, reason }),
     });
     setBusy(false);
     if (!response.ok) {
       showToast(`${label} failed.`, 'error');
+      return;
+    }
+    if (response.status === 204) {
+      // Deleted -- nothing left to re-fetch. Drop it from the list and the
+      // detail pane rather than asking the server for an account that is
+      // gone.
+      setAccounts((current) => current.filter((row) => row.id !== selected.id));
+      setSelected(null);
+      setReason('');
+      setConfirmEmail('');
+      setConfirmingDelete(false);
+      showToast(`${label} done.`, 'success');
       return;
     }
     const updated: Account = await response.json();
@@ -236,6 +257,56 @@ export default function AdminConsole() {
                 >
                   Reset this period
                 </button>
+              </div>
+
+              <div className={styles.dangerZone}>
+                {!confirmingDelete ? (
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => setConfirmingDelete(true)}
+                  >
+                    Delete this account
+                  </button>
+                ) : (
+                  <>
+                    <p className="muted">
+                      This permanently deletes the account and everything in it. Type the
+                      account&apos;s email to confirm.
+                    </p>
+                    <label>
+                      <span className="muted">Confirm email</span>
+                      <input
+                        className="input"
+                        name="confirmEmail"
+                        value={confirmEmail}
+                        onChange={(event) => setConfirmEmail(event.target.value)}
+                        placeholder={selected.email}
+                      />
+                    </label>
+                    <div className={styles.actions}>
+                      <button
+                        type="button"
+                        className="button danger"
+                        disabled={busy || confirmEmail.trim().toLowerCase() !== selected.email.toLowerCase()}
+                        onClick={() => act('', { confirm_email: confirmEmail }, 'Account deleted', 'DELETE')}
+                      >
+                        Permanently delete
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        disabled={busy}
+                        onClick={() => {
+                          setConfirmingDelete(false);
+                          setConfirmEmail('');
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <section className={styles.audit}>

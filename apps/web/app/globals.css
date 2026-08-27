@@ -217,6 +217,23 @@ nav a:hover {
   font-weight: 600;
 }
 
+.button.danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.button.danger:hover {
+  filter: brightness(1.08);
+}
+
+.button.danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

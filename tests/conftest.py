@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from kall.auth import get_current_user
 from kall.db import get_session
@@ -59,7 +60,15 @@ def client(engine) -> Iterator[TestClient]:
     # and would try to build a request schema for anything declared here.
     def override_get_current_user() -> User:
         with Session(engine) as session:
-            return session.get(User, user_id)
+            user = session.get(User, user_id)
+            # The real get_current_user never returns None -- an unresolvable
+            # identity is a 401, not a null current_user. A test that deletes
+            # this account mid-test (test_account_deletion.py) exercises that
+            # exact path, and without this it would hit routes as `None` and
+            # crash with an unrelated AttributeError instead.
+            if user is None:
+                raise HTTPException(status_code=401, detail="Invalid or expired session")
+            return user
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_current_user

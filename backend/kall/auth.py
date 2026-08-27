@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from kall.config import get_settings
 from kall.db import get_session
-from kall.models import CandidateProfile, User
+from kall.models import AccountDeletionRecord, CandidateProfile, User
 
 
 def utcnow() -> datetime:
@@ -74,6 +74,12 @@ def _find_user(session: Session, clerk_user_id: str) -> User | None:
     return session.exec(select(User).where(User.clerk_user_id == clerk_user_id)).first()
 
 
+def _was_deleted(session: Session, clerk_user_id: str) -> bool:
+    return session.exec(
+        select(AccountDeletionRecord).where(AccountDeletionRecord.clerk_user_id == clerk_user_id)
+    ).first() is not None
+
+
 def ensure_local_user(session: Session, clerk_user_id: str) -> User:
     """Resolves the local User for a Clerk id, creating it on first sight.
 
@@ -95,6 +101,16 @@ def ensure_local_user(session: Session, clerk_user_id: str) -> User:
     user = _find_user(session, clerk_user_id)
     if user:
         return user
+
+    if _was_deleted(session, clerk_user_id):
+        # Without this, a browser whose Clerk session outlived its Kall
+        # account -- deleting the local row does not sign anyone out of
+        # Clerk -- would land right here and this function would build a
+        # brand new account, silently undoing the deletion. See
+        # services/account_deletion.py, which writes the row this checks and
+        # tries to delete the Clerk user too; this is what still holds if
+        # that call failed or the deployment has no Clerk key.
+        raise HTTPException(status_code=401, detail="This account has been deleted")
 
     email, full_name = _clerk_profile(clerk_user_id)
 
