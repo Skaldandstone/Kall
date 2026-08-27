@@ -4,7 +4,7 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-08-27.
+Last updated 2026-08-27 (afternoon).
 
 ## Needs a decision
 
@@ -13,11 +13,14 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Nothing schedules the retention job.** It runs as
-`python -m kall.jobs.retention` and does nothing until something calls it. On
-AWS it wants a daily ECS scheduled task on the existing `kall-api` image. Not
-urgent -- there is nothing a year old yet -- but it is a silent no-op until
-then.
+**Three jobs now need scheduling, not just one.** `python -m kall.jobs.retention`,
+`python -m kall.jobs.notifications`, and `python -m kall.jobs.billing_grace_period`
+all exist and all do nothing until something calls them. Retention wants a
+daily ECS scheduled task (nothing is a year old yet, so no urgency); the
+grace period job wants hourly (the deadline is 72 hours, not 72 minutes);
+notifications wants something more frequent once a real email provider is
+picked (a queued digest sitting for hours is a stale digest). See the setup
+runbook for the exact ECS console steps.
 
 **Account deletion is now built -- one piece of it is unverified.**
 `DELETE /me` (self-service, type-your-email-to-confirm) and an admin console
@@ -45,16 +48,42 @@ call has never run against a live Clerk instance** -- I found the SDK method
 installed package, not by calling it. Worth one real run once the production
 Clerk instance exists, alongside everything else on that line below.
 
-**Payment failure grace period.** `invoice.payment_failed` currently has no
-handling. Someone whose card fails mid-search should not be locked out that
-instant. Needs a policy before Stripe goes live -- see `docs/STRIPE_SETUP.md`.
+**Payment failure grace period -- decided and built: 72 hours.** A card that
+fails keeps its paid-tier limits for 72 hours from the *first* failure (a
+retry that fails again does not reset the clock), then automatically
+downgrades to Free. `jobs/billing_grace_period.py` enforces it; nothing
+schedules that job yet, see above. The downgrade notification sits in the
+same notification outbox as everything below, queued until an email provider
+exists.
 
-**Android app id -- I picked `com.skaldandstone.kall`, sanity-check it.**
-You installed Android Studio to start the Android app, and `app.json` had no
-`android.package` at all, which blocks any native build outright. I set it so
-the first thing you tried would not just fail. **This is permanent once
-published to Google Play** -- worth a deliberate look before that happens
-rather than after.
+**Android app id -- settled, not urgent.** `com.skaldandstone.kall` is set in
+`app.json` so a local `expo run:android` doesn't fail outright. You've said
+we are **not at a publishing spot yet**, so there is nothing to act on here
+until that changes -- flagged only because the id becomes permanent the
+moment a Play Store listing exists, so it is worth one more look right before
+that day, not before.
+
+**Notification infrastructure now exists -- no email provider is picked yet.**
+This came up while discussing the retention window: James pointed out that
+email/push infrastructure is needed anyway for the daily brief and new-
+opportunity alerts, so it made more sense to build the real thing than a
+one-off retention notice. `services/notification_delivery.py` drains the
+outbox (`NotificationPreference`/`DeviceRegistration`/`NotificationDelivery`,
+which already existed with nothing reading them); `services/notifications.py`
+sends email through SES once `SES_SENDER_EMAIL` is set to a verified address --
+until then, deliveries sit queued rather than failing, by design, so this
+merges and works correctly with zero provider configured. Picking and
+verifying the actual sender address is on you, see the setup runbook. Push
+notifications have nowhere to go regardless of that choice -- mobile push
+needs Firebase Cloud Messaging and APNs credentials/developer-account setup
+that do not exist in this repository at all.
+
+**No retention-specific notification was built, on purpose.** The original
+question was whether to notify someone before their rendered resume expires.
+It doesn't need to: expiry only deletes a redundant *rendered file* the
+system can rebuild byte-identically, for free, on the next request -- nothing
+the person experiences is actually lost. Say so if you want one anyway now
+that the outbox exists to carry it.
 
 ## Deferred by you
 
@@ -92,3 +121,12 @@ and tested before any real transaction could hit it.
 clearest gap in the economics model. Recomputed: about $3.50 a month at 100k
 users. The real issue was retention, not spend. `docs/UNIT_ECONOMICS.md` says
 so now.
+
+**A paying Premium subscriber could be wrongly capped submitting an application.**
+`services/billing.py`'s `assert_submission_allowed` predates the tiered plan
+system and hardcodes a "plus"-only check against a separate, disconnected
+usage counter than the real one in `quota.py` -- still live on the actual
+submission-attempt endpoint. Flagged as its own task rather than fixed inline,
+since the fix needs a product call first: is a submission attempt gated by
+the same weekly "applications" meter everything else uses, or does it deserve
+its own limit?
