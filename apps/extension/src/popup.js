@@ -61,7 +61,20 @@ function renderSignedOut() {
 }
 
 async function loadApplications() {
-  const clerk = await getClerk();
+  let clerk;
+  try {
+    clerk = await getClerk();
+  } catch (error) {
+    // Clerk itself failed to initialize -- most likely this extension's
+    // origin has not been added to the web app's Clerk instance yet (see
+    // docs/EXTENSION_CLERK_SETUP.md), which is a setup problem, not a
+    // signed-out one. Left uncaught, this would leave the popup stuck on
+    // its initial "Loading..." forever with nothing but a console error to
+    // explain why.
+    applicationSelect.innerHTML = '<option>Unavailable</option>';
+    render(`<p class="problem">Could not connect to Kall's sign-in: ${escapeHtml(error.message)}</p>`);
+    return;
+  }
   if (!clerk.session) {
     renderSignedOut();
     return;
@@ -151,5 +164,8 @@ fillButton.addEventListener('click', fill);
 void loadApplications();
 // Catches the moment a sync completes -- someone who clicked "Sign in to
 // Kall", finished it in the new tab, and comes back to this popup without
-// needing to close and reopen it.
-void onAuthChange(() => void loadApplications());
+// needing to close and reopen it. If Clerk itself is not reachable this
+// never attaches, which only costs the auto-refresh convenience --
+// loadApplications() above already showed the real reason, and reopening
+// the popup tries again.
+onAuthChange(() => void loadApplications()).catch(() => {});
