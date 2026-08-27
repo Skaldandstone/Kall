@@ -63,6 +63,50 @@
         <input name="state" type="text" />
       </fieldset>
 
+      <!-- An ARIA combobox: a text input plus a JS-driven popup listbox,
+           not a native <select>. This is how Workday, Greenhouse's newer
+           forms, and Lever render a country picker -- content.js's SELECTOR
+           picks it up as a plain <input>, which is the shape this fixture
+           exists to characterize. -->
+      <div class="combo-wrap">
+        <label id="country-label" for="country-input">Country</label>
+        <input
+          id="country-input"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="country-listbox"
+          aria-autocomplete="list"
+          autocomplete="off"
+        />
+        <ul id="country-listbox" role="listbox" hidden>
+          <li role="option" data-value="US">United States</li>
+          <li role="option" data-value="CA">Canada</li>
+        </ul>
+      </div>
+      <script>
+        // The part a real ATS widget does that content.js cannot see coming:
+        // typing alone does not "select" anything. Only clicking (or
+        // Enter-ing) a listbox option fires the framework's own change
+        // handler and updates the hidden value it actually submits.
+        (() => {
+          const input = document.getElementById('country-input');
+          const listbox = document.getElementById('country-listbox');
+          let committed = '';
+          input.addEventListener('focus', () => { listbox.hidden = false; });
+          listbox.addEventListener('mousedown', (event) => {
+            const option = event.target.closest('[role="option"]');
+            if (!option) return;
+            committed = option.textContent;
+            input.value = committed;
+            listbox.hidden = true;
+            input.dispatchEvent(new Event('kall-test-committed', { bubbles: true }));
+          });
+          // Exposed so the test can tell "text sits in the box" apart from
+          // "the widget believes a country was chosen".
+          window.__countryCommitted = () => committed;
+        })();
+      </script>
+
       <!-- A dropdown whose options will not match the stored value verbatim. -->
       <div>
         <label for="veteran">Protected Veteran Status</label>
