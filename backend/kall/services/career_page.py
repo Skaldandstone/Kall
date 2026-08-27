@@ -159,15 +159,22 @@ def sections_for(session: Session, page: CareerPage, *, visible_only: bool = Fal
 def _testimonials(session: Session, user_id: int) -> list[Testimonial]:
     """Only testimonials the author agreed to show, and the user approved.
 
-    Three separate flags, all required. A testimonial names a real third party
+    Four separate flags, all required. A testimonial names a real third party
     who consented to something specific; publishing one they did not clear for
-    a profile would be the worst failure this feature could have.
+    a profile would be the worst failure this feature could have -- which is
+    exactly why `status == "approved"` is checked here directly rather than
+    trusted from api_testimonials.py's own gate on include_on_profile. Two
+    independent checks of the one thing that must never be wrong is the
+    point, not redundancy to clean up.
     """
     rows = session.exec(select(Testimonial).where(Testimonial.user_id == user_id))
     return [
         row
         for row in rows
-        if row.include_on_profile and row.permission_granted and row.withdrawn_at is None
+        if row.include_on_profile
+        and row.permission_granted
+        and row.withdrawn_at is None
+        and row.status == "approved"
     ]
 
 
