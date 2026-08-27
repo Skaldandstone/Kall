@@ -118,6 +118,17 @@ def _morning_brief_email(session: Session, delivery: NotificationDelivery) -> tu
     return subject, html
 
 
+def _certification_renewal_email(delivery: NotificationDelivery) -> tuple[str, str]:
+    payload = delivery.payload
+    subject = f"Renewal reminder: {payload['name']}"
+    html = (
+        f"<p>Your <strong>{payload['name']}</strong> from {payload['issuing_organization']} "
+        f"expires on {payload['expires_on']}.</p>"
+        "<p>Update it in your Kall profile once it's renewed, or before if you'd rather get ahead of it.</p>"
+    )
+    return subject, html
+
+
 def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple[str, str]:
     del delivery
     subject = "Your Kall plan has been paused"
@@ -136,6 +147,8 @@ def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]
         return _payment_grace_period_expired_email(delivery)
     if delivery.kind == "morning_brief":
         return _morning_brief_email(session, delivery)
+    if delivery.kind == "certification_renewal":
+        return _certification_renewal_email(delivery)
     raise ValueError(f"Unknown notification kind: {delivery.kind}")
 
 
