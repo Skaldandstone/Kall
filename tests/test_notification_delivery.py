@@ -14,7 +14,7 @@ from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
 from kall.services.notification_delivery import drain, process_delivery
 from kall.services.notifications import NotificationService
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 
 def _user(session, email="digest@example.com"):
@@ -195,3 +195,95 @@ def test_drain_processes_everything_due_and_leaves_the_rest(engine, monkeypatch)
         session.refresh(not_due)
         assert due.status == "sent"
         assert not_due.status == "queued"
+
+
+def test_a_user_with_no_preference_row_gets_the_default_hour_and_timezone(engine) -> None:
+    """There is no settings UI for NotificationPreference yet, so most
+    accounts have no row at all -- that must mean "use the defaults",
+    not "excluded", or nobody would ever get a brief."""
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        _user(session)
+        at_the_default_hour = datetime(2026, 8, 27, 8, 0)  # UTC, matches _DEFAULT_DIGEST_HOUR
+        assert queue_daily_briefs(session, now=at_the_default_hour) == 1
+
+
+def test_the_wrong_hour_queues_nothing(engine) -> None:
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        _user(session)
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 14, 0)) == 0
+
+
+def test_a_preference_row_overrides_the_default_hour_and_timezone(engine) -> None:
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        user = _user(session)
+        # 20:00 in America/Los_Angeles (UTC-7 in August) is 03:00 UTC.
+        session.add(NotificationPreference(user_id=user.id, digest_hour_local=20, timezone="America/Los_Angeles"))
+        session.commit()
+
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 3, 0)) == 1
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0)) == 0, (
+            "the account-wide default hour must not apply once a real preference exists"
+        )
+
+
+def test_opting_out_of_email_means_no_brief_is_queued_either(engine) -> None:
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        user = _user(session)
+        session.add(NotificationPreference(user_id=user.id, email_enabled=False))
+        session.commit()
+
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0)) == 0
+
+
+def test_an_unresolvable_timezone_falls_back_to_utc_rather_than_crashing_the_run(engine) -> None:
+    """One account's bad data must not take down everyone after it in the
+    same run."""
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        user = _user(session)
+        session.add(NotificationPreference(user_id=user.id, timezone="Not/A_Real_Zone"))
+        session.commit()
+
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0)) == 1
+
+
+def test_an_inactive_account_is_never_queued(engine) -> None:
+    from kall.services.notification_delivery import queue_daily_briefs
+
+    with Session(engine) as session:
+        user = _user(session)
+        user.is_active = False
+        session.add(user)
+        session.commit()
+
+        assert queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0)) == 0
+
+
+def test_the_queued_brief_renders_from_the_same_logic_the_in_app_page_uses(engine, monkeypatch) -> None:
+    """The whole reason build_morning_brief moved into its own module: this
+    email must say the same thing GET /me/morning-brief would show right now,
+    not a second, independently-drifting copy of that logic."""
+    sent = {}
+    monkeypatch.setattr(NotificationService, "send_email", lambda self, recipient, subject, html, actions: sent.update(subject=subject, html=html))
+
+    with Session(engine) as session:
+        user = _user(session)
+        from kall.services.notification_delivery import queue_daily_briefs
+
+        queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0))
+        delivery = session.exec(select(NotificationDelivery).where(NotificationDelivery.kind == "morning_brief")).one()
+
+        process_delivery(session, delivery)
+
+        from kall.services.brief import build_morning_brief
+        expected = build_morning_brief(session, user)
+        assert expected["focus"]["title"] in sent["subject"]

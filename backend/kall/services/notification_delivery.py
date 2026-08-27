@@ -24,7 +24,8 @@ still something they asked to see, just not right now.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
@@ -95,6 +96,28 @@ def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str
     return subject, html
 
 
+def _morning_brief_email(session: Session, delivery: NotificationDelivery) -> tuple[str, str]:
+    from kall.models.core import User
+    from kall.services.brief import build_morning_brief
+
+    user = session.get(User, delivery.user_id)
+    brief = build_morning_brief(session, user)
+    focus = brief["focus"]
+    subject = f"Kall: {focus['title']}"
+
+    rows = "".join(
+        f"<li><strong>{item['title']}</strong> at {item['company']} &mdash; {item['score']}% match</li>"
+        for item in brief["opportunities"][:3]
+    )
+    html = (
+        f"<p>{focus['detail']}</p>"
+        f"<p><a href=\"{focus['href']}\">Open it</a></p>"
+        + (f"<h3>Top matches</h3><ul>{rows}</ul>" if rows else "")
+        + f"<p>Career health: {brief['career_health']['score']}%</p>"
+    )
+    return subject, html
+
+
 def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple[str, str]:
     del delivery
     subject = "Your Kall plan has been paused"
@@ -111,6 +134,8 @@ def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]
         return _digest_email(session, delivery)
     if delivery.kind == "payment_grace_period_expired":
         return _payment_grace_period_expired_email(delivery)
+    if delivery.kind == "morning_brief":
+        return _morning_brief_email(session, delivery)
     raise ValueError(f"Unknown notification kind: {delivery.kind}")
 
 
@@ -250,3 +275,53 @@ def drain(session: Session, *, now: datetime | None = None, limit: int = 500) ->
         status = process_delivery(session, delivery, now=now)
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+#: Defaults used for anyone with no NotificationPreference row at all --
+#: there is no settings UI for this yet, so most accounts have none. Treated
+#: as "use these defaults" rather than "excluded": email_enabled defaults to
+#: True on the model itself, which only means something if the absence of a
+#: row is read the same way.
+_DEFAULT_DIGEST_HOUR = 8
+_DEFAULT_TIMEZONE = "UTC"
+
+
+def _local_hour(timezone_name: str, now: datetime) -> int:
+    try:
+        zone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        # A stored value that no longer resolves (typo, renamed IANA zone)
+        # should not crash the whole run over one account -- fall back to UTC
+        # for that account rather than skipping every user after it.
+        zone = ZoneInfo(_DEFAULT_TIMEZONE)
+    return now.replace(tzinfo=UTC).astimezone(zone).hour
+
+
+def queue_daily_briefs(session: Session, *, now: datetime | None = None) -> int:
+    """Queue a morning_brief delivery for every account whose local hour
+    matches their preferred digest hour right now.
+
+    Meant to be called roughly once an hour (jobs/daily_brief.py); calling it
+    more than once inside the matching hour queues duplicate rows, but that is
+    harmless -- drain()'s own dedupe_key check (see _already_sent) only ever
+    lets one of them actually send. Returns the number queued.
+    """
+    now = now or datetime.utcnow()
+    rows = session.exec(
+        select(User, NotificationPreference)
+        .join(NotificationPreference, NotificationPreference.user_id == User.id, isouter=True)
+        .where(User.is_active.is_(True))
+    ).all()
+
+    queued = 0
+    for user, preference in rows:
+        email_enabled = preference.email_enabled if preference else True
+        digest_hour = preference.digest_hour_local if preference else _DEFAULT_DIGEST_HOUR
+        timezone_name = preference.timezone if preference else _DEFAULT_TIMEZONE
+        if not email_enabled:
+            continue
+        if _local_hour(timezone_name, now) != digest_hour:
+            continue
+        queue(session, user_id=user.id, kind="morning_brief")
+        queued += 1
+    return queued
