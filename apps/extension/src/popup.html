@@ -44,6 +44,11 @@
       .withheld { color: var(--warning); }
       .problem { color: var(--danger); }
       .note { color: var(--muted); }
+      .link-button {
+        width: auto; padding: 10px 14px; border: 1px solid var(--border);
+        border-radius: 8px; background: var(--surface); color: var(--accent);
+        font-weight: 600; cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -56,6 +61,13 @@
 
     <div id="status" role="status"></div>
 
-    <script type="module" src="popup.js"></script>
+    <!--
+      popup.bundle.js, not popup.js: this popup imports @clerk/chrome-extension,
+      a real npm package that a browser cannot load from a bare specifier.
+      `npm run build` (esbuild.config.mjs) produces it; it is gitignored, so
+      it must be built before this extension is loaded unpacked. See
+      apps/extension/README.md.
+    -->
+    <script type="module" src="popup.bundle.js"></script>
   </body>
 </html>

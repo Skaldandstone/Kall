@@ -28,7 +28,12 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    # The extension's origin is fixed rather than derived from settings: its
+    # manifest pins a "key", which makes chrome-extension://<id> the same id
+    # on every machine that loads it unpacked, not something that varies per
+    # install the way a locally-generated id would. See
+    # apps/extension/manifest.json and docs/EXTENSION_CLERK_SETUP.md.
+    allow_origins=[settings.frontend_url, "chrome-extension://lgbplmcainecdbbkameldmpafdcnpaid"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

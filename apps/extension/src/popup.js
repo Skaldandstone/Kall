@@ -8,6 +8,7 @@
  */
 
 import { autofillPack, listApplications, NotSignedInError, resumeDataUrl } from './api.js';
+import { getClerk, onAuthChange, openSignIn } from './auth.js';
 import { matchFields } from './matcher.js';
 
 const applicationSelect = document.querySelector('#application');
@@ -39,7 +40,29 @@ async function send(tabId, message) {
   return chrome.tabs.sendMessage(tabId, message);
 }
 
+/**
+ * The one thing a signed-out popup can offer: a button that opens the real
+ * sign-in page. Previously this state just said "sign in to Kall in your
+ * browser, then try again" and left it there, passively, even when someone
+ * genuinely was signed in on the web app -- the extension had no way to see
+ * that, since it relied on a cookie that a cross-origin fetch cannot carry.
+ * See auth.js and api.js for the actual fix; this button is a courtesy
+ * on top of it, not the fix itself.
+ */
+function renderSignedOut() {
+  applicationSelect.innerHTML = '<option>Sign in required</option>';
+  fillButton.disabled = true;
+  render('<button id="sign-in" class="link-button">Sign in to Kall</button>');
+  document.querySelector('#sign-in')?.addEventListener('click', () => void openSignIn());
+}
+
 async function loadApplications() {
+  const clerk = await getClerk();
+  if (!clerk.session) {
+    renderSignedOut();
+    return;
+  }
+
   try {
     const applications = await listApplications();
     if (!applications.length) {
@@ -52,6 +75,10 @@ async function loadApplications() {
       .join('');
     fillButton.disabled = false;
   } catch (error) {
+    if (error instanceof NotSignedInError) {
+      renderSignedOut();
+      return;
+    }
     applicationSelect.innerHTML = '<option>Unavailable</option>';
     render(`<p class="problem">${escapeHtml(error.message)}</p>`);
   }
@@ -118,3 +145,7 @@ async function fill() {
 
 fillButton.addEventListener('click', fill);
 void loadApplications();
+// Catches the moment a sync completes -- someone who clicked "Sign in to
+// Kall", finished it in the new tab, and comes back to this popup without
+// needing to close and reopen it.
+void onAuthChange(() => void loadApplications());

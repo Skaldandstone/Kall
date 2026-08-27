@@ -5,11 +5,16 @@
   "type": "module",
   "description": "Pre-fills employer application forms from Kall. The user always submits.",
   "scripts": {
-    "test": "node --test test/*.test.js && playwright test",
-    "test:unit": "node --test test/*.test.js",
-    "test:dom": "playwright test"
+    "test": "node --experimental-test-module-mocks --test test/*.test.js && playwright test",
+    "test:unit": "node --experimental-test-module-mocks --test test/*.test.js",
+    "test:dom": "playwright test",
+    "build": "node esbuild.config.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "@clerk/chrome-extension": "^3.1.76"
   }
 }
