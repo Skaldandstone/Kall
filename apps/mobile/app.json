@@ -8,9 +8,12 @@
     "userInterfaceStyle": "light",
     "scheme": "kall",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.skaldandstone.kall"
     },
     "android": {
+      "package": "com.skaldandstone.kall",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0c1420",
         "foregroundImage": "./assets/android-icon-foreground.png",

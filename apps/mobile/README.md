@@ -8,7 +8,7 @@ API path" section for how the API was made reachable for this).
 
 ## Screens
 
-- **Login / Register** - `src/screens/LoginScreen.tsx`, `RegisterScreen.tsx`. Same `/auth/login` and `/auth/register` endpoints the web app uses; the token is stored via `expo-secure-store` (Keychain/Keystore), not `AsyncStorage`.
+- **Login / Register** - `src/screens/LoginScreen.tsx`, `RegisterScreen.tsx`. Identity is Clerk (`@clerk/expo` v4, the signals API - methods resolve to `{ error }` rather than throwing). Unlike the web app, mobile calls the backend directly rather than through a proxy, so it holds a session token; that token is cached via `expo-secure-store` (Keychain/Keystore), not `AsyncStorage`.
 - **Applications** - `src/screens/ApplicationsScreen.tsx`. Lists every application from `GET /me/applications`, the same pipeline endpoint the web app's applications page reads.
 - **Application detail / review** - `src/screens/ApplicationDetailScreen.tsx`. The core loop: shows readiness issues, confirms review items, approves the application - the same three endpoints (`POST/GET/PUT /applications/{id}/review`, `POST /applications/{id}/review/approve`) the web app's `apps/web/app/applications/[id]/page.tsx` calls.
 - **Morning Brief** - `src/screens/MorningBriefScreen.tsx`. Read-only, `GET /me/morning-brief`.
@@ -26,9 +26,39 @@ npm install
 npx expo start
 ```
 
-Scan the QR code with Expo Go (iOS/Android) for the fastest loop, or press `a`/`i` to open an emulator/simulator if you have Android Studio/Xcode installed.
+Scan the QR code with Expo Go for the fastest loop, or press `a`/`i` for an
+emulator once Android Studio/Xcode is installed.
 
-The API base URL is set in `app.json` under `expo.extra.apiBaseUrl` (defaults to the production CloudFront URL, `https://d7wb2yokfqcku.cloudfront.net/api`). Override it for local backend development by editing that value or exporting `EXPO_PUBLIC_API_BASE_URL` and reading it in `src/api/client.ts` if you need per-environment builds later.
+### Running on Android
+
+Expo Go covers most work. A **native** build is needed only once something
+Expo Go cannot load is added - a config plugin with native code, a custom
+native module, or push notifications.
+
+```bash
+npx expo run:android        # builds and installs a debug build on the emulator
+```
+
+That generates an `android/` directory the first time. It is derived output:
+regenerate it with `npx expo prebuild --clean` rather than hand-editing it,
+because anything edited there is lost on the next prebuild.
+
+The app id is `com.skaldandstone.kall`, set as `android.package` in
+`app.json`. **It is permanent once the app is published to Google Play** - a
+package name cannot be changed afterwards without shipping a new listing - so
+change it now if it should be anything else. `ios.bundleIdentifier` matches.
+
+### Configuration
+
+| What | Where | Override |
+| --- | --- | --- |
+| API base URL | `app.json` → `expo.extra.apiBaseUrl` | `API_BASE_URL` env var |
+| Clerk publishable key | `app.json` → `expo.extra.clerkPublishableKey` | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` env var |
+
+Both defaults point at the development Clerk instance and the production
+CloudFront API. `app.config.js` reads the env vars, so a production build
+**must** set `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` or it ships pointing at the
+dev Clerk instance - which fails quietly rather than loudly.
 
 ## Structure
 
