@@ -87,7 +87,10 @@ export default function StrategyTab() {
       target_total_comp: Number(form.get('target_total_comp')) || null,
       travel_max_percent: Number(form.get('travel_max_percent')) || null,
       relocation_preference: String(form.get('relocation_preference') || '') || null,
-      is_active: true,
+      // The endpoint replaces every field, not just the ones on this form --
+      // hardcoding true here silently reactivated a paused profile on its
+      // next edit, which is exactly backwards from what editing should do.
+      is_active: profile.is_active,
     };
     const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
       method: 'PUT',
@@ -103,6 +106,44 @@ export default function StrategyTab() {
       setEditingId(null);
       await load();
     }
+  }
+
+  async function setActive(profile: Profile, active: boolean) {
+    // PUT replaces the whole row, so pausing has to resend everything this
+    // profile already has -- not just the one field that changed.
+    const body = {
+      name: profile.name,
+      target_titles: profile.target_titles,
+      industries: profile.industries,
+      functional_areas: [],
+      include_keywords: profile.include_keywords,
+      exclude_keywords: [],
+      countries: profile.countries,
+      states_regions: profile.states_regions,
+      work_types: profile.work_types,
+      minimum_base: profile.minimum_base,
+      target_base: profile.target_base,
+      stretch_base: profile.stretch_base,
+      target_total_comp: profile.target_total_comp,
+      travel_max_percent: profile.travel_max_percent,
+      relocation_preference: profile.relocation_preference,
+      is_active: active,
+    };
+    const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (response.status === 401) {
+      window.location.replace('/sign-in');
+      return;
+    }
+    setMessage(
+      response.ok
+        ? `${profile.name} ${active ? 'reactivated' : 'paused'}.`
+        : `Unable to ${active ? 'reactivate' : 'pause'} that profile.`,
+    );
+    if (response.ok) await load();
   }
 
   async function assignResume(profileId: number, resumeId: string, successMessage = 'Profile resume updated.') {
@@ -208,7 +249,14 @@ export default function StrategyTab() {
                   <div className={styles.profileView}>
                     <div className={styles.profileHeader}>
                       <div><p className="eyebrow">{profile.is_active ? 'Active profile' : 'Paused profile'}</p><h2>{profile.name}</h2></div>
-                      <button className="button secondary" onClick={() => setEditingId(profile.id)}>Edit profile</button>
+                      <div className={styles.actions} style={{ marginTop: 0 }}>
+                        <button className="button secondary" onClick={() => setEditingId(profile.id)}>Edit profile</button>
+                        {profile.is_active ? (
+                          <button className="button ghost" onClick={() => setActive(profile, false)}>Pause</button>
+                        ) : (
+                          <button className="button ghost" onClick={() => setActive(profile, true)}>Reactivate</button>
+                        )}
+                      </div>
                     </div>
                     <div className={styles.tags}>{profile.target_titles.length ? profile.target_titles.map((title) => <span className={styles.tag} key={title}>{title}</span>) : <span className={styles.tag}>No target titles</span>}</div>
                     <dl className={styles.details}>
