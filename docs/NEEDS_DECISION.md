@@ -199,3 +199,21 @@ query in run history," but `SearchRun` had no column to put it in, so history
 only ever showed the provider label, never the query. `SearchRun.ats_search_query`
 now stores it per run, since a profile's titles/keywords/exclusions can change
 between runs and a past run should keep showing what it actually searched for.
+
+**A posting flagged dead kept showing up anyway -- fixed.** Marking a posting
+`dead_link` only ever blocked it from being re-imported on a *future*
+discovery run; it did nothing to a `JobMatch`/`Opportunity` a previous run
+had already created. `GET /jobs/feed` and `GET /opportunities` now both
+re-check suppression on read, symmetric with the write-side guarantee
+`discovery.py` already had.
+
+**A connector submission never left its pre-submission stage -- and could
+have double-charged.** `POST /submissions/{id}/attempt` created a
+`SubmissionAttempt` and charged the applications quota, but never advanced
+`Application.status` to `SUBMITTED` the way the other two "applying" paths
+already did. Left unfixed, dragging that same card to "Submitted" manually
+on the kanban board later would have charged the applications quota a
+*second time* for one real submission -- found and fixed before any real
+account could hit it. The "confirmed"-only status gate on that endpoint now
+also accepts "submitted", so a client retrying an already-succeeded attempt
+can still replay it idempotently.
