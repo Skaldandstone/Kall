@@ -6,9 +6,17 @@ from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import CareerProfile, DiscoverySchedule, NotificationPreference, Opportunity, User
+from kall.models import (
+    CareerProfile,
+    DiscoverySchedule,
+    Job,
+    NotificationPreference,
+    Opportunity,
+    User,
+)
 from kall.services.ats_web_search import build_ats_queries
 from kall.services.opportunities import mark_state
+from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
 
 router = APIRouter(tags=["opportunities"])
 
@@ -90,10 +98,17 @@ def list_schedules(current: User = Depends(get_current_user), session: Session =
 
 @router.get("/opportunities", response_model=list[Opportunity])
 def list_opportunities(state: str | None = None, current: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    statement = select(Opportunity).where(Opportunity.user_id == current.id)
+    statement = select(Opportunity, Job.url).join(Job, Opportunity.job_id == Job.id).where(Opportunity.user_id == current.id)
     if state:
         statement = statement.where(Opportunity.state == state)
-    return list(session.exec(statement.order_by(Opportunity.match_score.desc(), Opportunity.last_seen_at.desc())))
+    rows = session.exec(statement.order_by(Opportunity.match_score.desc(), Opportunity.last_seen_at.desc())).all()
+    # An opportunity can be created by one discovery run and only later
+    # flagged dead_link -- suppressing a URL blocks future ingestion (see
+    # discovery.py) but does nothing to a row that already exists. Without
+    # this, a posting the user has explicitly said is dead keeps sitting in
+    # their tracked inbox forever.
+    blocked = suppressed_urls(session, current.id, reasons=DISCOVERY_BLOCKING_REASONS)
+    return [opportunity for opportunity, url in rows if not is_suppressed(url, blocked)]
 
 
 @router.patch("/opportunities/{opportunity_id}", response_model=Opportunity)
