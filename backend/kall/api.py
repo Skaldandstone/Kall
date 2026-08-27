@@ -27,6 +27,7 @@ from kall.schemas import (
     SearchSourceCreate,
 )
 from kall.security import encrypt_sensitive
+from kall.services import quota
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
@@ -117,11 +118,13 @@ async def upload_resume(file: UploadFile = File(...), current_user: User = Depen
     data = await file.read()
     if len(data) > RESUME_MAX_BYTES:
         raise HTTPException(413, "Resume file is too large (15MB limit)")
+    # Checked before the write, so a file that would not fit is never stored.
+    quota.check(session, current_user, "storage_bytes", amount=len(data))
     key = f"uploads/{current_user.id}/{filename}"
     mime = file.content_type or "application/octet-stream"
     text = extract_resume_text(data, mime)
     get_storage().save(key, data)
-    row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text)
+    row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text, byte_size=len(data))
     session.add(row)
     session.commit()
     session.refresh(row)

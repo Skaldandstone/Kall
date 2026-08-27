@@ -1,0 +1,143 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 10, 16, 0.72);
+  backdrop-filter: blur(3px);
+  overflow-y: auto;
+}
+
+.dialog {
+  position: relative;
+  width: min(680px, 100%);
+  margin: auto;
+  padding: 32px clamp(20px, 4vw, 36px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dialog:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: clamp(22px, 3.4vw, 30px);
+  text-wrap: balance;
+}
+
+.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-interactive);
+  color: var(--text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* When the allowance returns leads, because that is what most people want to
+   know. The price is the alternative, not the headline. */
+.refill {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.orUpgrade {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-raised);
+}
+
+.recommended {
+  border-color: var(--accent);
+}
+
+.plan header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.price {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.price strong {
+  color: var(--text-primary);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pitch {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.plan ul {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 4px;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.plan .button {
+  margin-top: auto;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .dialog { padding: 26px 18px; }
+}

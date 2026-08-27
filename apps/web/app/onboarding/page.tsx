@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { countries, countryName, regionsForCountry } from '../../lib/location-data';
 import styles from './page.module.css';
+import { fetchKall } from '../lib/api';
 
 const API = '/api/kall';
 const csv = (value: FormDataEntryValue | null) =>
@@ -95,7 +96,7 @@ export default function Onboarding() {
     const form = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch(`${API}/me/professional-profiles`, {
+      const response = await fetchKall(`/me/professional-profiles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,7 +145,7 @@ export default function Onboarding() {
     const form = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch(`${API}/me/resumes`, {
+      const response = await fetchKall(`/me/resumes`, {
         method: 'POST',
         body: form,
       });
@@ -162,7 +163,7 @@ export default function Onboarding() {
       setResumeUploaded(true);
 
       try {
-        const suggestResponse = await fetch(`${API}/me/resumes/${resume.id}/suggest-strategy`, {
+        const suggestResponse = await fetchKall(`/me/resumes/${resume.id}/suggest-strategy`, {
           method: 'POST'
         });
         if (suggestResponse.ok) {

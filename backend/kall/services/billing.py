@@ -3,23 +3,36 @@ from datetime import datetime
 from fastapi import HTTPException
 from kall.config import get_settings
 from kall.models import ApplicationUsage, Subscription, User
+from kall.models.enums import SubscriptionPlan
 from sqlmodel import Session, func, select
 
 FREE_APPLICATION_LIMIT = 10
 ACTIVE_STATUSES = {"active", "trialing"}
 
 
-def create_checkout_url(user_id: int) -> str:
+def price_for(plan: str) -> str | None:
+    """The Stripe price backing a plan, or None if it is not configured."""
     settings = get_settings()
-    if not all([settings.stripe_secret_key, settings.stripe_price_id]):
-        raise HTTPException(status_code=503, detail="Stripe is not configured")
+    return {
+        SubscriptionPlan.PLUS: settings.stripe_price_id,
+        SubscriptionPlan.PREMIUM: settings.stripe_premium_price_id,
+    }.get(plan)
+
+
+def create_checkout_url(user_id: int, plan: str = SubscriptionPlan.PLUS) -> str:
+    settings = get_settings()
+    price_id = price_for(plan)
+    if not settings.stripe_secret_key or not price_id:
+        # Naming the plan matters: with two paid tiers, "Stripe is not
+        # configured" alone cannot tell you which price is missing.
+        raise HTTPException(status_code=503, detail=f"Stripe is not configured for the {plan} plan")
     import stripe
 
     stripe.api_key = settings.stripe_secret_key
-    metadata = {"kall_user_id": str(user_id)}
+    metadata = {"kall_user_id": str(user_id), "kall_plan": plan}
     checkout = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
+        line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{settings.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.frontend_url}/billing",
         client_reference_id=str(user_id),

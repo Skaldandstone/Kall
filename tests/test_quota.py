@@ -129,7 +129,13 @@ def test_storage_is_measured_from_the_files_that_exist(engine) -> None:
         assert quota.used(session, user, "storage_bytes") == 0
 
 
-def test_storage_counts_generated_documents_too(engine) -> None:
+def test_generated_documents_do_not_count_against_storage(engine) -> None:
+    """Kall's own output must not eat the user's allowance.
+
+    Billing someone for a cover letter Kall generated reads as a penalty for
+    using the product. Derived files still cost money, but the answer there is
+    retention rather than a per-user cap -- they can be regenerated.
+    """
     with Session(engine) as session:
         user = make_user(session)
         document = GeneratedDocument(user_id=user.id, document_type="resume", status="ready", checksum="abc")
@@ -143,7 +149,20 @@ def test_storage_counts_generated_documents_too(engine) -> None:
             )
         )
         session.commit()
-        assert quota.used(session, user, "storage_bytes") == 2 * quota.MB
+        assert quota.used(session, user, "storage_bytes") == 0
+
+
+def test_a_resume_version_does_not_double_count_one_file(engine) -> None:
+    """create_resume_version reuses the source's storage key."""
+    with Session(engine) as session:
+        user = make_user(session)
+        for name in ("cv.pdf", "cv.pdf v2"):
+            session.add(ResumeDocument(
+                user_id=user.id, name=name, file_path="uploads/1/cv.pdf",
+                mime_type="application/pdf", byte_size=3 * quota.MB,
+            ))
+        session.commit()
+        assert quota.used(session, user, "storage_bytes") == 3 * quota.MB
 
 
 def test_storage_over_the_plan_is_refused(engine) -> None:

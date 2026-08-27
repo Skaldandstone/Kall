@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import { hideSearchResult } from '../../lib/searchResultState';
 import { showToast } from '../../components/ToastHost';
+import { fetchKall } from '../../lib/api';
 
 type Resume = { id: number; name: string; is_default?: boolean };
 type Profile = { id: number; name: string; default_resume_id?: number | null };
@@ -56,8 +57,8 @@ function NewApplicationForm() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/me/resumes`),
-      fetch(`${API}/me/professional-profiles`),
+      fetchKall(`/me/resumes`),
+      fetchKall(`/me/professional-profiles`),
     ]).then(async ([resumeResponse, profileResponse]) => {
       if (resumeResponse.status === 401 || profileResponse.status === 401) {window.location.replace('/sign-in'); return; }
       const loadedResumes = resumeResponse.ok ? await resumeResponse.json() : [];
@@ -75,7 +76,7 @@ function NewApplicationForm() {
   async function resolveJobId() {
     if (existingJobId) return Number(existingJobId);
     if (!externalUrl) throw new Error('No job was selected. Return to Opportunities and choose Apply with Kall.');
-    const response = await fetch(`${API}/jobs/import-search-result`, {
+    const response = await fetchKall(`/jobs/import-search-result`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: externalUrl, title: externalTitle, snippet: externalSnippet, source: 'google_cse' }),
@@ -91,7 +92,7 @@ function NewApplicationForm() {
     setMessage('Importing the role and preparing your application…');
     try {
       const jobId = await resolveJobId();
-      const response = await fetch(`${API}/applications/prepare-options`, {
+      const response = await fetchKall(`/applications/prepare-options`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

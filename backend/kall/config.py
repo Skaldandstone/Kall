@@ -56,7 +56,10 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.1-mini"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    #: Kall Plus. Named for the plan rather than as a bare "price id" now that
+    #: there is more than one.
     stripe_price_id: str | None = None
+    stripe_premium_price_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
     # Clerk owns identity: sign-in, sign-up, sessions, MFA, passkeys and social

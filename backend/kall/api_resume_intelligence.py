@@ -12,6 +12,7 @@ from kall.auth import get_current_user
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
+from kall.services import quota
 from kall.services.onboarding_ai import suggest_career_strategy
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.storage import get_storage
@@ -232,9 +233,12 @@ def apply_recommendations(resume_id: int, payload: ApplyRecommendationsRequest, 
     if not applied:
         raise HTTPException(400, "The selected recommendations did not contain applicable text")
     key = f"data/generated-resumes/resume-{current_user.id}-{uuid4().hex}.txt"
-    get_storage().save(key, revised_text.encode("utf-8"))
+    body = revised_text.encode("utf-8")
+    quota.check(session, current_user, "storage_bytes", amount=len(body))
+    get_storage().save(key, body)
     new_resume = ResumeDocument(
         user_id=current_user.id, name=f"{resume.name} — AI revision", file_path=key, mime_type="text/plain",
+        byte_size=len(body),
         tags=list(resume.tags), industries=list(resume.industries), target_titles=list(resume.target_titles), extracted_text=revised_text,
         is_default=False, version=resume.version + 1,
     )

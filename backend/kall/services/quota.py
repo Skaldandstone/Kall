@@ -23,7 +23,6 @@ from typing import Literal, NamedTuple
 from fastapi import HTTPException
 from kall.models.billing import UsageCounter
 from kall.models.core import ResumeDocument, User
-from kall.models.documents import DocumentArtifact, GeneratedDocument
 from kall.models.enums import SubscriptionPlan
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -126,20 +125,33 @@ def used(session: Session, user: User, meter: Meter) -> int:
 
 
 def stored_bytes(session: Session, user_id: int) -> int:
-    """Bytes this user is currently keeping in object storage.
+    """Bytes of *uploaded resumes* this user is keeping.
 
     A gauge, summed on read rather than tracked in a counter, because deleting
     a file has to give the space back.
+
+    Deliberately scoped to what the user uploaded. Generated documents --
+    tailored resumes, cover letters -- are Kall's own output, and billing
+    someone for storage they did not choose to spend reads as a penalty for
+    using the product. They still cost real money, but the right answer there
+    is a retention policy on derived files rather than a per-user cap; they
+    can always be regenerated.
+
+    The purpose of this ceiling is therefore anti-abuse rather than revenue.
+    A single resume is a few hundred kilobytes and the per-file limit is 15 MB,
+    so without a ceiling one account could park gigabytes for free. It is not
+    expected to bind on anyone using Kall normally.
     """
-    resumes = session.exec(
-        select(ResumeDocument.byte_size).where(ResumeDocument.user_id == user_id)
-    )
-    artifacts = session.exec(
-        select(DocumentArtifact.byte_size)
-        .join(GeneratedDocument, DocumentArtifact.generated_document_id == GeneratedDocument.id)
-        .where(GeneratedDocument.user_id == user_id)
-    )
-    return sum(size or 0 for size in resumes) + sum(size or 0 for size in artifacts)
+    # Keyed by storage path, not by row. create_resume_version() makes a new
+    # ResumeDocument pointing at the *same* object, so counting rows would
+    # bill someone twice for one file.
+    by_path: dict[str, int] = {}
+    for path, size in session.exec(
+        select(ResumeDocument.file_path, ResumeDocument.byte_size)
+        .where(ResumeDocument.user_id == user_id)
+    ):
+        by_path[path] = max(by_path.get(path, 0), size or 0)
+    return sum(by_path.values())
 
 
 def remaining(session: Session, user: User, meter: Meter) -> int | None:

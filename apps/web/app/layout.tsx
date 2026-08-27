@@ -3,6 +3,7 @@ import { Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
+import PlanLimitDialog from './components/PlanLimitDialog';
 import ToastHost from './components/ToastHost';
 import './globals.css';
 import './search-apply.css';
@@ -75,6 +76,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             accounts.dev domain, which throws the user out of the product. */}
         <ClerkProvider telemetry={false} signInUrl="/sign-in" signUpUrl="/sign-up">
           <ToastHost />
+          {/* Raised by fetchKall on any 402, from anywhere in the app. */}
+          <PlanLimitDialog />
           <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
               {children}

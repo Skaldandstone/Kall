@@ -10,6 +10,7 @@ from kall.db import get_session
 from kall.models import Application, CareerProfile, Job, ResumeDocument, SuppressedResult, User
 from kall.models.enums import ApplicationStatus
 from kall.schemas import ExternalJobImportRequest, PrepareApplicationRequest
+from kall.services import quota
 from kall.services.applications import prepare_application
 from kall.services.suppression import VALID_REASONS, normalize_url
 
@@ -93,11 +94,18 @@ def track_external_application(
         select(Application).where(Application.user_id == current_user.id, Application.job_id == job.id)
     ).first()
     if existing:
+        # Only a first transition to SUBMITTED counts; re-tracking the same
+        # posting must not spend a second allowance.
+        newly_submitted = existing.status != ApplicationStatus.SUBMITTED
+        if newly_submitted:
+            quota.check(session, current_user, "applications")
         existing.status = ApplicationStatus.SUBMITTED
         existing.submitted_at = existing.submitted_at or datetime.utcnow()
         existing.prepared_payload = {**existing.prepared_payload, "tracked_externally": True}
         session.add(existing)
         session.commit()
+        if newly_submitted:
+            quota.record_completed_application(session, current_user)
         session.refresh(existing)
         return existing
 
@@ -109,10 +117,13 @@ def track_external_application(
         submitted_at=datetime.utcnow(),
         prepared_payload={"tracked_externally": True, "source": payload.source},
     )
+    quota.check(session, current_user, "applications")
     session.add(row)
-    current_user.completed_application_count += 1
-    session.add(current_user)
     session.commit()
+    # Replaces a raw increment of User.completed_application_count, which
+    # bypassed the usage counter entirely -- so the application cap never
+    # actually bound. record_completed_application keeps both in step.
+    quota.record_completed_application(session, current_user)
     session.refresh(row)
     return row
 
