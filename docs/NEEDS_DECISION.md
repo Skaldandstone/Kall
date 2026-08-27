@@ -175,3 +175,17 @@ The old dead machinery (`quota_status`, `assert_submission_allowed`,
 `ApplicationUsage`, `FREE_APPLICATION_LIMIT`, `GET /billing/status`) is
 removed -- `GET /me/usage` (`quota.snapshot`) was already the live equivalent
 and nothing in apps/web called the old route.
+
+**A privacy toggle that could never be granted -- fixed.** `identity.postal_code`
+is `OPT_IN` for autofill, same as phone and address, and the consent check
+fails closed with no rule -- but the privacy settings page's field list never
+listed it, so nobody could ever grant that scope. The backend read/write path
+was already correct; it just needed adding to the page.
+
+**Run history said it recorded a search query it was actually discarding.**
+`run_discovery()` called `build_ats_queries()` and threw away the result --
+the comment above it claimed "ATS Search records the broader hidden-market
+query in run history," but `SearchRun` had no column to put it in, so history
+only ever showed the provider label, never the query. `SearchRun.ats_search_query`
+now stores it per run, since a profile's titles/keywords/exclusions can change
+between runs and a past run should keep showing what it actually searched for.
