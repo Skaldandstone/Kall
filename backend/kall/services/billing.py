@@ -9,6 +9,15 @@ from sqlmodel import Session, func, select
 FREE_APPLICATION_LIMIT = 10
 ACTIVE_STATUSES = {"active", "trialing"}
 
+#: How long a paid account keeps its plan after a card first fails, before
+#: services/jobs/billing_grace_period.py downgrades it to Free. Someone whose
+#: card fails mid-search should not be locked out instantly -- Stripe's own
+#: retry schedule runs over roughly two weeks, which is too long to leave a
+#: silently-still-paying account (or too long to leave someone locked out if
+#: their bank clears it in a day); 72 hours is Kall's own policy on top of
+#: that, independent of when or whether Stripe tries the card again.
+PAYMENT_GRACE_PERIOD_HOURS = 72
+
 
 def price_for(plan: str) -> str | None:
     """The Stripe price backing a plan, or None if it is not configured."""
@@ -163,3 +172,43 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict) -> S
     session.commit()
     session.refresh(item)
     return item
+
+
+def find_subscription_by_customer(session: Session, customer_id: str) -> Subscription | None:
+    """Look up a subscription by Stripe customer id.
+
+    Invoice events (payment_failed, paid) do not reliably carry the
+    kall_user_id metadata that checkout/subscription events do -- Stripe does
+    not copy subscription metadata onto every invoice it generates -- so
+    `customer` is the only identifier those events can be trusted to have.
+    """
+    return session.exec(
+        select(Subscription).where(Subscription.provider_customer_id == customer_id)
+    ).first()
+
+
+def apply_payment_failed(session: Session, subscription: Subscription) -> bool:
+    """Record a failed invoice. Returns True if this started a new grace window.
+
+    Only the first failure starts the clock -- Stripe retries a failing card
+    several times over its own schedule, and a second retry before the first
+    grace window has been resolved must not push the deadline back out, or a
+    card that keeps failing every 69 hours would never actually get
+    downgraded.
+    """
+    if subscription.payment_failed_at is not None:
+        return False
+    subscription.payment_failed_at = datetime.utcnow()
+    session.add(subscription)
+    session.commit()
+    return True
+
+
+def apply_payment_recovered(session: Session, subscription: Subscription) -> bool:
+    """Clear a grace window because payment succeeded. Returns True if one was active."""
+    if subscription.payment_failed_at is None:
+        return False
+    subscription.payment_failed_at = None
+    session.add(subscription)
+    session.commit()
+    return True

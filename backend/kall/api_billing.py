@@ -10,9 +10,12 @@ from kall.db import get_session
 from kall.models import BillingEvent, User
 from kall.models.enums import SubscriptionPlan
 from kall.services.billing import (
+    apply_payment_failed,
+    apply_payment_recovered,
     apply_subscription_event,
     create_checkout_url,
     create_portal_url,
+    find_subscription_by_customer,
     get_subscription,
     quota_status,
 )
@@ -86,6 +89,17 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
         "customer.subscription.deleted",
     }:
         apply_subscription_event(session, int(user_id), dict(obj))
+    elif event["type"] in {"invoice.payment_failed", "invoice.paid"}:
+        # Invoices do not reliably carry kall_user_id metadata, so these are
+        # looked up by Stripe customer id instead -- see
+        # find_subscription_by_customer.
+        customer_id = obj.get("customer")
+        subscription = find_subscription_by_customer(session, customer_id) if customer_id else None
+        if subscription:
+            if event["type"] == "invoice.payment_failed":
+                apply_payment_failed(session, subscription)
+            else:
+                apply_payment_recovered(session, subscription)
     record.status = "processed"
     session.add(record)
     session.commit()
