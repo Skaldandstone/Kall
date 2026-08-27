@@ -29,10 +29,10 @@ def make_user(session: Session, plan: str = SubscriptionPlan.FREE, suffix: str =
     return user
 
 
-def test_free_gets_ten_applications_then_stops(engine) -> None:
+def test_free_gets_five_applications_a_week_then_stops(engine) -> None:
     with Session(engine) as session:
         user = make_user(session)
-        for _ in range(10):
+        for _ in range(5):
             quota.check(session, user, "applications")
             quota.consume(session, user, "applications")
 
@@ -43,10 +43,10 @@ def test_free_gets_ten_applications_then_stops(engine) -> None:
 
 
 def test_plus_is_no_longer_unlimited(engine) -> None:
-    """Plus used to be unbounded. Under the tiers it is fifty a month."""
+    """Plus used to be unbounded. Under the tiers it is twenty-five a week."""
     with Session(engine) as session:
         user = make_user(session, SubscriptionPlan.PLUS)
-        quota.consume(session, user, "applications", amount=50)
+        quota.consume(session, user, "applications", amount=25)
         with pytest.raises(HTTPException):
             quota.check(session, user, "applications")
 
@@ -59,29 +59,42 @@ def test_premium_applications_are_unlimited(engine) -> None:
         assert quota.remaining(session, user, "applications") is None
 
 
-def test_a_monthly_allowance_starts_fresh_in_a_new_month(engine) -> None:
+def test_a_weekly_allowance_starts_fresh_in_a_new_week(engine) -> None:
     """The old counter never reset, so every user was spending a lifetime
-    allowance. A monthly limit has to actually be monthly."""
+    allowance. A weekly limit has to actually be weekly."""
     with Session(engine) as session:
         user = make_user(session, SubscriptionPlan.PLUS)
-        # Spend the whole allowance in a period that is not the current one.
-        last_month = quota.period_key("month", datetime(2020, 1, 15))
+        # Spend the whole allowance in a week that is not the current one.
+        old_week = quota.period_key("week", datetime(2020, 1, 15))
         session.add(
-            quota.UsageCounter(user_id=user.id, meter="applications", period=last_month, used=50)
+            quota.UsageCounter(user_id=user.id, meter="applications", period=old_week, used=25)
         )
         session.commit()
 
-        # This month is untouched.
         assert quota.used(session, user, "applications") == 0
         quota.check(session, user, "applications")
 
 
-def test_a_lifetime_allowance_does_not_reset(engine) -> None:
-    """Free's ten are a trial, not a monthly refill -- "the first 10 are
-    free" has to keep meaning that."""
+def test_free_and_plus_both_refill_weekly(engine) -> None:
+    """A monthly cap spent in three days locks someone out for four weeks."""
+    with Session(engine) as session:
+        for plan in (SubscriptionPlan.FREE, SubscriptionPlan.PLUS):
+            user = make_user(session, plan, suffix="cadence")
+            assert quota.limit_for(user, "applications").period == "week"
+            assert quota.limit_for(user, "ai_actions").period == "week"
+
+
+def test_weeks_are_iso_so_the_year_boundary_is_not_a_short_week() -> None:
+    # 2027-01-03 is a Sunday and belongs to the week that began in 2026.
+    assert quota.period_key("week", datetime(2027, 1, 3)) == "2026-W53"
+    assert quota.period_key("week", datetime(2027, 1, 4)) == "2027-W01"
+
+
+def test_storage_is_a_ceiling_not_a_weekly_budget(engine) -> None:
+    """Storage is occupied, not spent -- it must not refill with the week."""
     with Session(engine) as session:
         user = make_user(session)
-        assert quota.limit_for(user, "applications").period == quota.LIFETIME
+        assert quota.limit_for(user, "storage_bytes").period == quota.LIFETIME
 
 
 def test_ai_actions_are_metered_apart_from_applications(engine) -> None:
@@ -173,7 +186,7 @@ def test_snapshot_reports_every_meter(engine) -> None:
         assert body["plan"] == SubscriptionPlan.PLUS
         assert set(body["meters"]) == {"applications", "ai_actions", "storage_bytes"}
         assert body["meters"]["applications"] == {
-            "used": 3, "limit": 50, "period": "month", "remaining": 47,
+            "used": 3, "limit": 25, "period": "week", "remaining": 22,
         }
 
 
@@ -187,7 +200,7 @@ def test_an_unknown_plan_falls_back_to_free() -> None:
     user = User(email="x@example.com", full_name="X")
     user.plan = "enterprise-that-does-not-exist"
     assert quota.plan_of(user) == SubscriptionPlan.FREE
-    assert quota.limit_for(user, "applications").amount == 10
+    assert quota.limit_for(user, "applications").amount == 5
 
 
 def test_the_legacy_application_counter_stays_in_step(engine) -> None:
@@ -197,3 +210,45 @@ def test_the_legacy_application_counter_stays_in_step(engine) -> None:
         quota.record_completed_application(session, user)
         assert user.completed_application_count == 1
         assert quota.used(session, user, "applications") == 1
+
+
+def test_an_exempt_account_passes_every_check(engine) -> None:
+    """Dev and support accounts only. Nothing the user can reach sets this."""
+    with Session(engine) as session:
+        user = make_user(session, suffix="exempt")
+        user.billing_exempt = True
+        session.add(user)
+        session.commit()
+
+        quota.consume(session, user, "applications", amount=1000)
+        quota.consume(session, user, "ai_actions", amount=1000)
+        # Would be far past a free account's weekly allowance.
+        quota.check(session, user, "applications")
+        quota.check(session, user, "ai_actions")
+
+
+def test_an_exempt_account_still_records_usage(engine) -> None:
+    """Support needs to see what an account is doing, limit or no limit."""
+    with Session(engine) as session:
+        user = make_user(session, suffix="exempt2")
+        user.billing_exempt = True
+        session.add(user)
+        session.commit()
+
+        quota.consume(session, user, "applications", amount=7)
+        body = quota.snapshot(session, user)
+        assert body["billing_exempt"] is True
+        assert body["meters"]["applications"]["used"] == 7
+        # No ceiling is reported, so the product never shows a limit nearing.
+        assert body["meters"]["applications"]["limit"] is None
+        assert body["meters"]["applications"]["remaining"] is None
+
+
+def test_the_refusal_says_when_the_allowance_comes_back(engine) -> None:
+    with Session(engine) as session:
+        user = make_user(session, suffix="msg")
+        quota.consume(session, user, "applications", amount=5)
+        with pytest.raises(HTTPException) as exc:
+            quota.check(session, user, "applications")
+        assert exc.value.detail["period"] == "week"
+        assert "this week" in exc.value.detail["message"]

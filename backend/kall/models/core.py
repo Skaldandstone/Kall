@@ -23,6 +23,10 @@ class User(TimestampMixin, table=True):
     state_region: str | None = None
     plan: SubscriptionPlan = Field(default=SubscriptionPlan.FREE)
     completed_application_count: int = 0
+    #: Exempt from every plan limit. For development and support accounts, and
+    #: set by an administrator rather than by anything the user can reach --
+    #: there is no self-serve path to this flag.
+    billing_exempt: bool = False
     stripe_customer_id: str | None = None
     stripe_subscription_id: str | None = None
     is_active: bool = True

@@ -43,20 +43,21 @@ def upgrade() -> None:
             sa.Column("byte_size", sa.Integer(), nullable=False, server_default="0"),
         )
 
-    # Carry the pre-existing lifetime application count into the new counter,
-    # so nobody's allowance silently resets to zero on deploy.
-    op.execute(
-        """
-        INSERT INTO usagecounter (user_id, meter, period, used, created_at, updated_at)
-        SELECT id, 'applications', 'lifetime', completed_application_count,
-               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        FROM "user"
-        WHERE completed_application_count > 0
-        """
-    )
+    if "billing_exempt" not in {c["name"] for c in inspector.get_columns("user")}:
+        op.add_column(
+            "user",
+            sa.Column("billing_exempt", sa.Boolean(), nullable=False, server_default=sa.false()),
+        )
+
+    # No backfill of the old lifetime count. Free and Plus now refill weekly,
+    # so a historical total has nowhere to go: every account starts the current
+    # week with its full allowance. That is deliberate -- nobody is
+    # grandfathered, and nobody is punished on deploy for what they did before
+    # the meters existed.
 
 
 def downgrade() -> None:
+    op.drop_column("user", "billing_exempt")
     op.drop_column("resumedocument", "byte_size")
     op.drop_index("ix_usagecounter_period", table_name="usagecounter")
     op.drop_index("ix_usagecounter_meter", table_name="usagecounter")

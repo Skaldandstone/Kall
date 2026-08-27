@@ -29,10 +29,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 Meter = Literal["applications", "ai_actions", "storage_bytes"]
-Period = Literal["lifetime", "month"]
+Period = Literal["lifetime", "week", "month"]
 
-#: The lifetime period key. Free allowances are a trial, not a monthly refill:
-#: "the first 10 are free" has to keep meaning that.
+#: Period key for an allowance that never refills. Storage uses it, because a
+#: storage cap is a ceiling rather than a budget.
 LIFETIME = "lifetime"
 
 
@@ -45,29 +45,39 @@ class Limit(NamedTuple):
 MB = 1024 * 1024
 
 PLAN_LIMITS: dict[str, dict[Meter, Limit]] = {
+    # Free and Plus refill weekly. A week is the rhythm people actually search
+    # on -- a Sunday evening spent applying is one session, and a monthly cap
+    # spent in the first three days leaves someone locked out for four weeks
+    # with nothing to do but resent it. A weekly cap is never more than six
+    # days from being useful again.
     SubscriptionPlan.FREE: {
-        "applications": Limit(10, LIFETIME),
+        "applications": Limit(5, "week"),
         # Enough to see one growth plan and one resume parse -- the two moments
         # that show what the feature is for. Zero would make it invisible.
-        "ai_actions": Limit(3, LIFETIME),
+        "ai_actions": Limit(3, "week"),
+        # A ceiling, not a budget: storage does not refill, it is occupied.
         "storage_bytes": Limit(25 * MB, LIFETIME),
     },
     SubscriptionPlan.PLUS: {
-        "applications": Limit(50, "month"),
-        "ai_actions": Limit(25, "month"),
+        "applications": Limit(25, "week"),
+        "ai_actions": Limit(15, "week"),
         "storage_bytes": Limit(500 * MB, LIFETIME),
     },
+    # Premium is the one plan that does not make anyone count. Its AI ceiling
+    # is monthly rather than weekly so an unusually heavy week is absorbed
+    # rather than refused.
     SubscriptionPlan.PREMIUM: {
-        "applications": Limit(None, "month"),
-        "ai_actions": Limit(150, "month"),
+        "applications": Limit(None, "week"),
+        "ai_actions": Limit(400, "month"),
         "storage_bytes": Limit(5 * 1024 * MB, LIFETIME),
     },
 }
 
-UPGRADE_MESSAGE: dict[Meter, str] = {
-    "applications": "You have used every completed application on your plan.",
-    "ai_actions": "You have used every AI action on your plan this period.",
-    "storage_bytes": "Your saved resumes and documents fill the storage on your plan.",
+#: When a limit refills, in words, so a refusal can say when to come back.
+PERIOD_WORDS: dict[str, str] = {
+    "week": "this week",
+    "month": "this month",
+    LIFETIME: "on your plan",
 }
 
 
@@ -81,9 +91,18 @@ def limit_for(user: User, meter: Meter) -> Limit:
 
 
 def period_key(period: Period, now: datetime | None = None) -> str:
+    """The bucket a usage row belongs to.
+
+    Weeks use the ISO calendar, so a week is always Monday to Sunday and the
+    turn of the year cannot produce a short or duplicated bucket the way
+    counting from January 1st would.
+    """
     if period == LIFETIME:
         return LIFETIME
     moment = now or datetime.utcnow()
+    if period == "week":
+        iso = moment.isocalendar()
+        return f"{iso.year:04d}-W{iso.week:02d}"
     return f"{moment.year:04d}-{moment.month:02d}"
 
 
@@ -132,12 +151,23 @@ def remaining(session: Session, user: User, meter: Meter) -> int | None:
 
 
 def check(session: Session, user: User, meter: Meter, amount: int = 1) -> None:
-    """Raise 402 if `amount` more would exceed the plan. Consumes nothing."""
+    """Raise 402 if `amount` more would exceed the plan. Consumes nothing.
+
+    Exempt accounts pass every check. Usage is still recorded for them, so
+    support can see what an account is doing without the limit acting on it.
+    """
+    if user.billing_exempt:
+        return
     limit = limit_for(user, meter)
     if limit.amount is None:
         return
     if used(session, user, meter) + amount <= limit.amount:
         return
+    thing = {
+        "applications": "completed applications",
+        "ai_actions": "AI actions",
+        "storage_bytes": "storage",
+    }[meter]
     raise HTTPException(
         status_code=402,
         detail={
@@ -145,7 +175,10 @@ def check(session: Session, user: User, meter: Meter, amount: int = 1) -> None:
             "meter": meter,
             "plan": plan_of(user),
             "limit": limit.amount,
-            "message": UPGRADE_MESSAGE[meter],
+            "period": limit.period,
+            # Says when it comes back, not just that it is gone -- a weekly
+            # allowance is only useful if the person knows it refills.
+            "message": f"You have used all {limit.amount} of your {thing} {PERIOD_WORDS[limit.period]}.",
         },
     )
 
@@ -186,15 +219,18 @@ def snapshot(session: Session, user: User) -> dict[str, object]:
     """
     plan = plan_of(user)
     meters: dict[str, object] = {}
+    exempt = user.billing_exempt
     for meter in ("applications", "ai_actions", "storage_bytes"):
         limit = PLAN_LIMITS[plan][meter]  # type: ignore[index]
         meters[meter] = {
             "used": used(session, user, meter),  # type: ignore[arg-type]
-            "limit": limit.amount,
+            # An exempt account reports no ceiling, so the product shows usage
+            # without ever showing a limit approaching.
+            "limit": None if exempt else limit.amount,
             "period": limit.period,
-            "remaining": remaining(session, user, meter),  # type: ignore[arg-type]
+            "remaining": None if exempt else remaining(session, user, meter),  # type: ignore[arg-type]
         }
-    return {"plan": plan, "meters": meters}
+    return {"plan": plan, "billing_exempt": exempt, "meters": meters}
 
 
 # --- Backwards-compatible helpers -------------------------------------------
