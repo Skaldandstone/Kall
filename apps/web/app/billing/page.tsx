@@ -1,43 +1,7 @@
-'use client';
+import PlanPicker from './PlanPicker';
 
-import { useEffect, useState } from 'react';
-import KallMark from '../components/KallMark';
-
-const API = '/api/kall';
-type BillingStatus = { plan: string; subscription_status: string; used: number; free_limit: number; remaining: number | null; allowed: boolean };
+export const metadata = { title: 'Plans' };
 
 export default function BillingPage() {
-  const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [message, setMessage] = useState('');
-
-  async function load() {
-    const response = await fetch(`${API}/billing/status`);
-    if (response.status === 401) {window.location.replace('/sign-in'); return; }
-    if (response.ok) setStatus(await response.json());
-  }
-
-  async function open(path: 'checkout' | 'portal') {
-    const response = await fetch(`${API}/billing/${path}`, { method: 'POST' });
-    if (response.status === 401) {window.location.replace('/sign-in'); return; }
-    if (!response.ok) return setMessage('Billing is not available yet. Check Stripe configuration.');
-    const data = await response.json();
-    window.location.href = data.url;
-  }
-
-  useEffect(() => { load(); }, []);
-
-  return <main className="shell">
-    <header className="topbar"><a className="brand" href="/"><KallMark />Kall</a><nav><a href="/search">Opportunities</a><a href="/applications">Applications</a></nav></header>
-    <section className="hero" style={{ paddingTop: 8, paddingBottom: 42 }}><span className="eyebrow">Kall Plus</span><h1 style={{ fontSize: 'clamp(44px, 7vw, 76px)' }}>Ten applications free. Then $4 a month.</h1><p>Usage is enforced on the server before Kall creates a submission attempt.</p></section>
-    <section className="card">
-      <span className="eyebrow">Current plan</span>
-      <div className="metric"><strong>{status?.plan || 'Loading'}</strong></div>
-      <p>{status ? `${status.used} applications used${status.remaining === null ? ' · unlimited while subscribed' : ` · ${status.remaining} free remaining`}` : 'Loading usage…'}</p>
-      <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-        {status?.plan !== 'plus' && <button className="button" onClick={() => open('checkout')}>Upgrade for $4/month</button>}
-        {status?.plan === 'plus' && <button className="button secondary" onClick={() => open('portal')}>Manage subscription</button>}
-      </div>
-      <p className="notice">{message}</p>
-    </section>
-  </main>;
+  return <PlanPicker />;
 }

@@ -53,10 +53,21 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     auto_create_tables: bool = True
     openai_api_key: str | None = None
-    openai_model: str = "gpt-5.1-mini"
+    #: The small, cheap model -- every AI feature here is a short structured
+    #: extraction, not a reasoning task.
+    #:
+    #: This was "gpt-5.1-mini" until 2026-08-26. The whole GPT-5.1 family was
+    #: shut down on 2026-07-23, so that default had been returning 404 for a
+    #: month with nothing to show for it: all three call sites swallowed the
+    #: error and fell back, which looked exactly like "the AI is switched
+    #: off". See services/openai_json.py, which now logs the reason.
+    openai_model: str = "gpt-5.6-luna"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    #: Kall Plus. Named for the plan rather than as a bare "price id" now that
+    #: there is more than one.
     stripe_price_id: str | None = None
+    stripe_premium_price_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
     # Clerk owns identity: sign-in, sign-up, sessions, MFA, passkeys and social

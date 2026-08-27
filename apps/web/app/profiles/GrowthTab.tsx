@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import GoogleResourceSearchResults from '../components/GoogleResourceSearchResults';
+import { fetchKall } from '../lib/api';
 
 const API = '/api/kall';
 
@@ -18,7 +19,7 @@ function authHeaders(json=false) {
 }
 
 async function request(path:string, init?:RequestInit) {
-  const response = await fetch(`${API}${path}`, init);
+  const response = await fetchKall(`${path}`, init);
   if (response.status === 401) {
     window.location.replace('/sign-in');
     throw new Error('signed-out');

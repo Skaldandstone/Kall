@@ -8,6 +8,7 @@ from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import Application, Job, JobMatch, User
 from kall.models.enums import ApplicationStatus
+from kall.services import quota
 
 router = APIRouter()
 
@@ -69,6 +70,14 @@ def move_application(
     if stage not in _STAGE_STATUS:
         raise HTTPException(422, "Unsupported application stage")
     application = _owned_application(application_id, current_user, session)
+    # A completed application is one that reaches SUBMITTED, which is what the
+    # plan actually meters. Guarded on the previous status so dragging a card
+    # back and forth cannot charge someone repeatedly for one application.
+    becoming_submitted = (
+        stage == "submitted" and application.status != ApplicationStatus.SUBMITTED
+    )
+    if becoming_submitted:
+        quota.check(session, current_user, "applications")
     application.status = _STAGE_STATUS[stage]
     application.updated_at = datetime.now(UTC).replace(tzinfo=None)
     application.failure_reason = "Rejected by employer" if stage == "rejected" else None
@@ -76,6 +85,8 @@ def move_application(
         application.submitted_at = datetime.now(UTC).replace(tzinfo=None)
     session.add(application)
     session.commit()
+    if becoming_submitted:
+        quota.record_completed_application(session, current_user)
     job = session.get(Job, application.job_id)
     return {"id": application.id, "stage": stage, "job_url": job.url if job else None}
 

@@ -36,6 +36,11 @@ STRIPE_PRICE_ID=price_1U08lPIjMKrx5dSp2XBsn8to
 
 The Stripe secret key and webhook signing secret must come from the same test-mode account as the price.
 
+There are now **two** paid plans, so there are two prices. Billing is not
+switched on yet -- checkout returns 503 and the UI says so -- and everything
+needed to turn it on, including the second price and what to verify first,
+is in [`STRIPE_SETUP.md`](STRIPE_SETUP.md).
+
 ## 4. Configure service URLs
 
 Before a custom domain is available, use the provider-generated HTTPS URLs:

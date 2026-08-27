@@ -1,8 +1,7 @@
-import json
 
-import httpx
 from kall.config import get_settings
 from kall.models import CareerGoal
+from kall.services.openai_json import ask_for_json
 
 
 def _call_structured(prompt: str, schema: dict, schema_name: str) -> dict | None:
@@ -15,29 +14,7 @@ def _call_structured(prompt: str, schema: dict, schema_name: str) -> dict | None
     settings = get_settings()
     if not settings.openai_api_key:
         return None
-    try:
-        response = httpx.post(
-            "https://api.openai.com/v1/responses",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
-            json={
-                "model": settings.openai_model,
-                "input": prompt,
-                "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        output_text = payload.get("output_text")
-        if not output_text:
-            for item in payload.get("output", []):
-                for content in item.get("content", []):
-                    if content.get("type") == "output_text":
-                        output_text = content.get("text")
-                        break
-        return json.loads(output_text or "{}")
-    except Exception:
-        return None
+    return ask_for_json(prompt, schema_name=schema_name, schema=schema, purpose="growth plan")
 
 
 def _goal_context(goal: CareerGoal) -> str:

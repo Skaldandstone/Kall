@@ -3,23 +3,36 @@ from datetime import datetime
 from fastapi import HTTPException
 from kall.config import get_settings
 from kall.models import ApplicationUsage, Subscription, User
+from kall.models.enums import SubscriptionPlan
 from sqlmodel import Session, func, select
 
 FREE_APPLICATION_LIMIT = 10
 ACTIVE_STATUSES = {"active", "trialing"}
 
 
-def create_checkout_url(user_id: int) -> str:
+def price_for(plan: str) -> str | None:
+    """The Stripe price backing a plan, or None if it is not configured."""
     settings = get_settings()
-    if not all([settings.stripe_secret_key, settings.stripe_price_id]):
-        raise HTTPException(status_code=503, detail="Stripe is not configured")
+    return {
+        SubscriptionPlan.PLUS: settings.stripe_price_id,
+        SubscriptionPlan.PREMIUM: settings.stripe_premium_price_id,
+    }.get(plan)
+
+
+def create_checkout_url(user_id: int, plan: str = SubscriptionPlan.PLUS) -> str:
+    settings = get_settings()
+    price_id = price_for(plan)
+    if not settings.stripe_secret_key or not price_id:
+        # Naming the plan matters: with two paid tiers, "Stripe is not
+        # configured" alone cannot tell you which price is missing.
+        raise HTTPException(status_code=503, detail=f"Stripe is not configured for the {plan} plan")
     import stripe
 
     stripe.api_key = settings.stripe_secret_key
-    metadata = {"kall_user_id": str(user_id)}
+    metadata = {"kall_user_id": str(user_id), "kall_plan": plan}
     checkout = stripe.checkout.Session.create(
         mode="subscription",
-        line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
+        line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{settings.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.frontend_url}/billing",
         client_reference_id=str(user_id),
@@ -100,12 +113,36 @@ def record_application_submission(session: Session, user_id: int, application_id
     return usage
 
 
+def plan_from_event(payload: dict) -> str:
+    """Which plan this subscription is for.
+
+    Prefers the `kall_plan` metadata that create_checkout_url attaches, and
+    falls back to matching the price id -- a subscription created before that
+    metadata existed will not carry it.
+    """
+    metadata = payload.get("metadata") or {}
+    named = metadata.get("kall_plan")
+    if named in {SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM}:
+        return named
+
+    price = payload.get("price") or {}
+    price_id = payload.get("price_id") or price.get("id")
+    if price_id:
+        for plan in (SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM):
+            if price_for(plan) == price_id:
+                return plan
+    # An active subscription of unknown shape is more likely Plus than nothing,
+    # but it must never silently grant the top tier.
+    return SubscriptionPlan.PLUS
+
+
 def apply_subscription_event(session: Session, user_id: int, payload: dict) -> Subscription:
     item = get_subscription(session, user_id)
     item.provider_customer_id = payload.get("customer") or item.provider_customer_id
     item.provider_subscription_id = payload.get("subscription") or payload.get("id") or item.provider_subscription_id
     item.status = str(payload.get("status", item.status))
-    item.plan = "plus" if item.status in ACTIVE_STATUSES else "free"
+    # Previously hardcoded to "plus", so buying Premium granted Plus.
+    item.plan = plan_from_event(payload) if item.status in ACTIVE_STATUSES else SubscriptionPlan.FREE
     price = payload.get("price") or {}
     item.price_id = payload.get("price_id") or price.get("id") or item.price_id
     period_end = payload.get("current_period_end")
@@ -113,6 +150,16 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict) -> S
         item.current_period_end = datetime.utcfromtimestamp(int(period_end))
     item.cancel_at_period_end = bool(payload.get("cancel_at_period_end", False))
     session.add(item)
+
+    # The quota service reads User.plan, not Subscription.plan. Without this
+    # a completed purchase changed the billing record and nothing else, so the
+    # limits never moved -- the subscription said Plus while the account was
+    # still enforced as Free.
+    user = session.get(User, user_id)
+    if user and user.plan != item.plan:
+        user.plan = item.plan
+        session.add(user)
+
     session.commit()
     session.refresh(item)
     return item

@@ -1,0 +1,117 @@
+.meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meterHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.meterHead strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-interactive);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+/* Warning colour only near the ceiling: a bar that is amber all the time
+   stops meaning anything. */
+.nearly {
+  background: var(--warning);
+}
+
+.refill {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.current {
+  border-color: var(--accent);
+}
+
+.planHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planHead h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.price {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.price strong {
+  color: var(--text-primary);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 14.5px;
+}
+
+.plan .button {
+  margin-top: auto;
+}
+
+.currentTag {
+  margin: auto 0 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session, select
@@ -27,6 +28,8 @@ from kall.schemas import (
     SearchSourceCreate,
 )
 from kall.security import encrypt_sensitive
+from kall.services import quota
+from kall.services.admin import is_admin
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
@@ -41,9 +44,16 @@ def health() -> dict[str, str]:
     return {"status": "ok", "product": "Kall"}
 
 
-@router.get("/me", response_model=User)
-def me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """The signed-in account, plus whether it may administer Kall.
+
+    `is_admin` is here rather than left to the client so the domain rule lives
+    in exactly one place. It only decides whether a nav link is drawn -- every
+    /admin route re-checks it, so a client that sets the flag itself gains
+    nothing but a link to a 404.
+    """
+    return {**current_user.model_dump(), "is_admin": is_admin(current_user)}
 
 
 @router.get("/me/identity", response_model=IdentityProfileResponse)
@@ -117,11 +127,13 @@ async def upload_resume(file: UploadFile = File(...), current_user: User = Depen
     data = await file.read()
     if len(data) > RESUME_MAX_BYTES:
         raise HTTPException(413, "Resume file is too large (15MB limit)")
+    # Checked before the write, so a file that would not fit is never stored.
+    quota.check(session, current_user, "storage_bytes", amount=len(data))
     key = f"uploads/{current_user.id}/{filename}"
     mime = file.content_type or "application/octet-stream"
     text = extract_resume_text(data, mime)
     get_storage().save(key, data)
-    row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text)
+    row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text, byte_size=len(data))
     session.add(row)
     session.commit()
     session.refresh(row)

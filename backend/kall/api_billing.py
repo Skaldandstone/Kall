@@ -1,12 +1,14 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import BillingEvent, User
+from kall.models.enums import SubscriptionPlan
 from kall.services.billing import (
     apply_subscription_event,
     create_checkout_url,
@@ -14,6 +16,7 @@ from kall.services.billing import (
     get_subscription,
     quota_status,
 )
+from kall.services.quota import snapshot
 
 router = APIRouter(tags=["billing"])
 
@@ -23,9 +26,16 @@ def billing_status(user: User = Depends(get_current_user), session: Session = De
     return quota_status(session, user)
 
 
+class CheckoutRequest(BaseModel):
+    plan: str = SubscriptionPlan.PLUS
+
+
 @router.post("/billing/checkout")
-def checkout(user: User = Depends(get_current_user)):
-    return {"url": create_checkout_url(user.id)}
+def checkout(payload: CheckoutRequest | None = None, user: User = Depends(get_current_user)):
+    plan = (payload or CheckoutRequest()).plan
+    if plan not in {SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM}:
+        raise HTTPException(422, "That plan cannot be purchased")
+    return {"url": create_checkout_url(user.id, plan)}
 
 
 @router.post("/billing/portal")
@@ -80,3 +90,16 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
     session.add(record)
     session.commit()
     return {"received": True}
+
+
+@router.get("/me/usage")
+def get_usage(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """What this account has used, and what its plan allows.
+
+    Exists so the product can show a limit approaching rather than only
+    reporting one that has already been hit.
+    """
+    return snapshot(session, current_user)
