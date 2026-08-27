@@ -165,11 +165,18 @@ def test_only_cleared_testimonials_are_published(client, engine) -> None:
     with Session(engine) as session:
         common = {"user_id": client.user_id, "relationship": "manager", "body": "Great to work with."}
         session.add(Testimonial(author_name="Cleared", include_on_profile=True,
-                                permission_granted=True, **common))
+                                permission_granted=True, status="approved", **common))
         session.add(Testimonial(author_name="NoProfileFlag", include_on_profile=False,
-                                permission_granted=True, **common))
+                                permission_granted=True, status="approved", **common))
         session.add(Testimonial(author_name="NoPermission", include_on_profile=True,
-                                permission_granted=False, **common))
+                                permission_granted=False, status="approved", **common))
+        # Cleared on every other flag but never actually approved -- this is
+        # the exact gap api_testimonials.py's moderate() now refuses to
+        # create through the API; a row already sitting in the database this
+        # way (migrated data, a bug predating that fix) must still not
+        # publish.
+        session.add(Testimonial(author_name="NeverApproved", include_on_profile=True,
+                                permission_granted=True, status="pending_review", **common))
         session.commit()
 
     client.post(ME + "/sections", json={"kind": "testimonials", "title": "References"})

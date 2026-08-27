@@ -114,6 +114,18 @@ def update_opportunity(opportunity_id: int, payload: OpportunityUpdate, current:
     return row
 
 
+@router.get("/notification-preferences", response_model=NotificationPreference)
+def get_preferences(current: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """The current preference row, or the model's own defaults if none
+    exists yet -- there is no separate "onboard into notifications" step,
+    so most accounts have no row at all. jobs/daily_brief.py reads the
+    same defaults when a row is absent; this just lets a settings page
+    show them without first creating one.
+    """
+    row = session.exec(select(NotificationPreference).where(NotificationPreference.user_id == current.id)).first()
+    return row or NotificationPreference(user_id=current.id)
+
+
 @router.put("/notification-preferences", response_model=NotificationPreference)
 def set_preferences(payload: PreferenceInput, current: User = Depends(get_current_user), session: Session = Depends(get_session)):
     row = session.exec(select(NotificationPreference).where(NotificationPreference.user_id == current.id)).first()

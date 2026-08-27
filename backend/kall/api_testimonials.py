@@ -148,8 +148,19 @@ def moderate(testimonial_id: int, payload: VisibilityUpdate, user: User = Depend
         raise HTTPException(422, "Withdrawn testimonials cannot be republished")
     if payload.status not in {"approved", "rejected", "pending_review"}:
         raise HTTPException(422, "Invalid status")
-    if (payload.include_on_profile or payload.include_in_applications) and not item.permission_granted:
-        raise HTTPException(422, "Author permission is required")
+    if payload.include_on_profile or payload.include_in_applications:
+        if not item.permission_granted:
+            raise HTTPException(422, "Author permission is required")
+        # include_in_application() below already refuses anything but an
+        # approved testimonial -- this enforces the same rule at the moment
+        # visibility is turned on, rather than trusting every future caller
+        # to always send status and include_on_profile together correctly.
+        # Only today's one caller (ReferencesTab.tsx) does that; nothing
+        # stops a different one from setting include_on_profile=True on a
+        # testimonial still pending_review, which career_page.py's own
+        # public-page filter would then have no reason to exclude.
+        if payload.status != "approved":
+            raise HTTPException(422, "Only an approved testimonial can be shown")
     item.status = payload.status
     item.include_on_profile = payload.include_on_profile
     item.include_in_applications = payload.include_in_applications

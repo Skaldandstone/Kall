@@ -13,14 +13,38 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Three jobs now need scheduling, not just one.** `python -m kall.jobs.retention`,
-`python -m kall.jobs.notifications`, and `python -m kall.jobs.billing_grace_period`
-all exist and all do nothing until something calls them. Retention wants a
-daily ECS scheduled task (nothing is a year old yet, so no urgency); the
-grace period job wants hourly (the deadline is 72 hours, not 72 minutes);
-notifications wants something more frequent once a real email provider is
-picked (a queued digest sitting for hours is a stale digest). See the setup
-runbook for the exact ECS console steps.
+**Four jobs now need scheduling.** `python -m kall.jobs.retention`,
+`python -m kall.jobs.notifications`, `python -m kall.jobs.billing_grace_period`,
+and `python -m kall.jobs.daily_brief` all exist and all do nothing until
+something calls them. Retention wants a daily ECS scheduled task (nothing is
+a year old yet, so no urgency); the grace period job wants hourly (the
+deadline is 72 hours, not 72 minutes); daily_brief wants hourly too (it
+queues for whoever's local hour matches right now, so it needs to check
+often enough that "8am" actually lands near 8am); notifications wants
+something more frequent once a real email provider is picked (a queued
+digest sitting for hours is a stale digest). See the setup runbook for the
+exact ECS console steps.
+
+**The daily brief now emails, and it's personalizable.** `services/brief.py`
+is the exact same logic `GET /me/morning-brief` already showed in the app --
+extracted so the emailed version can never say something different from what
+the page shows at that moment. `/settings/notifications` is a new page
+letting someone actually set when it arrives, in what timezone, and the
+minimum match score worth a new-opportunity email; before this there was a
+`PUT` endpoint for that with no way to read it back and nothing calling it.
+An account with no preference set gets the model's own defaults (8am UTC) --
+there being no separate onboarding step for this, defaulting to "excluded"
+instead would have meant emailing nobody ever.
+
+**Found while checking for the same kind of drift that caused the earlier
+plan-mapping bug: a testimonial could be shown on a public career page
+without ever being marked approved.** `career_page.py`'s own filter checked
+three flags and never `status`; a sibling endpoint already required
+`status == "approved"`, this one didn't. Today's one caller always sends
+both together, so nothing was actually exposed in practice -- fixed on both
+the write side (moderate() now refuses it) and the read side
+(career_page.py checks status directly too, as a second independent guard
+on the one thing the whole feature exists to get right).
 
 **Account deletion is now built -- one piece of it is unverified.**
 `DELETE /me` (self-service, type-your-email-to-confirm) and an admin console
