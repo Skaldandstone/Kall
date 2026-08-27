@@ -1,5 +1,6 @@
 from kall.models.application_review import *
 from kall.models.billing import *
+from kall.models.career_page import *
 from kall.models.core import *
 from kall.models.discovery import *
 from kall.models.documents import *

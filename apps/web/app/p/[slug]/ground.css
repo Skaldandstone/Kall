@@ -1,0 +1,45 @@
+/*
+ * The ground behind the career page.
+ *
+ * The root layout paints the app's navy on <body> and renders a shared footer
+ * below this page, so without this the parchment theme stopped at the page and
+ * the strip underneath stayed navy. It lives in a plain stylesheet rather than
+ * the CSS module because a module selector must carry a local class, and this
+ * one has to reach <body>. Keyed off a data attribute, which is not hashed.
+ *
+ * Only loaded on /p routes, so it cannot affect the product.
+ */
+
+body:has([data-cp-theme='parchment']) {
+  background: #f3efe4;
+  color: #1c1912;
+  /* The shared footer below the page draws its rule and text from these
+     product tokens. Left alone it put a navy hairline and blue-grey text
+     under a parchment page. */
+  --border: #d9cfb6;
+  --text-muted: #8a8270;
+  --text-secondary: #5d5646;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) body:has([data-cp-theme='parchment']) {
+    background: #12141a;
+    color: #ece6d6;
+    --border: #2b303b;
+    --text-muted: #6f6a5c;
+    --text-secondary: #a49d89;
+  }
+}
+
+:root[data-theme='dark'] body:has([data-cp-theme='parchment']) {
+  background: #12141a;
+  color: #ece6d6;
+  --border: #2b303b;
+  --text-muted: #6f6a5c;
+  --text-secondary: #a49d89;
+}
+
+body:has([data-cp-theme='meridian']) {
+  background: #0c1420;
+  color: #e8ecf2;
+}

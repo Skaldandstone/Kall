@@ -1,0 +1,349 @@
+/*
+ * Two named themes for the public career page.
+ *
+ * `parchment` is the default and carries the look this page was designed in:
+ * a warm paper ground, Fraunces for headings, IBM Plex Sans for text. It is
+ * deliberately not Kall's product chrome -- the page belongs to the person
+ * sending it, not to the tool that made it.
+ *
+ * `meridian` is Kall's own navy and brass, for someone who prefers it.
+ *
+ * Both define every colour in both light and dark, at token level, so the
+ * page holds up whichever theme the reader's device is in.
+ */
+
+.page {
+  --measure: 68ch;
+  min-height: 100vh;
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+  font-family: var(--cp-body);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 96px;
+}
+
+/* ---------- parchment (default) ---------- */
+.parchment {
+  --cp-bg: #f3efe4;
+  --cp-panel: #ffffff;
+  --cp-ink: #1c1912;
+  --cp-ink-dim: #5d5646;
+  --cp-ink-faint: #8a8270;
+  --cp-rule: #d9cfb6;
+  --cp-accent: #b3671b;
+  --cp-signal: #3d7d75;
+  --cp-tag: #e7dfc8;
+  --cp-body: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --cp-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --cp-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .parchment {
+    --cp-bg: #12141a;
+    --cp-panel: #191d25;
+    --cp-ink: #ece6d6;
+    --cp-ink-dim: #a49d89;
+    --cp-ink-faint: #6f6a5c;
+    --cp-rule: #2b303b;
+    --cp-accent: #e2984f;
+    --cp-signal: #6ab5ab;
+    --cp-tag: #232936;
+  }
+}
+
+:global(:root[data-theme='dark']) .parchment {
+  --cp-bg: #12141a;
+  --cp-panel: #191d25;
+  --cp-ink: #ece6d6;
+  --cp-ink-dim: #a49d89;
+  --cp-ink-faint: #6f6a5c;
+  --cp-rule: #2b303b;
+  --cp-accent: #e2984f;
+  --cp-signal: #6ab5ab;
+  --cp-tag: #232936;
+}
+
+/* ---------- meridian (Kall's own) ---------- */
+.meridian {
+  --cp-bg: #0c1420;
+  --cp-panel: #131d2c;
+  --cp-ink: #e8ecf2;
+  --cp-ink-dim: #94a5bc;
+  --cp-ink-faint: #6b7f99;
+  --cp-rule: #2b3d55;
+  --cp-accent: #c9a86a;
+  --cp-signal: #6fae8f;
+  --cp-tag: #1c2839;
+  --cp-body: var(--font-epilogue), ui-sans-serif, system-ui, sans-serif;
+  --cp-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
+  --cp-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+/* ---------- structure ---------- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px clamp(20px, 5vw, 48px);
+  background: color-mix(in srgb, var(--cp-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--cp-rule);
+}
+
+.navName {
+  font-family: var(--cp-display);
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(14px, 2vw, 26px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--cp-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav a {
+  color: var(--cp-ink-dim);
+  text-decoration: none;
+}
+
+.nav a:hover,
+.nav a:focus-visible {
+  color: var(--cp-accent);
+}
+
+.hero,
+.section,
+.footer {
+  width: min(760px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.hero {
+  padding: clamp(48px, 9vw, 88px) 0 clamp(28px, 4vw, 44px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-bottom: 1px solid var(--cp-rule);
+}
+
+.hero h1 {
+  font-family: var(--cp-display);
+  font-size: clamp(40px, 7vw, 66px);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.headline {
+  font-family: var(--cp-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cp-signal);
+  margin: 0;
+}
+
+.summary {
+  font-size: 19px;
+  color: var(--cp-ink-dim);
+  max-width: var(--measure);
+  margin: 0;
+}
+
+.meta {
+  font-size: 14px;
+  color: var(--cp-ink-faint);
+  margin: 0;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--cp-mono);
+  font-size: 13px;
+}
+
+.links a {
+  color: var(--cp-accent);
+  text-underline-offset: 3px;
+}
+
+.section {
+  padding-top: clamp(38px, 6vw, 60px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section h2 {
+  font-family: var(--cp-display);
+  font-size: clamp(24px, 3.4vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.lede {
+  font-size: 17px;
+  color: var(--cp-ink-dim);
+  max-width: var(--measure);
+  margin: 0;
+  white-space: pre-line;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* A grid section holding full entries rather than tags needs real columns. */
+.grid > .entry {
+  flex: 1 1 300px;
+  background: var(--cp-panel);
+  border: 1px solid var(--cp-rule);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.entry p {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+.entryHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.entry h3 {
+  font-family: var(--cp-display);
+  font-size: 19px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.entry h3 a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.period {
+  font-family: var(--cp-mono);
+  font-size: 12.5px;
+  color: var(--cp-ink-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.org {
+  color: var(--cp-signal);
+  font-size: 15px;
+}
+
+.tag {
+  background: var(--cp-tag);
+  border: 1px solid var(--cp-rule);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 14px;
+  color: var(--cp-ink-dim);
+}
+
+.quote {
+  margin: 0;
+  background: var(--cp-panel);
+  border: 1px solid var(--cp-rule);
+  border-left: 3px solid var(--cp-accent);
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quote blockquote {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.quote figcaption {
+  font-family: var(--cp-mono);
+  font-size: 12.5px;
+  color: var(--cp-ink-faint);
+}
+
+.footer {
+  padding-top: clamp(44px, 7vw, 72px);
+  color: var(--cp-ink-faint);
+  font-family: var(--cp-mono);
+  font-size: 12.5px;
+}
+
+.footer a {
+  color: var(--cp-ink-dim);
+}
+
+@media (max-width: 620px) {
+  .hero,
+  .section,
+  .footer {
+    width: calc(100% - 32px);
+  }
+  .entryHead {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media print {
+  /* Someone will print this as a resume. Make that work. */
+  .nav,
+  .footer {
+    display: none;
+  }
+  .page {
+    background: #fff;
+    color: #000;
+    padding: 0;
+  }
+}
