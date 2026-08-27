@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import Session, select
@@ -28,6 +29,7 @@ from kall.schemas import (
 )
 from kall.security import encrypt_sensitive
 from kall.services import quota
+from kall.services.admin import is_admin
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match
@@ -42,9 +44,16 @@ def health() -> dict[str, str]:
     return {"status": "ok", "product": "Kall"}
 
 
-@router.get("/me", response_model=User)
-def me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """The signed-in account, plus whether it may administer Kall.
+
+    `is_admin` is here rather than left to the client so the domain rule lives
+    in exactly one place. It only decides whether a nav link is drawn -- every
+    /admin route re-checks it, so a client that sets the flag itself gains
+    nothing but a link to a 404.
+    """
+    return {**current_user.model_dump(), "is_admin": is_admin(current_user)}
 
 
 @router.get("/me/identity", response_model=IdentityProfileResponse)

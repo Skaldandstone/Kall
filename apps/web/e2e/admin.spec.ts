@@ -16,6 +16,24 @@ test('an ordinary account is told the console is not available', async ({ page }
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Not available' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Set premium/ })).toHaveCount(0);
+
+  // And nothing anywhere points them at it.
+  await page.goto('/applications');
+  await expect(
+    page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Support' }),
+  ).toHaveCount(0);
+});
+
+test('an admin reaches the console from the nav', async ({ page }) => {
+  await signInAsNewUser(page, 'Kall Admin', 'skaldandstone.com');
+  await page.goto('/applications');
+
+  await page
+    .getByRole('navigation', { name: 'Primary navigation' })
+    .getByRole('link', { name: 'Support' })
+    .click();
+
+  await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
 });
 
 test('an admin can change a plan, exempt an account, and see it logged', async ({ page, browser }) => {

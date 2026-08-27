@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import KallMark from './KallMark';
 import styles from './AppNav.module.css';
 
-type AppNavProps={current?:'brief'|'opportunities'|'applications'|'documents'|'career'};
-type User={full_name?:string;email?:string};
+type AppNavProps={current?:'brief'|'opportunities'|'applications'|'documents'|'career'|'support'};
+type User={full_name?:string;email?:string;is_admin?:boolean};
 const items=[['brief','Brief','/morning-brief'],['opportunities','Opportunities','/search'],['applications','Applications','/applications'],['documents','Documents','/resumes'],['career','Career','/profiles']] as const;
 
 function initialsFor(user:User|null){
@@ -17,11 +17,14 @@ function initialsFor(user:User|null){
 
 export default function AppNav({current}:AppNavProps){
   const[user,setUser]=useState<User|null>(null);
+  // The server decides this. Drawing the link is all it controls -- every
+  // /admin route re-checks, so a forged flag buys a link to a 404.
+  const admin=user?.is_admin===true;
   useEffect(()=>{
     fetch('/api/kall/me')
       .then(response=>response.ok?response.json():null)
       .then(data=>{if(data)setUser(data)})
       .catch(()=>undefined);
   },[]);
-  return <header className={styles.header}><a className={styles.brand} href='/' aria-label='Kall home'><KallMark />Kall</a><nav className={styles.nav} aria-label='Primary navigation'>{items.map(([key,label,href])=><a key={key} href={href} className={`${styles.link} ${current===key?styles.active:''}`} aria-current={current===key?'page':undefined}>{label}</a>)}</nav><a className={styles.account} href='/settings' aria-label='Open account settings'>{initialsFor(user)}</a></header>
+  return <header className={styles.header}><a className={styles.brand} href='/' aria-label='Kall home'><KallMark />Kall</a><nav className={styles.nav} aria-label='Primary navigation'>{items.map(([key,label,href])=><a key={key} href={href} className={`${styles.link} ${current===key?styles.active:''}`} aria-current={current===key?'page':undefined}>{label}</a>)}{admin&&<a href='/admin' className={`${styles.link} ${current==='support'?styles.active:''}`} aria-current={current==='support'?'page':undefined}>Support</a>}</nav><a className={styles.account} href='/settings' aria-label='Open account settings'>{initialsFor(user)}</a></header>
 }

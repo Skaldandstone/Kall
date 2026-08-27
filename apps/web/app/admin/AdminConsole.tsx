@@ -104,7 +104,7 @@ export default function AdminConsole() {
   if (denied) {
     return (
       <main className="shell">
-        <AppNav />
+        <AppNav current="support" />
         <section className="card" style={{ marginTop: 40 }}>
           <h1>Not available</h1>
           <p className="muted">This account cannot use the support console.</p>
@@ -115,7 +115,7 @@ export default function AdminConsole() {
 
   return (
     <main className="shell">
-      <AppNav />
+      <AppNav current="support" />
       <section className="hero" style={{ paddingTop: 32, paddingBottom: 28 }}>
         <span className="eyebrow">Support</span>
         <h1 style={{ fontSize: 'clamp(38px, 6vw, 62px)' }}>Accounts</h1>
