@@ -60,3 +60,33 @@ def test_admin_user_lookup_detail_and_toggle(client, admin_token):
 def test_admin_unknown_user_404s(client, admin_token):
     headers = {"X-Admin-Token": admin_token}
     assert client.get("/api/admin/users/99999", headers=headers).status_code == 404
+
+
+def test_pipeline_inspector(client, admin_token):
+    headers = {"X-Admin-Token": admin_token}
+    resp = client.get(f"/api/admin/users/{client.user_id}/pipeline", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["matches"] == []
+    assert body["applications"] == []
+    assert client.get("/api/admin/users/99999/pipeline", headers=headers).status_code == 404
+    # unauthenticated
+    assert client.get(f"/api/admin/users/{client.user_id}/pipeline").status_code == 401
+
+
+def test_data_subject_export_redacts_sensitive(client, admin_token):
+    headers = {"X-Admin-Token": admin_token}
+    resp = client.get(f"/api/admin/users/{client.user_id}/export", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["user"]["email"] == "test@example.com"
+    assert body["sensitive_records_present"] == {
+        "eeo_profile": False,
+        "work_authorization": False,
+    }
+    # the fixture seeds a CandidateProfile with no encrypted fields set
+    assert body["candidate_profile"][0]["phone"] is None
+    # export never carries decrypted sensitive values
+    assert "individually-audited reveal" in body["note"]
+    assert client.get("/api/admin/users/99999/export", headers=headers).status_code == 404
+    assert client.get(f"/api/admin/users/{client.user_id}/export").status_code == 401

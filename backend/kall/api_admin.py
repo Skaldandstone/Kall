@@ -7,6 +7,7 @@ deployment without the secret exposes nothing.
 """
 
 import hmac
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
@@ -14,7 +15,16 @@ from sqlmodel import Session, func, select
 
 from kall.config import get_settings
 from kall.db import get_session
-from kall.models.core import Application, User
+from kall.models.core import (
+    Application,
+    CandidateProfile,
+    CareerProfile,
+    Job,
+    JobMatch,
+    ResumeDocument,
+    User,
+)
+from kall.models.sensitive import EEOProfile, WorkAuthorization
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -131,3 +141,131 @@ def recent_applications(
         )
         for a in session.exec(stmt).all()
     ]
+
+
+class PipelineMatchRow(BaseModel):
+    job_id: int
+    company: str
+    title: str
+    score: int
+    recommendation: str
+
+
+class PipelineResponse(BaseModel):
+    matches: list[PipelineMatchRow]
+    applications: list[AdminApplicationRow]
+
+
+@router.get("/users/{user_id}/pipeline", dependencies=[Depends(require_admin)])
+def pipeline_inspector(
+    user_id: int, session: Session = Depends(get_session)
+) -> PipelineResponse:
+    """Read-only view of a user's matched jobs and applications.
+
+    The surface behind most "it didn't apply / why this job" tickets.
+    """
+    if session.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    match_rows = session.exec(
+        select(JobMatch, Job)
+        .join(Job, Job.id == JobMatch.job_id)
+        .where(JobMatch.user_id == user_id)
+        .order_by(JobMatch.id.desc())
+        .limit(15)
+    ).all()
+    app_rows = session.exec(
+        select(Application).where(Application.user_id == user_id).order_by(Application.id.desc()).limit(15)
+    ).all()
+    return PipelineResponse(
+        matches=[
+            PipelineMatchRow(
+                job_id=job.id, company=job.company, title=job.title,
+                score=match.score, recommendation=match.recommendation,
+            )
+            for match, job in match_rows
+        ],
+        applications=[
+            AdminApplicationRow(
+                id=a.id, job_id=a.job_id,
+                status=str(a.status.value if hasattr(a.status, "value") else a.status),
+                submitted_at=a.submitted_at.isoformat() if a.submitted_at else None,
+                failure_reason=a.failure_reason,
+            )
+            for a in app_rows
+        ],
+    )
+
+
+@router.get("/users/{user_id}/export", dependencies=[Depends(require_admin)])
+def data_subject_export(
+    user_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Assemble a GDPR/CCPA data-subject export.
+
+    Reports the full structural record we hold for a user. Encrypted
+    sensitive fields (contact PII, and the separately-encrypted EEO and
+    work-authorization records) are reported as PRESENT-but-redacted, never
+    decrypted here -- a bulk export must not become a decryption bypass.
+    Revealing those values is a separate, individually-audited action.
+    """
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    def rows(model, **where):
+        stmt = select(model)
+        for k, v in where.items():
+            stmt = stmt.where(getattr(model, k) == v)
+        return session.exec(stmt).all()
+
+    candidate = rows(CandidateProfile, user_id=user_id)
+    careers = rows(CareerProfile, user_id=user_id)
+    resumes = rows(ResumeDocument, user_id=user_id)
+    applications = rows(Application, user_id=user_id)
+    matches = rows(JobMatch, user_id=user_id)
+    eeo = rows(EEOProfile, user_id=user_id)
+    work_auth = rows(WorkAuthorization, user_id=user_id)
+
+    REDACTED = "[encrypted — reveal separately]"
+
+    def candidate_dump(c: CandidateProfile) -> dict:
+        return {
+            "preferred_name": c.preferred_name,
+            "phone": REDACTED if c.phone_encrypted else None,
+            "address": REDACTED if c.address_encrypted else None,
+            "postal_code": REDACTED if c.postal_code_encrypted else None,
+            "city": c.city, "state_region": c.state_region, "country": c.country,
+            "timezone": c.timezone, "linkedin_url": c.linkedin_url, "github_url": c.github_url,
+            "portfolio_urls": c.portfolio_urls, "website_urls": c.website_urls,
+            "professional_summary": c.professional_summary,
+        }
+
+    return {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "note": "Structural export. Encrypted contact PII, EEO, and work-authorization "
+                "values are redacted here and require an individually-audited reveal.",
+        "user": {
+            "id": user.id, "email": user.email, "full_name": user.full_name,
+            "plan": str(user.plan) if user.plan is not None else None,
+            "country": user.country, "state_region": user.state_region,
+            "is_active": user.is_active,
+            "completed_application_count": user.completed_application_count,
+        },
+        "candidate_profile": [candidate_dump(c) for c in candidate],
+        "career_profiles": [
+            {"id": c.id, "name": c.name, "target_titles": c.target_titles,
+             "industries": c.industries, "is_active": c.is_active}
+            for c in careers
+        ],
+        "resumes": [
+            {"id": r.id, "name": r.name, "mime_type": r.mime_type, "version": r.version,
+             "is_default": r.is_default}
+            for r in resumes
+        ],
+        "applications_count": len(applications),
+        "job_matches_count": len(matches),
+        "sensitive_records_present": {
+            "eeo_profile": len(eeo) > 0,
+            "work_authorization": len(work_auth) > 0,
+        },
+    }
