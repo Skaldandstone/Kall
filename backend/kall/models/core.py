@@ -165,3 +165,24 @@ class Reference(TimestampMixin, table=True):
     availability: str = "unknown"
     last_confirmed_on: date | None = None
     notes_encrypted: str | None = None
+
+
+class AdminAction(TimestampMixin, table=True):
+    """An append-only record of every administrative change to an account.
+
+    Support tools act on other people's data, so a change nobody wrote down is
+    indistinguishable from a bug or an abuse. Nothing in the API edits or
+    deletes these rows.
+
+    actor_email is stored alongside the id on purpose: it is the answer to
+    "who did this" months later, and it must survive the actor's own account
+    being renamed or removed.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    actor_user_id: int = Field(index=True, foreign_key="user.id")
+    actor_email: str
+    action: str = Field(index=True)
+    target_user_id: int = Field(index=True, foreign_key="user.id")
+    detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    occurred_at: datetime = Field(default_factory=datetime.utcnow, index=True)
