@@ -16,6 +16,7 @@ from kall.services.career_page import (
     sections_for,
     validate_slug,
 )
+from kall.services.embeds import InvalidEmbed, normalize_samples
 
 router = APIRouter(tags=["career-page"])
 
@@ -114,6 +115,22 @@ def update_career_page(
     return page
 
 
+def _validated_options(kind: str, options: dict[str, Any]) -> dict[str, Any]:
+    """Check anything in `options` that will end up in public HTML.
+
+    Only work samples qualify today. They carry user-supplied URLs onto a page
+    anyone can load, so they are reduced to a provider and an id here rather
+    than trusted at render time -- see services/embeds.py.
+    """
+    if "samples" not in (options or {}):
+        return options or {}
+    try:
+        samples = normalize_samples(options.get("samples"))
+    except InvalidEmbed as error:
+        raise HTTPException(422, str(error)) from error
+    return {**options, "samples": samples}
+
+
 @router.post("/me/career-page/sections", response_model=CareerPageSection)
 def add_section(
     payload: SectionCreate,
@@ -132,7 +149,7 @@ def add_section(
         body=payload.body,
         layout=payload.layout,
         item_ids=payload.item_ids,
-        options=payload.options,
+        options=_validated_options(payload.kind, payload.options),
         source=SECTION_KINDS[payload.kind],
         position=(existing[-1].position + 1) if existing else 0,
     )
@@ -151,6 +168,8 @@ def update_section(
 ) -> CareerPageSection:
     section = _owned_section(session, current_user, section_id)
     for key, value in payload.model_dump(exclude_unset=True).items():
+        if key == "options":
+            value = _validated_options(section.kind, value or {})
         setattr(section, key, value)
     session.add(section)
     session.commit()

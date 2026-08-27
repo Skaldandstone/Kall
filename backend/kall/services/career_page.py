@@ -26,6 +26,7 @@ from kall.models import (
     Testimonial,
     User,
 )
+from kall.services.embeds import embed_frame_url, provider_for
 from sqlmodel import Session, select
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$")
@@ -232,6 +233,24 @@ def render_public_page(session: Session, page: CareerPage) -> dict[str, Any]:
             rendered["items"] = [
                 _public_fields(row, section.source)
                 for row in _records(session, page.user_id, section.source, section.item_ids)
+            ]
+        # Work samples. The frame URL is built here, from the provider template
+        # and the stored id, so the renderer never constructs one out of
+        # user-supplied text -- see services/embeds.py.
+        samples = (section.options or {}).get("samples") or []
+        if samples:
+            rendered["samples"] = [
+                {
+                    "title": sample.get("title", ""),
+                    "caption": sample.get("caption", ""),
+                    "provider": sample.get("provider", "link"),
+                    "url": sample.get("url", ""),
+                    "frame_url": embed_frame_url(sample),
+                    "aspect_ratio": (
+                        provider.aspect_ratio if (provider := provider_for(str(sample.get("provider", "")))) else None
+                    ),
+                }
+                for sample in samples
             ]
         sections.append(rendered)
 

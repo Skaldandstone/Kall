@@ -16,6 +16,20 @@ type Section = {
   source: string | null;
   item_ids: number[];
   layout: string;
+  options: { samples?: Sample[] } | null;
+};
+
+/**
+ * A work sample. The user pastes a link; the server decides whether it is a
+ * provider it can embed and reduces it to an id. `provider` comes back as
+ * "link" for anything unrecognised, which the public page renders as a link
+ * rather than guessing at an iframe.
+ */
+type Sample = {
+  title: string;
+  caption: string;
+  provider: string;
+  url: string;
 };
 
 type Page = {
@@ -103,11 +117,22 @@ export default function CareerPageEditor() {
     // Update locally first so typing and toggling stay responsive; the row is
     // small and the request is the source of truth on reload.
     setSections((current) => current.map((s) => (s.id === id ? { ...s, ...data } : s)));
-    await fetch(`${API}/me/career-page/sections/${id}`, {
+    const response = await fetch(`${API}/me/career-page/sections/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    // Options are the one field the server rewrites rather than stores as
+    // sent: a work sample's URL comes back reduced to a provider. Without
+    // taking that back, someone pasting a link gets no answer to the only
+    // question they have -- will this actually play on my page? Only options
+    // is re-synced, so a slow response cannot clobber what they are typing.
+    if (response.ok && data.options) {
+      const saved: Section = await response.json();
+      setSections((current) =>
+        current.map((s) => (s.id === id ? { ...s, options: saved.options } : s)),
+      );
+    }
   }
 
   async function move(id: number, direction: -1 | 1) {
@@ -338,6 +363,13 @@ export default function CareerPageEditor() {
                 onBlur={(event) => patchSection(section.id, { body: event.target.value })}
               />
 
+              {section.kind === 'samples' && (
+                <SampleEditor
+                  samples={section.options?.samples ?? []}
+                  onChange={(samples) => patchSection(section.id, { options: { ...(section.options ?? {}), samples } })}
+                />
+              )}
+
               {section.source && (
                 <details className={styles.picker}>
                   <summary>
@@ -392,6 +424,83 @@ export default function CareerPageEditor() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+
+/** Add, describe and remove the work samples on a `samples` section. */
+function SampleEditor({
+  samples,
+  onChange,
+}: {
+  samples: Sample[];
+  onChange: (samples: Sample[]) => void;
+}) {
+  const [url, setUrl] = useState('');
+  const [title, setTitle] = useState('');
+
+  function add() {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    // provider is filled in by the server; it is not guessed here.
+    onChange([...samples, { url: trimmed, title: title.trim(), caption: '', provider: '' }]);
+    setUrl('');
+    setTitle('');
+  }
+
+  return (
+    <div className={styles.samples}>
+      <p className="muted">
+        Paste a link to work you have already published. YouTube, Vimeo, Loom,
+        CodePen and Figma play on the page; anything else appears as a link.
+      </p>
+
+      <ul className={styles.sampleList}>
+        {samples.map((sample, index) => (
+          <li key={`${sample.url}-${index}`}>
+            <span className={styles.sampleTitle}>{sample.title || sample.url}</span>
+            {sample.provider && sample.provider !== 'link' && (
+              <span className="muted"> · {sample.provider}</span>
+            )}
+            {sample.provider === 'link' && <span className="muted"> · link only</span>}
+            <button
+              type="button"
+              className="button ghost"
+              aria-label={`Remove ${sample.title || sample.url}`}
+              onClick={() => onChange(samples.filter((_, position) => position !== index))}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className={styles.sampleAdd}>
+        <input
+          className="input"
+          aria-label="Work sample title"
+          placeholder="Title (optional)"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <input
+          className="input"
+          aria-label="Work sample link"
+          placeholder="https://"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              add();
+            }
+          }}
+        />
+        <button type="button" className="button secondary" onClick={add}>
+          Add sample
+        </button>
+      </div>
     </div>
   );
 }

@@ -347,3 +347,76 @@
     padding: 0;
   }
 }
+
+/* Work samples ----------------------------------------------------------- */
+
+.samples {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.sample h3 {
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+.sample p {
+  color: var(--cp-ink-dim);
+  font-size: 0.92rem;
+  margin: 12px 0 0;
+}
+
+/* The padding-bottom is set inline from the provider's aspect ratio, which
+   keeps the box the right shape before the frame has loaded anything. */
+.frame {
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--cp-rule);
+  background: var(--cp-panel);
+}
+
+.frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* A work sample we do not embed. Styled as a card so it reads as a
+   deliberate link rather than as an embed that failed to load. */
+.sampleLink {
+  align-items: flex-start;
+  border: 1px solid var(--cp-rule);
+  border-radius: 6px;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+  justify-content: center;
+  padding: 24px;
+  text-decoration: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.sampleLink:hover,
+.sampleLink:focus-visible {
+  background: var(--cp-panel);
+  border-color: var(--cp-accent);
+}
+
+.sampleLinkTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.sampleLinkHost {
+  color: var(--cp-accent);
+  font-family: var(--cp-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
