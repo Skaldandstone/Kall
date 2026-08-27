@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import KallMark from '../components/KallMark';
 
 const API = '/api/kall';
-const fields = ['identity.phone', 'identity.address', 'eeo.veteran_status', 'eeo.disability_status', 'work_authorization.citizenship', 'references.contact'];
+const fields = ['identity.phone', 'identity.address', 'identity.postal_code', 'eeo.veteran_status', 'eeo.disability_status', 'work_authorization.citizenship', 'references.contact'];
 
 export default function PrivacyPage() {
   const [rules, setRules] = useState<any[]>([]);
