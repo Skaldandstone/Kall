@@ -27,14 +27,6 @@ test.describe('privacy and billing', () => {
     await expect(page.getByText('Encrypted profile saved.')).toBeVisible();
   });
 
-  test('billing shows the free plan and upgrade gracefully reports Stripe is unconfigured', async ({ page }) => {
-    await signInAsNewUser(page, 'Privacy Billing Test');
-
-    await page.goto('/billing');
-    await expect(page.getByText('free', { exact: true })).toBeVisible();
-    await expect(page.getByText(/0 applications used/)).toBeVisible();
-
-    await page.getByRole('button', { name: 'Upgrade for $4/month' }).click();
-    await expect(page.getByText('Billing is not available yet. Check Stripe configuration.')).toBeVisible();
-  });
+  // The billing page itself is covered by plan-limits.spec.ts, against the
+  // three-tier picker that replaced the single $4 upgrade button.
 });
