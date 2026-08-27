@@ -4,10 +4,11 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import Application, ApplicationSubmission, SubmissionAttempt, User
-from kall.services.billing import assert_submission_allowed
+from kall.services import quota
 from kall.services.submissions import (
     confirm_submission,
     create_attempt,
+    find_attempt,
     prepare_submission,
     validate_submission,
 )
@@ -75,9 +76,21 @@ def attempt(
     item = owned_submission(session, user, submission_id)
     if item.status != "confirmed":
         raise HTTPException(422, "Fresh submission confirmation is required")
-    try:
-        assert_submission_allowed(session, user)
-    except ValueError as exc:
-        raise HTTPException(402, str(exc)) from exc
+    # A connector submission is the same "applying" event the applications
+    # meter already counts for a manual kanban move (see move_application in
+    # api_applications.py) -- both are a person completing one application.
+    # Only a genuinely new attempt should draw against the quota; retrying an
+    # already-attempted submission returns the same idempotent attempt for
+    # free, or a second charge for one application.
+    is_new_attempt = find_attempt(session, item) is None
+    if is_new_attempt:
+        quota.check(session, user, "applications")
     # Provider transport remains an adapter boundary. This creates one idempotent attempt only.
-    return create_attempt(session, item)
+    result = create_attempt(session, item)
+    if is_new_attempt:
+        quota.record_completed_application(session, user)
+        # record_completed_application's own commit expires every object
+        # tracked by this session, `result` included -- refresh it back so
+        # the response has data instead of an emptied-out row.
+        session.refresh(result)
+    return result

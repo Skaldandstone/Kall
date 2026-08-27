@@ -2,11 +2,10 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from kall.config import get_settings
-from kall.models import ApplicationUsage, Subscription, User
+from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
-FREE_APPLICATION_LIMIT = 10
 ACTIVE_STATUSES = {"active", "trialing"}
 
 #: How long a paid account keeps its plan after a card first fails, before
@@ -74,52 +73,6 @@ def get_subscription(session: Session, user_id: int) -> Subscription:
     session.commit()
     session.refresh(item)
     return item
-
-
-def completed_usage(session: Session, user_id: int) -> int:
-    value = session.exec(
-        select(func.coalesce(func.sum(ApplicationUsage.units), 0)).where(
-            ApplicationUsage.user_id == user_id,
-            ApplicationUsage.event == "application_submitted",
-        )
-    ).one()
-    return int(value or 0)
-
-
-def quota_status(session: Session, user: User) -> dict:
-    subscription = get_subscription(session, user.id)
-    used = completed_usage(session, user.id)
-    subscribed = subscription.status in ACTIVE_STATUSES and subscription.plan == "plus"
-    return {
-        "plan": "plus" if subscribed else "free",
-        "subscription_status": subscription.status,
-        "used": used,
-        "free_limit": FREE_APPLICATION_LIMIT,
-        "remaining": None if subscribed else max(FREE_APPLICATION_LIMIT - used, 0),
-        "allowed": subscribed or used < FREE_APPLICATION_LIMIT,
-    }
-
-
-def assert_submission_allowed(session: Session, user: User) -> None:
-    if not quota_status(session, user)["allowed"]:
-        raise ValueError("Free application limit reached; upgrade to Kall Plus")
-
-
-def record_application_submission(session: Session, user_id: int, application_id: int) -> ApplicationUsage:
-    existing = session.exec(
-        select(ApplicationUsage).where(
-            ApplicationUsage.user_id == user_id,
-            ApplicationUsage.application_id == application_id,
-            ApplicationUsage.event == "application_submitted",
-        )
-    ).first()
-    if existing:
-        return existing
-    usage = ApplicationUsage(user_id=user_id, application_id=application_id, event="application_submitted")
-    session.add(usage)
-    session.commit()
-    session.refresh(usage)
-    return usage
 
 
 def plan_from_event(payload: dict) -> str:

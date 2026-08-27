@@ -17,16 +17,10 @@ from kall.services.billing import (
     create_portal_url,
     find_subscription_by_customer,
     get_subscription,
-    quota_status,
 )
 from kall.services.quota import snapshot
 
 router = APIRouter(tags=["billing"])
-
-
-@router.get("/billing/status")
-def billing_status(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    return quota_status(session, user)
 
 
 class CheckoutRequest(BaseModel):
