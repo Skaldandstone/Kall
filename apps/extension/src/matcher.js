@@ -32,7 +32,26 @@ const RULES = {
     autocomplete: ['name'],
     any: ['full name', 'legal name', 'your name', 'candidate name', 'name'],
     // "company name", "school name" and friends are not the applicant's name.
-    never: ['user', 'company', 'employer', 'school', 'university', 'reference', 'file', 'first', 'last', 'middle'],
+    // 'given' and 'family' matter as much as 'first'/'last': the autocomplete
+    // tokens are "given-name" and "family-name", both of which contain "name"
+    // and would otherwise attract the whole name into half a field.
+    never: ['user', 'company', 'employer', 'school', 'university', 'reference', 'file',
+            'first', 'last', 'middle', 'given', 'family'],
+  },
+  // Greenhouse, Lever, Workday and Ashby all split the name in two rather than
+  // asking for it whole. Checked against a live Greenhouse form: the controls
+  // declare autocomplete="given-name"/"family-name" and are labelled "First
+  // Name"/"Last Name". Without these the most universal field on the form went
+  // unfilled, which is the sort of gap only a real form reveals.
+  'identity.first_name': {
+    autocomplete: ['given-name'],
+    any: ['first name', 'given name', 'forename'],
+    never: ['last', 'family', 'company', 'employer', 'school', 'reference'],
+  },
+  'identity.last_name': {
+    autocomplete: ['family-name'],
+    any: ['last name', 'family name', 'surname'],
+    never: ['first', 'given', 'company', 'employer', 'school', 'reference'],
   },
   'identity.email': {
     autocomplete: ['email'],
@@ -182,7 +201,28 @@ function score(field, rule) {
  * most one control: a contested control goes to whichever value matched it
  * more strongly, and the loser is reported as unmatched.
  */
+/**
+ * Split a full name into the first/last parts a two-field form wants.
+ *
+ * The first token is the first name and everything after it is the last, which
+ * is the same convention the mobile sign-up uses. It is wrong for some names,
+ * which is exactly why the value stays visible for the user to correct rather
+ * than being submitted on their behalf.
+ */
+function splitName(packField) {
+  const parts = String(packField.value ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [];
+  return [
+    { ...packField, path: 'identity.first_name', label: 'First name', value: parts[0] },
+    { ...packField, path: 'identity.last_name', label: 'Last name', value: parts.slice(1).join(' ') },
+  ];
+}
+
 export function matchFields(packFields, formFields) {
+  const whole = packFields.find((f) => f.path === 'identity.legal_name');
+  const derived = whole ? splitName(whole) : [];
+  packFields = [...packFields, ...derived];
+
   const candidates = [];
   for (const packField of packFields) {
     const rule = RULES[packField.path];
@@ -220,7 +260,32 @@ export function matchFields(packFields, formFields) {
     else fill.push(entry);
   }
 
+  // A form asks for the name one way or the other. If both somehow matched,
+  // keep whichever scored higher and drop the other, so a single name is never
+  // written into two different shapes of field.
+  const SPLIT = new Set(['identity.first_name', 'identity.last_name']);
+  const wholeEntry = fill.find((entry) => entry.path === 'identity.legal_name');
+  const splitEntries = fill.filter((entry) => SPLIT.has(entry.path));
+  if (wholeEntry && splitEntries.length) {
+    const bestSplit = Math.max(...splitEntries.map((entry) => entry.score));
+    const drop = wholeEntry.score >= bestSplit ? SPLIT : new Set(['identity.legal_name']);
+    for (let i = fill.length - 1; i >= 0; i -= 1) {
+      if (drop.has(fill[i].path)) {
+        matchedPaths.delete(fill[i].path);
+        fill.splice(i, 1);
+      }
+    }
+  }
+
+  // The name counts as handled whichever shape the form asked for it in.
+  const nameHandled =
+    matchedPaths.has('identity.legal_name') || [...SPLIT].some((path) => matchedPaths.has(path));
+
   const unmatched = packFields
+    // A derived part is never reported: the user cannot act on "First name has
+    // nowhere to go" -- the honest absence is the whole name, reported once.
+    .filter((packField) => !SPLIT.has(packField.path))
+    .filter((packField) => !(packField.path === 'identity.legal_name' && nameHandled))
     .filter((packField) => !matchedPaths.has(packField.path))
     .map((packField) => ({
       path: packField.path,
