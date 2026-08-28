@@ -183,6 +183,15 @@ real signup volume when that changes.
 
 ## Needs you specifically
 
+**One click: confirm the kall-alerts email subscription (2026-08-28).**
+Production alerting now exists -- a failed scheduled-job suite or an
+unhealthy ALB target raises a CloudWatch alarm into the `kall-alerts` SNS
+topic, subscribed to your email. AWS requires the recipient to confirm:
+there is a "Subscription Confirmation" email from AWS Notifications in
+your inbox, and until you click it, alarms fire but no email leaves.
+(Deploy failures already reach you through GitHub's own failed-workflow
+notifications, no action needed there.)
+
 **The Chrome extension has never been loaded unpacked against a live posting.**
 The whole writing half is unverified outside DOM tests. The `country` field
 specifically was worse than unverified -- characterizing it against a
