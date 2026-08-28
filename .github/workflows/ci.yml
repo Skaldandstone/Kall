@@ -28,6 +28,17 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # A fast burst of pushes to the same branch (very much a recurring
+    # pattern here) used to queue up every one of these test jobs in full
+    # when only the latest commit's result matters. This cancels a job
+    # still running for the same ref the moment a newer commit shows up.
+    # Deliberately job-level, not workflow-level: `deploy` needs its own
+    # in-flight CodeBuild rollout to finish rather than get killed mid-way
+    # by the next push, and it already serializes itself via the separate
+    # production-deploy group below.
+    concurrency:
+      group: ci-backend-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -54,6 +65,9 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-web-${{ github.ref }}
+      cancel-in-progress: true
     defaults:
       run:
         working-directory: apps/web
@@ -62,6 +76,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
       - run: npm install
       - run: npm run build
         env:
@@ -69,6 +85,9 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-e2e-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,10 +98,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
       - run: npm install
         working-directory: apps/web
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
       - run: npm run test:e2e
         working-directory: apps/web
         env:
@@ -106,15 +137,30 @@ jobs:
 
   extension:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-extension-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/extension/package-lock.json
       - run: npm install
         working-directory: apps/extension
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('apps/extension/package-lock.json') }}
       - run: npx playwright install --with-deps chromium
         working-directory: apps/extension
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        working-directory: apps/extension
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
       # popup.js now imports @clerk/chrome-extension, a real npm package a
       # browser cannot load bare -- this only catches a broken import or
       # syntax error; neither test suite below exercises the built bundle's
@@ -226,6 +272,9 @@ jobs:
 
   mobile-e2e:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-mobile-e2e-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -236,10 +285,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
       - run: npm install
         working-directory: apps/mobile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('apps/mobile/package-lock.json') }}
       - run: npx playwright install --with-deps chromium
         working-directory: apps/mobile
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        working-directory: apps/mobile
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
       - run: npm run test:e2e
         working-directory: apps/mobile
         env:
