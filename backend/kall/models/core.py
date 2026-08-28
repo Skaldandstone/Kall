@@ -167,6 +167,32 @@ class Reference(TimestampMixin, table=True):
     notes_encrypted: str | None = None
 
 
+class Contact(TimestampMixin, table=True):
+    """Someone in a job seeker's own network -- a recruiter, an alumnus, a
+    former coworker -- tracked for follow-up, not for formal vouching.
+
+    Distinct from Reference above: a Reference has agreed to be contacted by
+    an employer and feeds the testimonial flow; a Contact is a private
+    networking note that never becomes visible to anyone else. Most
+    networking contacts never turn into a Reference.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    name: str
+    company: str | None = None
+    title: str | None = None
+    relationship: str | None = None
+    # Not named "email"/"notes" -- profile_api.py's SENSITIVE_KEYS silently
+    # redirects those exact field names to an "_encrypted" column this model
+    # does not have, which would drop the value on write with no error.
+    contact_email: str | None = None
+    linkedin_url: str | None = None
+    contact_notes: str | None = None
+    last_contacted_on: date | None = None
+    follow_up_on: date | None = None
+
+
 class AdminAction(TimestampMixin, table=True):
     """An append-only record of every administrative change to an account.
 
