@@ -50,8 +50,9 @@ type Record_ = { id: number; [key: string]: unknown };
 /** A short human label for a profile record, whatever kind it is. */
 function describe(row: Record_): string {
   const parts = [
-    row.job_title ?? row.name ?? row.title ?? row.institution ?? row.author_name,
-    row.employer ?? row.issuing_organization ?? row.organization_or_venue ?? row.event ?? row.degree,
+    row.job_title ?? row.role ?? row.name ?? row.title ?? row.institution ?? row.author_name ?? row.organization,
+    row.employer ?? row.issuing_organization ?? row.organization_or_venue ?? row.event ?? row.degree
+      ?? row.membership_type ?? (row.role ? row.organization : null),
   ].filter(Boolean);
   return parts.length ? parts.join(' - ') : `Record ${row.id}`;
 }

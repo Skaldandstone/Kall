@@ -209,11 +209,32 @@ function ItemBlock({ kind, item }: { kind: string; item: Item }) {
     );
   }
 
-  // Certifications, awards, publications and speaking all read as
-  // title + issuer + date, so one shape covers them.
-  const title = item.name ?? item.title ?? '';
-  const issuer = item.issuing_organization ?? item.organization_or_venue ?? item.event ?? '';
-  const when = item.obtained_on ?? item.received_on ?? item.published_on ?? item.occurred_on;
+  // Certifications, awards, publications, speaking, patents, memberships
+  // and volunteer/board service all read as title + issuer + date, so one
+  // shape covers them -- each kind just names its own fields for the role.
+  let title: unknown;
+  let issuer: unknown;
+  let when: unknown;
+  if (kind === 'service') {
+    // A role is always set (required on the model); the organization it
+    // was served at is the natural subtitle, the same way employer
+    // subtitles a job title in the "history" section above.
+    title = item.role;
+    issuer = item.organization;
+    when = item.started_on;
+  } else if (kind === 'memberships') {
+    title = item.organization;
+    issuer = item.membership_type;
+    when = item.member_since;
+  } else if (kind === 'patents') {
+    title = item.title;
+    issuer = item.jurisdiction;
+    when = item.granted_on ?? item.filed_on;
+  } else {
+    title = item.name ?? item.title ?? '';
+    issuer = item.issuing_organization ?? item.organization_or_venue ?? item.event ?? '';
+    when = item.obtained_on ?? item.received_on ?? item.published_on ?? item.occurred_on;
+  }
   const href = item.url ?? item.verification_url ?? item.evidence_url;
 
   return (

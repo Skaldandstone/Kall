@@ -4,7 +4,16 @@ Most of these tests are therefore about what it refuses to publish.
 """
 
 import pytest
-from kall.models import CareerPage, Employment, Skill, Testimonial, User
+from kall.models import (
+    CareerPage,
+    Employment,
+    Patent,
+    ProfessionalMembership,
+    Skill,
+    Testimonial,
+    User,
+    VolunteerBoardService,
+)
 from kall.services.career_page import SlugError, validate_slug
 from sqlmodel import Session, select
 
@@ -195,6 +204,42 @@ def test_a_curated_skills_order_overrides_the_primary_sort(client, engine) -> No
 
     section = next(s for s in client.get(public(slug)).json()["sections"] if s["kind"] == "skills")
     assert [item["name"] for item in section["items"]] == ["Python", "Rust"]
+
+
+def test_patents_memberships_and_service_can_be_added_and_published(client, engine) -> None:
+    """These three are first-class profile resources with a full editor form,
+    same as certifications/awards/publications/speaking -- but the career
+    page's SECTION_KINDS/PUBLIC_SOURCES allowlists never named them, so a
+    candidate had no way to show a patent, a professional membership, or
+    board service on their public page at all."""
+    with Session(engine) as session:
+        session.add(Patent(user_id=client.user_id, title="Widget Fabrication Method", jurisdiction="USPTO"))
+        session.add(ProfessionalMembership(
+            user_id=client.user_id, organization="American Bar Association", membership_type="Member",
+        ))
+        session.add(VolunteerBoardService(
+            user_id=client.user_id, organization="Local Nonprofit", role="Board Member", service_type="board",
+        ))
+        session.commit()
+
+    slug = client.get(ME).json()["page"]["slug"]
+    for kind in ("patents", "memberships", "service"):
+        created = client.post(
+            "/api/me/career-page/sections", json={"kind": kind, "title": kind.title()},
+        )
+        assert created.status_code == 200, created.text
+
+    client.patch(ME, json={"published": True})
+    body = client.get(public(slug)).json()
+
+    patents = next(s for s in body["sections"] if s["kind"] == "patents")
+    assert patents["items"][0]["title"] == "Widget Fabrication Method"
+
+    memberships = next(s for s in body["sections"] if s["kind"] == "memberships")
+    assert memberships["items"][0]["organization"] == "American Bar Association"
+
+    service = next(s for s in body["sections"] if s["kind"] == "service")
+    assert service["items"][0]["role"] == "Board Member"
 
 
 def test_only_cleared_testimonials_are_published(client, engine) -> None:
