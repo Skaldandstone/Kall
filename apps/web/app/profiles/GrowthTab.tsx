@@ -70,6 +70,11 @@ export default function GrowthTab() {
     catch(error) { setMessage((error as Error).message); }
   }
 
+  async function setMilestoneStatus(milestoneId:number, status:string) {
+    try { await request(`/growth/milestones/${milestoneId}`,{method:'PATCH',headers:authHeaders(true),body:JSON.stringify({status})}); await load(); }
+    catch(error) { setMessage((error as Error).message); }
+  }
+
   return (
     <>
       <section className="card"><h2>Create a career goal</h2><form className="form" onSubmit={createGoal}>
@@ -84,16 +89,17 @@ export default function GrowthTab() {
       {data?.goals.length === 0 && <section className="card" style={{marginTop:24}}><h2>Your first plan starts above.</h2><p>Describe the work you want to do. Kall will organize the first research, education, portfolio, and networking steps, and can search the web for real courses and guides once your plan exists.</p></section>}
 
       <div className="stack" style={{marginTop:32}}>{data?.goals.map(({goal,plan}) => (
-        <GoalCard key={goal.id} goal={goal} plan={plan} busy={busy} onGenerate={generate} onPin={pinResource} onReload={load} onError={setMessage} />
+        <GoalCard key={goal.id} goal={goal} plan={plan} busy={busy} onGenerate={generate} onPin={pinResource} onMilestoneStatus={setMilestoneStatus} onReload={load} onError={setMessage} />
       ))}</div>
     </>
   );
 }
 
-function GoalCard({ goal, plan, busy, onGenerate, onPin, onReload, onError }: {
+function GoalCard({ goal, plan, busy, onGenerate, onPin, onMilestoneStatus, onReload, onError }: {
   goal:Goal; plan:Plan|null; busy:boolean;
   onGenerate:(goalId:number, regenerate:boolean)=>Promise<void>;
   onPin:(resourceId:number, saved:boolean)=>Promise<void>;
+  onMilestoneStatus:(milestoneId:number, status:string)=>Promise<void>;
   onReload:()=>Promise<void>;
   onError:(message:string)=>void;
 }) {
@@ -127,7 +133,18 @@ function GoalCard({ goal, plan, busy, onGenerate, onPin, onReload, onError }: {
         </div>
         <div className="two" style={{marginTop:22}}><div><h3>Current strengths</h3><ul>{plan.plan.current_strengths.map(item=><li key={item}>{item}</li>)}</ul></div><div><h3>Priority gaps</h3><ul>{plan.plan.skill_gaps.map(item=><li key={item}>{item}</li>)}</ul></div></div>
 
-        <h3 style={{marginTop:26}}>Milestones</h3><div className="stack">{plan.milestones.map(item => <article className="card" key={item.id}><span className="eyebrow">{item.phase}</span><h2 style={{marginTop:12}}>{item.title}</h2><p>{item.description}</p><p style={{marginTop:10}}>{item.estimated_hours ? `${item.estimated_hours} estimated hours` : 'Flexible timing'}{item.target_date ? ` · Target ${new Date(item.target_date).toLocaleDateString()}` : ''}</p></article>)}</div>
+        <h3 style={{marginTop:26}}>Milestones</h3><div className="stack">{plan.milestones.map(item => <article className="card" key={item.id}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap'}}>
+            <div><span className="eyebrow">{item.phase}</span><h2 style={{marginTop:12}}>{item.title}</h2></div>
+            <select className="input" style={{width:'auto'}} value={item.status} onChange={(event) => void onMilestoneStatus(item.id, event.target.value)}>
+              <option value="not_started">Not started</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <p>{item.description}</p>
+          <p style={{marginTop:10}}>{item.estimated_hours ? `${item.estimated_hours} estimated hours` : 'Flexible timing'}{item.target_date ? ` · Target ${new Date(item.target_date).toLocaleDateString()}` : ''}</p>
+        </article>)}</div>
 
         <article className="card" style={{marginTop:26}}>
           <h2>Analyze my skills</h2>

@@ -60,6 +60,13 @@ class ResourcePinRequest(BaseModel):
     saved: bool
 
 
+_MILESTONE_STATUSES = {"not_started", "in_progress", "completed"}
+
+
+class MilestoneStatusUpdate(BaseModel):
+    status: str
+
+
 def _owned_goal(session: Session, user_id: int, goal_id: int) -> CareerGoal:
     goal = session.get(CareerGoal, goal_id)
     if not goal or goal.user_id != user_id:
@@ -289,6 +296,31 @@ def pin_resource(resource_id: int, payload: ResourcePinRequest, current_user: Us
     session.commit()
     session.refresh(resource)
     return resource
+
+
+@router.patch("/growth/milestones/{milestone_id}", response_model=GrowthMilestone)
+def update_milestone_status(
+    milestone_id: int,
+    payload: MilestoneStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> GrowthMilestone:
+    """The only way a milestone's status ever changes -- nothing else in the
+    codebase writes to it, so every milestone stayed "not_started" forever,
+    which also meant a future reminder job would have nothing sound to
+    exclude a completed milestone by.
+    """
+    if payload.status not in _MILESTONE_STATUSES:
+        raise HTTPException(422, f"Unsupported milestone status: {payload.status}")
+    milestone = session.get(GrowthMilestone, milestone_id)
+    if not milestone or milestone.user_id != current_user.id:
+        raise HTTPException(404, "Milestone not found")
+    milestone.status = payload.status
+    milestone.completed_at = datetime.utcnow() if payload.status == "completed" else None
+    session.add(milestone)
+    session.commit()
+    session.refresh(milestone)
+    return milestone
 
 
 @router.post("/growth/plans/{plan_id}/progress", response_model=GrowthProgressEntry)
