@@ -131,7 +131,16 @@ export default function SearchTab() {
     }
   }
 
-  const termCount = useMemo(() => groups.reduce((count, group) => count + group.terms.length, 0), [groups]);
+  // "Sites" is the built-in ATS-platform-and-job-board list (39 domains and
+  // growing) rather than anything the user typed -- rendering 39 individual
+  // removable chips for it drowned out the search terms someone actually
+  // added. Counted and shown separately, collapsed by default.
+  const visibleGroups = groups.filter((group) => group.label !== 'Sites');
+  const siteGroup = groups.find((group) => group.label === 'Sites');
+  const termCount = useMemo(
+    () => visibleGroups.reduce((count, group) => count + group.terms.length, 0),
+    [visibleGroups],
+  );
 
   return (
     <section className="search-page-columns" aria-label="Job search workspace">
@@ -142,7 +151,15 @@ export default function SearchTab() {
           <label><span className="muted">Job title or search terms</span><input className="input" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder={termCount ? 'Add more titles, keywords, or sites…' : 'Director of Quality Engineering remote'} /></label>
           <div className="search-page-actions"><button className="button" type="submit" disabled={loading}>{loading ? 'Preparing search…' : 'Search jobs'}</button>{activeQuery && <button className="button ghost" type="button" onClick={clearResults}>Clear results</button>}</div>
         </form>
-        {!!groups.length && <section className="active-search-terms" aria-label="Active search terms"><div className="active-search-heading"><h3>Active search terms</h3><span>{termCount}</span></div>{groups.map((group) => <div className="search-term-group" key={group.id}><p>{group.label}</p><div className="search-term-chips">{group.terms.map((term) => <button type="button" className="search-term-chip" key={term} onClick={() => removeTerm(group.id, term)}><span>{term}</span><b aria-hidden="true">×</b><span className="sr-only">Remove {term}</span></button>)}</div></div>)}</section>}
+        {!!visibleGroups.length && <section className="active-search-terms" aria-label="Active search terms"><div className="active-search-heading"><h3>Active search terms</h3><span>{termCount}</span></div>{visibleGroups.map((group) => <div className="search-term-group" key={group.id}><p>{group.label}</p><div className="search-term-chips">{group.terms.map((term) => <button type="button" className="search-term-chip" key={term} onClick={() => removeTerm(group.id, term)}><span>{term}</span><b aria-hidden="true">×</b><span className="sr-only">Remove {term}</span></button>)}</div></div>)}</section>}
+        {siteGroup && (
+          <details className="search-sites-disclosure">
+            <summary className="muted">Sites searched ({siteGroup.terms.length})</summary>
+            <ul className="search-sites-list">
+              {siteGroup.terms.map((term) => <li key={term}>{term}</li>)}
+            </ul>
+          </details>
+        )}
         {hiddenCount > 0 && <button className="button secondary restore-results-button" type="button" onClick={restoreResults} title={deadCount ? `${deadCount} flagged as dead links` : undefined}>Restore hidden results ({hiddenCount})</button>}
         <p className="notice" aria-live="polite">{message}</p>
       </article>

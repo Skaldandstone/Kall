@@ -5,7 +5,12 @@ looks for, with nothing to catch it.
 """
 
 from kall.models import CareerProfile
-from kall.services.ats_web_search import ATS_DOMAINS, build_ats_queries
+from kall.services.ats_web_search import (
+    ALL_SEARCH_DOMAINS,
+    ATS_DOMAINS,
+    JOB_BOARD_DOMAINS,
+    build_ats_queries,
+)
 
 
 def _profile(**overrides) -> CareerProfile:
@@ -18,6 +23,32 @@ def test_every_ats_domain_is_represented_in_the_site_clause() -> None:
     query = build_ats_queries(_profile())[0]["query"]
     for _, domain in ATS_DOMAINS:
         assert f"site:{domain}" in query
+
+
+def test_every_job_board_domain_is_represented_in_the_site_clause() -> None:
+    query = build_ats_queries(_profile())[0]["query"]
+    for _, domain in JOB_BOARD_DOMAINS:
+        assert f"site:{domain}" in query
+
+
+def test_domains_list_has_no_duplicates() -> None:
+    domains = [domain for _, domain in ALL_SEARCH_DOMAINS]
+    assert len(domains) == len(set(domains))
+
+
+def test_industries_narrow_the_query() -> None:
+    """A title like "Quality Assurance Director" alone pulls in every
+    industry that title exists in -- specifying an industry should actually
+    narrow the search, not just score matches after the fact."""
+    query = build_ats_queries(_profile(
+        target_titles=["Quality Assurance Director"], industries=["Pharmaceuticals", "Food Safety"],
+    ))[0]["query"]
+    assert '"Pharmaceuticals" OR "Food Safety"' in query
+
+
+def test_no_industry_specified_does_not_add_an_empty_clause() -> None:
+    query = build_ats_queries(_profile(target_titles=["Engineer"], industries=[]))[0]["query"]
+    assert "()" not in query
 
 
 def test_titles_are_or_grouped_and_quoted() -> None:
