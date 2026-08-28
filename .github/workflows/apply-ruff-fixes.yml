@@ -2,9 +2,13 @@ name: Run ruff and open fixes PR
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  # CI already runs `ruff check .` on every push and PR, so running the
+  # equivalent of that check again (plus a full Python setup) on every
+  # single push to main was pure duplicate spend for a workflow whose only
+  # job is opening a cleanup PR -- something that doesn't need to happen
+  # more than once a week.
+  schedule:
+    - cron: "0 13 * * 1"
 
 permissions:
   contents: write  # needed to push/create PR
