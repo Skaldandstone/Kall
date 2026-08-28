@@ -42,24 +42,22 @@ Local Docker isn't installed on the machine this was built from (Docker Desktop'
 
 ## Redeploying after a code change
 
-There's no CI trigger wired up yet - deploys are manual:
+**Deploys are automatic on merge to main.** The `deploy` job in `.github/workflows/ci.yml` runs on every push to main, strictly after all five test jobs pass, decides which image the pushed range actually touched (backend paths → `kall-api-build`, `apps/web/` → `kall-web-build`), and starts the matching CodeBuild build pinned to the merge commit (`--source-version`). Each build now deploys itself: the buildspecs live in `ops/codebuild/*.buildspec.yml` (no longer inline in the project config) and end with `ecs update-service --force-new-deployment` plus a `services-stable` wait, so a green build means the rollout completed and passed health checks, and a task that never comes healthy fails the build visibly after ~10 minutes.
+
+Pieces involved:
+
+- **IAM user `kall-github-deploy`** - its access key lives in the repo's Actions secrets (`KALL_DEPLOY_AWS_ACCESS_KEY_ID` / `KALL_DEPLOY_AWS_SECRET_ACCESS_KEY`). Deliberately scoped to `codebuild:StartBuild`/`BatchGetBuilds` on the two projects and nothing else - a leaked key can redeploy main's HEAD, not read data or change infrastructure. GitHub OIDC federation would have avoided a stored key entirely, but this account's managed SCP explicitly denies IAM OIDC-provider operations, so a scoped key is the available shape.
+- **`kall-codebuild-role`** gained inline policy `kall-codebuild-ecs-deploy`: `ecs:UpdateService`/`DescribeServices` on the two services only.
+- **Manual deploys** (config-only changes, rolling back to main's HEAD): run the CI workflow by hand from the Actions tab (workflow_dispatch) with the `deploy_api`/`deploy_web` inputs - tests still gate it. Or, from a machine with the `agent-toolkit` profile, start CodeBuild directly; the build deploys on its own now, no separate `update-service` step:
 
 ```bash
-# Rebuild whichever image changed
 aws codebuild start-build --project-name kall-api-build --profile agent-toolkit --region us-east-2
 aws codebuild start-build --project-name kall-web-build --profile agent-toolkit --region us-east-2
-
-# Both build from main's HEAD.
-
-# Force ECS to pull the new :latest image
-aws ecs update-service --cluster kall-cluster --service kall-api --force-new-deployment --profile agent-toolkit --region us-east-2
-aws ecs update-service --cluster kall-cluster --service kall-web --force-new-deployment --profile agent-toolkit --region us-east-2
 ```
 
 ## Known gaps / next steps
 
 - **No custom domain / ACM cert on the ALB.** CloudFront's default domain covers the "properly encrypted" requirement for now; revisit if a real domain shows up.
-- **No CI/CD trigger** - CodeBuild has to be started manually per the commands above. A GitHub webhook or CodePipeline would close this gap.
 - **Backup retention is 1 day** (free-tier ceiling) and this is **single-AZ** - both are reasonable for a $100-credit bootstrap phase, not for a real production SLA. Revisit if/when the account moves off the free tier.
 - **Social sign-in providers are configured in Clerk, not here.** Enabling Google/GitHub/etc. is a Clerk dashboard change; no AWS secret or task-definition edit is involved, which is one of the reasons identity moved to Clerk.
 
