@@ -187,13 +187,20 @@ jobs:
           echo "deploying: api=$api web=$web"
       - name: Build and deploy via CodeBuild
         if: steps.changes.outputs.api == 'true' || steps.changes.outputs.web == 'true'
+        # No --source-version: pinning a commit SHA makes CodeBuild fetch via
+        # the GitHub API, which requires stored credentials even on a public
+        # repo (only branch-HEAD clones work anonymously) -- the first pinned
+        # run died in DOWNLOAD_SOURCE with "authentication required". Building
+        # main's HEAD can race a just-merged newer commit, but the concurrency
+        # group serializes deploys and the newer commit's own run rebuilds
+        # anyway, so the race is benign.
         run: |
           ids=()
           if [ "${{ steps.changes.outputs.api }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-api-build --source-version "$GITHUB_SHA" --query 'build.id' --output text)")
+            ids+=("$(aws codebuild start-build --project-name kall-api-build --query 'build.id' --output text)")
           fi
           if [ "${{ steps.changes.outputs.web }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-web-build --source-version "$GITHUB_SHA" --query 'build.id' --output text)")
+            ids+=("$(aws codebuild start-build --project-name kall-web-build --query 'build.id' --output text)")
           fi
           echo "started: ${ids[*]}"
           fail=0
