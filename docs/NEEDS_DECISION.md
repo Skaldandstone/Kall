@@ -21,6 +21,17 @@ deciding whether it scores like `industries` or drives search targeting like
 call, not a bug fix. Say the word if you want it built, and which behavior
 you want.
 
+**`NotificationPreference.delivery_mode` is inert -- flagged, not built.**
+Accepted by the preferences endpoint and stored (default `"digest"`), typed
+in the frontend interface too, but there is no "immediate" send path
+anywhere -- `services/notification_delivery.py`'s entire pipeline queues
+and drains as a digest regardless of this value, and the settings page
+doesn't even render a control to change it away from the default. Building
+a real immediate mode means designing when it fires (right after a match
+is found? bypassing the outbox drain entirely?) and how it interacts with
+quiet hours -- a feature to design, not a value to wire through. Leaving
+it alone unless you want it built.
+
 **Retention window on generated documents — implemented at 12 months, change it if you disagree.**
 Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
