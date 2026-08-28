@@ -162,6 +162,19 @@ def _security_clearance_reminder_email(delivery: NotificationDelivery) -> tuple[
     return subject, html
 
 
+def _professional_membership_reminder_email(delivery: NotificationDelivery) -> tuple[str, str]:
+    payload = delivery.payload
+    membership_type = payload.get("membership_type")
+    type_suffix = f" ({membership_type})" if membership_type else ""
+    subject = f"Membership expiring: {payload['organization']}"
+    html = (
+        f"<p>Your <strong>{payload['organization']}</strong>{type_suffix} "
+        f"membership expires on {payload['expires_on']}.</p>"
+        "<p>Update it in your Kall profile once it's renewed, or start the renewal process if you haven't already.</p>"
+    )
+    return subject, html
+
+
 def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple[str, str]:
     del delivery
     subject = "Your Kall plan has been paused"
@@ -188,6 +201,8 @@ def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]
         return _work_authorization_reminder_email(delivery)
     if delivery.kind == "security_clearance_reminder":
         return _security_clearance_reminder_email(delivery)
+    if delivery.kind == "professional_membership_reminder":
+        return _professional_membership_reminder_email(delivery)
     raise ValueError(f"Unknown notification kind: {delivery.kind}")
 
 

@@ -11,6 +11,7 @@ import sys
 from kall.jobs import (
     certification_reminders,
     growth_milestone_reminders,
+    professional_membership_reminders,
     retention,
     security_clearance_reminders,
     work_authorization_reminders,
@@ -23,6 +24,7 @@ JOBS = {
     "growth_milestone_reminders": growth_milestone_reminders.main,
     "work_authorization_reminders": work_authorization_reminders.main,
     "security_clearance_reminders": security_clearance_reminders.main,
+    "professional_membership_reminders": professional_membership_reminders.main,
 }
 
 if __name__ == "__main__":
