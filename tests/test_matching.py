@@ -1,6 +1,6 @@
 from kall.models.core import CareerProfile, Job
 from kall.models.enums import WorkType
-from kall.services.matching import deterministic_match, mentions_equity
+from kall.services.matching import deterministic_match, is_out_of_scope, mentions_equity
 
 
 def test_matching_rewards_title_keywords_remote_and_salary() -> None:
@@ -58,3 +58,39 @@ def test_equity_not_important_is_ignored_either_way() -> None:
     profile = CareerProfile(user_id=1, name="Test", equity_preference="not_important")
     _, strengths, gaps = deterministic_match(_job(description="Competitive base salary and full benefits."), profile)
     assert not any("equity" in s.lower() for s in strengths + gaps)
+
+
+def test_is_out_of_scope_flags_excluded_keyword() -> None:
+    profile = CareerProfile(user_id=1, name="P", exclude_keywords=["unpaid internship"])
+    job = Job(
+        source="test", company="Example", title="Unpaid Internship",
+        description="", url="https://example.com/job/2",
+    )
+    assert is_out_of_scope(job, profile) == "Contains excluded keyword: unpaid internship"
+
+
+def test_is_out_of_scope_flags_location_outside_scope() -> None:
+    profile = CareerProfile(user_id=1, name="P", countries=["United States"])
+    job = Job(
+        source="test", company="Example", title="Engineer",
+        description="", url="https://example.com/job/3", location="Berlin, Germany",
+    )
+    assert is_out_of_scope(job, profile) == "Location outside specified countries/regions"
+
+
+def test_is_out_of_scope_allows_matching_location() -> None:
+    profile = CareerProfile(user_id=1, name="P", countries=["United States"])
+    job = Job(
+        source="test", company="Example", title="Engineer",
+        description="", url="https://example.com/job/4", location="Remote - United States",
+    )
+    assert is_out_of_scope(job, profile) is None
+
+
+def test_is_out_of_scope_ignores_unset_location() -> None:
+    profile = CareerProfile(user_id=1, name="P", countries=["United States"])
+    job = Job(
+        source="test", company="Example", title="Engineer",
+        description="", url="https://example.com/job/5",
+    )
+    assert is_out_of_scope(job, profile) is None

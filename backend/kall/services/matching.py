@@ -20,6 +20,38 @@ def mentions_equity(text: str) -> bool:
     return any(signal in lower for signal in _EQUITY_SIGNALS)
 
 
+def excluded_keyword_hit(job: Job, profile: CareerProfile) -> str | None:
+    text = f"{job.title} {job.description}".casefold()
+    hits = [k for k in profile.exclude_keywords if k.casefold() in text]
+    return hits[0] if hits else None
+
+
+def location_out_of_scope(job: Job, profile: CareerProfile) -> bool:
+    allowed = [*profile.countries, *profile.states_regions]
+    if not allowed:
+        return False
+    location_text = " ".join(filter(None, [job.location, job.country, job.state_region])).casefold()
+    if not location_text.strip():
+        # Unknown location: don't reject for missing data, only for a confirmed mismatch.
+        return False
+    return not any(term.casefold() in location_text for term in allowed)
+
+
+def is_out_of_scope(job: Job, profile: CareerProfile) -> str | None:
+    """Hard search-parameter constraints. Returns a human-readable reason if the job
+    should never be surfaced to this profile, or None if it's in scope.
+
+    Unlike deterministic_match (which only scores relevance), a positive result here
+    means the job must not be shown for this profile at all — it violates an explicit
+    exclude-keyword or location constraint the user set."""
+    hit = excluded_keyword_hit(job, profile)
+    if hit:
+        return f"Contains excluded keyword: {hit}"
+    if location_out_of_scope(job, profile):
+        return "Location outside specified countries/regions"
+    return None
+
+
 def deterministic_match(job: Job, profile: CareerProfile) -> tuple[int, list[str], list[str]]:
     text = f"{job.title} {job.description}".lower()
     score = 0

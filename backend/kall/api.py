@@ -34,7 +34,7 @@ from kall.services.account_deletion import delete_account
 from kall.services.admin import is_admin
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
-from kall.services.matching import deterministic_match
+from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.resume import extract_resume_text
 from kall.services.storage import get_storage
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
@@ -231,6 +231,9 @@ def match_job(job_id: int, professional_profile_id: int, current_user: User = De
     profile = session.get(CareerProfile, professional_profile_id)
     if not job or not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Job or professional profile not found")
+    reason = is_out_of_scope(job, profile)
+    if reason:
+        raise HTTPException(422, f"Job is outside this profile's search parameters: {reason}")
     score, strengths, gaps = deterministic_match(job, profile)
     row = JobMatch(user_id=current_user.id, career_profile_id=profile.id, job_id=job.id, score=score, strengths=strengths, gaps=gaps, recommendation="apply" if score >= 75 else "review" if score >= 55 else "pass")
     session.add(row)

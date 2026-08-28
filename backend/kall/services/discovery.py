@@ -5,7 +5,7 @@ from kall.providers.ashby import AshbyProvider
 from kall.providers.greenhouse import GreenhouseProvider
 from kall.providers.lever import LeverProvider
 from kall.services.ats_web_search import build_ats_queries
-from kall.services.matching import deterministic_match
+from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.normalization import normalize_discovered
 from kall.services.opportunities import upsert_opportunity
 from kall.services.suppression import (
@@ -76,6 +76,9 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
                     JobMatch.career_profile_id==profile.id,
                     JobMatch.job_id==job.id,
                 )).first()
+                if not existing_match and is_out_of_scope(job, profile):
+                    skipped += 1
+                    continue
                 if not existing_match:
                     score,strengths,gaps=deterministic_match(job,profile)
                     match=JobMatch(
