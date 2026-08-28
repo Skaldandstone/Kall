@@ -142,7 +142,10 @@ jobs:
     runs-on: ubuntu-latest
     # One deploy at a time; a newer run supersedes rather than interleaves.
     concurrency: production-deploy
-    permissions: {}
+    # checkout needs contents:read; an empty permissions block strips even
+    # that and the job dies fetching its own repository.
+    permissions:
+      contents: read
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.KALL_DEPLOY_AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.KALL_DEPLOY_AWS_SECRET_ACCESS_KEY }}
