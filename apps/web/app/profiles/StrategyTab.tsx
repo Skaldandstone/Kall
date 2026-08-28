@@ -20,6 +20,7 @@ type Profile = {
   target_total_comp: number | null;
   travel_max_percent: number | null;
   relocation_preference: string | null;
+  equity_preference: string | null;
   default_resume_id: number | null;
   default_resume_name: string | null;
   is_active: boolean;
@@ -30,6 +31,12 @@ type Profile = {
 
 type Resume = { id: number; name: string; version: number };
 type UploadedResume = { id: number; name: string };
+
+const EQUITY_LABELS: Record<string, string> = {
+  not_important: 'Not important',
+  nice_to_have: 'Nice to have',
+  required: 'Required',
+};
 
 const csv = (value: FormDataEntryValue | null) =>
   String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
@@ -87,6 +94,7 @@ export default function StrategyTab() {
       target_total_comp: Number(form.get('target_total_comp')) || null,
       travel_max_percent: Number(form.get('travel_max_percent')) || null,
       relocation_preference: String(form.get('relocation_preference') || '') || null,
+      equity_preference: String(form.get('equity_preference') || '') || null,
       // The endpoint replaces every field, not just the ones on this form --
       // hardcoding true here silently reactivated a paused profile on its
       // next edit, which is exactly backwards from what editing should do.
@@ -240,6 +248,7 @@ export default function StrategyTab() {
                       <label>Maximum travel %<input type="number" min="0" max="100" name="travel_max_percent" defaultValue={profile.travel_max_percent ?? ''} /></label>
                       <label>Relocation<select name="relocation_preference" defaultValue={profile.relocation_preference ?? ''}><option value="">Not specified</option><option value="none">No relocation</option><option value="consider">Will consider</option><option value="preferred">Relocation preferred</option></select></label>
                     </div>
+                    <label>Equity<select name="equity_preference" defaultValue={profile.equity_preference ?? ''}><option value="">Not specified</option><option value="not_important">Not important</option><option value="nice_to_have">Nice to have</option><option value="required">Required</option></select></label>
                     <div className={styles.actions}>
                       <button className="button">Save profile</button>
                       <button className="button secondary" type="button" onClick={() => setEditingId(null)}>Cancel</button>
@@ -265,6 +274,7 @@ export default function StrategyTab() {
                       <div><dt>Work types</dt><dd>{profile.work_types.join(', ') || 'Not set'}</dd></div>
                       <div><dt>Target base</dt><dd>{money(profile.target_base)}</dd></div>
                       <div><dt>Total compensation</dt><dd>{money(profile.target_total_comp)}</dd></div>
+                      <div><dt>Equity</dt><dd>{EQUITY_LABELS[profile.equity_preference ?? ''] ?? 'Not specified'}</dd></div>
                       <div><dt>Keywords</dt><dd>{profile.include_keywords.join(', ') || 'Not set'}</dd></div>
                     </dl>
                     <div className={styles.metrics}>
