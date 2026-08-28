@@ -21,7 +21,7 @@ global.chrome = {
   storage: { sync: { get: async () => ({}) } },
 };
 
-const { listApplications, resumeDataUrl, NotSignedInError, deps } = await import('../src/api.js');
+const { captureJob, listApplications, resumeDataUrl, NotSignedInError, deps } = await import('../src/api.js');
 
 beforeEach(() => {
   deps.origin = async () => 'https://d7wb2yokfqcku.cloudfront.net';
@@ -85,4 +85,22 @@ test('resumeDataUrl requests the download_url path as-is -- it is already /api/.
 
   assert.equal(seenUrl, 'https://d7wb2yokfqcku.cloudfront.net/api/me/resumes/7/download');
   assert.equal(dataUrl, 'data:application/pdf;base64,AAAA');
+});
+
+test('captureJob posts the scraped job as JSON to /jobs/capture', async () => {
+  deps.getSessionToken = async () => 'test-token-123';
+  let seenUrl, seenInit;
+  global.fetch = async (url, init) => {
+    seenUrl = url;
+    seenInit = init;
+    return { ok: true, status: 200, json: async () => ({ id: 1, state: 'new' }) };
+  };
+
+  const job = { url: 'https://example.com/jobs/1', title: 'Engineer', professional_profile_id: 5 };
+  const result = await captureJob(job);
+
+  assert.equal(seenUrl, 'https://d7wb2yokfqcku.cloudfront.net/api/jobs/capture');
+  assert.equal(seenInit.method, 'POST');
+  assert.deepEqual(JSON.parse(seenInit.body), job);
+  assert.deepEqual(result, { id: 1, state: 'new' });
 });

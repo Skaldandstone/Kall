@@ -61,6 +61,15 @@
 
     <div id="status" role="status"></div>
 
+    <hr style="border: 0; border-top: 1px solid var(--border); margin: 18px 0;" />
+
+    <h1 style="font-size: 13px;">Save this job</h1>
+    <p class="lede" style="margin-bottom: 10px;">Browsing a posting anywhere -- LinkedIn, Indeed, a careers page? Save it to your Kall opportunity inbox.</p>
+    <label for="capture-profile">Career profile</label>
+    <select id="capture-profile"><option>Loading…</option></select>
+    <button id="capture" disabled>Save this job</button>
+    <div id="capture-status" role="status"></div>
+
     <!--
       popup.bundle.js, not popup.js: this popup imports @clerk/chrome-extension,
       a real npm package that a browser cannot load from a bare specifier.

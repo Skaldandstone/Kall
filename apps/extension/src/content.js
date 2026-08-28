@@ -226,6 +226,72 @@ async function attachResume({ dataUrl, filename, type }) {
   return { attached: true, filename };
 }
 
+/**
+ * Every <script type="application/ld+json"> block on the page describing a
+ * schema.org JobPosting. LinkedIn, Indeed, Greenhouse, Lever, and most ATS
+ * platforms emit this for SEO -- it is the one job-listing shape that is
+ * common across sites, so reading it beats hand-maintaining CSS selectors
+ * per site (which break the moment any of them redesigns their page).
+ */
+function jobPostingLinkedData() {
+  for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+    let parsed;
+    try {
+      parsed = JSON.parse(script.textContent || '');
+    } catch {
+      continue;
+    }
+    const candidates = Array.isArray(parsed) ? parsed : [parsed, ...(parsed?.['@graph'] || [])];
+    const posting = candidates.find((entry) => entry && entry['@type'] === 'JobPosting');
+    if (posting) return posting;
+  }
+  return null;
+}
+
+function textOf(value) {
+  if (typeof value !== 'string') return '';
+  // JobPosting descriptions are usually raw HTML; strip tags for a plain
+  // description Kall can store and later show in the opportunity inbox.
+  const scratch = document.createElement('div');
+  scratch.innerHTML = value;
+  return (scratch.textContent || '').trim();
+}
+
+function locationOf(posting) {
+  const place = posting.jobLocation?.address || posting.jobLocation?.[0]?.address;
+  if (!place) return posting.applicantLocationRequirements?.name || '';
+  return [place.addressLocality, place.addressRegion, place.addressCountry].filter(Boolean).join(', ');
+}
+
+/**
+ * Best-effort job details from whatever is on the current page. Never
+ * throws: a page with none of this is a page with nothing to scrape, not an
+ * error, so the popup can show a plain "couldn't find a job on this page"
+ * rather than an exception.
+ */
+function scrapeJob() {
+  const posting = jobPostingLinkedData();
+  if (posting) {
+    return {
+      title: textOf(posting.title) || document.title,
+      company: textOf(posting.hiringOrganization?.name),
+      location: locationOf(posting),
+      description: textOf(posting.description),
+    };
+  }
+  // No structured data on this page (some LinkedIn page states omit it) --
+  // fall back to what every page has: the tab title and an OpenGraph/meta
+  // description, which is still enough for a person to recognize the saved
+  // job later even without a clean company/location split.
+  const meta = (name) => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.content || '';
+  return {
+    title: document.title,
+    company: '',
+    location: '',
+    description: meta('og:description') || meta('description'),
+  };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'collect') {
     sendResponse({ fields: collectFields() });
@@ -238,6 +304,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'attachResume') {
     attachResume(message.resume).then(sendResponse);
     return true; // async response
+  }
+  if (message.type === 'scrapeJob') {
+    sendResponse(scrapeJob());
+    return false;
   }
   return false;
 });
