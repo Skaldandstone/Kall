@@ -25,6 +25,7 @@ class CareerProfileUpdate(BaseModel):
     target_total_comp: int | None = Field(default=None, ge=0)
     travel_max_percent: int | None = Field(default=None, ge=0, le=100)
     relocation_preference: str | None = None
+    equity_preference: str | None = None
     is_active: bool = True
 
 
@@ -75,6 +76,7 @@ def career_profiles(
                 "target_total_comp": profile.target_total_comp,
                 "travel_max_percent": profile.travel_max_percent,
                 "relocation_preference": profile.relocation_preference,
+                "equity_preference": profile.equity_preference,
                 "default_resume_id": profile.default_resume_id,
                 "default_resume_name": resumes.get(profile.default_resume_id),
                 "is_active": profile.is_active,

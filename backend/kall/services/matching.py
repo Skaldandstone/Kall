@@ -2,6 +2,23 @@ import re
 
 from kall.models.core import CareerProfile, Job
 
+#: A posting mentioning any of these is treated as disclosing equity/stock
+#: compensation. Job has no structured equity field (postings rarely state a
+#: number the way they do a salary range), so this is a text-mention signal
+#: like salary_from_text below, not a parsed amount.
+_EQUITY_SIGNALS = ("equity", "stock option", "rsu", "restricted stock", "equity compensation")
+
+
+def mentions_equity(text: str) -> bool:
+    """True if any equity-related phrase appears anywhere in `text`.
+
+    A plain substring match -- like salary_from_text, this does not parse
+    negation ("no equity offered" still matches "equity"). Good enough as a
+    soft signal; not a claim that equity was actually offered.
+    """
+    lower = text.lower()
+    return any(signal in lower for signal in _EQUITY_SIGNALS)
+
 
 def deterministic_match(job: Job, profile: CareerProfile) -> tuple[int, list[str], list[str]]:
     text = f"{job.title} {job.description}".lower()
@@ -38,6 +55,14 @@ def deterministic_match(job: Job, profile: CareerProfile) -> tuple[int, list[str
     elif profile.minimum_base and job.salary_min and job.salary_min >= profile.minimum_base:
         score += 10
         strengths.append("Compensation meets minimum target")
+
+    if profile.equity_preference and profile.equity_preference != "not_important":
+        if mentions_equity(text):
+            score += 5
+            strengths.append("Equity or stock compensation is mentioned in this posting")
+        elif profile.equity_preference == "required":
+            score -= 10
+            gaps.append("No equity or stock compensation mentioned, but you require it")
 
     return max(0, min(100, score)), strengths, gaps
 

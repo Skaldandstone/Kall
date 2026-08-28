@@ -15,3 +15,9 @@ Found by comparing Kall against Simplify.jobs, Teal, Huntr, Jobscan, and Final R
 **4. Resume proofreading, independent of any specific job -- done ([#140](https://github.com/Grunklegrok/Kall/pull/140)).** Not a spelling checker (no dictionary, no network dependency added) -- catches a duplicated line (accidental copy-paste) and long unspaced text runs (the signature a multi-column PDF layout leaves once merged, the same failure that breaks an ATS parser), folded into `_resume_score`'s existing `gaps` list.
 
 Not chasing: bulk/volume auto-apply (LazyApply, FastApply-style spray-and-pray). 2026 data cited by Huntr shows this converts far worse than a quality-focused approach, and it's the opposite of Kall's mandatory-review-before-submit philosophy.
+
+## Competitive gaps, round two (2026-08-28)
+
+Compared Kall against Wellfound (AngelList Talent), LinkedIn Premium Career, and Levels.fyi/Glassdoor. Most of what those offer needs either paid market data (salary/comp benchmarking), a marketplace dynamic (LinkedIn's applicant-volume signals, InMail), or paid human labor (Levels.fyi's negotiation coaches) -- none buildable in-house without a data or business-model change, so not pursuing them. One gap was buildable and is done:
+
+**Equity preference -- done ([#143](https://github.com/Grunklegrok/Kall/pull/143)).** `CareerProfile.equity_preference` existed on the model (inspired by Wellfound's "see equity upfront") but was missing from `CareerProfileUpdate` and the `GET /me/career-profiles` response entirely -- it could never actually be set or read back through the API, let alone shown in the UI. Added to both, exposed as a select in the profile editor, and wired into `deterministic_match` as a text-mention signal (`mentions_equity`) against the job description -- the same kind of soft, substring-based signal `salary_from_text` already uses for compensation.
