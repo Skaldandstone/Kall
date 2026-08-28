@@ -21,6 +21,12 @@ import { matchFields } from '../src/matcher.js';
 const FIXTURE = pathToFileURL(
   path.join(import.meta.dirname, 'fixtures', 'application-form.html'),
 ).href;
+const JOB_POSTING_FIXTURE = pathToFileURL(
+  path.join(import.meta.dirname, 'fixtures', 'job-posting.html'),
+).href;
+const JOB_POSTING_NO_STRUCTURED_DATA_FIXTURE = pathToFileURL(
+  path.join(import.meta.dirname, 'fixtures', 'job-posting-no-structured-data.html'),
+).href;
 const CONTENT_SCRIPT = path.join(import.meta.dirname, '..', 'src', 'content.js');
 
 /** The values Kall would supply for this application. */
@@ -39,8 +45,8 @@ const PACK_FIELDS = [
   },
 ];
 
-async function loadPage(page) {
-  await page.goto(FIXTURE);
+async function loadPage(page, url = FIXTURE) {
+  await page.goto(url);
   // Stand in for the extension runtime and capture the message handler.
   await page.evaluate(() => {
     window.__handler = null;
@@ -243,4 +249,25 @@ test('an ARIA combobox with no matching option is reported, not left looking fil
   expect(failed).toHaveLength(1);
   expect(failed[0].reason).toMatch(/Could not confirm/);
   expect(await page.evaluate(() => window.__countryCommitted())).toBe('');
+});
+
+test('scrapes a job from schema.org JobPosting structured data', async ({ page }) => {
+  await loadPage(page, JOB_POSTING_FIXTURE);
+  const job = await send(page, { type: 'scrapeJob' });
+
+  expect(job.title).toBe('Senior Environment Artist');
+  expect(job.company).toBe('Acme Games');
+  expect(job.location).toBe('Austin, TX, US');
+  // The description is HTML in the structured data; scrapeJob strips tags
+  // rather than storing markup Kall would have to re-render carefully.
+  expect(job.description).toBe('Build worlds with Unreal Engine.');
+});
+
+test('falls back to the page title and meta description with no structured data', async ({ page }) => {
+  await loadPage(page, JOB_POSTING_NO_STRUCTURED_DATA_FIXTURE);
+  const job = await send(page, { type: 'scrapeJob' });
+
+  expect(job.title).toBe('Environment Artist at Acme Games | Careers');
+  expect(job.company).toBe('');
+  expect(job.description).toBe('Build worlds with Unreal Engine.');
 });

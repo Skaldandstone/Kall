@@ -7,11 +7,21 @@ from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Application, CareerProfile, Job, ResumeDocument, SuppressedResult, User
+from kall.models import (
+    Application,
+    CareerProfile,
+    Job,
+    Opportunity,
+    ResumeDocument,
+    SuppressedResult,
+    User,
+)
 from kall.models.enums import ApplicationStatus
 from kall.schemas import ExternalJobImportRequest, PrepareApplicationRequest
 from kall.services import quota
 from kall.services.applications import prepare_application
+from kall.services.matching import deterministic_match
+from kall.services.opportunities import upsert_opportunity
 from kall.services.suppression import VALID_REASONS, normalize_url
 
 router = APIRouter()
@@ -32,6 +42,15 @@ class TrackExternalApplicationRequest(BaseModel):
     title: str
     snippet: str | None = None
     source: str = "google_cse"
+    professional_profile_id: int
+
+
+class CaptureJobRequest(BaseModel):
+    url: HttpUrl
+    title: str
+    company: str | None = None
+    location: str | None = None
+    description: str | None = None
     professional_profile_id: int
 
 
@@ -77,6 +96,44 @@ def import_search_result(
         session.commit()
         session.refresh(row)
     return row
+
+
+@router.post("/jobs/capture", response_model=Opportunity)
+def capture_job(
+    payload: CaptureJobRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Opportunity:
+    """Save a job the browser extension scraped off of any site (LinkedIn,
+    Indeed, a company careers page -- not just the three ATS providers
+    discovery.py already knows how to search) directly into the tracked
+    opportunity inbox.
+
+    Reuses the same storage and matching this whole feature already runs
+    on: _import_job's dedupe-by-URL, deterministic_match for a real score
+    against the chosen profile, and upsert_opportunity so a job captured
+    twice (once from a search, once from browsing) collapses into one row
+    rather than two.
+    """
+    profile = session.get(CareerProfile, payload.professional_profile_id)
+    if not profile or profile.user_id != current_user.id:
+        raise HTTPException(404, "Professional profile not found")
+
+    job = _import_job(session, str(payload.url), payload.title, payload.description, "browser_extension")
+    changed = False
+    if payload.company and job.company != payload.company:
+        job.company = payload.company
+        changed = True
+    if payload.location and not job.location:
+        job.location = payload.location
+        changed = True
+    if changed:
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+    score, _strengths, _gaps = deterministic_match(job, profile)
+    return upsert_opportunity(session, user_id=current_user.id, profile_id=profile.id, job=job, match_score=score)
 
 
 @router.post("/applications/track-external", response_model=Application)

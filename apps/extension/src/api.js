@@ -64,6 +64,20 @@ export async function listApplications() {
   return request('/applications');
 }
 
+/** Career profiles to save a captured job against. */
+export async function listProfessionalProfiles() {
+  return request('/me/professional-profiles');
+}
+
+/** Save a job scraped off the current page into the tracked opportunity inbox. */
+export async function captureJob(job) {
+  return request('/jobs/capture', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(job),
+  });
+}
+
 /** Everything Kall is willing to put into this application's form. */
 export async function autofillPack(applicationId) {
   return request(`/applications/${applicationId}/autofill-pack`);

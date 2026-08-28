@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Kall Apply",
   "version": "0.1.0",
-  "description": "Pre-fills employer application forms from your Kall profile. You always review and submit the form yourself.",
+  "description": "Pre-fills employer application forms from your Kall profile, and saves any job posting you're browsing to your Kall opportunity inbox. You always review and submit forms yourself.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw+D8EnmqZEVApggJ6AkdnmeOtTsSWQCRsSwNE/nhDHH84YaNGi2eqycMS0DP4qP27RbDmuWQKssdGinAzuDcCh4SjGFIPetBco4UoR0PypUkOboTXo++1HN8gx+JeQSQLMEl9iJtwpxEvSTBDXxSKVU2n969q5k0DLAunQ0Yg1SgajcuQrEk5az9dagykBqniitDcbeDXNTa4kVawrfumZbtUyxaHCH30OGNCr6utDAPIIr977c1PhLIzn/HdiSIF8OADF1pved5e3GALBfbUKm5Li2Yogm81NsWmzyoruirZpgrsP1SOrM2Oueu7oc3LLYlDIgZj/Yx88fTLDlldQIDAQAB",
   "permissions": [
     "activeTab",

@@ -7,7 +7,7 @@
  * receives Kall data it was not matched to.
  */
 
-import { autofillPack, deps, listApplications, NotSignedInError, resumeDataUrl } from './api.js';
+import { autofillPack, captureJob, deps, listApplications, listProfessionalProfiles, NotSignedInError, resumeDataUrl } from './api.js';
 import { getClerk, getSessionToken, onAuthChange, openSignIn } from './auth.js';
 import { matchFields } from './matcher.js';
 
@@ -18,9 +18,16 @@ deps.getSessionToken = getSessionToken;
 const applicationSelect = document.querySelector('#application');
 const fillButton = document.querySelector('#fill');
 const status = document.querySelector('#status');
+const profileSelect = document.querySelector('#capture-profile');
+const captureButton = document.querySelector('#capture');
+const captureStatus = document.querySelector('#capture-status');
 
 function render(html) {
   status.innerHTML = html;
+}
+
+function renderCapture(html) {
+  captureStatus.innerHTML = html;
 }
 
 function list(items) {
@@ -56,6 +63,8 @@ async function send(tabId, message) {
 function renderSignedOut() {
   applicationSelect.innerHTML = '<option>Sign in required</option>';
   fillButton.disabled = true;
+  profileSelect.innerHTML = '<option>Sign in required</option>';
+  captureButton.disabled = true;
   render('<button id="sign-in" class="link-button">Sign in to Kall</button>');
   document.querySelector('#sign-in')?.addEventListener('click', () => void openSignIn());
 }
@@ -98,6 +107,56 @@ async function loadApplications() {
     }
     applicationSelect.innerHTML = '<option>Unavailable</option>';
     render(`<p class="problem">${escapeHtml(error.message)}</p>`);
+  }
+}
+
+/** Independent of loadApplications: a signed-in account with zero prepared
+ * applications should still be able to save a job for later. */
+async function loadProfiles() {
+  try {
+    const profiles = await listProfessionalProfiles();
+    if (!profiles.length) {
+      profileSelect.innerHTML = '<option>No career profiles yet</option>';
+      renderCapture('<p class="note">Create a professional profile in Kall first.</p>');
+      return;
+    }
+    profileSelect.innerHTML = profiles.map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join('');
+    captureButton.disabled = false;
+  } catch (error) {
+    if (error instanceof NotSignedInError) return; // renderSignedOut already covers this
+    profileSelect.innerHTML = '<option>Unavailable</option>';
+    renderCapture(`<p class="problem">${escapeHtml(error.message)}</p>`);
+  }
+}
+
+async function capture() {
+  captureButton.disabled = true;
+  renderCapture('<p class="note">Reading this page…</p>');
+
+  try {
+    const tab = await activeTab();
+    const scraped = await send(tab.id, { type: 'scrapeJob' });
+    if (!scraped.title) {
+      renderCapture('<p class="problem">Could not find a job on this page.</p>');
+      return;
+    }
+    const saved = await captureJob({
+      url: tab.url,
+      title: scraped.title,
+      company: scraped.company || undefined,
+      location: scraped.location || undefined,
+      description: scraped.description || undefined,
+      professional_profile_id: Number(profileSelect.value),
+    });
+    renderCapture(`<p>Saved -- ${saved.match_score}% match. Find it in your opportunity inbox.</p>`);
+  } catch (error) {
+    renderCapture(
+      error instanceof NotSignedInError
+        ? `<p class="problem">${escapeHtml(error.message)}</p>`
+        : `<p class="problem">${escapeHtml(error.message)}</p>`,
+    );
+  } finally {
+    captureButton.disabled = false;
   }
 }
 
@@ -161,11 +220,13 @@ async function fill() {
 }
 
 fillButton.addEventListener('click', fill);
+captureButton.addEventListener('click', capture);
 void loadApplications();
+void loadProfiles();
 // Catches the moment a sync completes -- someone who clicked "Sign in to
 // Kall", finished it in the new tab, and comes back to this popup without
 // needing to close and reopen it. If Clerk itself is not reachable this
 // never attaches, which only costs the auto-refresh convenience --
 // loadApplications() above already showed the real reason, and reopening
 // the popup tries again.
-onAuthChange(() => void loadApplications()).catch(() => {});
+onAuthChange(() => { void loadApplications(); void loadProfiles(); }).catch(() => {});
