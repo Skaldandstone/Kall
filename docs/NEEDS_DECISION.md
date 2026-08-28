@@ -4,9 +4,22 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-08-28 (afternoon).
+Last updated 2026-08-28 (evening).
 
 ## Needs a decision
+
+**`CareerProfile.functional_areas` is dead in both directions -- flagged, not built.**
+It's a real JSON column, accepted by `CareerProfileUpdate`, and returned in
+the profile payload, but `StrategyTab.tsx` has no input for it at all (unlike
+`target_titles`/`industries`, which have real fields) -- it can only ever be
+`[]`. Even if it were set, nothing in `services/matching.py` or
+`services/ats_web_search.py` reads it either. Unlike the other "collected but
+unused" gaps this session fixed, this one is unwired on *both* ends, so
+fixing it means designing what it should actually do (a new form field, plus
+deciding whether it scores like `industries` or drives search targeting like
+`target_titles`) rather than wiring an existing signal through -- a product
+call, not a bug fix. Say the word if you want it built, and which behavior
+you want.
 
 **Retention window on generated documents — implemented at 12 months, change it if you disagree.**
 Rendered resumes and cover letters now expire after a year and rebuild
@@ -204,6 +217,18 @@ providers now parse their own date field, and a schedule's own window is
 enforced when it runs. Manual "search now" is unaffected; a posting with
 no date (still most of them, until this propagates) is never rejected for
 missing data.
+
+**"Highlight as a primary skill" did nothing anywhere -- fixed.** The
+checkbox was writable, but the public career page's skills allowlist never
+exposed `is_primary` and nothing ordered or styled by it. Primary skills
+now sort first (unless the section is already hand-curated, which wins)
+and render with an accent-bordered tag on the public page.
+
+**Professional memberships were the one sibling model with no expiry
+reminder -- fixed.** Certification, WorkAuthorization, and
+SecurityClearance all got a reminder earlier; ProfessionalMembership.expires_on
+was just as reachable and just as silent. Same fixed-window pattern, 90
+days, as the sixth daily job.
 
 ## Deferred by you
 
