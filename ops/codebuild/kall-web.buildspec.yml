@@ -22,5 +22,7 @@ phases:
   post_build:
     commands:
       - docker push 693272753663.dkr.ecr.us-east-2.amazonaws.com/kall-web:latest
+      # Same commit-tagged rollback target as kall-api.buildspec.yml.
+      - sha="${CODEBUILD_SOURCE_VERSION##*source-}"; sha="${sha%.zip}"; if echo "$sha" | grep -qE '^[0-9a-f]{40}$'; then docker tag 693272753663.dkr.ecr.us-east-2.amazonaws.com/kall-web:latest "693272753663.dkr.ecr.us-east-2.amazonaws.com/kall-web:$sha" && docker push "693272753663.dkr.ecr.us-east-2.amazonaws.com/kall-web:$sha"; fi
       - aws ecs update-service --cluster kall-cluster --service kall-web --force-new-deployment --region us-east-2
       - aws ecs wait services-stable --cluster kall-cluster --services kall-web --region us-east-2

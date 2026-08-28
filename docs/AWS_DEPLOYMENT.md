@@ -9,8 +9,8 @@ This is an AWS **"new AWS experience"** account: AWS manages IAM/SCPs/RCPs on yo
 **AWS App Runner is not usable in this account** - it's blocked by a Service Control Policy account-wide, independent of IAM permissions, most likely because it isn't on this tier's supported-services list. That's why this deploys to ECS/Fargate instead, which is the compute model to reach for by default here rather than re-litigating App Runner.
 
 Two identities exist for this account:
-- `KallBot` IAM user (access key, `aws configure`) - was blocked from EC2/RDS/ECS/Lambda/Secrets Manager/DynamoDB by an SCP.
-- `agent-toolkit` profile (`aws login`, assumes `AccountFullAccessRole` via SSO, credentials last 12h/renewable 90 days) - **not** subject to that same block. Use this profile for AWS work on this project. Re-run `aws login --region us-east-2 --profile agent-toolkit` when it expires.
+- `KallBot` IAM user (access key, `aws configure`, the default profile) - was blocked from EC2/RDS/ECS/Lambda/Secrets Manager/DynamoDB by an SCP when this document was first written, but that block has since been lifted or narrowed: on 2026-08-28 KallBot successfully read ECS/CodeBuild and performed IAM role/policy writes, S3 bucket creation, and EventBridge Scheduler writes. Useful because it never expires.
+- `agent-toolkit` profile (`aws login`, assumes `AccountFullAccessRole` via SSO, credentials last 12h/renewable 90 days) - re-run `aws login --region us-east-2 --profile agent-toolkit` when it expires. One SCP denial observed against even this role: IAM OIDC-provider operations (which is why the CI deploy job uses an access key, not GitHub OIDC federation).
 
 ## Why this architecture, specifically
 
@@ -51,6 +51,15 @@ Pieces involved:
 - **IAM user `kall-github-deploy`** - its access key lives in the repo's Actions secrets (`KALL_DEPLOY_AWS_ACCESS_KEY_ID` / `KALL_DEPLOY_AWS_SECRET_ACCESS_KEY`). Deliberately scoped to `codebuild:StartBuild`/`BatchGetBuilds` on the two projects and nothing else - a leaked key can redeploy main's HEAD, not read data or change infrastructure. GitHub OIDC federation would have avoided a stored key entirely, but this account's managed SCP explicitly denies IAM OIDC-provider operations, so a scoped key is the available shape.
 - **`kall-codebuild-role`** gained inline policy `kall-codebuild-ecs-deploy`: `ecs:UpdateService`/`DescribeServices` on the two services only.
 - **Manual deploys** (config-only changes, rolling back to main's HEAD): run the CI workflow by hand from the Actions tab (workflow_dispatch) with the `deploy_api`/`deploy_web` inputs - tests still gate it, and the workflow is the only path that can hand CodeBuild the source now that the repo is private. `aws codebuild start-build` on its own no longer works (DOWNLOAD_SOURCE fails - no GitHub credential in AWS); a config-only ECS bounce without a rebuild is still just `aws ecs update-service --force-new-deployment`.
+- **Rolling back a bad deploy**: every CI-built image is also tagged with its commit SHA (the buildspecs derive it from the source zip's name), so the previous image survives a bad push of `:latest`. To roll back without building anything, point `:latest` back at the old image and bounce the service:
+
+```bash
+MANIFEST=$(aws ecr batch-get-image --repository-name kall-api --image-ids imageTag=<good-sha> --query 'images[0].imageManifest' --output text --region us-east-2)
+aws ecr put-image --repository-name kall-api --image-tag latest --image-manifest "$MANIFEST" --region us-east-2
+aws ecs update-service --cluster kall-cluster --service kall-api --force-new-deployment --region us-east-2
+```
+
+  The next merge to main will overwrite `:latest` again, so a rollback is a stopgap while the bad commit is reverted in git, not a resting state.
 
 ## Known gaps / next steps
 
