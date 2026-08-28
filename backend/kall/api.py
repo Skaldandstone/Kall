@@ -168,7 +168,7 @@ def list_search_sources(current_user: User = Depends(get_current_user), session:
 
 
 @router.post("/jobs", response_model=Job)
-def create_job(payload: JobCreate, session: Session = Depends(get_session)) -> Job:
+def create_job(payload: JobCreate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> Job:
     row = Job(**payload.model_dump())
     session.add(row)
     session.commit()
