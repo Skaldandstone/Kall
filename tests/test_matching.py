@@ -1,6 +1,12 @@
 from kall.models.core import CareerProfile, Job
 from kall.models.enums import WorkType
-from kall.services.matching import deterministic_match, is_out_of_scope, mentions_equity
+from kall.services.matching import (
+    deterministic_match,
+    is_out_of_scope,
+    mentions_equity,
+    requires_relocation,
+    travel_percent_from_text,
+)
 
 
 def test_matching_rewards_title_keywords_remote_and_salary() -> None:
@@ -58,6 +64,40 @@ def test_equity_not_important_is_ignored_either_way() -> None:
     profile = CareerProfile(user_id=1, name="Test", equity_preference="not_important")
     _, strengths, gaps = deterministic_match(_job(description="Competitive base salary and full benefits."), profile)
     assert not any("equity" in s.lower() for s in strengths + gaps)
+
+
+def test_requires_relocation_recognises_common_phrasing() -> None:
+    assert requires_relocation("Candidates must relocate to our HQ.")
+    assert not requires_relocation("Remote work is fully supported.")
+
+
+def test_travel_percent_from_text_reads_the_highest_figure() -> None:
+    assert travel_percent_from_text("Role involves up to 30% travel.") == 30
+    assert travel_percent_from_text("Fully remote, no travel required.") is None
+
+
+def test_relocation_required_but_not_open_to_it_is_a_gap() -> None:
+    profile = CareerProfile(user_id=1, name="Test", relocation_preference="none")
+    _, _, gaps = deterministic_match(_job(description="This role requires relocation to Austin."), profile)
+    assert any("relocat" in gap.lower() for gap in gaps)
+
+
+def test_relocation_required_is_ignored_when_open_to_relocating() -> None:
+    profile = CareerProfile(user_id=1, name="Test", relocation_preference="preferred")
+    _, _, gaps = deterministic_match(_job(description="This role requires relocation to Austin."), profile)
+    assert not gaps
+
+
+def test_travel_above_maximum_is_a_gap() -> None:
+    profile = CareerProfile(user_id=1, name="Test", travel_max_percent=10)
+    _, _, gaps = deterministic_match(_job(description="Expect up to 50% travel."), profile)
+    assert any("travel" in gap.lower() for gap in gaps)
+
+
+def test_travel_within_maximum_is_not_a_gap() -> None:
+    profile = CareerProfile(user_id=1, name="Test", travel_max_percent=50)
+    _, _, gaps = deterministic_match(_job(description="Expect up to 10% travel."), profile)
+    assert not gaps
 
 
 def test_is_out_of_scope_flags_excluded_keyword() -> None:

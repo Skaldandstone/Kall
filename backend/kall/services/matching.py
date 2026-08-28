@@ -8,6 +8,16 @@ from kall.models.core import CareerProfile, Job
 #: like salary_from_text below, not a parsed amount.
 _EQUITY_SIGNALS = ("equity", "stock option", "rsu", "restricted stock", "equity compensation")
 
+#: A posting mentioning any of these is treated as requiring relocation.
+#: Same soft-signal limitation as _EQUITY_SIGNALS -- a posting silent on
+#: relocation isn't necessarily flexible about it, this only catches the
+#: postings that say so outright.
+_RELOCATION_REQUIRED_SIGNALS = (
+    "relocation required", "requires relocation", "must relocate", "must be willing to relocate",
+)
+
+_TRAVEL_PERCENT_RE = re.compile(r"(\d{1,3})\s*%\s*travel")
+
 
 def mentions_equity(text: str) -> bool:
     """True if any equity-related phrase appears anywhere in `text`.
@@ -18,6 +28,21 @@ def mentions_equity(text: str) -> bool:
     """
     lower = text.lower()
     return any(signal in lower for signal in _EQUITY_SIGNALS)
+
+
+def requires_relocation(text: str) -> bool:
+    """True if the posting says relocation is required, in so many words."""
+    lower = text.lower()
+    return any(signal in lower for signal in _RELOCATION_REQUIRED_SIGNALS)
+
+
+def travel_percent_from_text(text: str) -> int | None:
+    """The highest "N% travel" figure mentioned, or None if the posting
+    doesn't state one. Same limitation as salary_from_text: a posting that
+    doesn't quote a number isn't necessarily travel-free, it's just silent.
+    """
+    values = [int(v) for v in _TRAVEL_PERCENT_RE.findall(text.lower())]
+    return max(values) if values else None
 
 
 def excluded_keyword_hit(job: Job, profile: CareerProfile) -> str | None:
@@ -95,6 +120,16 @@ def deterministic_match(job: Job, profile: CareerProfile) -> tuple[int, list[str
         elif profile.equity_preference == "required":
             score -= 10
             gaps.append("No equity or stock compensation mentioned, but you require it")
+
+    if profile.relocation_preference == "none" and requires_relocation(text):
+        score -= 15
+        gaps.append("Requires relocation, but you're not open to relocating")
+
+    if profile.travel_max_percent is not None:
+        posting_travel = travel_percent_from_text(text)
+        if posting_travel is not None and posting_travel > profile.travel_max_percent:
+            score -= 15
+            gaps.append(f"Posting states {posting_travel}% travel, above your {profile.travel_max_percent}% maximum")
 
     return max(0, min(100, score)), strengths, gaps
 
