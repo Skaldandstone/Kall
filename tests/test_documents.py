@@ -65,6 +65,21 @@ def _finalized_proposal(session, engine=None):
     return proposal
 
 
+def test_a_generated_document_is_immediately_finalized() -> None:
+    """Regression test: status defaulted to "generated" and nothing ever
+    advanced it to "finalized" -- build_preview() (services/submissions.py)
+    filters on exactly that status, so a submission's document_checksums
+    was always {}, and the check comparing it against a resubmission's
+    current checksums could never actually catch a resume that changed
+    after approval. finalized_at was already set here; status just wasn't.
+    """
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        generated = generate_resume_documents(session, _finalized_proposal(session))
+        assert generated.status == "finalized"
+
+
 def test_generation_writes_no_files_until_one_is_asked_for(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Three formats were rendered eagerly for a document nobody had opened."""
     monkeypatch.chdir(tmp_path)
