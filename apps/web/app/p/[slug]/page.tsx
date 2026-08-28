@@ -175,7 +175,11 @@ function ItemBlock({ kind, item }: { kind: string; item: Item }) {
   }
 
   if (kind === 'skills') {
-    return <span className={styles.tag}>{String(item.name ?? '')}</span>;
+    return (
+      <span className={item.is_primary ? styles.tagPrimary : styles.tag}>
+        {String(item.name ?? '')}
+      </span>
+    );
   }
 
   if (kind === 'testimonials') {

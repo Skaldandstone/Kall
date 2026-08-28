@@ -160,6 +160,43 @@ def test_a_deleted_record_does_not_break_the_page(client, engine) -> None:
     assert [item["name"] for item in section["items"]] == ["Python"]
 
 
+def test_primary_skills_are_surfaced_first_and_flagged(client, engine) -> None:
+    """is_primary ("Highlight as a primary skill") was collectible but
+    nothing ever read it -- neither exposed on the public page nor used to
+    order the section."""
+    with Session(engine) as session:
+        session.add(Skill(user_id=client.user_id, name="Python", is_primary=False))
+        session.add(Skill(user_id=client.user_id, name="Rust", is_primary=True))
+        session.commit()
+
+    page = client.get(ME).json()
+    slug = page["page"]["slug"]
+    client.patch(ME, json={"published": True})
+
+    section = next(s for s in client.get(public(slug)).json()["sections"] if s["kind"] == "skills")
+    assert [item["name"] for item in section["items"]] == ["Rust", "Python"]
+    assert [item["is_primary"] for item in section["items"]] == [True, False]
+
+
+def test_a_curated_skills_order_overrides_the_primary_sort(client, engine) -> None:
+    with Session(engine) as session:
+        session.add(Skill(user_id=client.user_id, name="Python", is_primary=False))
+        primary = Skill(user_id=client.user_id, name="Rust", is_primary=True)
+        session.add(primary)
+        session.commit()
+        session.refresh(primary)
+        python_id = session.exec(select(Skill).where(Skill.name == "Python")).one().id
+
+    page = client.get(ME).json()
+    slug = page["page"]["slug"]
+    skills = next(s for s in page["sections"] if s["kind"] == "skills")
+    client.patch(f"{ME}/sections/{skills['id']}", json={"item_ids": [python_id, primary.id]})
+    client.patch(ME, json={"published": True})
+
+    section = next(s for s in client.get(public(slug)).json()["sections"] if s["kind"] == "skills")
+    assert [item["name"] for item in section["items"]] == ["Python", "Rust"]
+
+
 def test_only_cleared_testimonials_are_published(client, engine) -> None:
     """A testimonial names a real third party who consented to something specific."""
     with Session(engine) as session:

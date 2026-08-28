@@ -288,6 +288,13 @@
   color: var(--cp-ink-dim);
 }
 
+.tagPrimary {
+  composes: tag;
+  border-color: var(--cp-accent);
+  color: var(--cp-ink);
+  font-weight: 600;
+}
+
 .quote {
   margin: 0;
   background: var(--cp-panel);
