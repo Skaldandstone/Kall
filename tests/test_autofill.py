@@ -33,6 +33,7 @@ def _seed(engine, user_id: int, *, with_privacy_rule: bool = False, eeo_declines
         profile_row.country = "United States"
         profile_row.linkedin_url = "https://linkedin.com/in/ada"
         profile_row.github_url = "https://github.com/ada"
+        profile_row.website_urls = ["https://ada.example.com"]
         profile_row.phone_encrypted = encrypt_sensitive("+1-555-0100")
         profile_row.address_encrypted = encrypt_sensitive("1 Analytical Engine Way")
         profile_row.postal_code_encrypted = encrypt_sensitive("78701")
@@ -129,6 +130,18 @@ def test_always_tier_fields_are_filled_without_any_privacy_rule(client: TestClie
     assert filled["identity.linkedin_url"] == "https://linkedin.com/in/ada"
     assert filled["employment.current_employer"] == "Northwind Systems"
     assert filled["employment.current_title"] == "Senior Backend Engineer"
+
+
+def test_website_urls_is_filled_like_its_sibling_portfolio_urls(client: TestClient, engine) -> None:
+    """identity.website_urls was collected on the identity settings page but
+    absent from AUTOFILL_FIELD_TIERS entirely -- unlike portfolio_urls, its
+    sibling list field, it never reached an autofill pack at all."""
+    user_id = client.user_id  # type: ignore[attr-defined]
+    application_id = _seed(engine, user_id)
+    pack = _pack(engine, user_id, application_id)
+
+    filled = {row["path"]: row["value"] for row in pack["fields"]}
+    assert filled["identity.website_urls"] == "https://ada.example.com"
 
 
 def test_opt_in_field_is_withheld_until_a_privacy_rule_grants_autofill(client: TestClient, engine) -> None:

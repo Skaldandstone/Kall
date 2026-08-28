@@ -37,6 +37,7 @@ AUTOFILL_FIELD_TIERS: dict[str, AutofillTier] = {
     "identity.linkedin_url": AutofillTier.ALWAYS,
     "identity.github_url": AutofillTier.ALWAYS,
     "identity.portfolio_urls": AutofillTier.ALWAYS,
+    "identity.website_urls": AutofillTier.ALWAYS,
     "identity.city": AutofillTier.ALWAYS,
     "identity.state_region": AutofillTier.ALWAYS,
     "identity.country": AutofillTier.ALWAYS,
