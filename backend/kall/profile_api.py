@@ -9,6 +9,7 @@ from kall.db import get_session
 from kall.models import (
     AwardHonor,
     Certification,
+    Contact,
     Education,
     EEOProfile,
     Employment,
@@ -84,6 +85,7 @@ RESOURCE_MODELS = {
     "memberships": ProfessionalMembership,
     "service": VolunteerBoardService,
     "references": Reference,
+    "contacts": Contact,
 }
 
 SENSITIVE_KEYS = {

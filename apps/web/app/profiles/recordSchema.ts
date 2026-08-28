@@ -171,6 +171,21 @@ export const RECORD_SCHEMAS: Record<string, RecordSchema> = {
       { name: 'permission_to_contact', label: 'Has agreed to be contacted', kind: 'checkbox' },
     ],
   },
+  contacts: {
+    singular: 'contact',
+    titleFields: ['name'],
+    fields: [
+      { name: 'name', label: 'Name', kind: 'text', required: true },
+      { name: 'company', label: 'Company', kind: 'text' },
+      { name: 'title', label: 'Their title', kind: 'text' },
+      { name: 'relationship', label: 'How you know them', kind: 'text', help: 'e.g. recruiter, alumni, former coworker' },
+      { name: 'contact_email', label: 'Email', kind: 'text' },
+      { name: 'linkedin_url', label: 'LinkedIn', kind: 'text' },
+      { name: 'last_contacted_on', label: 'Last contacted', kind: 'date' },
+      { name: 'follow_up_on', label: 'Follow up on', kind: 'date' },
+      { name: 'contact_notes', label: 'Notes', kind: 'textarea' },
+    ],
+  },
 };
 
 export const RECORD_RESOURCES = Object.keys(RECORD_SCHEMAS);
