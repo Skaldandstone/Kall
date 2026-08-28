@@ -20,11 +20,14 @@ from kall.models import (
     Certification,
     Education,
     Employment,
+    Patent,
+    ProfessionalMembership,
     Publication,
     Skill,
     SpeakingEngagement,
     Testimonial,
     User,
+    VolunteerBoardService,
 )
 from kall.services.embeds import embed_frame_url, provider_for
 from sqlmodel import Session, select
@@ -56,6 +59,9 @@ SECTION_KINDS: dict[str, str | None] = {
     "publications": "publications",
     "speaking": "speaking",
     "testimonials": "testimonials",
+    "patents": "patents",
+    "memberships": "memberships",
+    "service": "service",
     "custom": None,
 }
 
@@ -72,6 +78,9 @@ PUBLIC_SOURCES: dict[str, Any] = {
     "publications": Publication,
     "speaking": SpeakingEngagement,
     "testimonials": Testimonial,
+    "patents": Patent,
+    "memberships": ProfessionalMembership,
+    "service": VolunteerBoardService,
 }
 
 #: What a new page starts as. Ordered to make an argument rather than to list
@@ -212,6 +221,9 @@ def _public_fields(row: Any, source: str) -> dict[str, Any]:
         "publications": ("kind", "title", "organization_or_venue", "published_on", "url", "co_authors"),
         "speaking": ("title", "event", "engagement_type", "occurred_on", "url", "description"),
         "testimonials": ("author_name", "author_title", "author_company", "relationship", "body"),
+        "patents": ("title", "patent_number", "jurisdiction", "status", "filed_on", "granted_on", "url"),
+        "memberships": ("organization", "membership_type", "member_since", "expires_on"),
+        "service": ("organization", "role", "service_type", "started_on", "ended_on", "description"),
     }
     allowed = fields.get(source, ())
     out: dict[str, Any] = {"id": row.id}
