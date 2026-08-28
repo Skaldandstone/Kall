@@ -17,7 +17,7 @@ writes into.
 import logging
 from datetime import datetime
 
-from kall.models import CareerProfile, DiscoverySchedule, Opportunity, User
+from kall.models import CareerProfile, DiscoverySchedule, NotificationPreference, Opportunity, User
 from kall.services.discovery import run_discovery
 from kall.services.opportunities import advance_schedule, due_schedule, queue_digest
 from sqlmodel import Session, select
@@ -76,12 +76,24 @@ async def run_due_schedules(session: Session, *, now: datetime | None = None) ->
         # which rows this one run touched, is also what correctly re-surfaces
         # a previously-dismissed posting that materially changed (see
         # upsert_opportunity), which does belong in the next digest.
+        #
+        # minimum_match_score is the settings page's own promise ("only
+        # matches at or above this score are worth an email") -- queuing
+        # every "new" row regardless of score, as this used to, emailed
+        # someone a digest of a job they explicitly said wasn't a good
+        # enough match. No preference row uses the model's own default (60),
+        # same convention queue_daily_briefs already uses.
+        preference = session.exec(
+            select(NotificationPreference).where(NotificationPreference.user_id == user.id)
+        ).first()
+        minimum_score = preference.minimum_match_score if preference else NotificationPreference.model_fields["minimum_match_score"].default
         new_ids = list(
             session.exec(
                 select(Opportunity.id).where(
                     Opportunity.user_id == user.id,
                     Opportunity.professional_profile_id == profile.id,
                     Opportunity.state == "new",
+                    Opportunity.match_score >= minimum_score,
                 )
             )
         )
