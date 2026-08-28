@@ -205,7 +205,7 @@ def _public_fields(row: Any, source: str) -> dict[str, Any]:
     """
     fields: dict[str, tuple[str, ...]] = {
         "employment": ("employer", "job_title", "location", "start_date", "end_date", "is_current", "description"),
-        "skills": ("name", "category", "proficiency", "years_experience"),
+        "skills": ("name", "category", "proficiency", "years_experience", "is_primary"),
         "education": ("institution", "degree", "major", "minor", "graduation_date", "honors"),
         "certifications": ("name", "issuing_organization", "obtained_on", "expires_on", "verification_url"),
         "awards": ("name", "issuing_organization", "received_on", "description", "evidence_url"),
@@ -237,10 +237,14 @@ def render_public_page(session: Session, page: CareerPage) -> dict[str, Any]:
             "items": [],
         }
         if section.source:
-            rendered["items"] = [
-                _public_fields(row, section.source)
-                for row in _records(session, page.user_id, section.source, section.item_ids)
-            ]
+            records = _records(session, page.user_id, section.source, section.item_ids)
+            if section.source == "skills" and not section.item_ids:
+                # is_primary was collectible ("Highlight as a primary skill")
+                # but nothing ever acted on it -- surface primaries first
+                # unless the user has already hand-ordered this section,
+                # which is a stronger, more specific signal than the flag.
+                records = sorted(records, key=lambda row: not row.is_primary)
+            rendered["items"] = [_public_fields(row, section.source) for row in records]
         # Work samples. The frame URL is built here, from the provider template
         # and the stored id, so the renderer never constructs one out of
         # user-supplied text -- see services/embeds.py.
