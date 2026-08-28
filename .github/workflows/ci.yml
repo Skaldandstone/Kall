@@ -187,20 +187,29 @@ jobs:
           echo "deploying: api=$api web=$web"
       - name: Build and deploy via CodeBuild
         if: steps.changes.outputs.api == 'true' || steps.changes.outputs.web == 'true'
-        # No --source-version: pinning a commit SHA makes CodeBuild fetch via
-        # the GitHub API, which requires stored credentials even on a public
-        # repo (only branch-HEAD clones work anonymously) -- the first pinned
-        # run died in DOWNLOAD_SOURCE with "authentication required". Building
-        # main's HEAD can race a just-merged newer commit, but the concurrency
-        # group serializes deploys and the newer commit's own run rebuilds
-        # anyway, so the race is benign.
+        # The repo is private and CodeBuild holds no GitHub credential on
+        # purpose, so CodeBuild cannot clone the source itself (its GITHUB
+        # source type died in DOWNLOAD_SOURCE with "authentication required").
+        # This job already has the gated commit checked out, so it ships the
+        # tree to S3 and overrides the build's source to that archive -- which
+        # also pins the deploy to the exact commit the tests passed on. The
+        # bucket expires objects after 30 days.
         run: |
+          zip="source-$GITHUB_SHA.zip"
+          git archive --format=zip -o "$zip" "$GITHUB_SHA"
+          aws s3 cp --no-progress "$zip" "s3://kall-build-sources-693272753663/github-deploy/$zip"
           ids=()
           if [ "${{ steps.changes.outputs.api }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-api-build --query 'build.id' --output text)")
+            ids+=("$(aws codebuild start-build --project-name kall-api-build \
+              --source-type-override S3 \
+              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
+              --query 'build.id' --output text)")
           fi
           if [ "${{ steps.changes.outputs.web }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-web-build --query 'build.id' --output text)")
+            ids+=("$(aws codebuild start-build --project-name kall-web-build \
+              --source-type-override S3 \
+              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
+              --query 'build.id' --output text)")
           fi
           echo "started: ${ids[*]}"
           fail=0
