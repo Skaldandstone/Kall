@@ -2,13 +2,15 @@ from collections import Counter
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Application, Job, JobMatch, User
+from kall.models import Application, InterviewPrep, Job, JobMatch, JobRequirementAnalysis, User
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
+from kall.services.interview_prep import generate_questions
 
 router = APIRouter()
 
@@ -58,6 +60,60 @@ def _owned_application(application_id: int, current_user: User, session: Session
     if not application or application.user_id != current_user.id:
         raise HTTPException(404, "Application not found")
     return application
+
+
+class InterviewPrepNotesUpdate(BaseModel):
+    notes: str
+
+
+@router.get("/me/applications/{application_id}/interview-prep", response_model=InterviewPrep)
+def get_interview_prep(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> InterviewPrep:
+    """The question bank for this application, generating it on first view.
+
+    Generated once and stored rather than rebuilt every request -- the
+    questions should stay stable while someone is actually preparing with
+    them, not shuffle on every page load.
+    """
+    application = _owned_application(application_id, current_user, session)
+    prep = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
+    if prep:
+        return prep
+
+    job = session.get(Job, application.job_id)
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
+    ).first()
+    prep = InterviewPrep(
+        user_id=current_user.id,
+        application_id=application.id,
+        questions=generate_questions(job, analysis) if job else [],
+    )
+    session.add(prep)
+    session.commit()
+    session.refresh(prep)
+    return prep
+
+
+@router.put("/me/applications/{application_id}/interview-prep/notes", response_model=InterviewPrep)
+def update_interview_prep_notes(
+    application_id: int,
+    payload: InterviewPrepNotesUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> InterviewPrep:
+    application = _owned_application(application_id, current_user, session)
+    prep = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
+    if not prep:
+        raise HTTPException(404, "Generate the question bank before saving notes")
+    prep.notes = payload.notes
+    session.add(prep)
+    session.commit()
+    session.refresh(prep)
+    return prep
 
 
 @router.patch("/me/applications/{application_id}/stage")
