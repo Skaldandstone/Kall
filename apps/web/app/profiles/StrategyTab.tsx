@@ -14,10 +14,13 @@ type Profile = {
   countries: string[];
   states_regions: string[];
   work_types: string[];
+  employment_types: string[];
   minimum_base: number | null;
   target_base: number | null;
   stretch_base: number | null;
+  minimum_total_comp: number | null;
   target_total_comp: number | null;
+  target_bonus_percent: number | null;
   travel_max_percent: number | null;
   relocation_preference: string | null;
   equity_preference: string | null;
@@ -88,10 +91,13 @@ export default function StrategyTab() {
       countries: csv(form.get('countries')),
       states_regions: csv(form.get('states_regions')),
       work_types: csv(form.get('work_types')),
+      employment_types: csv(form.get('employment_types')),
       minimum_base: Number(form.get('minimum_base')) || null,
       target_base: Number(form.get('target_base')) || null,
       stretch_base: Number(form.get('stretch_base')) || null,
+      minimum_total_comp: Number(form.get('minimum_total_comp')) || null,
       target_total_comp: Number(form.get('target_total_comp')) || null,
+      target_bonus_percent: Number(form.get('target_bonus_percent')) || null,
       travel_max_percent: Number(form.get('travel_max_percent')) || null,
       relocation_preference: String(form.get('relocation_preference') || '') || null,
       equity_preference: String(form.get('equity_preference') || '') || null,
@@ -129,12 +135,20 @@ export default function StrategyTab() {
       countries: profile.countries,
       states_regions: profile.states_regions,
       work_types: profile.work_types,
+      employment_types: profile.employment_types,
       minimum_base: profile.minimum_base,
       target_base: profile.target_base,
       stretch_base: profile.stretch_base,
+      minimum_total_comp: profile.minimum_total_comp,
       target_total_comp: profile.target_total_comp,
+      target_bonus_percent: profile.target_bonus_percent,
       travel_max_percent: profile.travel_max_percent,
       relocation_preference: profile.relocation_preference,
+      // PUT replaces every field CareerProfileUpdate declares -- omitting
+      // this here (as this call did until now) silently wiped it back to
+      // null on every pause/reactivate, since a Kall profile toggled its
+      // own active state through this same full-replace endpoint.
+      equity_preference: profile.equity_preference,
       is_active: active,
     };
     const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
@@ -235,14 +249,21 @@ export default function StrategyTab() {
                       <label>Countries<input name="countries" defaultValue={profile.countries.join(', ')} /></label>
                       <label>States or regions<input name="states_regions" defaultValue={profile.states_regions.join(', ')} /></label>
                     </div>
-                    <label>Work types<input name="work_types" defaultValue={profile.work_types.join(', ')} /></label>
+                    <div className={styles.two}>
+                      <label>Work types<input name="work_types" defaultValue={profile.work_types.join(', ')} /></label>
+                      <label>Employment types<input name="employment_types" defaultValue={profile.employment_types.join(', ')} /></label>
+                    </div>
                     <div className={styles.two}>
                       <label>Minimum base<input type="number" name="minimum_base" defaultValue={profile.minimum_base ?? ''} /></label>
                       <label>Target base<input type="number" name="target_base" defaultValue={profile.target_base ?? ''} /></label>
                     </div>
                     <div className={styles.two}>
                       <label>Stretch base<input type="number" name="stretch_base" defaultValue={profile.stretch_base ?? ''} /></label>
+                      <label>Minimum total compensation<input type="number" name="minimum_total_comp" defaultValue={profile.minimum_total_comp ?? ''} /></label>
+                    </div>
+                    <div className={styles.two}>
                       <label>Total compensation<input type="number" name="target_total_comp" defaultValue={profile.target_total_comp ?? ''} /></label>
+                      <label>Target bonus %<input type="number" min="0" step="0.1" name="target_bonus_percent" defaultValue={profile.target_bonus_percent ?? ''} /></label>
                     </div>
                     <div className={styles.two}>
                       <label>Maximum travel %<input type="number" min="0" max="100" name="travel_max_percent" defaultValue={profile.travel_max_percent ?? ''} /></label>
@@ -272,8 +293,10 @@ export default function StrategyTab() {
                       <div><dt>Industries</dt><dd>{profile.industries.join(', ') || 'Not set'}</dd></div>
                       <div><dt>Locations</dt><dd>{[...profile.countries, ...profile.states_regions].join(', ') || 'Not set'}</dd></div>
                       <div><dt>Work types</dt><dd>{profile.work_types.join(', ') || 'Not set'}</dd></div>
+                      <div><dt>Employment types</dt><dd>{profile.employment_types.join(', ') || 'Not set'}</dd></div>
                       <div><dt>Target base</dt><dd>{money(profile.target_base)}</dd></div>
                       <div><dt>Total compensation</dt><dd>{money(profile.target_total_comp)}</dd></div>
+                      <div><dt>Target bonus</dt><dd>{profile.target_bonus_percent != null ? `${profile.target_bonus_percent}%` : 'Not set'}</dd></div>
                       <div><dt>Equity</dt><dd>{EQUITY_LABELS[profile.equity_preference ?? ''] ?? 'Not specified'}</dd></div>
                       <div><dt>Keywords</dt><dd>{profile.include_keywords.join(', ') || 'Not set'}</dd></div>
                     </dl>

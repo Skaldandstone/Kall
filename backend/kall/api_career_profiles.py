@@ -19,10 +19,13 @@ class CareerProfileUpdate(BaseModel):
     countries: list[str] = Field(default_factory=list)
     states_regions: list[str] = Field(default_factory=list)
     work_types: list[str] = Field(default_factory=list)
+    employment_types: list[str] = Field(default_factory=lambda: ["full_time"])
     minimum_base: int | None = Field(default=None, ge=0)
     target_base: int | None = Field(default=None, ge=0)
     stretch_base: int | None = Field(default=None, ge=0)
+    minimum_total_comp: int | None = Field(default=None, ge=0)
     target_total_comp: int | None = Field(default=None, ge=0)
+    target_bonus_percent: float | None = Field(default=None, ge=0)
     travel_max_percent: int | None = Field(default=None, ge=0, le=100)
     relocation_preference: str | None = None
     equity_preference: str | None = None
@@ -70,10 +73,13 @@ def career_profiles(
                 "countries": profile.countries,
                 "states_regions": profile.states_regions,
                 "work_types": profile.work_types,
+                "employment_types": profile.employment_types,
                 "minimum_base": profile.minimum_base,
                 "target_base": profile.target_base,
                 "stretch_base": profile.stretch_base,
+                "minimum_total_comp": profile.minimum_total_comp,
                 "target_total_comp": profile.target_total_comp,
+                "target_bonus_percent": profile.target_bonus_percent,
                 "travel_max_percent": profile.travel_max_percent,
                 "relocation_preference": profile.relocation_preference,
                 "equity_preference": profile.equity_preference,
