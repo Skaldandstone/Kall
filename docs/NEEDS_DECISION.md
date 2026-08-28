@@ -13,21 +13,40 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Six jobs now need scheduling.** `python -m kall.jobs.retention`,
+**Seven jobs now need scheduling.** `python -m kall.jobs.retention`,
 `python -m kall.jobs.notifications`, `python -m kall.jobs.billing_grace_period`,
-`python -m kall.jobs.daily_brief`, `python -m kall.jobs.run_discovery`, and
-`python -m kall.jobs.certification_reminders` all exist and all do nothing
-until something calls them. Retention wants a daily ECS scheduled task
-(nothing is a year old yet, so no urgency); the grace period job wants hourly
-(the deadline is 72 hours, not 72 minutes); daily_brief wants hourly too (it
-queues for whoever's local hour matches right now, so it needs to check
-often enough that "8am" actually lands near 8am); run_discovery wants hourly
-for the same reason -- it's what makes `DiscoverySchedule.run_at_local` mean
-anything at all, see below; certification_reminders wants daily, since its
-window is measured in days, not hours; notifications wants something more
-frequent once a real email provider is picked (a queued digest sitting for
-hours is a stale digest). See the setup runbook for the exact ECS console
-steps.
+`python -m kall.jobs.daily_brief`, `python -m kall.jobs.run_discovery`,
+`python -m kall.jobs.certification_reminders`, and
+`python -m kall.jobs.growth_milestone_reminders` all exist and all do
+nothing until something calls them. Retention wants a daily ECS scheduled
+task (nothing is a year old yet, so no urgency); the grace period job wants
+hourly (the deadline is 72 hours, not 72 minutes); daily_brief wants hourly
+too (it queues for whoever's local hour matches right now, so it needs to
+check often enough that "8am" actually lands near 8am); run_discovery wants
+hourly for the same reason -- it's what makes `DiscoverySchedule.run_at_local`
+mean anything at all, see below; certification_reminders and
+growth_milestone_reminders both want daily, since their windows are measured
+in days, not hours; notifications wants something more frequent once a real
+email provider is picked (a queued digest sitting for hours is a stale
+digest). See the setup runbook for the exact ECS console steps.
+
+**A growth milestone could never actually be marked done, and had no
+reminder either.** Nothing anywhere ever wrote to `GrowthMilestone.status`
+or `completed_at` -- every milestone a plan generated stayed "not_started"
+forever, with no button, endpoint, or anything else to change that. Fixed
+with a real `PATCH /growth/milestones/{id}` and a status control on the
+growth workspace's milestone cards. That in turn made a target-date reminder
+meaningful (a milestone marked done can now actually be excluded) --
+`services/growth_milestone_reminders.py` mirrors the certification
+reminder built earlier, on a fixed 7-day window since a milestone has no
+per-row `reminder_days_before` to configure.
+
+**A settings-page promise that wasn't kept, fixed.** The notification
+settings page's "Only matches at or above this score are worth an email"
+control (`minimum_match_score`) was collectible and round-tripped through
+the API, but `run_due_schedules()` queued a digest for every new
+opportunity regardless of score. It's enforced now, same "no preference row
+uses the model's default" convention `queue_daily_briefs` already uses.
 
 **A privacy-adjacent checkbox that did nothing -- fixed.** The profile editor's
 "Renewal required" checkbox on a certification, and its `reminder_days_before`

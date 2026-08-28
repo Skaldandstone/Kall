@@ -131,6 +131,40 @@ def test_import_resource_and_pin_ownership_checks(client: TestClient) -> None:
     assert client.patch("/api/growth/resources/999999", json={"saved": True}).status_code == 404
 
 
+def test_milestone_status_can_be_set_to_completed(client: TestClient) -> None:
+    """Regression test: nothing anywhere ever wrote to GrowthMilestone.status
+    or completed_at -- every milestone stayed "not_started" forever, with no
+    way to mark one done."""
+    _goal_id, plan = _create_goal_and_plan(client)
+    milestone_id = plan["milestones"][0]["id"]
+
+    response = client.patch(f"/api/growth/milestones/{milestone_id}", json={"status": "completed"})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "completed"
+    assert response.json()["completed_at"] is not None
+
+
+def test_milestone_status_clears_completed_at_when_moved_back(client: TestClient) -> None:
+    _goal_id, plan = _create_goal_and_plan(client)
+    milestone_id = plan["milestones"][0]["id"]
+    client.patch(f"/api/growth/milestones/{milestone_id}", json={"status": "completed"})
+
+    response = client.patch(f"/api/growth/milestones/{milestone_id}", json={"status": "in_progress"})
+    assert response.status_code == 200
+    assert response.json()["completed_at"] is None
+
+
+def test_milestone_status_rejects_an_unsupported_value(client: TestClient) -> None:
+    _goal_id, plan = _create_goal_and_plan(client)
+    milestone_id = plan["milestones"][0]["id"]
+    response = client.patch(f"/api/growth/milestones/{milestone_id}", json={"status": "abandoned"})
+    assert response.status_code == 422
+
+
+def test_milestone_status_ownership_check(client: TestClient) -> None:
+    assert client.patch("/api/growth/milestones/999999", json={"status": "completed"}).status_code == 404
+
+
 def test_skills_analysis_fallback_without_api_key(client: TestClient) -> None:
     goal_id, _plan = _create_goal_and_plan(client)
     response = client.post(f"/api/growth/goals/{goal_id}/skills-analysis", json={"answer": "I've built websites for 3 years."})
