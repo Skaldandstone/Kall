@@ -33,6 +33,20 @@ def test_portal_routes_refuse_wrong_token(client, admin_token):
     assert resp.status_code == 401
 
 
+def test_portal_routes_401_rather_than_500_on_a_non_ascii_token(client, admin_token):
+    """hmac.compare_digest raises TypeError on non-ASCII str input -- a
+    malformed header must 401 like any other wrong token, not 500.
+
+    httpx refuses a non-ASCII str header value outright, so the raw bytes
+    are sent as the header value directly -- what actually arrives over
+    the wire from a real misbehaving client.
+    """
+    resp = client.get(
+        "/api/admin/portal/users", params={"email": "test"}, headers={"X-Admin-Token": "wröng".encode()}
+    )
+    assert resp.status_code == 401
+
+
 def test_portal_user_lookup_detail_and_active_toggle(client, admin_token):
     headers = {"X-Admin-Token": admin_token}
 

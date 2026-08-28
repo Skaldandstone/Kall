@@ -40,7 +40,10 @@ router = APIRouter(prefix="/admin/portal", tags=["admin-portal"])
 
 def require_admin_token(x_admin_token: str | None = Header(default=None)) -> None:
     expected = get_settings().admin_api_token
-    if not expected or not x_admin_token or not hmac.compare_digest(x_admin_token, expected):
+    # compare_digest on str raises TypeError for non-ASCII input rather than
+    # returning False -- encode to bytes first so a malformed header 401s
+    # like any other wrong token instead of 500ing.
+    if not expected or not x_admin_token or not hmac.compare_digest(x_admin_token.encode(), expected.encode()):
         raise HTTPException(status_code=401, detail="Admin token required")
 
 
