@@ -4,7 +4,7 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-08-27 (afternoon).
+Last updated 2026-08-28 (afternoon).
 
 ## Needs a decision
 
@@ -174,6 +174,36 @@ It doesn't need to: expiry only deletes a redundant *rendered file* the
 system can rebuild byte-identically, for free, on the next request -- nothing
 the person experiences is actually lost. Say so if you want one anyway now
 that the outbox exists to carry it.
+
+**Relocation and travel preferences were collected and shown but never scored.**
+`CareerProfile.travel_max_percent`/`relocation_preference` were writable and
+served back everywhere, but `services/matching.py` never read either one --
+same family as the `equity_preference` gap fixed earlier. A user who set "no
+relocation" or a 10% travel cap still saw jobs requiring either with no
+penalty. Fixed the same way `equity_preference` was: a soft text-mention
+signal (Job has no structured field for either), since a posting silent on
+the topic isn't necessarily flexible about it.
+
+**A new token-gated admin surface for the Adminhelper Worker -- one prerequisite before its secret goes live.**
+`/admin/portal/*` (separate from the human `/admin` console) lets the
+support Worker look up/search users, toggle active/inactive, and inspect a
+pipeline, gated by `X-Admin-Token` against a new `ADMIN_API_TOKEN` setting.
+Closed entirely while that setting is unset, which it currently is in
+production -- verified live (401 with no token and with a wrong one).
+**Do not set `ADMIN_API_TOKEN` in the task definition until the ALB has a
+TLS listener** -- CloudFront to the ALB is still plain HTTP today, and a
+long-lived static token would otherwise cross that hop in the clear on
+every call.
+
+**DiscoverySchedule's "maximum posting age" setting had no date to filter
+on at all.** Configurable and persisted, but two gaps made it inert:
+nothing passed it into the actual search, and no provider ever populated
+`Job.posted_at` in the first place even though Greenhouse/Lever/Ashby all
+return a usable date in their raw responses. Both fixed -- the three
+providers now parse their own date field, and a schedule's own window is
+enforced when it runs. Manual "search now" is unaffected; a posting with
+no date (still most of them, until this propagates) is never rejected for
+missing data.
 
 ## Deferred by you
 
