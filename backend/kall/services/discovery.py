@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from kall.models import CareerProfile, Job, JobMatch, SearchRun, SearchSource, User
 from kall.providers.ashby import AshbyProvider
@@ -22,7 +22,16 @@ PROVIDERS={
 }
 
 
-async def run_discovery(session: Session, user: User, profile: CareerProfile) -> SearchRun:
+async def run_discovery(
+    session: Session, user: User, profile: CareerProfile, *, max_posting_age_days: int | None = None
+) -> SearchRun:
+    """`max_posting_age_days` is DiscoverySchedule's own setting, not the
+    manual "search now" button's -- callers on that path pass nothing, so
+    manual search behaves exactly as before. A job with no `posted_at`
+    (most providers don't supply one -- see providers/jobs.py) is never
+    rejected for missing data, the same rule matching.location_out_of_scope
+    already follows."""
+    cutoff = datetime.utcnow() - timedelta(days=max_posting_age_days) if max_posting_age_days else None
     sources = list(session.exec(select(SearchSource).where(SearchSource.user_id == user.id, SearchSource.enabled)))
     # Build the same unified ATS query used by the web workspace for every
     # immediate or scheduled run. Structured providers continue importing jobs;
@@ -76,6 +85,9 @@ async def run_discovery(session: Session, user: User, profile: CareerProfile) ->
                     JobMatch.career_profile_id==profile.id,
                     JobMatch.job_id==job.id,
                 )).first()
+                if not existing_match and cutoff and job.posted_at and job.posted_at < cutoff:
+                    skipped += 1
+                    continue
                 if not existing_match and is_out_of_scope(job, profile):
                     skipped += 1
                     continue

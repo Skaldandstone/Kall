@@ -60,7 +60,7 @@ async def run_due_schedules(session: Session, *, now: datetime | None = None) ->
             continue
 
         try:
-            await run_discovery(session, user, profile)
+            await run_discovery(session, user, profile, max_posting_age_days=schedule.max_posting_age_days)
             ran += 1
         except Exception:
             errors += 1

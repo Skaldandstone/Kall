@@ -1,7 +1,7 @@
 import html
 
 import httpx
-from kall.providers.jobs import DiscoveredJob
+from kall.providers.jobs import DiscoveredJob, parse_iso_datetime
 
 
 class GreenhouseProvider:
@@ -29,6 +29,7 @@ class GreenhouseProvider:
                     description=html.unescape(item.get("content", "")),
                     url=item.get("absolute_url", ""),
                     location=(item.get("location") or {}).get("name"),
+                    posted_at=parse_iso_datetime(item.get("updated_at")),
                     metadata={"departments": item.get("departments", []), "offices": item.get("offices", [])},
                 ))
             return rows

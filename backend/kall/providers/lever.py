@@ -1,5 +1,5 @@
 import httpx
-from kall.providers.jobs import DiscoveredJob
+from kall.providers.jobs import DiscoveredJob, parse_epoch_millis
 
 
 class LeverProvider:
@@ -22,6 +22,7 @@ class LeverProvider:
                 description=item.get("descriptionPlain") or item.get("description", ""),
                 url=item.get("hostedUrl", ""),
                 location=(item.get("categories") or {}).get("location"),
+                posted_at=parse_epoch_millis(item.get("createdAt")),
                 metadata={"team": (item.get("categories") or {}).get("team")},
             ) for item in response.json()]
         finally:

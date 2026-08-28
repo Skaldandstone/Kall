@@ -30,10 +30,29 @@ class _FakeProvider:
         ]
 
 
-def _setup(session, monkeypatch, *, run_at_hour=8, timezone="UTC", cadence="daily"):
+class _StalePostingProvider:
+    """A posting with a real posted_at far outside any reasonable
+    max_posting_age_days window -- exercises the age filter itself."""
+
+    async def collect(self, company_name: str, board_key: str) -> list[DiscoveredJob]:
+        from datetime import datetime
+
+        return [
+            DiscoveredJob(
+                source="greenhouse", external_id="1", company=company_name,
+                title="Senior Environment Artist",
+                description="Build worlds with Unreal Engine for our games studio.",
+                url="https://example.test/stale-job/1", location="Remote",
+                posted_at=datetime(2025, 1, 1),
+            )
+        ]
+
+
+def _setup(session, monkeypatch, *, run_at_hour=8, timezone="UTC", cadence="daily", provider=_FakeProvider,
+           max_posting_age_days=30):
     from datetime import time as time_
 
-    monkeypatch.setitem(__import__("kall.services.discovery", fromlist=["PROVIDERS"]).PROVIDERS, "greenhouse", _FakeProvider)
+    monkeypatch.setitem(__import__("kall.services.discovery", fromlist=["PROVIDERS"]).PROVIDERS, "greenhouse", provider)
 
     user = User(clerk_user_id="user_scheduled", email="scheduled@example.com", full_name="Scheduled Test")
     session.add(user)
@@ -56,6 +75,7 @@ def _setup(session, monkeypatch, *, run_at_hour=8, timezone="UTC", cadence="dail
     schedule = DiscoverySchedule(
         user_id=user.id, professional_profile_id=profile.id,
         run_at_local=time_(run_at_hour, 0), timezone=timezone, cadence=cadence,
+        max_posting_age_days=max_posting_age_days,
     )
     session.add(schedule)
     session.commit()
@@ -77,6 +97,24 @@ async def test_a_due_schedule_actually_runs_and_populates_opportunities(engine, 
         opportunities = list(session.exec(select(Opportunity).where(Opportunity.user_id == user.id)))
         assert len(opportunities) == 1
         assert opportunities[0].state == "new"
+
+
+@pytest.mark.asyncio
+async def test_a_posting_older_than_the_schedules_max_age_is_never_matched(engine, monkeypatch) -> None:
+    """DiscoverySchedule.max_posting_age_days was collectible on the UI's
+    schedule form but nothing ever read it back -- a schedule's own run
+    surfaced postings of any age regardless of what was configured."""
+    from datetime import datetime
+
+    with Session(engine) as session:
+        user, profile, schedule = _setup(session, monkeypatch, provider=_StalePostingProvider, max_posting_age_days=7)
+
+        result = await run_due_schedules(session, now=datetime(2026, 8, 27, 8, 0))
+
+        assert result["ran"] == 1
+        assert result["digests_queued"] == 0
+        opportunities = list(session.exec(select(Opportunity).where(Opportunity.user_id == user.id)))
+        assert opportunities == []
 
 
 @pytest.mark.asyncio
