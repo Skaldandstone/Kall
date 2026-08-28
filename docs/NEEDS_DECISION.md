@@ -13,25 +13,20 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Nine jobs now need scheduling.** `python -m kall.jobs.retention`,
-`python -m kall.jobs.notifications`, `python -m kall.jobs.billing_grace_period`,
-`python -m kall.jobs.daily_brief`, `python -m kall.jobs.run_discovery`,
-`python -m kall.jobs.certification_reminders`,
-`python -m kall.jobs.growth_milestone_reminders`,
-`python -m kall.jobs.work_authorization_reminders`, and
-`python -m kall.jobs.security_clearance_reminders` all exist and all do
-nothing until something calls them. Retention wants a daily ECS scheduled
-task (nothing is a year old yet, so no urgency); the grace period job wants
-hourly (the deadline is 72 hours, not 72 minutes); daily_brief wants hourly
-too (it queues for whoever's local hour matches right now, so it needs to
-check often enough that "8am" actually lands near 8am); run_discovery wants
-hourly for the same reason -- it's what makes `DiscoverySchedule.run_at_local`
-mean anything at all, see below; certification_reminders,
-growth_milestone_reminders, work_authorization_reminders, and
-security_clearance_reminders all want daily, since their windows are
-measured in days, not hours; notifications wants something more frequent
-once a real email provider is picked (a queued digest sitting for hours is
-a stale digest). See the setup runbook for the exact ECS console steps.
+**Nine jobs now need scheduling -- done (2026-08-28).** All nine now
+actually run: EventBridge Scheduler starts `python -m kall.jobs.hourly`
+(billing grace period, daily-brief queue, scheduled discovery, then the
+notification outbox drain last, so anything queued that tick sends that
+tick) every hour, and `python -m kall.jobs.daily` (retention plus the
+certification, growth-milestone, work-authorization, and security-clearance
+reminders) at 06:30 UTC -- each as a one-off Fargate task on the current
+`kall-api` task definition with a command override; see
+`docs/AWS_DEPLOYMENT.md`. One job failing does not stop its siblings
+(`kall/jobs/_suite.py`, tested), and a failed suite exits nonzero so the
+task shows up red. The accepted trade-off: the notification drain runs
+hourly, fine while deliveries only queue (no email provider yet) -- revisit
+the cadence when SES sending is switched on, if an hour-stale digest
+matters then.
 
 **A visa or sponsorship could lapse with no warning -- fixed.**
 `WorkAuthorization.authorized_until` is collected and consumed by
