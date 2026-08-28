@@ -74,6 +74,18 @@ export const RECORD_SCHEMAS: Record<string, RecordSchema> = {
       { name: 'reminder_days_before', label: 'Remind me this many days before it expires', kind: 'number' },
     ],
   },
+  clearances: {
+    singular: 'clearance',
+    titleFields: ['clearance_type'],
+    fields: [
+      { name: 'clearance_type', label: 'Clearance type', kind: 'text', required: true },
+      { name: 'country', label: 'Country', kind: 'text', required: true },
+      { name: 'status', label: 'Status', kind: 'select', options: ['active', 'expired', 'inactive'], required: true },
+      { name: 'granted_on', label: 'Granted on', kind: 'date' },
+      { name: 'expires_on', label: 'Expires on', kind: 'date' },
+      { name: 'polygraph_type', label: 'Polygraph type', kind: 'text' },
+    ],
+  },
   languages: {
     singular: 'language',
     titleFields: ['name'],
