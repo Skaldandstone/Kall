@@ -13,12 +13,13 @@ Rendered resumes and cover letters now expire after a year and rebuild
 byte-identically if anyone asks again. Twelve months was my choice, not yours.
 One constant: `ARTIFACT_RETENTION_DAYS` in `backend/kall/services/documents.py`.
 
-**Eight jobs now need scheduling.** `python -m kall.jobs.retention`,
+**Nine jobs now need scheduling.** `python -m kall.jobs.retention`,
 `python -m kall.jobs.notifications`, `python -m kall.jobs.billing_grace_period`,
 `python -m kall.jobs.daily_brief`, `python -m kall.jobs.run_discovery`,
 `python -m kall.jobs.certification_reminders`,
-`python -m kall.jobs.growth_milestone_reminders`, and
-`python -m kall.jobs.work_authorization_reminders` all exist and all do
+`python -m kall.jobs.growth_milestone_reminders`,
+`python -m kall.jobs.work_authorization_reminders`, and
+`python -m kall.jobs.security_clearance_reminders` all exist and all do
 nothing until something calls them. Retention wants a daily ECS scheduled
 task (nothing is a year old yet, so no urgency); the grace period job wants
 hourly (the deadline is 72 hours, not 72 minutes); daily_brief wants hourly
@@ -26,11 +27,11 @@ too (it queues for whoever's local hour matches right now, so it needs to
 check often enough that "8am" actually lands near 8am); run_discovery wants
 hourly for the same reason -- it's what makes `DiscoverySchedule.run_at_local`
 mean anything at all, see below; certification_reminders,
-growth_milestone_reminders, and work_authorization_reminders all want
-daily, since their windows are measured in days, not hours; notifications
-wants something more frequent once a real email provider is picked (a
-queued digest sitting for hours is a stale digest). See the setup runbook
-for the exact ECS console steps.
+growth_milestone_reminders, work_authorization_reminders, and
+security_clearance_reminders all want daily, since their windows are
+measured in days, not hours; notifications wants something more frequent
+once a real email provider is picked (a queued digest sitting for hours is
+a stale digest). See the setup runbook for the exact ECS console steps.
 
 **A visa or sponsorship could lapse with no warning -- fixed.**
 `WorkAuthorization.authorized_until` is collected and consumed by
@@ -39,6 +40,22 @@ autofill, but nothing anywhere ever compared it against today's date.
 reminder, on a fixed 60-day window since work authorization has no
 per-row `reminder_days_before` and visa renewals routinely need lead time
 measured in months.
+
+**Security clearances were entirely unreachable from the UI -- fixed.**
+`SecurityClearance` was fully wired on the backend (the generic
+profile-resource CRUD already handled it) but `recordSchema.ts` never had
+a "clearances" section, so nobody could ever add one. Needed zero new
+backend code, just the missing form. Once reachable, `expires_on` had the
+same no-reminder gap as `Certification`/`WorkAuthorization` -- fixed the
+same way, a fixed 90-day window.
+
+**Interview-prep question generation was skipping the AI quota entirely --
+fixed.** Unlike every other AI-cost endpoint, `get_interview_prep` never
+called `quota.assert_ai_allowed`/`record_ai_action` -- a Free-plan user
+could trigger one real OpenAI call per application with no weekly cap and
+no consumption recorded. Now metered the same way `api_growth.py`'s plan
+generation is: only a genuine AI call counts, the free fallback question
+list doesn't.
 
 **A growth milestone could never actually be marked done, and had no
 reminder either.** Nothing anywhere ever wrote to `GrowthMilestone.status`
