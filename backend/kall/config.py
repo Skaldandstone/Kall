@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     stripe_premium_price_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
+    #: Shared secret for the Adminhelper Worker's machine-to-machine calls to
+    #: /admin/portal/* (see api_admin_portal.py) -- a separate surface from
+    #: the human CS console at /admin, which is Clerk-session gated instead.
+    #: Unset by default, which closes the portal router entirely.
+    admin_api_token: str | None = None
+
     # Clerk owns identity: sign-in, sign-up, sessions, MFA, passkeys and social
     # connections. The backend only verifies the session token Clerk issues and
     # maps it to a local User row -- see kall/auth.py.
