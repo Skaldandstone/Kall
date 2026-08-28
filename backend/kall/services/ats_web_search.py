@@ -62,6 +62,7 @@ def _quoted_or(values: list[str], limit: int = 8) -> str:
 
 def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
     titles = _quoted_or(profile.target_titles)
+    industries = _quoted_or(profile.industries, limit=5)
     keywords = _quoted_or(profile.include_keywords, limit=5)
     locations = _quoted_or([*profile.states_regions, *profile.countries], limit=5)
     exclusions = " ".join(f'-"{value.strip()}"' for value in profile.exclude_keywords[:5] if value.strip())
@@ -69,6 +70,13 @@ def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
     intent_parts = []
     if titles:
         intent_parts.append(f"({titles})")
+    # A title like "Quality Assurance Director" alone pulls in every industry
+    # that title exists in (software, pharma, food safety, ...) -- profile
+    # already stored the chosen industries (CareerProfile.industries) and
+    # deterministic_match already scores by it for structured providers, but
+    # this hidden-market query never narrowed by it at all.
+    if industries:
+        intent_parts.append(f"({industries})")
     if keywords:
         intent_parts.append(f"({keywords})")
     if locations:

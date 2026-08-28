@@ -36,6 +36,21 @@ def test_domains_list_has_no_duplicates() -> None:
     assert len(domains) == len(set(domains))
 
 
+def test_industries_narrow_the_query() -> None:
+    """A title like "Quality Assurance Director" alone pulls in every
+    industry that title exists in -- specifying an industry should actually
+    narrow the search, not just score matches after the fact."""
+    query = build_ats_queries(_profile(
+        target_titles=["Quality Assurance Director"], industries=["Pharmaceuticals", "Food Safety"],
+    ))[0]["query"]
+    assert '"Pharmaceuticals" OR "Food Safety"' in query
+
+
+def test_no_industry_specified_does_not_add_an_empty_clause() -> None:
+    query = build_ats_queries(_profile(target_titles=["Engineer"], industries=[]))[0]["query"]
+    assert "()" not in query
+
+
 def test_titles_are_or_grouped_and_quoted() -> None:
     query = build_ats_queries(_profile(target_titles=["Staff Engineer", "Principal Engineer"]))[0]["query"]
     assert '"Staff Engineer" OR "Principal Engineer"' in query
