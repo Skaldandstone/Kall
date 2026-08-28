@@ -166,6 +166,15 @@ def generate_resume_documents(
         template_key=template_key,
         content_json={"sections": sections},
         checksum=_sha(canonical),
+        # finalized_at was already set here; status defaulted to "generated"
+        # and nothing anywhere ever advanced it. build_preview() (in
+        # services/submissions.py) filters on status == "finalized" to build
+        # the submission preview's document_checksums -- with this never set,
+        # that dict was always empty, and the anti-tampering check comparing
+        # a submission's approved document_checksums against the current
+        # ones (validate_submission) was comparing {} to {} and could never
+        # actually catch a resume that changed after approval.
+        status="finalized",
         finalized_at=datetime.utcnow(),
     )
     session.add(generated)

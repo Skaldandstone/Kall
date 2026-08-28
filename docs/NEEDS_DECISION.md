@@ -236,3 +236,25 @@ on the kanban board later would have charged the applications quota a
 account could hit it. The "confirmed"-only status gate on that endpoint now
 also accepts "submitted", so a client retrying an already-succeeded attempt
 can still replay it idempotently.
+
+**Three more CareerProfile fields were unreachable after creation, and
+pausing a profile was silently wiping equity preference -- both fixed.**
+`employment_types` and `target_bonus_percent` could never be set or edited
+by any endpoint; `minimum_total_comp` could be set once at onboarding but
+never edited or even shown again. Same gap as `equity_preference` earlier.
+While wiring these up, found that `StrategyTab.tsx`'s Pause/Reactivate
+button resends the whole profile through the same full-replace PUT the
+edit form uses, and had already been missing `equity_preference` -- every
+pause or reactivate was silently resetting it to unset. Fixed alongside
+the three new fields.
+
+**The resume anti-tampering check could never actually fire -- fixed.**
+`GeneratedDocument.status` defaulted to `"generated"` and nothing ever
+advanced it to `"finalized"`, even though `finalized_at` was already being
+set at the same moment. The submission-preview code filters on exactly
+that status to snapshot which documents were approved, so that snapshot
+was always empty, and the check comparing it against a resubmission's
+current documents was comparing nothing to nothing -- a resume regenerated
+or edited after approval but before the actual ATS submission would never
+have been caught. Cover letters don't have a `GeneratedDocument` row at
+all yet, which is a separate, larger gap this did not touch.

@@ -7,6 +7,7 @@ from kall.models import (
     ApplicationReview,
     ApplicationSubmission,
     CareerProfile,
+    GeneratedDocument,
     Job,
     SubmissionAttempt,
 )
@@ -181,3 +182,59 @@ def test_replaying_an_attempt_after_it_already_submitted_still_works(client: Tes
     yet_another = _seed_confirmed_submission(client, engine)
     over_limit = client.post(f"/api/submissions/{yet_another}/attempt")
     assert over_limit.status_code == 402
+
+
+def test_a_resume_changed_after_approval_is_caught_before_submission(client: TestClient, engine) -> None:
+    """Regression test: GeneratedDocument.status never reached "finalized"
+    (see services/documents.py), so build_preview()'s document_checksums was
+    always {} and this exact check -- comparing what was approved against
+    what currently exists -- was comparing {} to {} and could never fire.
+    """
+    user_id = client.user_id  # type: ignore[attr-defined]
+    with Session(engine) as session:
+        job = Job(
+            source="manual", company="Acme", title="Engineer", description="Build things.",
+            url=f"https://example.com/{datetime.utcnow().timestamp()}",
+        )
+        session.add(job)
+        profile = CareerProfile(user_id=user_id, name="Default")
+        session.add(profile)
+        session.commit()
+        session.refresh(job)
+        session.refresh(profile)
+        application = Application(
+            user_id=user_id, job_id=job.id, career_profile_id=profile.id,
+            status=ApplicationStatus.APPROVED, ats_provider="greenhouse", user_approved_at=datetime.utcnow(),
+        )
+        session.add(application)
+        session.commit()
+        session.refresh(application)
+        session.add(ApplicationReview(
+            application_id=application.id, user_id=user_id, status="approved",
+            documents_confirmed=True, answers_confirmed=True, attestations_confirmed=True,
+            approved_at=datetime.utcnow(),
+        ))
+        document = GeneratedDocument(
+            user_id=user_id, job_id=job.id, document_type="resume",
+            status="finalized", checksum="original-checksum",
+        )
+        session.add(document)
+        session.commit()
+        application_id, document_id = application.id, document.id
+
+    preview = client.post(f"/api/applications/{application_id}/submission-preview")
+    submission_id = preview.json()["id"]
+    assert preview.json()["document_checksums"] == {"resume": "original-checksum"}
+    confirmed = client.post(f"/api/submissions/{submission_id}/confirm")
+    assert confirmed.status_code == 200 and confirmed.json()["status"] == "confirmed"
+
+    # The resume is regenerated (a new tailoring pass, an edit) after
+    # approval -- its checksum changes, but nobody re-confirms.
+    with Session(engine) as session:
+        document = session.get(GeneratedDocument, document_id)
+        document.checksum = "tampered-checksum"
+        session.add(document)
+        session.commit()
+
+    checked = client.get(f"/api/submissions/{submission_id}")
+    assert "Approved preview or documents changed" in checked.json()["validation_issues"]
