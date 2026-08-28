@@ -8,6 +8,7 @@ from kall.models import (
     CareerProfile,
     DiscoverySchedule,
     NotificationDelivery,
+    NotificationPreference,
     Opportunity,
     SearchSource,
     User,
@@ -22,7 +23,8 @@ class _FakeProvider:
         return [
             DiscoveredJob(
                 source="greenhouse", external_id="1", company=company_name,
-                title="Senior Environment Artist", description="Build worlds with Unreal Engine.",
+                title="Senior Environment Artist",
+                description="Build worlds with Unreal Engine for our games studio.",
                 url="https://example.test/scheduled-job/1", location="Remote",
             )
         ]
@@ -38,7 +40,14 @@ def _setup(session, monkeypatch, *, run_at_hour=8, timezone="UTC", cadence="dail
     session.commit()
     session.refresh(user)
 
-    profile = CareerProfile(user_id=user.id, name="Game Art", target_titles=["Environment Artist"])
+    # Deliberately a strong match (score 70) against _FakeProvider's job --
+    # comfortably above NotificationPreference's default minimum_match_score
+    # (60), so these tests exercise the "definitely worth a digest" case.
+    # See test_a_low_scoring_match_does_not_queue_a_digest for the opposite.
+    profile = CareerProfile(
+        user_id=user.id, name="Game Art", target_titles=["Environment Artist"],
+        industries=["Games"], include_keywords=["Unreal Engine", "worlds"],
+    )
     session.add(profile)
     session.commit()
     session.refresh(profile)
@@ -108,6 +117,42 @@ async def test_a_real_digest_is_queued_in_the_notification_outbox(engine, monkey
         assert delivery.kind == "opportunity_digest"
         assert delivery.status == "queued"
         assert len(delivery.payload["opportunity_ids"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_match_below_the_minimum_score_does_not_queue_a_digest(engine, monkeypatch) -> None:
+    """The settings page's own promise ("only matches at or above this score
+    are worth an email") was never actually enforced here -- every "new"
+    opportunity was queued regardless of score. The fixture scores 70; a
+    preference requiring 95+ must leave it out of the digest even though
+    the run itself still succeeds."""
+    from datetime import datetime
+
+    with Session(engine) as session:
+        user, profile, _ = _setup(session, monkeypatch)
+        session.add(NotificationPreference(user_id=user.id, minimum_match_score=95))
+        session.commit()
+
+        result = await run_due_schedules(session, now=datetime(2026, 8, 27, 8, 0))
+
+        assert result["ran"] == 1
+        assert result["digests_queued"] == 0
+        opportunities = list(session.exec(select(Opportunity).where(Opportunity.user_id == user.id)))
+        assert len(opportunities) == 1, "the opportunity itself is still tracked, just not emailed"
+        assert not list(session.exec(select(NotificationDelivery).where(NotificationDelivery.user_id == user.id)))
+
+
+@pytest.mark.asyncio
+async def test_a_custom_minimum_score_below_the_match_still_queues_a_digest(engine, monkeypatch) -> None:
+    from datetime import datetime
+
+    with Session(engine) as session:
+        user, profile, _ = _setup(session, monkeypatch)
+        session.add(NotificationPreference(user_id=user.id, minimum_match_score=40))
+        session.commit()
+
+        result = await run_due_schedules(session, now=datetime(2026, 8, 27, 8, 0))
+        assert result["digests_queued"] == 1
 
 
 @pytest.mark.asyncio
