@@ -46,6 +46,22 @@ class ApplicationReview(TimestampMixin, table=True):
     readiness_issues: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
+class InterviewPrep(TimestampMixin, table=True):
+    """A question bank plus free-text notes to prepare for one application's
+    interview. Nothing tracked this before -- ApplicationStatus has no
+    "interview" state of its own (an interview can happen any time after
+    submission), so this is scoped to a single application rather than a
+    pipeline stage. First cut: no mock-interview practice yet, just likely
+    questions and a place to jot notes.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    application_id: int = Field(index=True, foreign_key="application.id", unique=True)
+    questions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    notes: str = ""
+
+
 class ApplicationReviewAudit(TimestampMixin, table=True):
     id: int | None = Field(default=None, primary_key=True)
     application_id: int = Field(index=True, foreign_key="application.id")
