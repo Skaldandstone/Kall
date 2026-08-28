@@ -241,6 +241,19 @@ SecurityClearance all got a reminder earlier; ProfessionalMembership.expires_on
 was just as reachable and just as silent. Same fixed-window pattern, 90
 days, as the sixth daily job.
 
+**`identity.website_urls` was collected and never used -- fixed.** A
+distinct field from its sibling `portfolio_urls` ("Websites" vs.
+"Portfolios" on the identity settings page), but only `portfolio_urls` was
+ever wired into autofill. Wired the same way: `ALWAYS` tier, "Website"
+label, first URL sourced into the pack.
+
+**Patents, professional memberships, and volunteer/board service were
+unreachable from the career page -- fixed.** All three are fully-formed
+profile resources, same shape as Certification/AwardHonor/Publication/
+SpeakingEngagement, but career_page.py's allowlists never named them --
+no sensitive-data reason excluded them, just an oversight. Now addable as
+sections, rendering title+issuer+date like their siblings.
+
 ## Deferred by you
 
 **Production Clerk instance.** Still on development keys with a 100-user cap.
