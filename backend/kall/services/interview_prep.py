@@ -24,14 +24,19 @@ FALLBACK_QUESTIONS = [
 _MAX_QUESTIONS = 10
 
 
-def generate_questions(job: Job, analysis: JobRequirementAnalysis | None) -> list[str]:
+def generate_questions(job: Job, analysis: JobRequirementAnalysis | None) -> tuple[list[str], bool]:
     """Likely interview questions for `job`, or FALLBACK_QUESTIONS if AI is
     not configured or fails -- the same "silence is not an option" rule
     services/openai_json.py exists to enforce elsewhere.
+
+    Returns (questions, used_ai) -- the caller needs to know whether an AI
+    call actually happened, the same way api_growth.py's generate_plan only
+    calls quota.record_ai_action() when the AI path was genuinely taken and
+    not when a free deterministic fallback was used instead.
     """
     settings = get_settings()
     if not settings.openai_api_key:
-        return FALLBACK_QUESTIONS
+        return FALLBACK_QUESTIONS, False
 
     schema = {
         "type": "object",
@@ -51,6 +56,6 @@ def generate_questions(job: Job, analysis: JobRequirementAnalysis | None) -> lis
         prompt, schema_name="interview_questions", schema=schema, purpose="interview prep questions",
     )
     if parsed is None:
-        return FALLBACK_QUESTIONS
+        return FALLBACK_QUESTIONS, False
     questions = [q for q in parsed.get("questions", []) if isinstance(q, str) and q.strip()]
-    return questions[:_MAX_QUESTIONS] if questions else FALLBACK_QUESTIONS
+    return (questions[:_MAX_QUESTIONS], True) if questions else (FALLBACK_QUESTIONS, False)

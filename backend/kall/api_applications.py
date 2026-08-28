@@ -87,10 +87,19 @@ def get_interview_prep(
     analysis = session.exec(
         select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
     ).first()
+    questions: list[str] = []
+    if job:
+        # Only the AI path costs anything or needs gating -- generate_questions
+        # falls back to a fixed list for free when no key is configured or the
+        # call fails, same shape as api_growth.py's generate_plan.
+        quota.assert_ai_allowed(session, current_user)
+        questions, used_ai = generate_questions(job, analysis)
+        if used_ai:
+            quota.record_ai_action(session, current_user)
     prep = InterviewPrep(
         user_id=current_user.id,
         application_id=application.id,
-        questions=generate_questions(job, analysis) if job else [],
+        questions=questions,
     )
     session.add(prep)
     session.commit()

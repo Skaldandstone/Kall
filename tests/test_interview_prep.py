@@ -66,6 +66,58 @@ def test_saving_notes_before_the_question_bank_exists_is_rejected(client, engine
     assert response.status_code == 404
 
 
+def test_a_real_ai_generation_consumes_the_ai_actions_quota(client, engine, monkeypatch) -> None:
+    """Regression test: get_interview_prep never called assert_ai_allowed/
+    record_ai_action at all, unlike every other AI-cost endpoint
+    (api_growth.py, api_resume_intelligence.py) -- a Free-plan user could
+    trigger an unmetered AI generation per application with no weekly cap
+    and no consumption recorded."""
+    import httpx
+    from kall.config import get_settings
+    from kall.services.quota import snapshot
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"output_text": '{"questions": ["What drew you to this role?"]}'}
+
+    monkeypatch.setattr(httpx, "post", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    try:
+        application_id = _application(engine, client.user_id)
+        response = client.get(f"{API}/{application_id}/interview-prep")
+        assert response.status_code == 200, response.text
+        assert response.json()["questions"] == ["What drew you to this role?"]
+
+        with Session(engine) as session:
+            from kall.models import User
+
+            user = session.get(User, client.user_id)
+            assert snapshot(session, user)["meters"]["ai_actions"]["used"] == 1
+    finally:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        get_settings.cache_clear()
+
+
+def test_a_free_fallback_never_consumes_the_ai_actions_quota(client, engine) -> None:
+    """No OpenAI key configured -- the fallback question list is free, and
+    must not be metered the same way a real AI call would be."""
+    from kall.models import User
+    from kall.services.quota import snapshot
+
+    application_id = _application(engine, client.user_id)
+    client.get(f"{API}/{application_id}/interview-prep")
+
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        assert snapshot(session, user)["meters"]["ai_actions"]["used"] == 0
+
+
 def test_interview_prep_is_scoped_to_the_owning_account(client, engine) -> None:
     from kall.models import User
 
