@@ -14,6 +14,7 @@ from kall.services import quota
 from kall.services.onboarding_ai import suggest_career_strategy
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.resume_proofreading import proofreading_gaps
 from kall.services.storage import get_storage
 
 router = APIRouter()
@@ -68,7 +69,11 @@ def _resume_score(resume: ResumeDocument) -> tuple[int, list[str], list[str]]:
     if resume.version > 1:
         score += 5
         strengths.append("The resume has version history.")
-    return min(score, 100), strengths, gaps
+
+    content_gaps = proofreading_gaps(resume.extracted_text or "")
+    gaps.extend(content_gaps)
+    score -= 8 * len(content_gaps)
+    return max(min(score, 100), 0), strengths, gaps
 
 
 def _owned_resume(resume_id: int, user_id: int, session: Session) -> ResumeDocument:
