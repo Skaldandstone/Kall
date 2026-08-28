@@ -30,3 +30,57 @@ def test_equity_preference_defaults_to_unset(client) -> None:
     listed = client.get("/api/me/career-profiles")
     row = next(row for row in listed.json()["profiles"] if row["id"] == profile_id)
     assert row["equity_preference"] is None
+
+
+def test_employment_types_minimum_total_comp_and_bonus_percent_are_editable(client) -> None:
+    """The same gap as equity_preference, for three more fields:
+    employment_types and target_bonus_percent were unreachable by any
+    endpoint after creation, and minimum_total_comp could be set once at
+    onboarding but never edited or even shown afterward."""
+    profile_id = _create_profile(client)
+    updated = client.put(f"/api/me/career-profiles/{profile_id}", json={
+        "name": "Test Profile",
+        "employment_types": ["contract", "part_time"],
+        "minimum_total_comp": 150000,
+        "target_bonus_percent": 12.5,
+    })
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["employment_types"] == ["contract", "part_time"]
+    assert updated.json()["minimum_total_comp"] == 150000
+    assert updated.json()["target_bonus_percent"] == 12.5
+
+    listed = client.get("/api/me/career-profiles")
+    row = next(row for row in listed.json()["profiles"] if row["id"] == profile_id)
+    assert row["employment_types"] == ["contract", "part_time"]
+    assert row["minimum_total_comp"] == 150000
+    assert row["target_bonus_percent"] == 12.5
+
+
+def test_pausing_a_profile_does_not_wipe_equity_or_the_new_fields(client) -> None:
+    """setActive() (StrategyTab.tsx) resends the whole profile through the
+    same full-replace PUT the edit form uses. It was missing
+    equity_preference already -- silently wiping it back to null on every
+    pause/reactivate -- and would have missed these three fields too."""
+    profile_id = _create_profile(client)
+    client.put(f"/api/me/career-profiles/{profile_id}", json={
+        "name": "Test Profile",
+        "equity_preference": "required",
+        "employment_types": ["contract"],
+        "minimum_total_comp": 150000,
+        "target_bonus_percent": 12.5,
+    })
+
+    paused = client.put(f"/api/me/career-profiles/{profile_id}", json={
+        "name": "Test Profile",
+        "equity_preference": "required",
+        "employment_types": ["contract"],
+        "minimum_total_comp": 150000,
+        "target_bonus_percent": 12.5,
+        "is_active": False,
+    })
+    assert paused.status_code == 200
+    assert paused.json()["equity_preference"] == "required"
+    assert paused.json()["employment_types"] == ["contract"]
+    assert paused.json()["minimum_total_comp"] == 150000
+    assert paused.json()["target_bonus_percent"] == 12.5
+    assert paused.json()["is_active"] is False
