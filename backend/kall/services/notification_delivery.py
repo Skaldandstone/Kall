@@ -175,6 +175,19 @@ def _professional_membership_reminder_email(delivery: NotificationDelivery) -> t
     return subject, html
 
 
+def _reference_reminder_email(delivery: NotificationDelivery) -> tuple[str, str]:
+    payload = delivery.payload
+    subject = f"Time to reconfirm: {payload['name']}"
+    org_suffix = f" at {payload['organization']}" if payload.get("organization") else ""
+    html = (
+        f"<p>You listed <strong>{payload['name']}</strong>{org_suffix} as a reference, "
+        f"last confirmed on {payload['last_confirmed_on']}.</p>"
+        "<p>It's been a while -- worth a quick check that they're still reachable and "
+        "still willing before an employer calls them.</p>"
+    )
+    return subject, html
+
+
 def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple[str, str]:
     del delivery
     subject = "Your Kall plan has been paused"
@@ -203,6 +216,8 @@ def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]
         return _security_clearance_reminder_email(delivery)
     if delivery.kind == "professional_membership_reminder":
         return _professional_membership_reminder_email(delivery)
+    if delivery.kind == "reference_reminder":
+        return _reference_reminder_email(delivery)
     raise ValueError(f"Unknown notification kind: {delivery.kind}")
 
 

@@ -1,0 +1,69 @@
+"""Queue a reminder once a reference has gone stale since it was last confirmed.
+
+Reference.last_confirmed_on and permission_to_contact are fully CRUD-reachable
+through the generic profile-resource registry, but nothing anywhere ever
+compared last_confirmed_on against today's date -- the same "collected but
+never acted on" gap already found and fixed for Certification,
+WorkAuthorization, SecurityClearance, and ProfessionalMembership.
+
+This one has a different shape from those four: it isn't a known future
+expiry to warn ahead of, it's a staleness check on when the reference was
+last actually confirmed. A reference someone agreed to be contacted for six
+months ago may no longer be reachable, may have changed jobs, or may simply
+no longer remember the details -- surfacing that before an employer calls
+them cold is the point.
+
+Scoped to permission_to_contact == True: a reference nobody has permission
+to contact yet isn't "stale", it just hasn't reached that step -- that's a
+UI prompt to seek permission, not a time-based reminder. Also excludes
+anything marked "unavailable", the same way the fixed-window reminders
+exclude an already-lapsed/inactive row.
+"""
+
+from datetime import datetime, timedelta
+
+from kall.models import Reference
+from kall.services.notification_delivery import queue
+from sqlmodel import Session, select
+
+REMINDER_STALENESS_DAYS = 180
+
+
+def queue_reference_reminders(session: Session, *, now: datetime | None = None) -> int:
+    """Queue one `reference_reminder` delivery per reference that has gone
+    stale since it was last confirmed. Returns the number queued.
+
+    dedupe_key is keyed to the row's current last_confirmed_on (or its
+    created_at date, when never confirmed) -- so re-confirming it moves
+    the baseline forward and naturally opens a fresh reminder for the next
+    cycle, the same convention the fixed-window reminders use for
+    expires_on.
+    """
+    today = (now or datetime.utcnow()).date()
+    references = session.exec(
+        select(Reference).where(
+            Reference.permission_to_contact == True,  # noqa: E712
+            Reference.availability != "unavailable",
+        )
+    ).all()
+
+    queued = 0
+    for reference in references:
+        baseline = reference.last_confirmed_on or reference.created_at.date()
+        stale_since = baseline + timedelta(days=REMINDER_STALENESS_DAYS)
+        if today < stale_since:
+            continue
+        queue(
+            session,
+            user_id=reference.user_id,
+            kind="reference_reminder",
+            payload={
+                "reference_id": reference.id,
+                "name": reference.name,
+                "organization": reference.organization,
+                "last_confirmed_on": baseline.isoformat(),
+            },
+            dedupe_key=f"reference_reminder:{reference.id}:{baseline.isoformat()}",
+        )
+        queued += 1
+    return queued

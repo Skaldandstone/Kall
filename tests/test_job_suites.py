@@ -16,7 +16,7 @@ def test_hourly_covers_the_four_hourly_jobs_with_notifications_last() -> None:
     assert names[-1] == "notifications"
 
 
-def test_daily_covers_the_six_daily_jobs() -> None:
+def test_daily_covers_the_seven_daily_jobs() -> None:
     assert set(daily.JOBS) == {
         "retention",
         "certification_reminders",
@@ -24,6 +24,7 @@ def test_daily_covers_the_six_daily_jobs() -> None:
         "work_authorization_reminders",
         "security_clearance_reminders",
         "professional_membership_reminders",
+        "reference_reminders",
     }
 
 
