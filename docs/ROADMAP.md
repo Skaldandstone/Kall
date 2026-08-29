@@ -1,5 +1,7 @@
 # Roadmap
 
+This file is the working log of competitive-gap work and near-term priorities. The milestone-level product roadmap (Alpha, MVP, Beta, Post-MVP) lives in [`prd/02-roadmap.md`](prd/02-roadmap.md).
+
 The next milestone after v0.3 is complete onboarding and CRUD for identity, professional history, credentials, EEO, work authorization, references, and field-level privacy controls.
 
 ## Competitive gaps (2026-08-27) -- all four shipped 2026-08-28
