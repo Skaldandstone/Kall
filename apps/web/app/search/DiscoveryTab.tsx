@@ -46,6 +46,11 @@ type Schedule = {
   max_posting_age_days: number;
   next_run_at?: string | null;
   last_run_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  monitoring_status?: string;
+  email_provider_status?: string;
+  monitored_sources?: { provider: string; company_name: string; status: string; last_success_at?: string | null }[];
 };
 
 type Opportunity = {
@@ -67,6 +72,21 @@ async function responseMessage(response: Response, fallback: string) {
   }
 }
 
+function utcDate(value: string) {
+  return new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`).toLocaleString();
+}
+
+function scheduleStatus(schedule: Schedule) {
+  const labels: Record<string, string> = {
+    unconfigured: 'No supported company boards are configured.', scheduled: 'Scheduled search is enabled.', paused: 'Paused. This profile is not being checked.',
+    worker_disabled: 'Pilot worker is disabled. Your opt-in is saved; automatic checks have not started.',
+    delayed: 'Checks are delayed. Unfinished work will resume on the next tick.',
+    awaiting_baseline: 'Waiting for the first successful check to establish your baseline.',
+    monitoring: 'Monitoring configured company boards every five minutes.',
+  };
+  return labels[schedule.monitoring_status || 'scheduled'] || 'Check status unavailable.';
+}
+
 export default function DiscoveryTab() {
   const [profileId, setProfileId] = useState('');
   const [minimumScore, setMinimumScore] = useState(35);
@@ -78,6 +98,7 @@ export default function DiscoveryTab() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState({ cadence: 'daily', hour: 8, age: 30, enabled: true, timezone: '' });
 
 
   const authenticatedFetch = useCallback(async (url: string, init: RequestInit = {}) => {
@@ -151,6 +172,16 @@ export default function DiscoveryTab() {
     [profileId, schedules],
   );
 
+  useEffect(() => {
+    setScheduleDraft({
+      cadence: selectedSchedule?.cadence || 'daily',
+      hour: selectedSchedule ? Number(selectedSchedule.run_at_local.slice(0, 2)) : 8,
+      age: selectedSchedule?.max_posting_age_days || 30,
+      enabled: selectedSchedule?.enabled ?? true,
+      timezone: selectedSchedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  }, [profileId, selectedSchedule]);
+
   const selectedRuns = useMemo(
     () => runs.filter((run) => String(run.professional_profile_id) === profileId).slice(0, 8),
     [profileId, runs],
@@ -190,17 +221,17 @@ export default function DiscoveryTab() {
       return;
     }
     setIsSavingSchedule(true);
-    const form = new FormData(event.currentTarget);
     try {
       const response = await authenticatedFetch(`${API}/discovery/schedules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           professional_profile_id: Number(profileId),
-          cadence: form.get('cadence'),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          hour_local: Number(form.get('hour_local')),
-          max_posting_age_days: Number(form.get('age_days')),
+          cadence: scheduleDraft.cadence,
+          timezone: scheduleDraft.timezone,
+          hour_local: scheduleDraft.hour,
+          max_posting_age_days: scheduleDraft.age,
+          enabled: scheduleDraft.enabled,
         }),
       });
       if (!response.ok) throw new Error(await responseMessage(response, 'Unable to save schedule.'));
@@ -311,37 +342,52 @@ export default function DiscoveryTab() {
           <div><span className="eyebrow">Automatic search</span><h2 style={{ marginTop: 14 }}>Keep this profile monitored</h2></div>
           <p>
             {selectedSchedule
-              ? `Current schedule: ${selectedSchedule.cadence} at ${selectedSchedule.run_at_local.slice(0, 5)}.`
+              ? selectedSchedule.cadence === 'continuous' ? 'Five-minute company-board pilot.' : `Current schedule: ${selectedSchedule.cadence} at ${selectedSchedule.run_at_local.slice(0, 5)}.`
               : 'No automatic search is configured for this profile.'}
           </p>
         </div>
-        <form className="form" onSubmit={saveSchedule} key={selectedSchedule?.id || profileId || 'empty'}>
+        <p className="muted">The monitoring pilot checks configured Greenhouse, Lever, and Ashby boards every five minutes, up to five profiles and ten boards across the pilot. Wider web search stays manual. Activation first records a baseline without emailing existing results.</p>
+        <form className="form" onSubmit={saveSchedule} aria-busy={isSavingSchedule}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" checked={scheduleDraft.enabled} onChange={(event) => setScheduleDraft({ ...scheduleDraft, enabled: event.target.checked })} />
+            Enable this schedule
+          </label>
           <div className="two">
             <label>
               <span className="muted">Cadence</span>
-              <select className="input" name="cadence" defaultValue={selectedSchedule?.cadence || 'daily'}>
+              <select className="input" name="cadence" value={scheduleDraft.cadence} onChange={(event) => setScheduleDraft({ ...scheduleDraft, cadence: event.target.value })}>
                 <option value="daily">Daily</option>
                 <option value="weekdays">Weekdays</option>
                 <option value="weekly">Weekly</option>
+                <option value="continuous">Every five minutes (pilot)</option>
               </select>
             </label>
             <label>
               <span className="muted">Local hour</span>
-              <input className="input" name="hour_local" type="number" min="0" max="23" defaultValue={selectedSchedule ? Number(selectedSchedule.run_at_local.slice(0, 2)) : 8} />
+              <input className="input" name="hour_local" type="number" min="0" max="23" disabled={scheduleDraft.cadence === 'continuous'} value={scheduleDraft.hour} onChange={(event) => setScheduleDraft({ ...scheduleDraft, hour: Number(event.target.value) })} />
             </label>
           </div>
           <label>
             <span className="muted">Maximum posting age in days</span>
-            <input className="input" name="age_days" type="number" min="1" max="90" defaultValue={selectedSchedule?.max_posting_age_days || 30} />
+            <input className="input" name="age_days" type="number" min="1" max="90" value={scheduleDraft.age} onChange={(event) => setScheduleDraft({ ...scheduleDraft, age: Number(event.target.value) })} />
           </label>
+          <label>Schedule time zone<input className="input" required value={scheduleDraft.timezone} onChange={(event) => setScheduleDraft({ ...scheduleDraft, timezone: event.target.value })} /></label>
+          <p className="muted">Under healthy pilot conditions, we target notification processing within ten minutes of a posting appearing in a supported feed. Inbox arrival is not guaranteed. <a href="/settings/notifications">Choose delivery mode and quiet hours</a>.</p>
           <button className="button" disabled={!profileId || isSavingSchedule}>
             {isSavingSchedule ? 'Saving…' : selectedSchedule ? 'Update schedule' : 'Save schedule'}
           </button>
         </form>
+        {selectedSchedule && <div role="status" style={{ marginTop: 18 }}>
+          <p className="notice">{scheduleStatus(selectedSchedule)}</p>
+          {selectedSchedule.last_error && <p>{selectedSchedule.last_error}</p>}
+          {selectedSchedule.email_provider_status === 'unconfigured' && <p>Email delivery is unconfigured. Matching can continue, but email will wait for a verified sender.</p>}
+          <h3>Monitored sources</h3>
+          {selectedSchedule.monitored_sources?.length ? <ul>{selectedSchedule.monitored_sources.map((source, index) => <li key={`${source.provider}-${index}`}>{source.company_name} · {source.provider} · {source.status.replaceAll('_', ' ')}</li>)}</ul> : <p>No company boards configured. <a href="/search?tab=sources">Add a supported board</a>.</p>}
+        </div>}
         {selectedSchedule && (
           <div className="grid" style={{ marginTop: 22 }}>
-            <article className="card"><h3>Last automatic run</h3><p>{selectedSchedule.last_run_at ? new Date(selectedSchedule.last_run_at).toLocaleString() : 'Not run yet'}</p></article>
-            <article className="card"><h3>Next automatic run</h3><p>{selectedSchedule.next_run_at ? new Date(selectedSchedule.next_run_at).toLocaleString() : 'Pending scheduler'}</p></article>
+            <article className="card"><h3>Last successful check</h3><p>{selectedSchedule.last_success_at ? utcDate(selectedSchedule.last_success_at) : 'No successful check yet'}</p></article>
+            <article className="card"><h3>Next automatic run</h3><p>{selectedSchedule.next_run_at ? utcDate(selectedSchedule.next_run_at) : 'Pending scheduler'}</p></article>
             <article className="card"><h3>Timezone</h3><p>{selectedSchedule.timezone}</p></article>
           </div>
         )}

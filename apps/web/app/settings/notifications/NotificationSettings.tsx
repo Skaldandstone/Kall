@@ -1,13 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 const API = '/api/kall';
 
 type Preferences = {
   email_enabled: boolean;
   push_enabled: boolean;
-  delivery_mode: string;
+  delivery_mode: 'digest' | 'immediate';
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  email_provider_status?: string;
   digest_hour_local: number;
   timezone: string;
   minimum_match_score: number;
@@ -26,7 +29,8 @@ export default function NotificationSettings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setMessage('');
     fetch(`${API}/notification-preferences`)
       .then(async (response) => {
         if (response.status === 401) {
@@ -39,6 +43,8 @@ export default function NotificationSettings() {
       .then((data) => { if (data) setPreferences(data); })
       .catch((error) => setMessage(error instanceof Error ? error.message : 'Unable to load notification settings.'));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   function update<K extends keyof Preferences>(key: K, value: Preferences[K]) {
     setPreferences((current) => (current ? { ...current, [key]: value } : current));
@@ -56,7 +62,10 @@ export default function NotificationSettings() {
         body: JSON.stringify(preferences),
       });
       if (response.status === 401) { window.location.replace('/sign-in'); return; }
-      if (!response.ok) throw new Error('Unable to save notification settings.');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(typeof body.detail === 'string' ? body.detail : 'Check your time zone and quiet-hour times, then try again.');
+      }
       setPreferences(await response.json());
       setMessage('Saved.');
     } catch (error) {
@@ -69,15 +78,19 @@ export default function NotificationSettings() {
   if (!preferences) {
     return (
       <section className="card">
-        <p className={message ? 'notice' : 'muted'}>{message || 'Loading…'}</p>
+        <p role={message ? 'alert' : 'status'} className={message ? 'notice' : 'muted'}>{message || 'Loading notification settings…'}</p>
+        {message && <button className="button secondary" type="button" onClick={load}>Try again</button>}
       </section>
     );
   }
 
   return (
-    <form className="card stack" onSubmit={save}>
+    <form className="card stack" onSubmit={save} aria-busy={saving}>
+      {preferences.email_provider_status === 'unconfigured' && (
+        <p className="notice" role="status">Email delivery is not configured yet. Your preferences will be saved, but Kall cannot send email until a verified sender is ready.</p>
+      )}
       <div>
-        <h2>Daily brief</h2>
+        <h2>Morning Brief</h2>
         <p className="muted">
           A short email summarizing where things stand: your best current match, anything
           ready to submit, and your career health score.
@@ -90,13 +103,13 @@ export default function NotificationSettings() {
           checked={preferences.email_enabled}
           onChange={(event) => update('email_enabled', event.target.checked)}
         />
-        Email me
+        Email me briefs and opportunity alerts
       </label>
 
       {preferences.email_enabled && (
         <div className="two">
           <label>
-            Send it around
+            Brief and digest hour
             <select
               className="input"
               value={preferences.digest_hour_local}
@@ -119,8 +132,30 @@ export default function NotificationSettings() {
         </div>
       )}
 
-      <div>
+      <div className="stack">
         <h2>New opportunities</h2>
+        <label>
+          Opportunity delivery
+          <select className="input" value={preferences.delivery_mode} onChange={(event) => update('delivery_mode', event.target.value as Preferences['delivery_mode'])}>
+            <option value="digest">Daily digest</option>
+            <option value="immediate">Immediate summary</option>
+          </select>
+        </label>
+        <p className="muted">Immediate mode groups new matches into one email per check. Digest mode saves them for your chosen local hour. Morning Brief stays separate.</p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={Boolean(preferences.quiet_hours_start && preferences.quiet_hours_end)} onChange={(event) => {
+            update('quiet_hours_start', event.target.checked ? '22:00' : null);
+            update('quiet_hours_end', event.target.checked ? '07:00' : null);
+          }} />
+          Hold email during quiet hours
+        </label>
+        {preferences.quiet_hours_start && preferences.quiet_hours_end && (
+          <div className="two">
+            <label>Quiet hours start<input className="input" type="time" required value={preferences.quiet_hours_start.slice(0, 5)} onChange={(event) => update('quiet_hours_start', event.target.value)} /></label>
+            <label>Quiet hours end<input className="input" type="time" required value={preferences.quiet_hours_end.slice(0, 5)} onChange={(event) => update('quiet_hours_end', event.target.value)} /></label>
+          </div>
+        )}
+        <p className="muted">Quiet hours use your time zone, including daylight saving time. Waiting opportunities are combined into one summary.</p>
         <p className="muted">Only matches at or above this score are worth an email.</p>
         <label>
           Minimum match score: {preferences.minimum_match_score}%
@@ -144,7 +179,7 @@ export default function NotificationSettings() {
         <button className="button" type="submit" disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
-        {message && <p className={message === 'Saved.' ? 'muted' : 'notice'}>{message}</p>}
+        {message && <p role={message === 'Saved.' ? 'status' : 'alert'} className={message === 'Saved.' ? 'muted' : 'notice'}>{message}</p>}
       </div>
     </form>
   );
