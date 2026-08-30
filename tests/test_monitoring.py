@@ -368,3 +368,18 @@ def test_read_only_monitoring_cli_never_acquires_claims_or_fetches(engine, monke
     with Session(engine) as session:
         assert list(session.exec(select(MonitoringLease))) == []
         assert list(session.exec(select(PublicBoardFeed))) == []
+
+
+@pytest.mark.asyncio
+async def test_changed_department_evidence_is_material_and_refreshes_job(engine):
+    from kall.models import Job
+    payload = {"jobs": [{**posting(), "departments": [{"name": "Engineering"}]}]}
+    with Session(engine) as session:
+        setup(session)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=payload))) as client:
+            await monitoring.run_monitoring(session, now=NOW, client=client)
+            payload["jobs"][0]["departments"] = [{"name": "Quality Engineering"}]
+            changed = await monitoring.run_monitoring(session, now=NOW+timedelta(minutes=5), client=client)
+            assert changed["events_queued"] == 1
+            job = session.exec(select(Job)).one()
+            assert job.metadata_json["departments"] == [{"name": "Quality Engineering"}]
