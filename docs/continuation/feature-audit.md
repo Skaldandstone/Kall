@@ -62,3 +62,11 @@ Screenshots are local Playwright artifacts under `apps/web/test-results/function
 ## Release boundaries
 
 Root coordinates stacked integration with PR169 and monitoring. No CI check was bypassed or rerun by this lane. CI billing status may have changed while these tests ran; root owns current release verification. No cloud pilot was enabled. Unrelated inherited copyright edits and untracked files were preserved and left unstaged.
+
+## Legacy digest safety follow-up
+
+The pre-monitoring digest renderer trusted queued Opportunity IDs without checking the current profile. A narrow follow-up now checks Opportunity ownership, active profile ownership and current hard exclusions when rendering. A batch with no eligible rows is marked skipped without invoking a sender. Five black-box regressions cover an existing JobMatch excluded before delivery, both before and after score refresh, plus paused profiles and cross-user profile/Opportunity ownership. Final full offline run: **451 passed** with the same default SQLite environment above; Ruff also passed.
+
+Monitoring already implements broader delivery-time eligibility, including preferences, score thresholds and suppression. During integration, its `eligible_opportunities` path should supersede this interim renderer and empty-batch handling. Keep `tests/test_digest_profile_eligibility.py`: it depends only on the public `process_delivery` behavior and not the interim exception or renderer internals. This follow-up does not change schedules, delivery modes or provider configuration.
+
+The six visual review images were copied outside disposable test results to `C:\Users\James\.codex\visualizations\2026\08\30\01a054aa-8757-7a02-bf5d-061725f9efa7\functional-area-review\`, preserving the filenames listed above for root review. Main targeting commit is `2749395`; root integrated it as `3b34910`.

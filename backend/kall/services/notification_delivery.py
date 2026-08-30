@@ -26,13 +26,18 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
-from kall.models.core import Job, User
+from kall.models.core import CareerProfile, Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
+from kall.services.matching import is_out_of_scope
 from kall.services.notifications import NotConfiguredError, NotificationService
 from kall.services.scheduling import local_hour
 from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
+
+
+class NoEligibleOpportunities(Exception):
+    """The queued digest no longer contains anything eligible to deliver."""
 
 #: How long a pending delivery waits before the next retry, doubling each
 #: time. Capped rather than unbounded so a persistent failure (bad address,
@@ -73,7 +78,9 @@ def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str
     """(subject, html) for an opportunity_digest delivery."""
     ids = delivery.payload.get("opportunity_ids", [])
     opportunities = list(
-        session.exec(select(Opportunity).where(Opportunity.id.in_(ids)))
+        session.exec(select(Opportunity).where(
+            Opportunity.id.in_(ids), Opportunity.user_id == delivery.user_id,
+        ))
     ) if ids else []
     jobs_by_id = {
         job.id: job
@@ -82,15 +89,23 @@ def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str
         )
     } if opportunities else {}
 
+    profiles = {profile.id: profile for profile in session.exec(select(CareerProfile).where(
+        CareerProfile.user_id == delivery.user_id, CareerProfile.is_active,
+    ))}
     rows = []
     for opportunity in opportunities:
         job = jobs_by_id.get(opportunity.job_id)
-        if not job:
+        profile = profiles.get(opportunity.professional_profile_id)
+        # A queued digest must not disclose a job that a later profile edit
+        # excludes, even if the next discovery refresh has not run yet.
+        if not job or not profile or is_out_of_scope(job, profile):
             continue
         rows.append(
             f"<li><strong>{job.title}</strong> at {job.company} "
             f"&mdash; {opportunity.match_score}% match</li>"
         )
+    if not rows:
+        raise NoEligibleOpportunities
     subject = f"{len(rows)} new opportunit{'y' if len(rows) == 1 else 'ies'} today"
     html = f"<p>Kall found {len(rows)} new match{'es' if len(rows) != 1 else ''} for you.</p><ul>{''.join(rows)}</ul>"
     return subject, html
@@ -317,6 +332,11 @@ def process_delivery(session: Session, delivery: NotificationDelivery, now: date
 
     try:
         subject, html = _render(session, delivery)
+    except NoEligibleOpportunities:
+        delivery.status = "skipped"
+        session.add(delivery)
+        session.commit()
+        return delivery.status
     except ValueError as error:
         logger.warning("Cannot render delivery %s: %s", delivery.id, error)
         delivery.status = "failed"
