@@ -31,6 +31,7 @@ from kall.services.notifications import (
 from kall.services.opportunity_notifications import (
     OPPORTUNITY_KINDS,
     eligible_opportunities,
+    eligible_source_opportunities,
     finish_events,
     preference_for,
     prepare_deliveries,
@@ -349,15 +350,18 @@ def process_delivery(session: Session, delivery: NotificationDelivery, now: date
                     session.commit()
                     return delivery.status
                 delivery.kind = "opportunity_immediate"
-            eligible = eligible_opportunities(session, user.id,
-                                              opportunity_ids=delivery.payload.get("opportunity_ids", []))
             from kall.models import OpportunityNotificationEvent
-            eligible_jobs = {row.job_id for row in eligible}
-            for event in session.exec(select(OpportunityNotificationEvent).where(
+            events = list(session.exec(select(OpportunityNotificationEvent).where(
                 OpportunityNotificationEvent.delivery_id == delivery.id,
+                OpportunityNotificationEvent.user_id == user.id,
                 OpportunityNotificationEvent.status == "assigned",
-            )):
-                if event.job_id not in eligible_jobs:
+            )))
+            sources = eligible_source_opportunities(session, user.id,
+                job_ids=[event.job_id for event in events] if events else None,
+                opportunity_ids=delivery.payload.get("opportunity_ids", []))
+            eligible = list({row.id: row for rows in sources.values() for row in rows}.values())
+            for event in events:
+                if event.job_id not in sources:
                     event.status = "skipped"
                     session.add(event)
             delivery.payload = {**delivery.payload, "opportunity_ids": [row.id for row in eligible]}

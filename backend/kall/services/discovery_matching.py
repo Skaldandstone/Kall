@@ -7,6 +7,7 @@ from kall.providers.jobs import DiscoveredJob
 from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.normalization import normalize_discovered
 from kall.services.opportunities import upsert_opportunity
+from kall.services.opportunity_sources import belongs_to_source, refresh_representative
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
 from sqlmodel import Session, select
 
@@ -42,11 +43,9 @@ def refresh_discovered_job_match(
     for opportunity in session.exec(select(Opportunity).where(
         Opportunity.user_id == user.id,
         Opportunity.professional_profile_id == profile.id,
-        Opportunity.job_id == job.id,
     )):
-        opportunity.match_score = score
-        opportunity.updated_at = match.updated_at
-        session.add(opportunity)
+        if belongs_to_source(session, opportunity, job):
+            refresh_representative(session, opportunity)
     session.flush()
     return None if reason else match
 

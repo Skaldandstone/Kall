@@ -11,7 +11,6 @@ from kall.models import (
     DiscoverySchedule,
     Job,
     MonitoringObservation,
-    Opportunity,
     PublicBoardFeed,
     ScheduleBoardState,
     SearchRun,
@@ -23,7 +22,12 @@ from kall.services import work_claims
 from kall.services.discovery_matching import ingest_discovered_jobs
 from kall.services.normalization import normalize_discovered
 from kall.services.opportunities import material_fingerprint
-from kall.services.opportunity_notifications import preference_for, prepare_deliveries, record_event
+from kall.services.opportunity_notifications import (
+    eligible_source_opportunities,
+    preference_for,
+    prepare_deliveries,
+    record_event,
+)
 from sqlmodel import Session, select
 
 MAX_PROFILES = 5
@@ -169,18 +173,14 @@ def _ingest_page(session: Session, schedule: DiscoverySchedule, state: ScheduleB
         jobs = changed
     result = ingest_discovered_jobs(session, user, profile, jobs,
                                     max_posting_age_days=schedule.max_posting_age_days, refresh_saved_matches=False)
-    eligible = {row.job_id: row for row in session.exec(select(Opportunity).where(
-        Opportunity.id.in_(result["opportunity_ids"]), Opportunity.user_id == user.id,
-    ))}
+    eligible = eligible_source_opportunities(session, user.id, opportunity_ids=result["opportunity_ids"])
     preference = preference_for(session, user.id)
     queued = 0
     for discovered in jobs:
         job = session.exec(select(Job).where(Job.url == normalize_discovered(discovered)["url"])).first()
         if job is None:
             continue
-        opportunity = eligible.get(job.id)
-        qualifies = bool(opportunity and opportunity.match_score >= preference.minimum_match_score
-                         and opportunity.state in ("new", "saved", "reviewing"))
+        qualifies = job.id in eligible
         fingerprint = material_fingerprint(job)
         observation = session.exec(select(MonitoringObservation).where(
             MonitoringObservation.board_state_id == state.id, MonitoringObservation.job_id == job.id,

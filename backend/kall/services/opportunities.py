@@ -6,12 +6,20 @@ from datetime import datetime, timedelta
 
 from kall.models import (
     CareerGoal,
+    CareerProfile,
     DiscoverySchedule,
     GrowthMarketSignal,
     Job,
+    JobMatch,
     JobRequirementAnalysis,
     NotificationDelivery,
     Opportunity,
+)
+from kall.services.opportunity_sources import (
+    belongs_to_source,
+    refresh_representative,
+    source_jobs,
+    source_match,
 )
 from kall.services.scheduling import local_hour, local_weekday, next_local_occurrence
 from sqlmodel import Session, select
@@ -43,40 +51,65 @@ def material_fingerprint(job: Job) -> str:
 def upsert_opportunity(
     session: Session, *, user_id: int, profile_id: int, job: Job, match_score: int
 ) -> Opportunity:
+    profile = session.get(CareerProfile, profile_id)
+    if not profile or profile.user_id != user_id:
+        raise ValueError("The profile must belong to the current user")
+    match = session.exec(select(JobMatch).where(
+        JobMatch.user_id == user_id, JobMatch.career_profile_id == profile_id, JobMatch.job_id == job.id,
+    )).first()
+    # Browser capture also uses this entry point but historically persisted no
+    # JobMatch. A source cannot represent a canonical row without its evidence.
+    if match is None or profile.updated_at > match.updated_at or job.updated_at > match.updated_at:
+        from kall.models import User
+        from kall.services.discovery_matching import refresh_discovered_job_match
+
+        refresh_discovered_job_match(session, user=session.get(User, user_id), profile=profile, job=job)
     key = canonical_key(job)
     fingerprint = material_fingerprint(job)
-    row = session.exec(select(Opportunity).where(
-        Opportunity.user_id == user_id,
-        Opportunity.professional_profile_id == profile_id,
-        Opportunity.job_id == job.id,
-    ).order_by(Opportunity.id)).first()
+    owned = list(session.exec(select(Opportunity).where(
+        Opportunity.user_id == user_id, Opportunity.professional_profile_id == profile_id,
+    ).order_by(Opportunity.id)))
+    # All associated IDs, including former representatives, precede canonical
+    # hints. Editing a source never merges two independent workflow histories.
+    row = next((candidate for candidate in owned if belongs_to_source(session, candidate, job)), None)
     if row is None:
-        candidates = session.exec(select(Opportunity, Job).join(Job, Opportunity.job_id == Job.id).where(
-            Opportunity.user_id == user_id,
-            Opportunity.professional_profile_id == profile_id,
-            Opportunity.canonical_key == key,
-        ).order_by(Opportunity.id))
-        # First-seen keys are only lookup hints after a posting edit. Verify
-        # current company/title/location before adding another source, and
-        # keep searching when an older candidate has a stale identity.
-        row = next((candidate for candidate, current_job in candidates if canonical_key(current_job) == key), None)
-    source = {"source": job.source, "external_id": job.external_id, "url": job.url}
+        row = next((candidate for candidate in owned
+                    if candidate.canonical_key == key
+                    and (current := session.get(Job, candidate.job_id)) is not None
+                    and canonical_key(current) == key), None)
+    source = {"job_id": job.id, "source": job.source, "external_id": job.external_id, "url": job.url}
     if row:
         row.last_seen_at = datetime.utcnow()
-        row.match_score = match_score
         # Keep the first-seen cross-source identity. A title/location edit
         # must not collide with another tracked opportunity's canonical key
         # or merge two independent application histories.
-        row.source_records = list({item.get("url"): item for item in [*row.source_records, source]}.values())
+        # Hydrate old URL-only associations before changing representative.
+        records = {item.get("url"): dict(item) for item in row.source_records or []}
+        for item in source_jobs(session, row):
+            records[item.url] = {**records.get(item.url, {}), "job_id": item.id,
+                                 "source": item.source, "external_id": item.external_id, "url": item.url}
+        records[job.url] = {**records.get(job.url, {}), **source}
+        row.source_records = list(records.values())
         # Posting edits and new matching evidence never undo a user's choice.
-        row.material_fingerprint = fingerprint
     else:
         row = Opportunity(
             user_id=user_id, professional_profile_id=profile_id, job_id=job.id,
             canonical_key=key, material_fingerprint=fingerprint, match_score=match_score,
             source_records=[source],
         )
+    # Repair old capture rows whose additional sources predate stored matching
+    # evidence. Never use an unproven aggregate score to choose a source.
+    associated = source_jobs(session, row)
+    if len(associated) > 1:
+        from kall.models import User
+        from kall.services.discovery_matching import refresh_discovered_job_match
+
+        for source_job in associated:
+            if source_match(session, row, source_job) is None:
+                refresh_discovered_job_match(session, user=session.get(User, user_id), profile=profile, job=source_job)
     session.add(row)
+    session.flush()
+    refresh_representative(session, row)
     session.commit()
     session.refresh(row)
     return row
