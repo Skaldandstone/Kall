@@ -93,7 +93,10 @@ def due_schedule(schedule: DiscoverySchedule, now: datetime) -> bool:
     regardless of the hour, and every run after that landed at whatever time
     the scheduling job happened to have last ticked, not at 8am.
     """
-    if not schedule.enabled or schedule.running_since:
+    if schedule.cadence == "continuous":
+        # The dedicated bounded worker owns this cadence, never the hourly suite.
+        return False
+    if not schedule.enabled or (schedule.running_since and schedule.running_since > now - timedelta(minutes=10)):
         return False
     if local_hour(schedule.timezone, now) != schedule.run_at_local.hour:
         return False
@@ -107,6 +110,10 @@ def due_schedule(schedule: DiscoverySchedule, now: datetime) -> bool:
 
 def advance_schedule(schedule: DiscoverySchedule, now: datetime) -> None:
     schedule.last_run_at = now
+    if schedule.cadence == "continuous":
+        schedule.next_run_at = now + timedelta(minutes=5)
+        schedule.running_since = None
+        return
     # For display only (DiscoveryTab's "Next automatic run") -- due_schedule
     # re-checks the real local hour on its own next tick rather than trusting
     # this value to the minute, so this only needs to be a good estimate.
