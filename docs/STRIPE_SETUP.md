@@ -30,8 +30,8 @@ to work is worse than one that admits it is not ready.
 
 ### 1. Create two recurring prices in Stripe
 
-Test mode first. Two products, or one product with two prices - either works,
-the code only cares about the price ids.
+Use the verified Skald and Stone sandbox first. Create a distinct Product for
+each tier. Inventory existing Products and Prices before creating duplicates.
 
 | Plan | Price | Interval |
 | --- | --- | --- |
@@ -40,13 +40,15 @@ the code only cares about the price ids.
 
 Copy both `price_...` ids.
 
-### 2. Set four environment variables
+### 2. Set the API environment variables
 
 ```
-STRIPE_SECRET_KEY=sk_test_...
+STRIPE_SECRET_KEY=rk_test_...
 STRIPE_PRICE_ID=price_...            # Plus
 STRIPE_PREMIUM_PRICE_ID=price_...    # Premium
 STRIPE_WEBHOOK_SECRET=whsec_...      # from step 3
+STRIPE_PORTAL_CONFIGURATION_ID=bpc_...
+STRIPE_LIVEMODE=false
 ```
 
 In production these belong in Secrets Manager as `kall/*` entries, referenced
@@ -65,7 +67,6 @@ https://<api-host>/api/billing/webhook
 
 Enable at least:
 
-- `checkout.session.completed`
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
@@ -121,9 +122,40 @@ Do not switch to live keys until all six pass.
 - **Exempt accounts must ignore Stripe entirely.** `billing_exempt` short
   circuits every quota check regardless of plan, so a development account with
   no subscription is unaffected by any of this.
-- **Test the failure path.** `invoice.payment_failed` should not instantly lock
-  someone out mid-search. Decide what the grace period is before going live;
-  nothing implements one today.
+- **Test the failure path.** Failed invoices start a 72-hour grace window.
+  Repeated failures do not extend it. Recovery clears it; the grace-period job
+  applies overdue downgrades. Verify that job runs in the target environment
+  and test recovery after expiry before enabling live charges.
+
+## Sandbox safety and reliability
+
+Use a project-specific restricted key with the permissions needed by Checkout,
+customers, subscriptions, and portal sessions. Never commit secrets or paste
+them into chat. Separate keys do not isolate objects within one Stripe account.
+Key prefixes and signed event modes must match STRIPE_LIVEMODE, false by default.
+Checkout also requires the webhook secret to be configured.
+
+Create a Kall-specific portal configuration. Enable invoices, payment-method
+updates, and cancellation at period end. Leave plan changes disabled until
+price-based subscription mapping is verified; metadata can become stale.
+Save its bpc_ ID in STRIPE_PORTAL_CONFIGURATION_ID.
+
+Webhook receipts and entitlement changes now commit together. Pending receipts
+from older releases are retried. Checkout completion no longer overwrites a
+subscription's status. Subscription ownership requires kall_user_id metadata.
+
+Local regression tests cover signed deliveries, rollback, pending-receipt
+recovery, duplicates, concurrent SQLite deliveries, and environment mismatch:
+
+```powershell
+python -m pytest tests/test_billing.py tests/test_billing_plan_mapping.py tests/test_payment_grace_period.py tests/test_billing_webhook_retries.py -q
+```
+
+These are local fixtures, not real Stripe purchases or hosted PostgreSQL
+concurrency verification. SDK 12.x was retained. Before a separate live rollout,
+verify purchase, cancellation, recovery, refunds, and the exact API payloads.
+Review registrations, product tax codes, and inclusive/exclusive price behavior
+before enabling automatic tax. See [Stripe tax setup](https://docs.stripe.com/billing/taxes/collect-taxes).
 
 ## Prices live in two places
 
