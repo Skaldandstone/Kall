@@ -106,6 +106,31 @@ This file records completed checks separately from remaining release gates.
 - Correct the identity exploration against Runestone feedback before requesting
   a selected direction or page hierarchy. This does not block functional repairs.
 
+## Independent review and first combined CI
+
+Draft PR #170 is stacked on PR #169. Run `33341545444` on `a417889` passed
+backend, web build, extension and mobile browser jobs. Web E2E passed 39 tests
+and failed one because its notification-hour locator still used the old label.
+The integration fix uses `Brief and digest hour` and first asserts the control
+is visible before checking that disabling email hides it. This was a test
+failure, not a runner-start or billing restriction. No manual rerun was requested.
+
+Independent targeting review then reproduced two metadata defects and one
+canonical source-association defect. They are being repaired before a follow-up
+push; the previous 496-test result does not prove these follow-ups.
+
+- `300bf8a` integrates shared visible department/team-name extraction. Matching
+  and material fingerprints now use normalized labels, ignoring IDs, casing,
+  order and bookkeeping. A department-only match earns the single +10 bonus with
+  an explicit explanation. Office metadata remains location information.
+  All 58 focused native integration tests passed, including the controlled
+  monitoring regression. The integration version requires the monitoring module
+  rather than skipping its regression when the module is absent.
+- The source-association repair must keep canonical opportunity history while
+  making the displayed source, score and evidence agree, and recognize a
+  qualifying second source without borrowing another source's score. It remains
+  in isolated implementation until its regressions and integration pass.
+
 ## Deployment boundary
 
 Monitoring must remain disabled pending the controlled validation and complete

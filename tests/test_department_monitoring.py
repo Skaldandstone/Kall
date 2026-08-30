@@ -14,9 +14,8 @@ from kall.models import (
     SearchSource,
     User,
 )
+from kall.services import monitoring
 from sqlmodel import Session, select
-
-monitoring = pytest.importorskip("kall.services.monitoring", reason="Requires the stacked monitoring lane")
 
 
 @pytest.mark.asyncio
