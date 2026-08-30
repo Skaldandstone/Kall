@@ -34,9 +34,31 @@ This file records completed checks separately from remaining release gates.
   eligibility and reference-email tests pass. The digest regressions now use
   fixed UTC noon for compatibility with the upcoming local-hour delivery rules.
 
+## UI and identity integration checkpoint
+
+- All 30 combined offline browser cases passed after integrating UI `178da69`
+  and targeting `d0825d0`, at desktop 1440px and mobile 375px. Command from
+  `apps/web`: `KALL_UI_PORT=3340 npx playwright test --config playwright.usability.config.ts flow.spec.ts functional-areas.spec.ts`
+  (PowerShell uses `$env:KALL_UI_PORT='3340'`). This uses synthetic API fixtures,
+  no Clerk global setup, no live sender and no real application submission.
+- Root visually inspected all six combined targeting screenshots: editor,
+  profile read view and onboarding at both widths. Entered values now use the
+  corrected readable foreground; fields and navigation fit. Existing onboarding
+  native multi-select and placeholder-only labels remain recorded usability debt.
+  Copies are retained outside Playwright's replaceable results directory.
+- The UI lane also passed its 28 behavior/capture cases and preserved 12
+  inspected true-PNG captures with viewport and loaded-font metadata. Root
+  independently reviewed representative preparation and search mobile captures.
+- The identity package `473e86a` passed its image/manifest validator for all
+  35 visuals and 32 browser records. Root reviewed the boards and representative
+  desktop/mobile studies, then verified gallery comparison controls and JPEG
+  links after the format correction. Edition is recommended, not selected.
+- Notification settings introductory copy no longer claims that default email
+  delivery waits for an explicit save. Morning Brief remains separately described.
+
 ## Required before the combined implementation is ready
 
-- Integrate final targeting, notification and UI patches, then rerun the full
+- Integrate final monitoring and notification patches, then rerun the full
   backend suite under the normal local test configuration.
 - Validate new migrations both on a fresh database and the pre-monitoring
   schema, preserving existing schedules and workflow states.
@@ -48,9 +70,9 @@ This file records completed checks separately from remaining release gates.
 - Build the combined web app and run relevant browser regressions. Inspect real
   screenshots at desktop and 375px widths. Fixture tests do not verify Clerk,
   live provider integration, deployed behavior, or inbox delivery.
-- Review the identity boards and all same-content desktop/mobile mockups.
-  Record a recommendation, but do not replace production identity or broader
-  navigation without a selected direction.
+- Obtain a selected identity direction and page hierarchy before any production
+  brand or broader navigation migration. The review package is complete and this
+  decision does not block functional repairs.
 
 ## Deployment boundary
 
