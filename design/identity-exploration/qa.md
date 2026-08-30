@@ -1,3 +1,5 @@
+> Round 01 is historical and unapproved. Edition recommendation was withdrawn after feedback that the studies did not read like Kall's Runestone. See the live gallery for the correction.
+
 # Identity review evidence
 
 30 August 2026. Status: **candidate_not_approved**. These are local visual studies. Nothing in this log certifies the production application or records user approval.
