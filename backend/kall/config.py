@@ -94,6 +94,9 @@ class Settings(BaseSettings):
     #: not sent at all until this is set -- see that module for why "not
     #: configured" is logged loudly rather than silently doing nothing.
     ses_sender_email: str | None = None
+    # Rollout switch, separate from an individual profile's opt-in schedule.
+    # The five-minute task exits without polling or sending while disabled.
+    monitoring_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

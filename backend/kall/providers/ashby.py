@@ -14,17 +14,20 @@ class AshbyProvider:
         try:
             response = await client.get(f"https://api.ashbyhq.com/posting-api/job-board/{board_key}")
             response.raise_for_status()
-            return [DiscoveredJob(
-                source=self.name,
-                external_id=item.get("id"),
-                company=company_name,
-                title=item.get("title", ""),
-                description=item.get("descriptionPlain") or item.get("description", ""),
-                url=item.get("jobUrl", ""),
-                location=item.get("location"),
-                posted_at=parse_iso_datetime(item.get("publishedAt")),
-                metadata={"department": item.get("department"), "team": item.get("team")},
-            ) for item in response.json().get("jobs", [])]
+            return self.parse(response.json(), company_name)
         finally:
             if owns_client:
                 await client.aclose()
+
+    def parse(self, payload, company_name: str) -> list[DiscoveredJob]:
+        return [DiscoveredJob(
+            source=self.name,
+            external_id=item.get("id"),
+            company=company_name,
+            title=item.get("title", ""),
+            description=item.get("descriptionPlain") or item.get("description", ""),
+            url=item.get("jobUrl", ""),
+            location=item.get("location"),
+            posted_at=parse_iso_datetime(item.get("publishedAt")),
+            metadata={"department": item.get("department"), "team": item.get("team")},
+        ) for item in payload.get("jobs", [])]

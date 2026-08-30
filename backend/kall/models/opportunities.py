@@ -17,6 +17,9 @@ class DiscoverySchedule(TimestampMixin, table=True):
     next_run_at: datetime | None = None
     last_run_at: datetime | None = None
     running_since: datetime | None = None
+    last_success_at: datetime | None = None
+    last_error: str | None = None
+    monitoring_cycle_at: datetime | None = None
 
 
 class Opportunity(TimestampMixin, table=True):
@@ -72,6 +75,8 @@ class NotificationDelivery(TimestampMixin, table=True):
     last_error: str | None = None
     delivered_at: datetime | None = None
     next_attempt_at: datetime | None = None
+    claimed_until: datetime | None = None
+    provider_message_id: str | None = None
 
 
 class GrowthMarketSignal(TimestampMixin, table=True):

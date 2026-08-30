@@ -58,6 +58,7 @@ def ingest_discovered_jobs(
     jobs: list[DiscoveredJob],
     *,
     max_posting_age_days: int | None = None,
+    refresh_saved_matches: bool = True,
 ) -> dict:
     """Ingest already-fetched public postings. Does not call any provider.
 
@@ -72,12 +73,13 @@ def ingest_discovered_jobs(
     blocked = suppressed_urls(session, user.id, reasons=DISCOVERY_BLOCKING_REASONS)
     # A profile edit must also refresh previously stored matches when a board
     # is empty, unavailable, or no longer returns a particular posting.
-    stored = session.exec(select(JobMatch, Job).join(Job, Job.id == JobMatch.job_id).where(
-        JobMatch.user_id == user.id, JobMatch.career_profile_id == profile.id,
-    )).all()
-    for match, job in stored:
-        if profile.updated_at > match.updated_at or job.updated_at > match.updated_at:
-            refresh_discovered_job_match(session, user=user, profile=profile, job=job)
+    if refresh_saved_matches:
+        stored = session.exec(select(JobMatch, Job).join(Job, Job.id == JobMatch.job_id).where(
+            JobMatch.user_id == user.id, JobMatch.career_profile_id == profile.id,
+        )).all()
+        for match, job in stored:
+            if profile.updated_at > match.updated_at or job.updated_at > match.updated_at:
+                refresh_discovered_job_match(session, user=user, profile=profile, job=job)
     for discovered in jobs:
         normalized = normalize_discovered(discovered)
         if is_suppressed(normalized["url"], blocked):

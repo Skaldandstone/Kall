@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Disabled company-board monitoring pilot using a single short-lived task and existing infrastructure.
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@2
+  com.aws.cloudformation.Context:
+    must: [Keep the pilot disabled until review, No new NAT or database, Maximum incremental estimate 10 USD monthly]
+    ref: [../docs/continuation/monitoring.md]
+Parameters:
+  ClusterArn:
+    Type: String
+    AllowedPattern: 'arn:aws:ecs:us-east-2:[0-9]{12}:cluster/.+'
+  ContainerImage:
+    Type: String
+    AllowedPattern: '[0-9]{12}\.dkr\.ecr\.us-east-2\.amazonaws\.com/.+@sha256:[a-f0-9]{64}'
+  ExecutionRoleArn:
+    Type: String
+    AllowedPattern: 'arn:aws:iam::[0-9]{12}:role/.+'
+  TaskRoleArn:
+    Type: String
+    AllowedPattern: 'arn:aws:iam::[0-9]{12}:role/.+'
+  DatabaseUrlSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:us-east-2:[0-9]{12}:secret:.+'
+  AppSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:us-east-2:[0-9]{12}:secret:.+'
+  EncryptionKeySecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:us-east-2:[0-9]{12}:secret:.+'
+  ClerkSecretArn:
+    Type: String
+    AllowedPattern: 'arn:aws:secretsmanager:us-east-2:[0-9]{12}:secret:.+'
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+Conditions:
+  SelectedRegion: !Equals [!Ref AWS::Region, us-east-2]
+Resources:
+  Logs:
+    Type: AWS::Logs::LogGroup
+    Condition: SelectedRegion
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Short aggregate logs support bounded cost and diagnostics without private profile contents.
+        must: [Do not log postings or private criteria]
+    Properties:
+      LogGroupName: !Sub '/kall/${AWS::StackName}/monitoring'
+      RetentionInDays: 14
+  Task:
+    Type: AWS::ECS::TaskDefinition
+    Condition: SelectedRegion
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Reuse the reviewed API image and current database without an always-running worker.
+        must: [Keep monitoring false until approval, Run only in selected Region, Preserve billing and retention jobs]
+    Properties:
+      Family: !Sub '${AWS::StackName}-monitoring'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: monitoring
+          Image: !Ref ContainerImage
+          Essential: true
+          EntryPoint: [python, -m, kall.jobs.monitoring]
+          Command: []
+          StopTimeout: 10
+          Environment:
+            - {Name: APP_ENV, Value: production}
+            - {Name: AWS_REGION, Value: us-east-2}
+            - {Name: AUTO_CREATE_TABLES, Value: 'false'}
+            - {Name: MONITORING_ENABLED, Value: 'false'}
+            - {Name: SES_SENDER_EMAIL, Value: ''}
+            - {Name: PYTHONUNBUFFERED, Value: '1'}
+          Secrets:
+            - Name: DATABASE_URL
+              ValueFrom: !Ref DatabaseUrlSecretArn
+            - Name: APP_SECRET_KEY
+              ValueFrom: !Ref AppSecretArn
+            - Name: SENSITIVE_DATA_ENCRYPTION_KEY
+              ValueFrom: !Ref EncryptionKeySecretArn
+            - Name: CLERK_SECRET_KEY
+              ValueFrom: !Ref ClerkSecretArn
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref Logs
+              awslogs-region: us-east-2
+              awslogs-stream-prefix: monitoring
+      Tags:
+        - {Key: kall-feature, Value: monitoring-pilot}
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Condition: SelectedRegion
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Scheduler may launch only this task on the existing cluster.
+        must: [No wildcard RunTask or PassRole, Service trust scoped to this project and schedule group]
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: scheduler.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/default'
+      Policies:
+        - PolicyName: RunMonitoringOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecs:RunTask
+                Resource: !Ref Task
+                Condition:
+                  ArnEquals: {ecs:cluster: !Ref ClusterArn}
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: [!Ref ExecutionRoleArn, !Ref TaskRoleArn]
+                Condition:
+                  StringEquals: {iam:PassedToService: ecs-tasks.amazonaws.com}
+  Schedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: SelectedRegion
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: One five-minute trigger for the entire pilot; database lease suppresses overlapping runs.
+        must: [State stays DISABLED until approved, No repeated RunTask retries that increase cost]
+    Properties:
+      Name: !Sub '${AWS::StackName}-monitoring'
+      GroupName: default
+      State: DISABLED
+      ScheduleExpression: rate(5 minutes)
+      FlexibleTimeWindow: {Mode: 'OFF'}
+      Target:
+        Arn: !Ref ClusterArn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        RetryPolicy: {MaximumRetryAttempts: 0, MaximumEventAgeInSeconds: 60}
+        EcsParameters:
+          TaskDefinitionArn: !Ref Task
+          TaskCount: 1
+          LaunchType: FARGATE
+          PlatformVersion: '1.4.0'
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              AssignPublicIp: ENABLED
+              Subnets: !Ref PublicSubnetIds
+              SecurityGroups: !Ref SecurityGroupIds
+Outputs:
+  DisabledSchedule:
+    Condition: SelectedRegion
+    Value: !Ref Schedule
+  MonitoringTask:
+    Condition: SelectedRegion
+    Value: !Ref Task
