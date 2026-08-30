@@ -13,6 +13,7 @@ from kall.models import (
     NotificationDelivery,
     Opportunity,
 )
+from kall.services.posting_evidence import visible_department_names
 from kall.services.scheduling import local_hour, local_weekday, next_local_occurrence
 from sqlmodel import Session, select
 
@@ -31,12 +32,9 @@ def material_fingerprint(job: Job) -> str:
         normalize(job.title), normalize(job.location), normalize(job.description),
         str(job.salary_min or ""), str(job.salary_max or ""), str(job.work_type or ""),
     ])
-    # Department/team evidence participates in functional-area matching.
-    # Exclude unrelated provider bookkeeping to avoid notification churn.
-    metadata = job.metadata_json or {}
-    relevant = {key: metadata[key] for key in ("team", "department", "departments", "offices") if metadata.get(key)}
-    if relevant:
-        content += "|" + json.dumps(relevant, sort_keys=True, separators=(",", ":"), default=str)
+    names = visible_department_names(job.metadata_json)
+    if names:
+        content += "|" + json.dumps(names, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(content.encode()).hexdigest()
 
 
