@@ -1,3 +1,5 @@
+> Round 01 is historical and unapproved. Edition recommendation was withdrawn after feedback that the studies did not read like Kall's Runestone. See the live gallery for the correction.
+
 # Kall identity exploration
 
 Status: **candidate_not_approved**. Prepared 30 August 2026 on `codex/kall-identity-exploration`, based on `b05cdcf062533cbe2669cc836e5807c79788f7a0`.
@@ -14,7 +16,7 @@ Then open <http://127.0.0.1:4319/>. The gallery also works as a local file. Its 
 
 ## Decision package
 
-**Recommendation: Edition.** Its editorial type, tactile material and warm restrained palette make Kall feel personal without making it whimsical. It supports the relationship between a person's career record and their next decision. Serif display should remain selective; forms, evidence and dense text stay in a clear sans-serif.
+**Historical recommendation, now withdrawn: Edition.** Its editorial type, tactile material and warm restrained palette make Kall feel personal without making it whimsical. It supports the relationship between a person's career record and their next decision. Serif display should remain selective; forms, evidence and dense text stay in a clear sans-serif.
 
 | Direction | Distinctive idea | UI study typography | Palette | Main consideration |
 | --- | --- | --- | --- | --- |

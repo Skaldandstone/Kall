@@ -6,7 +6,7 @@
 
 ## Recommendation and decision
 
-Recommend **Edition**. Its warm paper, editorial display and restrained action color support a private career workspace with a personal sense of continuity. Vector is the more technical direction; Horizon is the more open, blue-and-white direction. This is a design judgment, not user research evidence. No direction is approved.
+The round 01 recommendation of **Edition is withdrawn** after feedback that the concepts lost Kall's carved-rune character. The following describes the historical rationale, not a current recommendation. Its warm paper, editorial display and restrained action color support a private career workspace with a personal sense of continuity. Vector is the more technical direction; Horizon is the more open, blue-and-white direction. This is a design judgment, not user research evidence. No direction is approved.
 
 James must select a direction before replacing the current identity. The broader page hierarchy also needs review before implementation. Current-flow polish and functional fixes can proceed independently. Do not copy these static studies into production as a shortcut around those decisions.
 
