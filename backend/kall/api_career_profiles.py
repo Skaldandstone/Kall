@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -5,8 +7,15 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import CareerProfile, JobMatch, ResumeDocument, User
+from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
 
 router = APIRouter()
+
+
+@router.get("/me/career-profiles/functional-areas")
+def functional_area_options(current_user: User = Depends(get_current_user)) -> dict[str, object]:
+    return {"areas": [{"name": name, "related_roles": list(aliases)}
+                      for name, aliases in FUNCTIONAL_AREA_ALIASES.items()]}
 
 
 class CareerProfileUpdate(BaseModel):
@@ -105,8 +114,11 @@ def update_career_profile(
     profile = session.get(CareerProfile, profile_id)
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Career profile not found")
-    for key, value in payload.model_dump().items():
+    # Preserve omitted values on unrelated updates. Explicit []/null still
+    # clears a field, and complete existing PUT clients remain compatible.
+    for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(profile, key, value)
+    profile.updated_at = datetime.utcnow()
     session.add(profile)
     session.commit()
     session.refresh(profile)

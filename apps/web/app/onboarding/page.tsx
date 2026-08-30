@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { countries, countryName, regionsForCountry } from '../../lib/location-data';
 import styles from './page.module.css';
 import { fetchKall } from '../lib/api';
+import FunctionalAreasInput from '../components/FunctionalAreasInput';
+import { optionalProfileNumber } from '../lib/profileForm';
 
 const API = '/api/kall';
 const csv = (value: FormDataEntryValue | null) =>
@@ -105,14 +107,14 @@ export default function Onboarding() {
           name: form.get('name'),
           target_titles: csv(form.get('target_titles')),
           industries: csv(form.get('industries')),
-          functional_areas: [],
+          functional_areas: csv(form.get('functional_areas')),
           include_keywords: csv(form.get('include_keywords')),
-          exclude_keywords: [],
+          exclude_keywords: csv(form.get('exclude_keywords')),
           countries: selectedCountryCodes.map((code) => countryName(code) || code),
           states_regions: selectedRegions,
           work_types: csv(form.get('work_types')),
-          minimum_base: Number(form.get('minimum_base') || 0) || null,
-          target_base: Number(form.get('target_base') || 0) || null,
+          minimum_base: optionalProfileNumber(form.get('minimum_base')),
+          target_base: optionalProfileNumber(form.get('target_base')),
           stretch_base: null,
           minimum_total_comp: null,
           target_total_comp: null,
@@ -277,12 +279,14 @@ export default function Onboarding() {
                   placeholder="Industries, comma separated"
                   defaultValue={suggestion?.industries.join(', ') || ''}
                 />
+                <FunctionalAreasInput className={styles.input} />
                 <input
                   className={styles.input}
                   name="include_keywords"
                   placeholder="Important keywords, comma separated"
                   defaultValue={suggestion?.keywords.join(', ') || ''}
                 />
+                <label>Exclude keywords<input className={styles.input} name="exclude_keywords" placeholder="Unpaid internship, door-to-door" /><small>Separate phrases with commas. Jobs mentioning these phrases are excluded.</small></label>
 
                 <label>
                   <span>Countries</span>

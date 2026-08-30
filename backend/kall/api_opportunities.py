@@ -15,6 +15,7 @@ from kall.models import (
     User,
 )
 from kall.services.ats_web_search import build_ats_queries
+from kall.services.matching import is_out_of_scope
 from kall.services.opportunities import mark_state
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
 
@@ -98,7 +99,7 @@ def list_schedules(current: User = Depends(get_current_user), session: Session =
 
 @router.get("/opportunities", response_model=list[Opportunity])
 def list_opportunities(state: str | None = None, current: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    statement = select(Opportunity, Job.url).join(Job, Opportunity.job_id == Job.id).where(Opportunity.user_id == current.id)
+    statement = select(Opportunity, Job, CareerProfile).join(Job, Opportunity.job_id == Job.id).join(CareerProfile, Opportunity.professional_profile_id == CareerProfile.id).where(Opportunity.user_id == current.id, CareerProfile.user_id == current.id)
     if state:
         statement = statement.where(Opportunity.state == state)
     rows = session.exec(statement.order_by(Opportunity.match_score.desc(), Opportunity.last_seen_at.desc())).all()
@@ -108,7 +109,7 @@ def list_opportunities(state: str | None = None, current: User = Depends(get_cur
     # this, a posting the user has explicitly said is dead keeps sitting in
     # their tracked inbox forever.
     blocked = suppressed_urls(session, current.id, reasons=DISCOVERY_BLOCKING_REASONS)
-    return [opportunity for opportunity, url in rows if not is_suppressed(url, blocked)]
+    return [opportunity for opportunity, job, profile in rows if not is_suppressed(job.url, blocked) and not is_out_of_scope(job, profile)]
 
 
 @router.patch("/opportunities/{opportunity_id}", response_model=Opportunity)
