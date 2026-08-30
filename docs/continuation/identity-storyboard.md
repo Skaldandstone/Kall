@@ -2,11 +2,13 @@
 
 30 August 2026. Status: **candidate_not_approved**. Design exploration only. No production brand or routing changes.
 
-[Open the gallery](../../design/identity-exploration/index.html) for three distinct concepts, 12 desktop and 12 mobile candidate screens, and eight current-style control screens. [Package notes](../../design/identity-exploration/README.md) explain the recommendation, samples and limitations.
+[Open the corrected gallery](../../design/identity-exploration/revision-02/index.html) for three rune-aligned concepts, 12 desktop and 12 mobile candidate screens, and eight current-style control screens. [Round 02 notes](../../design/identity-exploration/revision-02/README.md) explain the source alignment, samples and limitations. [Round 01](../../design/identity-exploration/round-01.html) is preserved as a historical, unapproved archive.
 
 ## Recommendation and decision
 
-The round 01 recommendation of **Edition is withdrawn** after feedback that the concepts lost Kall's carved-rune character. The following describes the historical rationale, not a current recommendation. Its warm paper, editorial display and restrained action color support a private career workspace with a personal sense of continuity. Vector is the more technical direction; Horizon is the more open, blue-and-white direction. This is a design judgment, not user research evidence. No direction is approved.
+The round 01 recommendation of **Edition is withdrawn** after feedback that the concepts lost Kall's carved-rune character. Round 02 follows the authoritative KHIG, product vision, existing mark construction and Notion Volume IV design foundation. All three candidates retain the crossing-stave rune, dark graphite/charcoal, warm text and muted fjord blue. Stave explores a precise grotesk system, Inscription a restrained cut-serif treatment, and Fjord an open humanist system.
+
+Use **Stave as the reference for the next alignment review** because it stays closest to the written foundation. This is a design judgment, not user research evidence or a selected direction. James must first confirm the corrected character reads as Kall. None of these candidates is approved. A separate source literally titled Runestone was not found; the correction follows the authoritative sources above and James's feedback.
 
 James must select a direction before replacing the current identity. The broader page hierarchy also needs review before implementation. Current-flow polish and functional fixes can proceed independently. Do not copy these static studies into production as a shortcut around those decisions.
 
@@ -16,7 +18,7 @@ Retain the current five destinations: Brief, Opportunities, Applications, Docume
 
 | Moment | Person's question | Proposed view and next action | Preserved boundary |
 | --- | --- | --- | --- |
-| Arrive | What should I do next? | Brief presents one useful next action, recent matches and a review needing attention. Empty state offers Search now and Create a career profile as peer actions. | Search never requires profile creation first. No fabricated activity in empty states. |
+| Arrive | How does my next step fit my career? | Brief leads with saved career strategy and the professional record, then opportunities and a prepared review. Empty state offers Search now and Create a career profile as peer actions. | Search never requires profile creation first. No fabricated activity in empty states. Career support extends beyond an active job search. |
 | Search directly | What is out there? | Opportunities opens to manual search; a pasted or selected job can proceed to preparation. | Wider web search remains manual. Carry external URL, title and snippet without submitting. |
 | Define direction | What kind of work do I want? | Career Strategy exposes target titles, functional areas, locations, industry and exclusions. | Unrelated edits and pause/reactivate preserve criteria. Expanded targeting stays deterministic. |
 | Understand a posting | Why does this fit? | Selected Opportunity pairs posting facts with Job Intelligence evidence, gaps and a visible single functional-area bonus. | Job fit is not career development and not an offer prediction. Missing area evidence causes no penalty. |
@@ -78,7 +80,7 @@ The inventory below was checked against the 40 `apps/web/app/**/page.tsx` files 
 
 ## Migration sequence after selection
 
-1. Refine the selected logo into original vector masters and approve small-size, reversed and monochrome usage. Review font licensing and a production token sheet. Keep the current brand as rollback assets.
+1. Preserve the existing rune geometry as the anchor. After selection, refine the wordmark and approve small-size, reversed and monochrome usage. Any change to the rune itself requires a separate explicit review. Check font licensing and a production token sheet. Keep current brand assets for rollback.
 2. Introduce scoped presentation tokens behind a reversible UI flag. First apply the shell and Brief, preserving link targets. Test keyboard focus, contrast, reduced motion, 200% zoom and 375px touch layouts.
 3. Apply Opportunities and contextual Job Intelligence. Test existing search/discovery tabs, filters, saved workflow states and source status. The monitoring lane owns live data and delivery correctness.
 4. Apply Career and Documents. Validate all tab and redirect entry points, persistent form values, exclusion preservation, record permissions and resume version/download behavior.
@@ -91,4 +93,4 @@ Each stage requires actual browser visual review at desktop and 375px, plus rele
 
 The exploration was implemented only in `design/identity-exploration/` and this file. The gallery, sources and images are standalone. Inherited unrelated copyright edits and untracked files were preserved. No cloud deployment, live email, new external service or runtime dependency was introduced.
 
-The [QA log](../../design/identity-exploration/qa.md) records inspected assets, actual browser checks and limitations. The coordinator reports PR #169 run `33339187268` passed all five required jobs and the earlier runner-start payment/spending restriction did not recur. Combined integration has separate CI pending. This lane did not bypass checks or change billing. The identity selection is the remaining user decision, not an external implementation failure.
+The [round 02 QA log](../../design/identity-exploration/revision-02/qa.md) records inspected assets, actual browser checks and limitations. The coordinator reports PR #169 run `33339187268` passed all five required jobs and the earlier runner-start payment/spending restriction did not recur. Draft PR #170 has its own CI, whose current state must be checked there. This lane did not bypass checks or change billing. Corrected identity alignment, direction selection and hierarchy review remain user decisions; they do not block independent functional repairs.

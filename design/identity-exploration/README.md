@@ -1,10 +1,10 @@
-> Round 01 is historical and unapproved. Edition recommendation was withdrawn after feedback that the studies did not read like Kall's Runestone. See the live gallery for the correction.
+> Start with [round 02: the rune-aligned correction](revision-02/index.html) and its [decision package](revision-02/README.md). Stave, Inscription and Fjord preserve the original rune and dark Nordic foundation. All remain unapproved. The remainder of this file records historical round 01; Edition's recommendation is withdrawn.
 
 # Kall identity exploration
 
 Status: **candidate_not_approved**. Prepared 30 August 2026 on `codex/kall-identity-exploration`, based on `b05cdcf062533cbe2669cc836e5807c79788f7a0`.
 
-Open [the review gallery](index.html). It includes three raster concept boards, 24 candidate screen JPEGs, eight current-style control JPEGs, a recommendation, and a navigation storyboard. All assets are local. Nothing here changes the live product.
+The [review entry](index.html) now leads to round 02. The [historical gallery](round-01.html) retains the original three raster concept boards, 24 candidate screen JPEGs, eight current-style control JPEGs and withdrawn recommendation. Each round has its own full inventory and validator. All assets are local. Nothing here changes the live product.
 
 To serve the package from the repository root in PowerShell:
 
