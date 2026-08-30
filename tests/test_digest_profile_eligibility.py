@@ -1,5 +1,7 @@
 """Legacy queued digests must re-check private profile constraints at delivery."""
 
+from datetime import datetime
+
 import pytest
 from kall.models import CareerProfile, Job, NotificationDelivery, Opportunity, User
 from kall.services.discovery_matching import refresh_discovered_job_match
@@ -34,7 +36,7 @@ def test_excluded_historical_match_cannot_leave_through_legacy_digest(engine, mo
         if refresh_first:
             refresh_discovered_job_match(session, user=user, profile=profile, job=job)
             session.commit()
-        assert process_delivery(session, delivery) == "skipped"
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "skipped"
         assert delivery.attempts == 0
 
 
@@ -62,4 +64,4 @@ def test_legacy_digest_cannot_use_paused_or_other_users_profile(engine, monkeypa
                                         dedupe_key="one", payload={"opportunity_ids": [opportunity.id]})
         session.add(delivery)
         session.commit()
-        assert process_delivery(session, delivery) == "skipped"
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "skipped"

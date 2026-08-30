@@ -6,8 +6,8 @@ tracks ownership and evidence; task creation does not mean implementation is don
 | Task | Task ID | Responsibility | Status |
 | --- | --- | --- | --- |
 | Kall integration and delivery | 01a0546e-37c4-78a3-8731-d26b2350af10 | Integration, shared QA safety, release checks | In progress |
-| Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired, integrated, PR updated; CI running |
-| Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | In progress |
+| Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired, integrated, PR updated; five required checks passed |
+| Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | Integrated; combined validation in progress |
 | Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | In progress |
 | Kall: user-flow polish and accessibility | 01a054aa-c624-7b52-ae4f-de9ab36af8c9 | Current-flow fixes, responsive and fixture browser QA | In progress |
 | Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | In progress |
@@ -33,8 +33,8 @@ notification-delivery service. Preserve all application and opportunity states.
   `ab0c35b` at coordination start. Do not assume child commits are based on main.
 - Earlier required GitHub checks never started because of a payment/spending
   restriction. The new PR #169 run `33339187268` started on 2026-08-30 and has
-  executed setup, lint and test steps. Do not assume its outcome until all required
-  checks finish. Do not bypass checks, repeatedly rerun them, or change billing.
+  passed backend, web, web e2e, extension and mobile e2e. The PR remains unmerged.
+  Do not bypass checks, repeatedly rerun them, or change billing.
 - Monitoring is opt-in, five-minute company-board polling with initial global
   caps of five profiles and ten public boards. Incremental ceiling is $10/month.
 - Keep cloud scheduling/deployment disabled pending measured workload/cost
@@ -62,3 +62,7 @@ commits and validation evidence before integration is considered complete.
   deployment or live email has occurred. See [reference evidence](reference-reminders.md).
 - `41f4792` from the targeting task is integrated as `f77221b`. Monitoring's
   `cd0b4a2` is the same helper patch and must not be applied a second time.
+- `2749395` from the targeting task is integrated as `3b34910`. Its audit,
+  implementation contracts and lane test evidence are in [the feature audit](feature-audit.md).
+- [Combined validation](integration-validation.md) distinguishes completed checks
+  from remaining implementation and deployment gates.
