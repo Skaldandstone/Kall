@@ -40,7 +40,9 @@ deletion failures, and already-removed users. They do not prove live Clerk login
 
 Verified locally: all 16 safety tests pass on Node 24.19.0. The same command is
 included in the existing web CI job on Node 22, without adding a job or requiring
-Clerk credentials. Hosted CI remains blocked by the GitHub billing restriction.
+Clerk credentials. These guards have not yet run in hosted CI. The refreshed
+reference-reminder PR has started CI successfully, so the earlier runner-start
+billing restriction is no longer a confirmed current blocker.
 
 The usability task owns a separate local fixture browser harness for this build.
 Fixture UI checks and screenshots must be labeled as such. Production auth remains
