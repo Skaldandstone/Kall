@@ -8,7 +8,7 @@ from kall.services import work_claims
 from kall.services.discovery import run_discovery
 from kall.services.opportunities import advance_schedule, due_schedule, material_fingerprint
 from kall.services.opportunity_notifications import (
-    eligible_opportunities,
+    eligible_source_opportunities,
     prepare_deliveries,
     record_event,
 )
@@ -57,9 +57,9 @@ async def run_due_schedules(session: Session, *, now: datetime | None = None) ->
                 advance_schedule(schedule, now)
                 session.add(schedule)
                 session.commit()
-            for opportunity in eligible_opportunities(session, user.id):
-                if opportunity.professional_profile_id == profile.id:
-                    job = session.get(Job, opportunity.job_id)
+            for job_id, opportunities in eligible_source_opportunities(session, user.id).items():
+                if any(row.professional_profile_id == profile.id for row in opportunities):
+                    job = session.get(Job, job_id)
                     record_event(session, user.id, job.id, material_fingerprint(job))
             session.commit()
         finally:

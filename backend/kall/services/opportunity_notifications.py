@@ -5,8 +5,6 @@ from datetime import UTC, datetime
 
 from kall.models import (
     CareerProfile,
-    Job,
-    JobMatch,
     NotificationDelivery,
     NotificationPreference,
     Opportunity,
@@ -15,9 +13,8 @@ from kall.models import (
 )
 from kall.services import work_claims
 from kall.services.discovery_matching import refresh_discovered_job_match
-from kall.services.matching import is_out_of_scope
 from kall.services.notification_timing import as_local
-from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
+from kall.services.opportunity_sources import refresh_representative, source_jobs, source_match
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -40,38 +37,47 @@ def record_event(session: Session, user_id: int, job_id: int, fingerprint: str) 
     return True
 
 
-def eligible_opportunities(session: Session, user_id: int, *, job_ids: list[int] | None = None,
-                           opportunity_ids: list[int] | None = None) -> list[Opportunity]:
+def eligible_source_opportunities(session: Session, user_id: int, *, job_ids: list[int] | None = None,
+                                  opportunity_ids: list[int] | None = None) -> dict[int, list[Opportunity]]:
+    """Eligible source IDs mapped to owned canonical rows, never borrowed scores."""
     preference = preference_for(session, user_id)
     user = session.get(User, user_id)
     if not user or not user.is_active or not preference.email_enabled:
-        return []
-    statement = select(Opportunity, CareerProfile, Job).join(
+        return {}
+    statement = select(Opportunity, CareerProfile).join(
         CareerProfile, CareerProfile.id == Opportunity.professional_profile_id,
-    ).join(Job, Job.id == Opportunity.job_id).where(
+    ).where(
         Opportunity.user_id == user_id, CareerProfile.user_id == user_id, CareerProfile.is_active.is_(True),
         Opportunity.state.in_(["new", "saved", "reviewing"]),
     )
-    if job_ids is not None:
-        statement = statement.where(Opportunity.job_id.in_(job_ids))
     if opportunity_ids is not None:
         statement = statement.where(Opportunity.id.in_(opportunity_ids))
-    blocked = suppressed_urls(session, user_id, reasons=DISCOVERY_BLOCKING_REASONS)
+    requested = set(job_ids) if job_ids is not None else None
+    result: dict[int, list[Opportunity]] = {}
+    for opportunity, profile in session.exec(statement).all():
+        jobs = source_jobs(session, opportunity)
+        if requested is not None and not requested.intersection(job.id for job in jobs):
+            continue
+        for job in jobs:
+            match = source_match(session, opportunity, job)
+            if (match is None and len(jobs) > 1) or (match and (
+                profile.updated_at > match.updated_at or job.updated_at > match.updated_at
+            )):
+                refresh_discovered_job_match(session, user=user, profile=profile, job=job)
+        for job, score in refresh_representative(session, opportunity):
+            if score >= preference.minimum_match_score and (requested is None or job.id in requested):
+                result.setdefault(job.id, []).append(opportunity)
+    return result
+
+
+def eligible_opportunities(session: Session, user_id: int, *, job_ids: list[int] | None = None,
+                           opportunity_ids: list[int] | None = None) -> list[Opportunity]:
+    sources = eligible_source_opportunities(session, user_id, job_ids=job_ids, opportunity_ids=opportunity_ids)
     best: dict[int, Opportunity] = {}
-    for opportunity, profile, job in session.exec(statement):
-        if is_out_of_scope(job, profile) or is_suppressed(job.url, blocked):
-            continue
-        match = session.exec(select(JobMatch).where(
-            JobMatch.user_id == user_id, JobMatch.career_profile_id == profile.id, JobMatch.job_id == job.id,
-        )).first()
-        if match and (profile.updated_at > match.updated_at or job.updated_at > match.updated_at):
-            match = refresh_discovered_job_match(session, user=user, profile=profile, job=job)
-            if match is None:
-                continue
-        if opportunity.match_score < preference.minimum_match_score:
-            continue
-        if opportunity.job_id not in best or opportunity.match_score > best[opportunity.job_id].match_score:
-            best[opportunity.job_id] = opportunity
+    for opportunities in sources.values():
+        for opportunity in opportunities:
+            if opportunity.job_id not in best or opportunity.match_score > best[opportunity.job_id].match_score:
+                best[opportunity.job_id] = opportunity
     return sorted(best.values(), key=lambda row: (-row.match_score, row.id))
 
 
@@ -110,8 +116,9 @@ def prepare_deliveries(session: Session, *, now: datetime | None = None,
             ).order_by(OpportunityNotificationEvent.id).limit(500)))
             if not events:
                 continue
-            opportunities = eligible_opportunities(session, user_id, job_ids=[e.job_id for e in events])
-            eligible_ids = {o.job_id for o in opportunities}
+            sources = eligible_source_opportunities(session, user_id, job_ids=[e.job_id for e in events])
+            opportunities = {o.id: o for rows in sources.values() for o in rows}.values()
+            eligible_ids = set(sources)
             accepted = []
             for event in events:
                 if event.job_id in eligible_ids:
