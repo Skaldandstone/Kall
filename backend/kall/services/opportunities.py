@@ -41,15 +41,15 @@ def upsert_opportunity(
     row = session.exec(select(Opportunity).where(
         Opportunity.user_id == user_id,
         Opportunity.professional_profile_id == profile_id,
-        Opportunity.canonical_key == key,
-    )).first()
+        (Opportunity.job_id == job.id) | (Opportunity.canonical_key == key),
+    ).order_by((Opportunity.job_id == job.id).desc())).first()
     source = {"source": job.source, "external_id": job.external_id, "url": job.url}
     if row:
         row.last_seen_at = datetime.utcnow()
-        row.match_score = max(row.match_score, match_score)
+        row.match_score = match_score
+        row.canonical_key = key
         row.source_records = list({item.get("url"): item for item in [*row.source_records, source]}.values())
-        if row.state == "not_interested" and row.dismissed_fingerprint != fingerprint:
-            row.state = "new"
+        # Posting edits and new matching evidence never undo a user's choice.
         row.material_fingerprint = fingerprint
     else:
         row = Opportunity(
