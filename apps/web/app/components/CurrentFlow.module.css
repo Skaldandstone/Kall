@@ -1,0 +1,33 @@
+.shell :global(.hero) {
+  padding-block: 32px;
+}
+
+.shell :global(.hero) h1 {
+  max-width: 20ch;
+  font-size: clamp(32px, 4.5vw, 64px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.shell :global(.card) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shell :global(.input) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .shell :global(.hero) p {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .shell :global(.button) {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+}
