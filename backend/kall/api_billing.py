@@ -1,7 +1,9 @@
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -60,29 +62,63 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
     except Exception as exc:
         raise HTTPException(400, "Invalid Stripe webhook") from exc
 
+    if bool(event.get("livemode", False)) != settings.stripe_livemode:
+        raise HTTPException(400, "Stripe webhook environment does not match")
+
     event_id = str(event["id"])
-    existing = session.exec(select(BillingEvent).where(BillingEvent.provider_event_id == event_id)).first()
-    if existing:
-        return {"received": True, "duplicate": True}
+    try:
+        # Pending records from older releases must be retried. Lock them so
+        # two retries cannot both apply a grant; new events use the unique ID.
+        record = session.exec(
+            select(BillingEvent)
+            .where(BillingEvent.provider_event_id == event_id)
+            .with_for_update()
+        ).first()
+        if record and record.status == "processed":
+            return {"received": True, "duplicate": True}
+        if record is None:
+            record = BillingEvent(
+                provider_event_id=event_id,
+                event_type=str(event["type"]),
+                payload_json=json.loads(json.dumps(event, default=str)),
+            )
+            session.add(record)
+            session.flush()
 
-    record = BillingEvent(
-        provider_event_id=event_id,
-        event_type=str(event["type"]),
-        payload_json=json.loads(json.dumps(event, default=str)),
-    )
-    session.add(record)
-    session.commit()
+        _apply_event(session, event)
+        record.status = "processed"
+        record.processed_at = datetime.utcnow()
+        record.error = None
+        session.add(record)
+        # The receipt and entitlement changes succeed or roll back together.
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(BillingEvent).where(BillingEvent.provider_event_id == event_id)
+        ).first()
+        if existing and existing.status == "processed":
+            return {"received": True, "duplicate": True}
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    return {"received": True}
 
+
+def _apply_event(session: Session, event: dict) -> None:
     obj = event["data"]["object"]
-    metadata = obj.get("metadata", {})
-    user_id = metadata.get("kall_user_id") or obj.get("client_reference_id")
+    metadata = obj.get("metadata") or {}
+    # A generic client_reference_id can belong to another app in this account.
+    user_id = metadata.get("kall_user_id")
     if user_id and event["type"] in {
-        "checkout.session.completed",
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
     }:
-        apply_subscription_event(session, int(user_id), dict(obj))
+        # Checkout's status is "complete", not a subscription status. Using
+        # it here could undo an earlier subscription.created entitlement.
+        apply_subscription_event(session, int(user_id), dict(obj), commit=False)
     elif event["type"] in {"invoice.payment_failed", "invoice.paid"}:
         # Invoices do not reliably carry kall_user_id metadata, so these are
         # looked up by Stripe customer id instead -- see
@@ -91,13 +127,9 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
         subscription = find_subscription_by_customer(session, customer_id) if customer_id else None
         if subscription:
             if event["type"] == "invoice.payment_failed":
-                apply_payment_failed(session, subscription)
+                apply_payment_failed(session, subscription, commit=False)
             else:
-                apply_payment_recovered(session, subscription)
-    record.status = "processed"
-    session.add(record)
-    session.commit()
-    return {"received": True}
+                apply_payment_recovered(session, subscription, commit=False)
 
 
 @router.get("/me/usage")

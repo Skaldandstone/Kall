@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-luna"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    stripe_livemode: bool = False
+    stripe_portal_configuration_id: str | None = None
     #: Kall Plus. Named for the plan rather than as a bare "price id" now that
     #: there is more than one.
     stripe_price_id: str | None = None

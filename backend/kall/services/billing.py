@@ -18,6 +18,13 @@ ACTIVE_STATUSES = {"active", "trialing"}
 PAYMENT_GRACE_PERIOD_HOURS = 72
 
 
+def validate_key_environment() -> None:
+    settings = get_settings()
+    mode = "live" if settings.stripe_livemode else "test"
+    if not (settings.stripe_secret_key or "").startswith((f"rk_{mode}_", f"sk_{mode}_")):
+        raise HTTPException(503, "Stripe key environment does not match")
+
+
 def price_for(plan: str) -> str | None:
     """The Stripe price backing a plan, or None if it is not configured."""
     settings = get_settings()
@@ -30,12 +37,13 @@ def price_for(plan: str) -> str | None:
 def create_checkout_url(user_id: int, plan: str = SubscriptionPlan.PLUS) -> str:
     settings = get_settings()
     price_id = price_for(plan)
-    if not settings.stripe_secret_key or not price_id:
+    if not settings.stripe_secret_key or not settings.stripe_webhook_secret or not price_id:
         # Naming the plan matters: with two paid tiers, "Stripe is not
         # configured" alone cannot tell you which price is missing.
         raise HTTPException(status_code=503, detail=f"Stripe is not configured for the {plan} plan")
     import stripe
 
+    validate_key_environment()
     stripe.api_key = settings.stripe_secret_key
     metadata = {"kall_user_id": str(user_id), "kall_plan": plan}
     checkout = stripe.checkout.Session.create(
@@ -52,25 +60,30 @@ def create_checkout_url(user_id: int, plan: str = SubscriptionPlan.PLUS) -> str:
 
 def create_portal_url(customer_id: str) -> str:
     settings = get_settings()
-    if not settings.stripe_secret_key:
+    if not settings.stripe_secret_key or not settings.stripe_portal_configuration_id:
         raise HTTPException(status_code=503, detail="Stripe is not configured")
     import stripe
 
+    validate_key_environment()
     stripe.api_key = settings.stripe_secret_key
     portal = stripe.billing_portal.Session.create(
         customer=customer_id,
         return_url=f"{settings.frontend_url}/billing",
+        configuration=settings.stripe_portal_configuration_id,
     )
     return portal.url
 
 
-def get_subscription(session: Session, user_id: int) -> Subscription:
+def get_subscription(session: Session, user_id: int, *, commit: bool = True) -> Subscription:
     item = session.exec(select(Subscription).where(Subscription.user_id == user_id)).first()
     if item:
         return item
     item = Subscription(user_id=user_id)
     session.add(item)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     session.refresh(item)
     return item
 
@@ -98,8 +111,10 @@ def plan_from_event(payload: dict) -> str:
     return SubscriptionPlan.PLUS
 
 
-def apply_subscription_event(session: Session, user_id: int, payload: dict) -> Subscription:
-    item = get_subscription(session, user_id)
+def apply_subscription_event(
+    session: Session, user_id: int, payload: dict, *, commit: bool = True
+) -> Subscription:
+    item = get_subscription(session, user_id, commit=commit)
     item.provider_customer_id = payload.get("customer") or item.provider_customer_id
     item.provider_subscription_id = payload.get("subscription") or payload.get("id") or item.provider_subscription_id
     item.status = str(payload.get("status", item.status))
@@ -122,7 +137,10 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict) -> S
         user.plan = item.plan
         session.add(user)
 
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     session.refresh(item)
     return item
 
@@ -140,7 +158,9 @@ def find_subscription_by_customer(session: Session, customer_id: str) -> Subscri
     ).first()
 
 
-def apply_payment_failed(session: Session, subscription: Subscription) -> bool:
+def apply_payment_failed(
+    session: Session, subscription: Subscription, *, commit: bool = True
+) -> bool:
     """Record a failed invoice. Returns True if this started a new grace window.
 
     Only the first failure starts the clock -- Stripe retries a failing card
@@ -153,15 +173,23 @@ def apply_payment_failed(session: Session, subscription: Subscription) -> bool:
         return False
     subscription.payment_failed_at = datetime.utcnow()
     session.add(subscription)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return True
 
 
-def apply_payment_recovered(session: Session, subscription: Subscription) -> bool:
+def apply_payment_recovered(
+    session: Session, subscription: Subscription, *, commit: bool = True
+) -> bool:
     """Clear a grace window because payment succeeded. Returns True if one was active."""
     if subscription.payment_failed_at is None:
         return False
     subscription.payment_failed_at = None
     session.add(subscription)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return True
