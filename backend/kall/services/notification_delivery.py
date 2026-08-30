@@ -176,13 +176,24 @@ def _professional_membership_reminder_email(delivery: NotificationDelivery) -> t
 
 
 def _reference_reminder_email(delivery: NotificationDelivery) -> tuple[str, str]:
+    from html import escape
+
     payload = delivery.payload
     subject = f"Time to reconfirm: {payload['name']}"
-    org_suffix = f" at {payload['organization']}" if payload.get("organization") else ""
+    name = escape(str(payload["name"]))
+    org_suffix = f" at {escape(str(payload['organization']))}" if payload.get("organization") else ""
+    baseline = escape(str(payload.get("baseline_date") or payload.get("last_confirmed_on") or "an earlier date"))
+    if payload.get("baseline_source") == "last_confirmed_on":
+        history = f"Last confirmed on {baseline}."
+    elif payload.get("baseline_source") == "created_at":
+        history = f"Added to Kall on {baseline}; no confirmation date is recorded."
+    else:
+        # Older queued payloads used last_confirmed_on for both baselines.
+        # Without provenance, do not present that date as a confirmation.
+        history = f"This reminder is based on the date saved with your reference: {baseline}."
     html = (
-        f"<p>You listed <strong>{payload['name']}</strong>{org_suffix} as a reference, "
-        f"last confirmed on {payload['last_confirmed_on']}.</p>"
-        "<p>It's been a while -- worth a quick check that they're still reachable and "
+        f"<p>You listed <strong>{name}</strong>{org_suffix} as a reference. {history}</p>"
+        "<p>It's been a while. Check that they're still reachable and "
         "still willing before an employer calls them.</p>"
     )
     return subject, html

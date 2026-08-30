@@ -29,30 +29,38 @@ from sqlmodel import Session, select
 REMINDER_STALENESS_DAYS = 180
 
 
-def queue_reference_reminders(session: Session, *, now: datetime | None = None) -> int:
-    """Queue one `reference_reminder` delivery per reference that has gone
-    stale since it was last confirmed. Returns the number queued.
+def eligible_references(session: Session, *, now: datetime | None = None) -> list[Reference]:
+    """Read references whose confirmation baseline is at least 180 days old.
 
-    dedupe_key is keyed to the row's current last_confirmed_on (or its
-    created_at date, when never confirmed) -- so re-confirming it moves
-    the baseline forward and naturally opens a fresh reminder for the next
-    cycle, the same convention the fixed-window reminders use for
-    expires_on.
+    This performs no writes. Both the queue producer and the CLI dry run use
+    this eligibility check, so a dry run never calls the committing outbox.
     """
     today = (now or datetime.utcnow()).date()
-    references = session.exec(
-        select(Reference).where(
-            Reference.permission_to_contact == True,  # noqa: E712
-            Reference.availability != "unavailable",
-        )
-    ).all()
+    with session.no_autoflush:
+        references = session.exec(
+            select(Reference).where(
+                Reference.permission_to_contact == True,  # noqa: E712
+                Reference.availability != "unavailable",
+            )
+        ).all()
 
-    queued = 0
+    return [
+        reference
+        for reference in references
+        if today >= (reference.last_confirmed_on or reference.created_at.date())
+        + timedelta(days=REMINDER_STALENESS_DAYS)
+    ]
+
+
+def queue_reference_reminders(session: Session, *, now: datetime | None = None) -> int:
+    """Queue eligible references and return the number of deliveries created.
+
+    The dedupe key follows the current confirmation date, or creation date
+    when never confirmed. Reconfirming opens a fresh reminder cycle.
+    """
+    references = eligible_references(session, now=now)
     for reference in references:
         baseline = reference.last_confirmed_on or reference.created_at.date()
-        stale_since = baseline + timedelta(days=REMINDER_STALENESS_DAYS)
-        if today < stale_since:
-            continue
         queue(
             session,
             user_id=reference.user_id,
@@ -61,9 +69,10 @@ def queue_reference_reminders(session: Session, *, now: datetime | None = None) 
                 "reference_id": reference.id,
                 "name": reference.name,
                 "organization": reference.organization,
-                "last_confirmed_on": baseline.isoformat(),
+                "last_confirmed_on": reference.last_confirmed_on.isoformat() if reference.last_confirmed_on else None,
+                "baseline_date": baseline.isoformat(),
+                "baseline_source": "last_confirmed_on" if reference.last_confirmed_on else "created_at",
             },
             dedupe_key=f"reference_reminder:{reference.id}:{baseline.isoformat()}",
         )
-        queued += 1
-    return queued
+    return len(references)
