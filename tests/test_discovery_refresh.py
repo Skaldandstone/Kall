@@ -1,0 +1,116 @@
+from datetime import datetime, timedelta
+
+import pytest
+from kall.models import CareerProfile, Job, JobMatch, Opportunity, User
+from kall.providers.jobs import DiscoveredJob
+from kall.services.discovery_matching import ingest_discovered_jobs
+from sqlmodel import Session, select
+
+
+def posting(**overrides):
+    values = dict(source="greenhouse", external_id="42", company="Example",
+                  title="Quality Engineer", description="SaaS automation", location="Remote",
+                  url="https://example.test/jobs/42")
+    return DiscoveredJob(**(values | overrides))
+
+
+def setup(session):
+    user = User(email="refresh@example.test", full_name="Refresh")
+    session.add(user)
+    session.flush()
+    profile = CareerProfile(user_id=user.id, name="Quality", target_titles=["Quality Engineer"],
+                            include_keywords=["automation"], industries=["SaaS"])
+    session.add(profile)
+    session.commit()
+    return user, profile
+
+
+def test_changed_posting_refreshes_evidence_and_decreases_score_without_losing_state(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        first = ingest_discovered_jobs(session, user, profile, [posting()])
+        row = session.get(Opportunity, first["opportunity_ids"][0])
+        original_id, original_score = row.id, row.match_score
+        row.state = "apply"
+        row.notes = "Interview scheduled"
+        session.add(row)
+        session.commit()
+
+        second = ingest_discovered_jobs(session, user, profile, [posting(
+            title="Support Specialist", description="Help customers", location="New York",
+        )])
+        row = session.get(Opportunity, original_id)
+        match = session.exec(select(JobMatch)).one()
+        assert second["opportunity_ids"] == [original_id]
+        assert second["matches_created"] == 0
+        assert row.state == "apply" and row.notes == "Interview scheduled"
+        assert row.match_score == match.score < original_score
+        assert match.strengths == []
+        assert session.exec(select(Job)).one().title == "Support Specialist"
+        assert len(session.exec(select(Opportunity)).all()) == 1
+
+
+def test_profile_changes_refresh_stored_matches_even_with_an_empty_feed(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        ingest_discovered_jobs(session, user, profile, [posting()])
+        profile.target_titles = ["Product Manager"]
+        profile.include_keywords = []
+        profile.industries = []
+        profile.updated_at = datetime.utcnow() + timedelta(seconds=1)
+        session.add(profile)
+        session.commit()
+        ingest_discovered_jobs(session, user, profile, [])
+        match = session.exec(select(JobMatch)).one()
+        row = session.exec(select(Opportunity)).one()
+        assert match.score == row.match_score == 10
+        assert not any("Target-title" in s for s in match.strengths)
+
+
+def test_new_hard_exclusion_does_not_leave_an_eligible_historical_match(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        ingest_discovered_jobs(session, user, profile, [posting()])
+        row = session.exec(select(Opportunity)).one()
+        row.state = "saved"
+        profile.exclude_keywords = ["automation"]
+        session.add(profile)
+        session.add(row)
+        session.commit()
+        batch = ingest_discovered_jobs(session, user, profile, [posting()])
+        assert batch["opportunity_ids"] == []
+        assert batch["jobs_skipped"] == 1
+        assert row.state == "saved" and row.match_score == 0
+        match = session.exec(select(JobMatch)).one()
+        assert match.score == 0 and match.gaps == ["Contains excluded keyword: automation"]
+
+
+def test_material_change_preserves_dismissal_and_fingerprint_history(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        ingest_discovered_jobs(session, user, profile, [posting()])
+        row = session.exec(select(Opportunity)).one()
+        row.state = "not_interested"
+        row.dismissed_fingerprint = row.material_fingerprint
+        session.add(row)
+        session.commit()
+        ingest_discovered_jobs(session, user, profile, [posting(description="SaaS automation with leadership")])
+        assert row.state == "not_interested"
+        assert row.material_fingerprint != row.dismissed_fingerprint
+
+
+def test_cached_public_feed_keeps_private_matching_separate(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        other = User(email="other@example.test", full_name="Other")
+        session.add(other)
+        session.flush()
+        other_profile = CareerProfile(user_id=other.id, name="Other", exclude_keywords=["automation"])
+        session.add(other_profile)
+        session.commit()
+        ingest_discovered_jobs(session, user, profile, [posting()])
+        result = ingest_discovered_jobs(session, other, other_profile, [posting()])
+        assert result["opportunity_ids"] == []
+        assert session.exec(select(JobMatch)).one().user_id == user.id
+        with pytest.raises(ValueError, match="belong"):
+            ingest_discovered_jobs(session, other, profile, [posting()])
