@@ -114,3 +114,46 @@ def test_cached_public_feed_keeps_private_matching_separate(engine):
         assert session.exec(select(JobMatch)).one().user_id == user.id
         with pytest.raises(ValueError, match="belong"):
             ingest_discovered_jobs(session, other, profile, [posting()])
+
+
+def test_current_exclusions_hide_historical_results_without_deleting_saved_state(client, engine):
+    profile_id = client.post("/api/me/professional-profiles", json={
+        "name": "Quality", "target_titles": ["Quality Engineer"],
+    }).json()["id"]
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        profile = session.get(CareerProfile, profile_id)
+        ingest_discovered_jobs(session, user, profile, [posting()])
+        row = session.exec(select(Opportunity)).one()
+        row.state = "saved"
+        session.add(row)
+        session.commit()
+    assert len(client.get(f"/api/jobs/feed?professional_profile_id={profile_id}").json()) == 1
+    assert len(client.get("/api/opportunities").json()) == 1
+    client.put(f"/api/me/career-profiles/{profile_id}", json={"name": "Quality", "exclude_keywords": ["automation"]})
+    assert client.get(f"/api/jobs/feed?professional_profile_id={profile_id}").json() == []
+    assert client.get("/api/opportunities").json() == []
+    assert client.get("/api/me/morning-brief").json()["opportunities"] == []
+    with Session(engine) as session:
+        assert session.exec(select(Opportunity)).one().state == "saved"
+
+
+def test_posting_edit_cannot_merge_another_tracked_opportunity_or_its_state(engine):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        ingest_discovered_jobs(session, user, profile, [posting(), posting(
+            title="Support Specialist", url="https://example.test/jobs/43", external_id="43",
+        )])
+        rows = session.exec(select(Opportunity).order_by(Opportunity.id)).all()
+        first, second = rows
+        first.state, second.state = "saved", "apply"
+        first_key, second_key = first.canonical_key, second.canonical_key
+        session.add(first)
+        session.add(second)
+        session.commit()
+        ingest_discovered_jobs(session, user, profile, [posting(title="Support Specialist")])
+        assert first.state == "saved" and second.state == "apply"
+        assert first.canonical_key == first_key
+        assert second.canonical_key == second_key
+        assert first_key != second_key
+        assert len(session.exec(select(Opportunity)).all()) == 2

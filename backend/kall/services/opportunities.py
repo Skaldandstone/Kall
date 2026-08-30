@@ -47,7 +47,9 @@ def upsert_opportunity(
     if row:
         row.last_seen_at = datetime.utcnow()
         row.match_score = match_score
-        row.canonical_key = key
+        # Keep the first-seen cross-source identity. A title/location edit
+        # must not collide with another tracked opportunity's canonical key
+        # or merge two independent application histories.
         row.source_records = list({item.get("url"): item for item in [*row.source_records, source]}.values())
         # Posting edits and new matching evidence never undo a user's choice.
         row.material_fingerprint = fingerprint

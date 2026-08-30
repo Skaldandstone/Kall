@@ -1,6 +1,8 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import FunctionalAreasInput from '../components/FunctionalAreasInput';
+import { optionalProfileNumber } from '../lib/profileForm';
 import styles from './page.module.css';
 
 const API = '/api/kall';
@@ -10,7 +12,9 @@ type Profile = {
   name: string;
   target_titles: string[];
   industries: string[];
+  functional_areas: string[];
   include_keywords: string[];
+  exclude_keywords: string[];
   countries: string[];
   states_regions: string[];
   work_types: string[];
@@ -44,7 +48,7 @@ const EQUITY_LABELS: Record<string, string> = {
 const csv = (value: FormDataEntryValue | null) =>
   String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
 const money = (value: number | null) =>
-  value ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) : 'Not set';
+  value !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) : 'Not set';
 
 export default function StrategyTab() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -85,25 +89,23 @@ export default function StrategyTab() {
       name: String(form.get('name') || profile.name),
       target_titles: csv(form.get('target_titles')),
       industries: csv(form.get('industries')),
-      functional_areas: [],
+      functional_areas: csv(form.get('functional_areas')),
       include_keywords: csv(form.get('include_keywords')),
-      exclude_keywords: [],
+      exclude_keywords: csv(form.get('exclude_keywords')),
       countries: csv(form.get('countries')),
       states_regions: csv(form.get('states_regions')),
       work_types: csv(form.get('work_types')),
       employment_types: csv(form.get('employment_types')),
-      minimum_base: Number(form.get('minimum_base')) || null,
-      target_base: Number(form.get('target_base')) || null,
-      stretch_base: Number(form.get('stretch_base')) || null,
-      minimum_total_comp: Number(form.get('minimum_total_comp')) || null,
-      target_total_comp: Number(form.get('target_total_comp')) || null,
-      target_bonus_percent: Number(form.get('target_bonus_percent')) || null,
-      travel_max_percent: Number(form.get('travel_max_percent')) || null,
+      minimum_base: optionalProfileNumber(form.get('minimum_base')),
+      target_base: optionalProfileNumber(form.get('target_base')),
+      stretch_base: optionalProfileNumber(form.get('stretch_base')),
+      minimum_total_comp: optionalProfileNumber(form.get('minimum_total_comp')),
+      target_total_comp: optionalProfileNumber(form.get('target_total_comp')),
+      target_bonus_percent: optionalProfileNumber(form.get('target_bonus_percent')),
+      travel_max_percent: optionalProfileNumber(form.get('travel_max_percent')),
       relocation_preference: String(form.get('relocation_preference') || '') || null,
       equity_preference: String(form.get('equity_preference') || '') || null,
-      // The endpoint replaces every field, not just the ones on this form --
-      // hardcoding true here silently reactivated a paused profile on its
-      // next edit, which is exactly backwards from what editing should do.
+      // Editing preferences must not reactivate a paused profile.
       is_active: profile.is_active,
     };
     const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
@@ -123,32 +125,9 @@ export default function StrategyTab() {
   }
 
   async function setActive(profile: Profile, active: boolean) {
-    // PUT replaces the whole row, so pausing has to resend everything this
-    // profile already has -- not just the one field that changed.
+    // Omitted targeting fields stay untouched during pause/reactivate.
     const body = {
       name: profile.name,
-      target_titles: profile.target_titles,
-      industries: profile.industries,
-      functional_areas: [],
-      include_keywords: profile.include_keywords,
-      exclude_keywords: [],
-      countries: profile.countries,
-      states_regions: profile.states_regions,
-      work_types: profile.work_types,
-      employment_types: profile.employment_types,
-      minimum_base: profile.minimum_base,
-      target_base: profile.target_base,
-      stretch_base: profile.stretch_base,
-      minimum_total_comp: profile.minimum_total_comp,
-      target_total_comp: profile.target_total_comp,
-      target_bonus_percent: profile.target_bonus_percent,
-      travel_max_percent: profile.travel_max_percent,
-      relocation_preference: profile.relocation_preference,
-      // PUT replaces every field CareerProfileUpdate declares -- omitting
-      // this here (as this call did until now) silently wiped it back to
-      // null on every pause/reactivate, since a Kall profile toggled its
-      // own active state through this same full-replace endpoint.
-      equity_preference: profile.equity_preference,
       is_active: active,
     };
     const response = await fetch(`${API}/me/career-profiles/${profile.id}`, {
@@ -244,7 +223,9 @@ export default function StrategyTab() {
                     <label>Name<input name="name" defaultValue={profile.name} /></label>
                     <label>Target titles<input name="target_titles" defaultValue={profile.target_titles.join(', ')} /></label>
                     <label>Industries<input name="industries" defaultValue={profile.industries.join(', ')} /></label>
+                    <FunctionalAreasInput defaultValue={profile.functional_areas.join(', ')} />
                     <label>Include keywords<input name="include_keywords" defaultValue={profile.include_keywords.join(', ')} /></label>
+                    <label>Exclude keywords<input name="exclude_keywords" defaultValue={profile.exclude_keywords.join(', ')} /><small>Separate phrases with commas. Jobs mentioning these phrases are excluded.</small></label>
                     <div className={styles.two}>
                       <label>Countries<input name="countries" defaultValue={profile.countries.join(', ')} /></label>
                       <label>States or regions<input name="states_regions" defaultValue={profile.states_regions.join(', ')} /></label>
@@ -291,6 +272,7 @@ export default function StrategyTab() {
                     <div className={styles.tags}>{profile.target_titles.length ? profile.target_titles.map((title) => <span className={styles.tag} key={title}>{title}</span>) : <span className={styles.tag}>No target titles</span>}</div>
                     <dl className={styles.details}>
                       <div><dt>Industries</dt><dd>{profile.industries.join(', ') || 'Not set'}</dd></div>
+                      <div><dt>Functional areas</dt><dd>{profile.functional_areas.join(', ') || 'Not set'}</dd></div>
                       <div><dt>Locations</dt><dd>{[...profile.countries, ...profile.states_regions].join(', ') || 'Not set'}</dd></div>
                       <div><dt>Work types</dt><dd>{profile.work_types.join(', ') || 'Not set'}</dd></div>
                       <div><dt>Employment types</dt><dd>{profile.employment_types.join(', ') || 'Not set'}</dd></div>
@@ -299,6 +281,8 @@ export default function StrategyTab() {
                       <div><dt>Target bonus</dt><dd>{profile.target_bonus_percent != null ? `${profile.target_bonus_percent}%` : 'Not set'}</dd></div>
                       <div><dt>Equity</dt><dd>{EQUITY_LABELS[profile.equity_preference ?? ''] ?? 'Not specified'}</dd></div>
                       <div><dt>Keywords</dt><dd>{profile.include_keywords.join(', ') || 'Not set'}</dd></div>
+                      <div><dt>Excluded keywords</dt><dd>{profile.exclude_keywords.join(', ') || 'None'}</dd></div>
+                      <div><dt>Maximum travel</dt><dd>{profile.travel_max_percent !== null ? `${profile.travel_max_percent}%` : 'Not set'}</dd></div>
                     </dl>
                     <div className={styles.metrics}>
                       <article><strong>{profile.completeness.score}%</strong><span>Profile completeness</span></article>

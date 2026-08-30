@@ -28,6 +28,8 @@ from kall.models import (
     User,
 )
 from kall.models.enums import ApplicationStatus
+from kall.services.matching import is_out_of_scope
+from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
 from sqlmodel import Session, select
 
 
@@ -53,12 +55,13 @@ def build_morning_brief(session: Session, user: User) -> dict[str, Any]:
     )
     resumes = list(session.exec(select(ResumeDocument).where(ResumeDocument.user_id == user.id)))
     applications = list(session.exec(select(Application).where(Application.user_id == user.id)))
+    active_profiles = {profile.id: profile for profile in profiles}
+    blocked = suppressed_urls(session, user.id, reasons=DISCOVERY_BLOCKING_REASONS)
     matches = list(
         session.exec(
             select(JobMatch)
-            .where(JobMatch.user_id == user.id)
+            .where(JobMatch.user_id == user.id, JobMatch.career_profile_id.in_(active_profiles))
             .order_by(JobMatch.score.desc(), JobMatch.updated_at.desc())
-            .limit(10)
         )
     )
 
@@ -68,7 +71,7 @@ def build_morning_brief(session: Session, user: User) -> dict[str, Any]:
         if match.job_id in seen_jobs:
             continue
         job = session.get(Job, match.job_id)
-        if not job:
+        if not job or is_out_of_scope(job, active_profiles[match.career_profile_id]) or is_suppressed(job.url, blocked):
             continue
         seen_jobs.add(match.job_id)
         opportunities.append(
