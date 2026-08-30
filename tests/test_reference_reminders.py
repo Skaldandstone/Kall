@@ -6,7 +6,9 @@ today's date to see if a reference had gone stale.
 
 from datetime import date, datetime, timedelta
 
+import pytest
 from kall.models import NotificationDelivery, Reference
+from kall.services.notification_delivery import _reference_reminder_email
 from kall.services.reference_reminders import queue_reference_reminders
 from sqlmodel import Session, select
 
@@ -18,6 +20,41 @@ def _reference(**overrides) -> Reference:
     )
     defaults.update(overrides)
     return Reference(**defaults)
+
+
+@pytest.mark.parametrize("age_days, expected", [(179, 0), (180, 1), (181, 1)])
+@pytest.mark.parametrize("confirmed", [True, False])
+def test_staleness_boundary_and_email_date_provenance(client, engine, age_days, expected, confirmed) -> None:
+    now = datetime(2026, 6, 1, 12)
+    baseline = now - timedelta(days=age_days)
+    with Session(engine) as session:
+        session.add(_reference(
+            user_id=client.user_id,
+            last_confirmed_on=baseline.date() if confirmed else None,
+            created_at=baseline,
+        ))
+        session.commit()
+
+        assert queue_reference_reminders(session, now=now) == expected
+        deliveries = session.exec(select(NotificationDelivery)).all()
+        assert len(deliveries) == expected
+        if not expected:
+            return
+
+        delivery = deliveries[0]
+        assert delivery.payload["baseline_date"] == baseline.date().isoformat()
+        assert delivery.dedupe_key.endswith(f":{baseline.date().isoformat()}")
+        _, html = _reference_reminder_email(delivery)
+        if confirmed:
+            assert delivery.payload["last_confirmed_on"] == baseline.date().isoformat()
+            assert delivery.payload["baseline_source"] == "last_confirmed_on"
+            assert f"Last confirmed on {baseline.date().isoformat()}" in html
+        else:
+            assert delivery.payload["last_confirmed_on"] is None
+            assert delivery.payload["baseline_source"] == "created_at"
+            assert f"Added to Kall on {baseline.date().isoformat()}" in html
+            assert "no confirmation date is recorded" in html
+            assert "Last confirmed on" not in html
 
 
 def test_a_reference_confirmed_within_the_window_is_left_alone(client, engine) -> None:

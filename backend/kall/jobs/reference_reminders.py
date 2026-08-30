@@ -18,7 +18,7 @@ from datetime import datetime
 from sqlmodel import Session
 
 from kall.db import engine
-from kall.services.reference_reminders import queue_reference_reminders
+from kall.services.reference_reminders import eligible_references, queue_reference_reminders
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            count = queue_reference_reminders(session, now=datetime.utcnow())
-            session.rollback()
+            count = len(eligible_references(session, now=datetime.utcnow()))
             logger.info("Would queue %d reminder(s).", count)
             return 0
 
