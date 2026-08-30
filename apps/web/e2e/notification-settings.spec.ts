@@ -12,15 +12,15 @@ test('changing notification settings persists through a reload', async ({ page }
 
   // Defaults, since no preference row exists yet for a brand-new account.
   await expect(page.getByRole('checkbox', { name: 'Email me' })).toBeChecked();
-  await expect(page.getByLabel('Send it around')).toHaveValue('8');
+  await expect(page.getByLabel('Brief and digest hour')).toHaveValue('8');
 
-  await page.getByLabel('Send it around').selectOption('19');
+  await page.getByLabel('Brief and digest hour').selectOption('19');
   await page.getByLabel('In your time zone').fill('America/Los_Angeles');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Saved.')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByLabel('Send it around')).toHaveValue('19');
+  await expect(page.getByLabel('Brief and digest hour')).toHaveValue('19');
   await expect(page.getByLabel('In your time zone')).toHaveValue('America/Los_Angeles');
 });
 
@@ -28,8 +28,9 @@ test('turning email off hides the schedule fields', async ({ page }) => {
   await signInAsNewUser(page, 'Notification Toggle Test');
   await page.goto('/settings/notifications');
 
+  await expect(page.getByLabel('Brief and digest hour')).toBeVisible();
   await page.getByRole('checkbox', { name: 'Email me' }).uncheck();
-  await expect(page.getByLabel('Send it around')).toHaveCount(0);
+  await expect(page.getByLabel('Brief and digest hour')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Saved.')).toBeVisible();
