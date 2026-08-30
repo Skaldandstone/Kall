@@ -19,6 +19,7 @@ export default function ToastHost() {
 
   useEffect(() => {
     let nextId = 0;
+    const inlineMessages = new WeakMap<HTMLElement, string>();
     const add = (detail: ToastDetail) => {
       const message = String(detail.message || '').trim();
       if (!message) return;
@@ -33,9 +34,13 @@ export default function ToastHost() {
     const inspect = (root: ParentNode) => {
       root.querySelectorAll<HTMLElement>('[role="alert"], [data-toast-kind], .message').forEach((node) => {
         const message = node.textContent?.trim();
-        if (!message || node.closest('.kall-toast-region')) return;
+        if (!message || node.closest('.kall-toast-region') || node.id === '__next-route-announcer__') return;
+        if (inlineMessages.get(node) === message) return;
+        inlineMessages.set(node, message);
         const kind = (node.dataset.toastKind as ToastKind | undefined) || (node.getAttribute('role') === 'alert' ? 'error' : 'info');
-        node.style.display = 'none';
+        // Inline messages remain available after the toast expires. In
+        // particular, never hide a retry button inside an alert.
+        if (node.querySelector('button, a, input, select, textarea')) return;
         add({ message, kind });
       });
     };

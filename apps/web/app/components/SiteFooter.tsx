@@ -19,7 +19,7 @@ export default function SiteFooter() {
           width: '100%',
         }}
       >
-        <span>© {new Date().getFullYear()} Kall</span>
+        <span>© 2026 Skald and Stone LLC</span>
         <nav aria-label="Legal">
           <a href="/privacy-policy">Privacy Policy</a>
         </nav>
