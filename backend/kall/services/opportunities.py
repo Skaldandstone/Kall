@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from collections import Counter
 from datetime import datetime, timedelta
@@ -30,6 +31,12 @@ def material_fingerprint(job: Job) -> str:
         normalize(job.title), normalize(job.location), normalize(job.description),
         str(job.salary_min or ""), str(job.salary_max or ""), str(job.work_type or ""),
     ])
+    # Department/team evidence participates in functional-area matching.
+    # Exclude unrelated provider bookkeeping to avoid notification churn.
+    metadata = job.metadata_json or {}
+    relevant = {key: metadata[key] for key in ("team", "department", "departments", "offices") if metadata.get(key)}
+    if relevant:
+        content += "|" + json.dumps(relevant, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(content.encode()).hexdigest()
 
 
