@@ -18,9 +18,10 @@ export default async function globalSetup(): Promise<void> {
     stdio: 'inherit',
   });
 
-  // Clerk dev instances cap at 100 users and this spec creates one per run.
-  // Both suites share the instance, so both sweep it.
-  const purged = await purgeTestUsers(process.env.CLERK_SECRET_KEY as string);
+  // The shared instance must not be swept by an ordinary parallel test run.
+  const purged = await purgeTestUsers(process.env.CLERK_SECRET_KEY as string, {
+    enabled: process.env.KALL_E2E_PURGE_STALE_USERS === '1',
+  });
   if (purged) console.log(`Purged ${purged} Clerk user(s) left by earlier runs.`);
 
   await clerkSetup();

@@ -78,6 +78,8 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
+      - name: Check Clerk test cleanup safety without credentials
+        run: node --experimental-strip-types --test ../../tests/clerk-test-safety.test.mjs
       - run: npm install
       - run: npm run build
         env:
