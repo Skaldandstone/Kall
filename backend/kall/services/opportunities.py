@@ -41,8 +41,18 @@ def upsert_opportunity(
     row = session.exec(select(Opportunity).where(
         Opportunity.user_id == user_id,
         Opportunity.professional_profile_id == profile_id,
-        (Opportunity.job_id == job.id) | (Opportunity.canonical_key == key),
-    ).order_by((Opportunity.job_id == job.id).desc())).first()
+        Opportunity.job_id == job.id,
+    ).order_by(Opportunity.id)).first()
+    if row is None:
+        candidates = session.exec(select(Opportunity, Job).join(Job, Opportunity.job_id == Job.id).where(
+            Opportunity.user_id == user_id,
+            Opportunity.professional_profile_id == profile_id,
+            Opportunity.canonical_key == key,
+        ).order_by(Opportunity.id))
+        # First-seen keys are only lookup hints after a posting edit. Verify
+        # current company/title/location before adding another source, and
+        # keep searching when an older candidate has a stale identity.
+        row = next((candidate for candidate, current_job in candidates if canonical_key(current_job) == key), None)
     source = {"source": job.source, "external_id": job.external_id, "url": job.url}
     if row:
         row.last_seen_at = datetime.utcnow()

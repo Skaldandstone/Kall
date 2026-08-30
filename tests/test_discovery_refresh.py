@@ -157,3 +157,48 @@ def test_posting_edit_cannot_merge_another_tracked_opportunity_or_its_state(engi
         assert second.canonical_key == second_key
         assert first_key != second_key
         assert len(session.exec(select(Opportunity)).all()) == 2
+
+
+@pytest.mark.parametrize("changed_identity", [
+    {"title": "Support Engineer"},
+    {"company": "Different Company"},
+    {"location": "Seattle"},
+])
+def test_stale_canonical_alias_cannot_absorb_a_new_posting(engine, changed_identity):
+    with Session(engine) as session:
+        user, profile = setup(session)
+        initial = ingest_discovered_jobs(session, user, profile, [posting()])
+        original = session.get(Opportunity, initial["opportunity_ids"][0])
+        original.state, original.notes = "apply", "Existing application history"
+        first_key, first_job_id = original.canonical_key, original.job_id
+        session.add(original)
+        session.commit()
+
+        ingest_discovered_jobs(session, user, profile, [posting(**changed_identity)])
+        edited_fingerprint = original.material_fingerprint
+        new_result = ingest_discovered_jobs(session, user, profile, [posting(
+            source="lever", external_id="43", url="https://example.test/jobs/43",
+        )])
+        new_opportunity = session.get(Opportunity, new_result["opportunity_ids"][0])
+        assert new_opportunity.id != original.id
+        assert new_opportunity.job_id != first_job_id
+        assert new_opportunity.state == "new"
+        assert original.job_id == first_job_id and original.canonical_key == first_key
+        assert original.state == "apply" and original.notes == "Existing application history"
+        assert original.material_fingerprint == edited_fingerprint
+        assert len(original.source_records) == 1
+
+        # A third source must skip the stale alias and still deduplicate with
+        # the live identity, without merging either opportunity's history.
+        new_opportunity.state, new_opportunity.notes = "saved", "Different opportunity"
+        session.add(new_opportunity)
+        session.commit()
+        duplicate = ingest_discovered_jobs(session, user, profile, [posting(
+            source="ashby", external_id="44", url="https://example.test/jobs/44",
+            title=" Quality-Engineer ",
+        )])
+        assert duplicate["opportunity_ids"] == [new_opportunity.id]
+        assert new_opportunity.state == "saved" and new_opportunity.notes == "Different opportunity"
+        assert len(new_opportunity.source_records) == 2
+        assert original.state == "apply" and len(original.source_records) == 1
+        assert len(session.exec(select(Opportunity)).all()) == 2
