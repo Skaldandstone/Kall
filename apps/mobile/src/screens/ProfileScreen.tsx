@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchBrief } from '../api/brief';
 import { useClerk } from '@clerk/expo';
@@ -26,7 +26,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.container}>
       <Text style={styles.eyebrow}>Profile</Text>
       <Text style={styles.title}>{name ? `Hi, ${name}.` : 'Your account'}</Text>
       <Text style={styles.subtitle}>
@@ -36,12 +36,15 @@ export default function ProfileScreen() {
       <Pressable style={styles.button} onPress={() => void signOut()}>
         <Text style={styles.buttonText}>Sign out</Text>
       </Pressable>
-    </View>
+      <Text style={[styles.subtitle, { marginTop: 24 }]}>About Kall</Text>
+      <Text style={styles.subtitle}>© 2026 Skald and Stone LLC</Text>
+      <Text style={styles.subtitle}>Original studio work only. Existing software licenses and third-party rights remain unchanged.</Text>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background, paddingTop: 60, paddingHorizontal: 20 },
+  container: { flexGrow: 1, backgroundColor: theme.background, paddingTop: 60, paddingHorizontal: 20, paddingBottom: 32 },
   eyebrow: { color: theme.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   title: { color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 4 },
   subtitle: { color: theme.textSecondary, fontSize: 14, marginTop: 10, lineHeight: 20 },
