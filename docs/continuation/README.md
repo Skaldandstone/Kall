@@ -8,9 +8,9 @@ tracks ownership and evidence; task creation does not mean implementation is don
 | Kall integration and delivery | 01a0546e-37c4-78a3-8731-d26b2350af10 | Integration, shared QA safety, release checks | In progress |
 | Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired, integrated, PR updated; five required checks passed |
 | Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | Integrated; combined validation in progress |
-| Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | In progress |
+| Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | Integrated; final combined checks running, pilot disabled |
 | Kall: user-flow polish and accessibility | 01a054aa-c624-7b52-ae4f-de9ab36af8c9 | Current-flow fixes, responsive and fixture browser QA | Integrated; 30 combined UI/targeting browser cases passed |
-| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | Integrated; Edition recommended, selection pending |
+| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | Reopened after Runestone feedback; Edition recommendation withdrawn |
 
 ## Integration order
 
@@ -70,6 +70,12 @@ commits and validation evidence before integration is considered complete.
   [current-flow evidence](usability.md), including the isolated browser harness.
 - `edfecf3` from the identity task is integrated as `473e86a`. See the
   [review gallery](../../design/identity-exploration/index.html) and
-  [page migration proposal](identity-storyboard.md). Production identity is unchanged.
+  [page migration proposal](identity-storyboard.md). The first studies remain
+  historical, unapproved candidates. James's Runestone feedback reopened this
+  lane: the Edition recommendation is withdrawn pending alignment with Kall's
+  dark Nordic and carved-rune design foundation. Production identity is unchanged.
+- Monitoring `8a363ac`, metadata refresh `1fb404e` and UI `6fcf409` are integrated
+  as `e5938d9`, `8575362` and `f56117d`. See [monitoring](monitoring.md) for
+  behavior, controlled benchmarks, the conditional cost worksheet and activation gates.
 - [Combined validation](integration-validation.md) distinguishes completed checks
   from remaining implementation and deployment gates.

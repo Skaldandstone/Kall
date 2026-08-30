@@ -52,27 +52,59 @@ This file records completed checks separately from remaining release gates.
 - The identity package `473e86a` passed its image/manifest validator for all
   35 visuals and 32 browser records. Root reviewed the boards and representative
   desktop/mobile studies, then verified gallery comparison controls and JPEG
-  links after the format correction. Edition is recommended, not selected.
+  links after the format correction. The initial Edition recommendation was
+  subsequently withdrawn after James's Runestone feedback; the identity task is
+  correcting the first studies against Kall's design foundation. Visual file
+  validity does not establish alignment with the product identity.
 - Notification settings introductory copy no longer claims that default email
   delivery waits for an explicit save. Morning Brief remains separately described.
 
+## Monitoring integration checkpoint
+
+- All three monitoring commits are integrated. The delivery merge retained the
+  escaped reference renderer verbatim and the five black-box legacy eligibility
+  tests, while using the new common opportunity-eligibility service. Stable job
+  identity and current canonical-candidate validation remain intact.
+- The first complete combined backend run passed **495 tests**. The subsequent
+  department/team metadata fingerprint fix passed **47 focused regressions**
+  across monitoring, opportunities, discovery refresh, digest and reference mail.
+  The final full backend run then passed **496 tests** in 69.39 seconds.
+- Full Ruff, Python compilation, disabled-template `cfn-lint` and offline
+  preparation checks passed. The retained local revision-27 database upgraded
+  successfully to `20260830_0028`; full tests also cover fresh migration and
+  downgrade/re-upgrade preservation of the existing weekday schedule.
+- Root independently ran the integrated controlled benchmark with temporary
+  SQLite, synthetic feeds and disabled sender: ten requests per tick across five
+  profiles and ten shared boards, zero activation/unchanged alerts, then 100
+  private events for ten new and ten changed postings. Wall times were 36.105,
+  0.598 and 6.022 seconds. See [integrated measurement](monitoring-benchmark-integrated.json).
+  These unconstrained local timings are not a Fargate or PostgreSQL result.
+- The complete planning worksheet totals $7.90/month under its stated runtime,
+  email-volume, routing and storage assumptions. Root checked its arithmetic and
+  the cited AWS billing terms. It is not measured production cost or a guarantee.
+- The final production web build passed with a synthetic publishable test key
+  and no live authentication. All **36 combined browser cases** passed in 1.5
+  minutes at 1440px and 375px, covering current flows, targeting and monitoring.
+  All four integrated monitoring screenshots were visually inspected and copied
+  over the earlier lane captures; they now include the final navigation and
+  corrected notification introduction. Monitoring panels are element crops;
+  notification captures are full-page true PNGs. Existing CSS warnings remain.
+- The 16 mocked Clerk cleanup-safety tests and TypeScript checking passed.
+
 ## Required before the combined implementation is ready
 
-- Integrate final monitoring and notification patches, then rerun the full
-  backend suite under the normal local test configuration.
-- Validate new migrations both on a fresh database and the pre-monitoring
-  schema, preserving existing schedules and workflow states.
-- Run controlled-feed monitoring and notification tests with the sender
-  disabled. Cover concurrency, expired leases, resume fairness, changed and
-  unchanged postings, cross-user isolation, preferences, DST and provider errors.
-- Measure runtime and request volume, and record a complete incremental cost
-  estimate including network addresses, egress, logs, storage and email.
-- Build the combined web app and run relevant browser regressions. Inspect real
-  screenshots at desktop and 375px widths. Fixture tests do not verify Clerk,
-  live provider integration, deployed behavior, or inbox delivery.
-- Obtain a selected identity direction and page hierarchy before any production
-  brand or broader navigation migration. The review package is complete and this
-  decision does not block functional repairs.
+- Obtain the combined branch's required CI results. PR #169's green CI is
+  separate evidence from the completed local integration checks.
+- Before pilot activation, validate PostgreSQL transactions and migrations on a
+  disposable database, and constrain the actual image to 0.25 vCPU/0.5 GB while
+  measuring image startup, representative feeds, database latency and memory.
+  No Docker or PostgreSQL executable was found on this host's current PATH.
+- Validate every cost assumption against the selected pilot cohort and actual
+  routing; keep deployment disabled if the complete estimate exceeds $10/month.
+- Local fixture checks do not verify Clerk, live provider integration, deployed
+  behavior, or inbox delivery. Review hosted results within those limits.
+- Correct the identity exploration against Runestone feedback before requesting
+  a selected direction or page hierarchy. This does not block functional repairs.
 
 ## Deployment boundary
 
