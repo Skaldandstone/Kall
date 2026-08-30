@@ -5,27 +5,12 @@ import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
 import GoogleJobSearchResults from '../components/GoogleJobSearchResults';
 import { deadLinkCount, hiddenSearchResultCount, loadSuppressedResults, restoreHiddenSearchResults } from '../lib/searchResultState';
 import { showToast } from '../components/ToastHost';
+import { buildQuery, parseQuery, type SearchGroup } from '../lib/searchQuery';
 
 type AtsSearch = { query: string };
-type SearchGroup = { id: string; label: string; terms: string[] };
 
 function cleanTerm(value: string) {
   return value.trim().replace(/^site:/i, '').replace(/^['"]|['"]$/g, '').trim();
-}
-
-function parseQuery(value: string): SearchGroup[] {
-  const groups: SearchGroup[] = [];
-  const parenthetical = [...value.matchAll(/\(([^()]+)\)/g)].map((match) => match[1]);
-  parenthetical.forEach((content, index) => {
-    const terms = [...new Set(content.split(/\s+OR\s+/i).map(cleanTerm).filter(Boolean))];
-    if (!terms.length) return;
-    const isSites = terms.every((term) => /\.[a-z]{2,}(?:\/|$)/i.test(term));
-    const lower = terms.map((term) => term.toLowerCase());
-    const isWork = lower.some((term) => ['remote', 'work from home', 'hybrid', 'on site', 'onsite'].includes(term));
-    groups.push({ id: `profile-${index}`, label: isSites ? 'Sites' : isWork ? 'Work type' : index === 1 ? 'Job titles' : 'Search terms', terms });
-  });
-  if (!groups.length && value.trim()) groups.push({ id: 'profile-query', label: 'Search terms', terms: [cleanTerm(value)] });
-  return groups;
 }
 
 function splitNewTerms(value: string) {
@@ -33,12 +18,6 @@ function splitNewTerms(value: string) {
   return terms.length ? terms : value.trim() ? [value.trim()] : [];
 }
 
-function buildQuery(groups: SearchGroup[]) {
-  return groups.filter((group) => group.terms.length).map((group) => {
-    const terms = group.terms.map((term) => group.label === 'Sites' ? `site:${term}` : `"${term.replace(/"/g, '')}"`);
-    return terms.length === 1 ? terms[0] : `(${terms.join(' OR ')})`;
-  }).join(' ');
-}
 
 export default function SearchTab() {
   const [profileId, setProfileId] = useState('');
@@ -83,13 +62,14 @@ export default function SearchTab() {
   async function searchJobs(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
+    setMessage('Preparing your search…');
     try {
       let nextGroups = groups;
       if (!nextGroups.length && profileId) nextGroups = parseQuery(await buildProfileQuery(profileId));
       const additions = splitNewTerms(queryInput);
       if (additions.length) nextGroups = [...nextGroups, { id: `custom-${Date.now()}`, label: 'Added terms', terms: additions }];
       const finalQuery = buildQuery(nextGroups);
-      if (!finalQuery) { showToast('Enter a job title or select a professional profile.', 'error'); return; }
+      if (!finalQuery) { setMessage('Enter a job title or select a professional profile.'); showToast('Enter a job title or select a professional profile.', 'error'); return; }
       setGroups(nextGroups);
       setQueryInput('');
       setActiveQuery(finalQuery);
@@ -99,7 +79,9 @@ export default function SearchTab() {
       window.history.replaceState({}, '', url);
       setMessage('Showing Google job results in the results column.');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to start the job search.', 'error');
+      const detail = error instanceof Error ? error.message : 'Unable to start the job search.';
+      setMessage(detail);
+      showToast(detail, 'error');
     } finally { setLoading(false); }
   }
 

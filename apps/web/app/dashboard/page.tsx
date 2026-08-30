@@ -1,4 +1,5 @@
 import AppNav from '../components/AppNav';
+import flow from '../components/CurrentFlow.module.css';
 
 const primaryActions = [
   ['Search for a job', 'Find open roles and see how well you match right now.', '/search'],
@@ -13,7 +14,7 @@ const setupItems = [
 
 export default function Dashboard() {
   return (
-    <main className="shell">
+    <main className={`shell ${flow.shell}`}>
       <AppNav />
       <section className="hero">
         <span className="pill">Your workspace</span>

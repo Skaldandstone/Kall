@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AppNav from '../components/AppNav';
+import flow from '../components/CurrentFlow.module.css';
 import SearchTab from './SearchTab';
 import DiscoveryTab from './DiscoveryTab';
 import SourcesTab from './SourcesTab';
@@ -21,11 +22,11 @@ function SearchPageContent() {
   const params = useSearchParams();
   const tab = params.get('tab') || 'search';
 
-  return <main className="app-shell search-page-shell">
+  return <main className={`app-shell search-page-shell ${flow.shell}`}>
     <AppNav current="opportunities" />
     <section className="hero search-page-hero">
       <span className="eyebrow">Opportunities</span>
-      <h1>Search the job market from one place.</h1>
+      <h1>Find your next role.</h1>
       <p>Search the open web, run configured ATS discovery against your company boards, and manage which boards Kall watches.</p>
     </section>
     <nav className="section-tabs" aria-label="Opportunities sections" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>

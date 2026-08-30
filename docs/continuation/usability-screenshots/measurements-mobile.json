@@ -1,0 +1,902 @@
+[
+  {
+    "page": "dashboard",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Syne, \"Syne Fallback\", ui-sans-serif, system-ui, sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  },
+  {
+    "page": "brief",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Epilogue, \"Epilogue Fallback\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  },
+  {
+    "page": "search",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Syne, \"Syne Fallback\", ui-sans-serif, system-ui, sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  },
+  {
+    "page": "preparation",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Syne, \"Syne Fallback\", ui-sans-serif, system-ui, sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  },
+  {
+    "page": "review",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Syne, \"Syne Fallback\", ui-sans-serif, system-ui, sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  },
+  {
+    "page": "profile-edit",
+    "innerWidth": 375,
+    "clientWidth": 375,
+    "scrollWidth": 375,
+    "headingFont": "Epilogue, \"Epilogue Fallback\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+    "fontStatus": "loaded",
+    "fonts": [
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "unloaded"
+      },
+      {
+        "family": "Syne",
+        "status": "loaded"
+      },
+      {
+        "family": "Syne Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "unloaded"
+      },
+      {
+        "family": "Epilogue",
+        "status": "loaded"
+      },
+      {
+        "family": "Epilogue Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "IBM Plex Mono",
+        "status": "loaded"
+      },
+      {
+        "family": "IBM Plex Mono Fallback",
+        "status": "loaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist",
+        "status": "unloaded"
+      },
+      {
+        "family": "__nextjs-Geist Mono",
+        "status": "unloaded"
+      }
+    ]
+  }
+]

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
+import flow from '../../components/CurrentFlow.module.css';
 import { showToast } from '../../components/ToastHost';
 import AutofillPanel from './AutofillPanel';
 import InterviewPrepPanel from './InterviewPrepPanel';
@@ -38,30 +39,45 @@ export default function ApplicationDetailPage() {
   const [review, setReview] = useState<ReviewData | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [message, setMessage] = useState('');
+  const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [busy, setBusy] = useState(false);
 
   const loadItem = useCallback(async () => {
-    const response = await fetch(`${API}/me/applications`);
-    if (response.status === 401) {window.location.replace('/sign-in'); return; }
-    if (!response.ok) { setLoadState('error'); return; }
-    const pipeline = await response.json();
-    const found = (pipeline.stages || []).flatMap((stage: { items: PipelineItem[] }) => stage.items).find((row: PipelineItem) => String(row.id) === applicationId);
-    if (!found) { setLoadState('not-found'); return; }
-    setItem(found);
-    setLoadState('ready');
+    try {
+      const response = await fetch(`${API}/me/applications`);
+      if (response.status === 401) {window.location.replace('/sign-in'); return; }
+      if (!response.ok) { setLoadState('error'); return; }
+      const pipeline = await response.json();
+      const found = (pipeline.stages || []).flatMap((stage: { items: PipelineItem[] }) => stage.items).find((row: PipelineItem) => String(row.id) === applicationId);
+      if (!found) { setLoadState('not-found'); return; }
+      setItem(found);
+      setLoadState('ready');
+    } catch { setLoadState('error'); }
   }, [applicationId]);
 
   const loadReview = useCallback(async () => {
-    await fetch(`${API}/applications/${applicationId}/review`, { method: 'POST' });
-    const response = await fetch(`${API}/applications/${applicationId}/review`);
-    if (response.ok) setReview(await response.json());
+    setReviewState('loading');
+    try {
+      const prepared = await fetch(`${API}/applications/${applicationId}/review`, { method: 'POST' });
+      if (!prepared.ok) throw new Error(await errorMessage(prepared, 'Unable to prepare the review checklist.'));
+      const response = await fetch(`${API}/applications/${applicationId}/review`);
+      if (!response.ok) throw new Error(await errorMessage(response, 'Unable to load the review checklist.'));
+      setReview(await response.json());
+      setReviewState('ready');
+    } catch (error) {
+      setReviewState('error');
+      setMessage(error instanceof Error ? error.message : 'Unable to load the review checklist.');
+    }
   }, [applicationId]);
 
   const loadSubmission = useCallback(async () => {
-    const list = await fetch(`${API}/submissions`);
-    if (!list.ok) return;
-    const submissions: Submission[] = await list.json();
-    const existing = submissions.find((row) => String(row.application_id) === applicationId);
-    if (existing) setSubmission(existing);
+    try {
+      const list = await fetch(`${API}/submissions`);
+      if (!list.ok) return;
+      const submissions: Submission[] = await list.json();
+      const existing = submissions.find((row) => String(row.application_id) === applicationId);
+      if (existing) setSubmission(existing);
+    } catch { setMessage('Unable to load the submission preview. Try again before continuing.'); }
   }, [applicationId]);
 
   useEffect(() => {
@@ -74,13 +90,21 @@ export default function ApplicationDetailPage() {
     if (item.stage === 'approved' || item.stage === 'submitted') void loadSubmission();
   }, [item, loadReview, loadSubmission]);
 
+  async function runAction(action: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true);
+    try { await action(); }
+    catch { showToast('Kall could not save that action. Your entries are still here. Please try again.', 'error'); }
+    finally { setBusy(false); }
+  }
+
   async function decide(answer: Answer, decision: string) {
-    const input = document.getElementById(`answer-${answer.id}`) as HTMLInputElement | null;
+    const input = document.getElementById(`answer-${answer.id}`) as HTMLTextAreaElement | null;
     const response = await fetch(`${API}/applications/${applicationId}/answers/${answer.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: input?.value || '', value_json: {}, decision }),
     });
-    if (response.ok) { showToast('Answer decision saved.', 'success'); void loadReview(); }
+    if (response.ok) { showToast('Answer decision saved.', 'success'); await loadReview(); }
     else showToast(await errorMessage(response, 'Unable to save answer.'), 'error');
   }
 
@@ -90,7 +114,7 @@ export default function ApplicationDetailPage() {
       body: JSON.stringify({ documents_confirmed: true, answers_confirmed: true, sensitive_fields_confirmed: true, attestations_confirmed: true }),
     });
     showToast(response.ok ? 'Review confirmations saved.' : await errorMessage(response, 'Unable to confirm review.'), response.ok ? 'success' : 'error');
-    if (response.ok) void loadReview();
+    if (response.ok) await loadReview();
   }
 
   async function approve() {
@@ -129,11 +153,11 @@ export default function ApplicationDetailPage() {
     showToast(response.ok ? 'Idempotent submission attempt created. Provider transport remains controlled by the connector adapter.' : await errorMessage(response, 'A fresh confirmation is required.'), response.ok ? 'success' : 'error');
   }
 
-  if (loadState === 'loading') return <main className="app-shell"><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>Loading…</h1></section></main>;
-  if (loadState === 'not-found') return <main className="app-shell"><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>This application couldn't be found.</h1><p>It may have been removed.</p></section><a className="button" href="/applications">Back to pipeline</a></main>;
-  if (loadState === 'error' || !item) return <main className="app-shell"><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>Something went wrong loading this application.</h1></section><a className="button" href="/applications">Back to pipeline</a></main>;
+  if (loadState === 'loading') return <main className={`app-shell ${flow.shell}`}><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>Loading…</h1></section></main>;
+  if (loadState === 'not-found') return <main className={`app-shell ${flow.shell}`}><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>This application couldn't be found.</h1><p>It may have been removed.</p></section><a className="button" href="/applications">Back to pipeline</a></main>;
+  if (loadState === 'error' || !item) return <main className={`app-shell ${flow.shell}`}><AppNav current="applications" /><section className="hero"><p className="eyebrow">Application</p><h1>Something went wrong loading this application.</h1><p role="alert">Your application has not been changed.</p></section><button className="button" onClick={() => { setLoadState('loading'); void loadItem(); }}>Try again</button> <a className="button secondary" href="/applications">Back to pipeline</a></main>;
 
-  return <main className="app-shell">
+  return <main className={`app-shell ${flow.shell}`}>
     <AppNav current="applications" />
     <section className="hero" style={{ paddingBottom: 30 }}>
       <span className="eyebrow">{item.company}{item.location ? ` · ${item.location}` : ''}</span>
@@ -144,18 +168,18 @@ export default function ApplicationDetailPage() {
     {item.stage === 'preparing' && <section className="card"><h2>Still being prepared.</h2><p>Kall hasn't finished assembling this application's documents yet. Check back shortly, or start a fresh preparation from Opportunities.</p></section>}
 
     {item.stage === 'review' && <div className="stack">
-      <section className="card"><span className="eyebrow">Readiness</span><div className="metric"><strong>{review?.review.status || 'Loading…'}</strong></div><p>{review?.review.readiness_issues?.join(' · ') || 'All required review items are complete.'}</p></section>
+      <section className="card" aria-busy={reviewState === 'loading'}><span className="eyebrow">Readiness</span><div className="metric"><strong>{reviewState === 'ready' ? review?.review.status : reviewState === 'error' ? 'Review unavailable' : 'Loading review…'}</strong></div><p role={reviewState === 'error' ? 'alert' : 'status'}>{reviewState === 'ready' ? review?.review.readiness_issues?.join(' · ') || 'All required review items are complete.' : reviewState === 'error' ? message : 'Checking the required documents and answers before approval.'}</p>{reviewState === 'error' && <button className="button secondary" onClick={() => void loadReview()}>Retry review</button>}</section>
       {review?.questions.map((question) => {
         const answer = review.answers.find((row) => row.question_id === question.id);
         return answer ? (
           <article className="card" key={question.id}>
-            <span className="pill">{question.sensitive ? 'Sensitive — confirm' : question.category}</span>
-            <h2 style={{ marginTop: 16 }}>{question.prompt}</h2>
-            <input id={`answer-${answer.id}`} className="input" defaultValue={answer.value || ''} />
+            <span className="pill">{question.sensitive ? 'Sensitive: confirm' : question.category}</span>
+            <h2 id={`question-${question.id}`} style={{ marginTop: 16 }}>{question.prompt}</h2>
+            <textarea id={`answer-${answer.id}`} aria-labelledby={`question-${question.id}`} className="input" rows={4} style={{ paddingBlock: 12, resize: 'vertical' }} defaultValue={answer.value || ''} disabled={busy} />
             <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-              <button className="button" onClick={() => void decide(answer, 'accepted')}>Accept</button>
-              <button className="button secondary" onClick={() => void decide(answer, 'edited')}>Save edit</button>
-              <button className="button ghost" onClick={() => void decide(answer, 'rejected')}>Reject</button>
+              <button className="button" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(() => decide(answer, 'accepted'))}>Accept</button>
+              <button className="button secondary" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(() => decide(answer, 'edited'))}>Save edit</button>
+              <button className="button ghost" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(() => decide(answer, 'rejected'))}>Reject</button>
             </div>
           </article>
         ) : null;
@@ -164,8 +188,8 @@ export default function ApplicationDetailPage() {
         <h2>Final confirmation</h2>
         <p>Confirm the final documents, all answers, sensitive fields, and legal attestations before approving.</p>
         <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-          <button className="button secondary" onClick={() => void confirmAll()}>Confirm review items</button>
-          <button className="button" onClick={() => void approve()}>Approve application package</button>
+          <button className="button secondary" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(confirmAll)}>Confirm review items</button>
+          <button className="button" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(approve)}>Approve application package</button>
         </div>
       </section>
     </div>}

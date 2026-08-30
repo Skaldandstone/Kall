@@ -349,6 +349,13 @@ nav a:hover {
   color: var(--text-muted);
 }
 
+/* Labels and form guidance use a readable text role, not decorative metadata. */
+label.muted,
+label .muted,
+.form .muted {
+  color: var(--text-secondary);
+}
+
 .stack {
   display: grid;
   gap: 16px;
