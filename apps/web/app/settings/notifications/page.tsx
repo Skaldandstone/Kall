@@ -11,7 +11,7 @@ export default function NotificationSettingsPage() {
         <span className="eyebrow">
           <a href="/settings">Account settings</a> / Notifications
         </span>
-        <h1 style={{ fontSize: 'clamp(42px, 7vw, 72px)' }}>Notifications</h1>
+        <h1 style={{ fontSize: 'clamp(28px, 7vw, 72px)' }}>Notifications</h1>
         <p>
           Choose when Kall emails you and what it emails you about. Nothing is sent until you
           save -- these are the same settings the daily brief and new-opportunity alerts read.
