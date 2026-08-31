@@ -5,6 +5,9 @@ Updated 2026-08-31. Integration owner task
 `codex/kall-billing-isolation` in the existing continuation worktree.
 Reused the previously isolated `a241077` patch as `4677100`; the original
 Stripe worktree is untouched. No new task or cloud resource was created.
+Implementation `bab26bc` and PostgreSQL follow-up `826f993` are now in
+[draft PR #171](https://github.com/Skaldandstone/Kall/pull/171), stacked on
+the reconciled continuation PR #170. Neither PR was merged or deployed.
 
 ## Confirmed defects repaired
 

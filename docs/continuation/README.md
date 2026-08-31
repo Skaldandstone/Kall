@@ -24,8 +24,9 @@ installed-extension appearance have not been reviewed.
 
 The separately authorized billing continuation is isolated on
 `codex/kall-billing-isolation`, implementation `bab26bc`, with 587 backend and 42
-combined synthetic browser cases passed. It is not part of PR #170 at this
-checkpoint. The billing branch also passed [90 isolated PostgreSQL contracts](postgres-validation.md),
+combined synthetic browser cases passed. It is in [draft PR #171](https://github.com/Skaldandstone/Kall/pull/171),
+stacked on PR #170, not part of PR #170 itself. PostgreSQL follow-up `826f993`
+passed [90 isolated PostgreSQL contracts](postgres-validation.md),
 fresh/legacy migrations and the controlled five-profile pilot benchmark.
 Stripe connector reconnection, verified sandbox configuration and the actual
 constrained cloud image/network remain gates. Live payments and tax stay disabled.
