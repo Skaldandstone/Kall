@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     #: error and fell back, which looked exactly like "the AI is switched
     #: off". See services/openai_json.py, which now logs the reason.
     openai_model: str = "gpt-5.6-luna"
+    # Private alpha access is enforced twice: the web app only exposes Clerk's
+    # sign-up form for invitation tickets, and the API only creates a local
+    # user when Clerk invitation metadata or this owner allowlist permits it.
+    alpha_invite_only: bool = False
+    alpha_allowed_emails: str = ""
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     # Sandbox integration is opt-in. Live billing is blocked in this release.
@@ -106,6 +111,14 @@ class Settings(BaseSettings):
     monitoring_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def alpha_allowed_email_set(self) -> set[str]:
+        return {
+            email.strip().casefold()
+            for email in self.alpha_allowed_emails.split(",")
+            if email.strip()
+        }
 
     @model_validator(mode="after")
     def normalize_and_validate(self) -> "Settings":

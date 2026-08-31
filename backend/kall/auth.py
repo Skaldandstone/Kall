@@ -48,8 +48,8 @@ def verify_clerk_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Invalid or expired session") from exc
 
 
-def _clerk_profile(clerk_user_id: str) -> tuple[str, str]:
-    """Fetches (email, full_name) from Clerk's Backend API.
+def _clerk_profile(clerk_user_id: str) -> tuple[str, str, dict]:
+    """Fetches (email, full_name, public_metadata) from Clerk's Backend API.
 
     Clerk's session token carries only `sub`/`sid`/timestamps by default — no
     email or name — so the local row cannot be built from claims alone. This
@@ -67,7 +67,22 @@ def _clerk_profile(clerk_user_id: str) -> tuple[str, str]:
         raise HTTPException(status_code=422, detail="Clerk account has no email address")
 
     full_name = " ".join(part for part in (account.first_name, account.last_name) if part).strip()
-    return email, full_name or email
+    metadata = account.public_metadata if isinstance(account.public_metadata, dict) else {}
+    return email, full_name or email, metadata
+
+
+def _assert_alpha_access(email: str, public_metadata: dict) -> None:
+    settings = get_settings()
+    if not settings.alpha_invite_only:
+        return
+
+    invited = public_metadata.get("alpha_access") is True
+    owner_allowed = email.casefold() in settings.alpha_allowed_email_set
+    if not invited and not owner_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="This private alpha requires an invitation.",
+        )
 
 
 def _find_user(session: Session, clerk_user_id: str) -> User | None:
@@ -112,7 +127,8 @@ def ensure_local_user(session: Session, clerk_user_id: str) -> User:
         # that call failed or the deployment has no Clerk key.
         raise HTTPException(status_code=401, detail="This account has been deleted")
 
-    email, full_name = _clerk_profile(clerk_user_id)
+    email, full_name, public_metadata = _clerk_profile(clerk_user_id)
+    _assert_alpha_access(email, public_metadata)
 
     # An account may pre-exist by email (seeded fixture, or a Clerk account
     # recreated against the same address) -- adopt it rather than colliding

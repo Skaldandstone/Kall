@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 // Everything that must stay reachable signed-out: the marketing site and its
 // demos, the legal pages, the auth screens themselves, and
@@ -6,6 +7,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 // emailed invitation link, so it is deliberately unauthenticated.
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/alpha',
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/demo(.*)',
@@ -23,6 +25,12 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  const inviteOnly = process.env.ALPHA_INVITE_ONLY === 'true';
+  const isSignUp = request.nextUrl.pathname.startsWith('/sign-up');
+  const hasInvitationTicket = request.nextUrl.searchParams.has('__clerk_ticket');
+  if (inviteOnly && isSignUp && !hasInvitationTicket) {
+    return NextResponse.redirect(new URL('/alpha', request.url));
+  }
   if (!isPublicRoute(request)) {
     await auth.protect();
   }

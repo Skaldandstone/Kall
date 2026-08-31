@@ -396,7 +396,8 @@ def test_a_genuinely_new_signup_is_unaffected_by_someone_elses_deletion(engine, 
         delete_account(session, user.id)
 
     monkeypatch.setattr(
-        "kall.auth._clerk_profile", lambda clerk_user_id: ("new-person@example.com", "New Person")
+        "kall.auth._clerk_profile",
+        lambda clerk_user_id: ("new-person@example.com", "New Person", {}),
     )
     with Session(engine) as session:
         created = ensure_local_user(session, "user_brand_new")

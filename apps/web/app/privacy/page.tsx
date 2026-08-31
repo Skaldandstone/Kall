@@ -53,19 +53,21 @@ export default function PrivacyPage() {
         </div></div>)}
       </article>
       <article className="card"><h2>EEO profile</h2><form className="form" onSubmit={e => saveSensitive(e, 'eeo')}>
-        <input className="input" name="veteran_status" placeholder="Veteran status" />
-        <input className="input" name="disability_status" placeholder="Disability status" />
-        <input className="input" name="race_ethnicity" placeholder="Race or ethnicity" />
-        <input className="input" name="gender_identity" placeholder="Gender identity" />
+        <p className="muted">Optional. These encrypted fields are never public and are only used when you approve an application response.</p>
+        <label>Veteran status<input className="input" name="veteran_status" autoComplete="off" /></label>
+        <label>Disability status<input className="input" name="disability_status" autoComplete="off" /></label>
+        <label>Race or ethnicity<input className="input" name="race_ethnicity" autoComplete="off" /></label>
+        <label>Gender identity<input className="input" name="gender_identity" autoComplete="off" /></label>
         <button className="button">Save encrypted EEO profile</button>
       </form></article>
       <article className="card"><h2>Work authorization</h2><form className="form" onSubmit={e => saveSensitive(e, 'work-authorization')}>
-        <input className="input" name="country" placeholder="Country" required />
-        <input className="input" name="authorization_type" placeholder="Authorization type" required />
-        <input className="input" name="citizenship_status" placeholder="Citizenship status" />
-        <input className="input" name="visa_type" placeholder="Visa type" />
+        <p className="muted">Stored encrypted and used only to prepare answers you review.</p>
+        <label>Country<input className="input" name="country" autoComplete="country-name" required /></label>
+        <label>Authorization type<input className="input" name="authorization_type" placeholder="Citizen, permanent resident, work permit" required /></label>
+        <label>Citizenship status<input className="input" name="citizenship_status" autoComplete="off" /></label>
+        <label>Visa type<input className="input" name="visa_type" autoComplete="off" /></label>
         <button className="button">Save encrypted authorization</button>
       </form></article>
-    </section><p>{message}</p>
+    </section><p role="status" aria-live="polite">{message}</p>
   </main>;
 }

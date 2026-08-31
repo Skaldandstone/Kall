@@ -67,6 +67,13 @@ def ask_for_json(
             json={
                 "model": model,
                 "input": prompt,
+                # Career records and resume text are private user data. Kall
+                # does not need response retention for these one-shot,
+                # structured transformations.
+                "store": False,
+                # These are constrained extraction and drafting calls. Low
+                # reasoning keeps alpha latency and model cost predictable.
+                "reasoning": {"effort": "low"},
                 "text": {
                     "format": {
                         "type": "json_schema",

@@ -35,15 +35,18 @@ export default function TestimonialSubmitPage() {
     <section className="hero" style={{ paddingTop: 20, paddingBottom: 36 }}><span className="eyebrow">Private invitation</span><h1 style={{ fontSize: 'clamp(42px, 7vw, 72px)' }}>Share what it was like to work together.</h1><p>Your response is sent to the person who invited you. They cannot publish or attach it to an application unless you grant permission.</p></section>
     <section className="card">
       <form className="form" onSubmit={submit}>
-        <input className="input" name="author_name" placeholder="Your name" required />
-        <input className="input" name="author_title" placeholder="Your title" />
-        <input className="input" name="author_company" placeholder="Company or organization" />
-        <input className="input" name="relationship" placeholder="How you worked together" required />
-        <textarea className="input" name="body" placeholder="Your testimonial or reference comments" required rows={8} />
+        <label>Your name<input className="input" name="author_name" autoComplete="name" required /></label>
+        <label>Your title<input className="input" name="author_title" autoComplete="organization-title" /></label>
+        <label>Company or organization<input className="input" name="author_company" autoComplete="organization" /></label>
+        <label>How you worked together<input className="input" name="relationship" placeholder="Former manager, colleague, client" required /></label>
+        <label>
+          What would you like to share?
+          <textarea className="input" name="body" placeholder="Describe work you directly observed. Avoid confidential information." required rows={8} />
+        </label>
         <label><input type="checkbox" name="permission_granted" /> I permit this response to be shown on a Kall profile or included with applications after the recipient approves it.</label>
         <button className="button">Submit response</button>
       </form>
-      <p className="notice">{message}</p>
+      <p className="notice" role="status" aria-live="polite">{message}</p>
     </section>
   </main>;
 }

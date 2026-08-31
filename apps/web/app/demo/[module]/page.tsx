@@ -89,7 +89,7 @@ export default async function DemoPage({ params }: DemoPageProps) {
     <main className="shell">
       <header className="topbar">
         <a className="brand" href="/"><KallMark />Kall</a>
-        <nav aria-label="Demo navigation" className="marketing-nav"><a href="/sign-in">Log in</a><a className="button" href="/sign-up">Create account</a></nav>
+        <nav aria-label="Demo navigation" className="marketing-nav"><a href="/sign-in">Log in</a><a className="button" href="/alpha">Private alpha</a></nav>
       </header>
 
       <section className="hero" style={{ paddingBottom: 40 }}>
@@ -115,7 +115,7 @@ export default async function DemoPage({ params }: DemoPageProps) {
         <h2>Build your own private workspace.</h2>
         <p>Create an account to replace this sample experience with your profiles, documents, opportunities, and decisions.</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 20 }}>
-          <a className="button" href="/sign-up">Create account</a>
+          <a className="button" href="/alpha">Learn about the private alpha</a>
           <a className="button secondary" href="/">Explore other demos</a>
         </div>
       </section>

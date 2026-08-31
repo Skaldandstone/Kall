@@ -63,8 +63,8 @@ export default function Home() {
         <nav aria-label="Primary navigation" className="marketing-nav">
           <a href="#product-demos">See how it works</a>
           <a href="/sign-in">Log in</a>
-          <a className="button" href="/sign-up">
-            Create account
+          <a className="button" href="/alpha">
+            Private alpha
           </a>
         </nav>
       </header>
@@ -77,8 +77,8 @@ export default function Home() {
           a role, and prepares the documents and questions you need to review before applying.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <a className="button" href="/sign-up">
-            Create your career record
+          <a className="button" href="/alpha">
+            Learn about the private alpha
           </a>
           <a className="button secondary" href="/demo/opportunity-intelligence">
             See a role comparison

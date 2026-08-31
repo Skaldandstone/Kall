@@ -96,6 +96,20 @@ def test_a_good_answer_comes_back_parsed(with_key, monkeypatch):
     assert ask() == {"ok": True}
 
 
+def test_private_payload_disables_storage_and_uses_low_reasoning(with_key, monkeypatch):
+    captured = {}
+
+    def fake_post(*args, **kwargs):
+        captured.update(kwargs["json"])
+        return FakeResponse(200, {"output_text": '{"ok": true}'})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert ask() == {"ok": True}
+    assert captured["store"] is False
+    assert captured["reasoning"] == {"effort": "low"}
+    assert captured["model"] == "gpt-5.6-luna"
+
+
 def test_output_text_is_found_in_the_nested_shape(with_key, monkeypatch):
     """The Responses API does not always put it at the top level."""
     monkeypatch.setattr(

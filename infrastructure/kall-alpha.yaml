@@ -1,0 +1,654 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Kall invite-only alpha runtime in the Skald and Stone development project.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  ClusterName:
+    Type: String
+    Default: skaldandstone-development-foundation-cluster
+  ApiImage:
+    Type: String
+  WebImage:
+    Type: String
+  ClerkSecretArn:
+    Type: String
+  StripeSecretArn:
+    Type: String
+  OpenAISecretArn:
+    Type: String
+    Default: ''
+  AlphaOwnerEmail:
+    Type: String
+    NoEcho: true
+  EnableStripeSandbox:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+
+Conditions:
+  HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
+
+Resources:
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: dev/kall/app-secret
+      Description: Kall alpha application signing secret.
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+      Tags:
+        - Key: Product
+          Value: Kall
+        - Key: Environment
+          Value: alpha
+
+  SensitiveDataSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: dev/kall/sensitive-data
+      Description: Kall alpha field encryption source secret.
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+      Tags:
+        - Key: Product
+          Value: Kall
+        - Key: Environment
+          Value: alpha
+
+  AlphaAccessSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: dev/kall/alpha
+      Description: Kall private alpha owner allowlist.
+      SecretString: !Sub '{"ALPHA_ALLOWED_EMAILS":"${AlphaOwnerEmail}"}'
+      Tags:
+        - Key: Product
+          Value: Kall
+        - Key: Environment
+          Value: alpha
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-ecs-execution
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: kall-alpha-runtime-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref AppSecret
+                  - !Ref SensitiveDataSecret
+                  - !Ref AlphaAccessSecret
+                  - !Ref ClerkSecretArn
+                  - !Ref StripeSecretArn
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !If [HasOpenAISecret, !Ref OpenAISecretArn, !Ref AWS::NoValue]
+
+  ApiTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-api-task
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: kall-alpha-document-storage
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: arn:aws:s3:::skald-dev-734702670689-kall-storage
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: arn:aws:s3:::skald-dev-734702670689-kall-storage/*
+
+  WebTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-web-task
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /skaldandstone/alpha/kall-api
+      RetentionInDays: 30
+
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /skaldandstone/alpha/kall-web
+      RetentionInDays: 30
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CloudFront and Kall web access to the alpha load balancer.
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: kall-alpha-alb
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kall web tasks, reachable only from the alpha load balancer.
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: kall-alpha-web
+
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kall API tasks, reachable only from the alpha load balancer.
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: kall-alpha-api
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kall alpha PostgreSQL, reachable only from API tasks.
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: kall-alpha-database
+
+  AlbFromCloudFrontIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      SourcePrefixListId: pl-b6a144df
+
+  AlbFromWebIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      SourceSecurityGroupId: !Ref WebSecurityGroup
+
+  WebFromAlbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref WebSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3000
+      ToPort: 3000
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  ApiFromAlbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ApiSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8000
+      ToPort: 8000
+      SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  DatabaseFromApiIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref ApiSecurityGroup
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for the private Kall alpha database.
+      SubnetIds: !Ref PublicSubnetIds
+
+  DatabaseParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Kall alpha PostgreSQL requires encrypted client connections.
+      Family: postgres16
+      Parameters:
+        rds.force_ssl: '1'
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: kall-alpha-postgres
+      Engine: postgres
+      EngineVersion: '16.15'
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: kall
+      MasterUsername: kalladmin
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      DBParameterGroupName: !Ref DatabaseParameterGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      PreferredBackupWindow: 10:00-10:30
+      PreferredMaintenanceWindow: sun:11:00-sun:11:30
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DeletionProtection: false
+      EnablePerformanceInsights: false
+      Tags:
+        - Key: Product
+          Value: Kall
+        - Key: Environment
+          Value: alpha
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: kall-alpha
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets: !Ref PublicSubnetIds
+      LoadBalancerAttributes:
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: 'true'
+        - Key: routing.http.xff_client_port.enabled
+          Value: 'true'
+        - Key: deletion_protection.enabled
+          Value: 'false'
+
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: kall-alpha-web
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 3000
+      TargetType: ip
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200-399
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: kall-alpha-api
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8000
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: '200'
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+
+  ApiListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: kall-alpha-security-headers
+        Comment: Security headers for the Kall private alpha.
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: no-referrer
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+          XSSProtection:
+            Protection: true
+            ModeBlock: true
+            Override: true
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Kall invite-only alpha
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - Id: kall-alpha-alb
+            DomainName: !GetAtt LoadBalancer.DNSName
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 5
+        DefaultCacheBehavior:
+          TargetOriginId: kall-alpha-alb
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+          ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2021
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kall-alpha-api
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApiTaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: kall-api
+          Image: !Ref ApiImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+          Environment:
+            - Name: APP_ENV
+              Value: production
+            - Name: AUTO_CREATE_TABLES
+              Value: 'false'
+            - Name: DB_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DB_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DB_NAME
+              Value: kall
+            - Name: DATABASE_SSL_MODE
+              Value: require
+            - Name: FRONTEND_URL
+              Value: !Sub https://${Distribution.DomainName}
+            - Name: AWS_REGION
+              Value: us-east-2
+            - Name: AWS_S3_BUCKET
+              Value: skald-dev-734702670689-kall-storage
+            - Name: OPENAI_MODEL
+              Value: gpt-5.6-luna
+            - Name: ALPHA_INVITE_ONLY
+              Value: 'true'
+            - Name: STRIPE_ENABLED
+              Value: !Ref EnableStripeSandbox
+            - Name: STRIPE_LIVEMODE
+              Value: 'false'
+            - Name: STRIPE_BILLING_SCOPE
+              Value: kall:skaldandstone-dev-20260831
+            - Name: STRIPE_PRICE_ID
+              Value: price_1UAZVXPo4uRuCWxjmqORD3B1
+            - Name: STRIPE_PLUS_PRODUCT_ID
+              Value: prod_VAvMNUYFhL2Kit
+            - Name: STRIPE_PREMIUM_PRICE_ID
+              Value: price_1UAZWAPo4uRuCWxjhgrbIixK
+            - Name: STRIPE_PREMIUM_PRODUCT_ID
+              Value: prod_VAvMM3BYCN82Ul
+            - Name: STRIPE_PORTAL_CONFIGURATION_ID
+              Value: bpc_1UAZuwPo4uRuCWxjhHqUOhyN
+            - Name: MONITORING_ENABLED
+              Value: 'false'
+          Secrets:
+            - Name: APP_SECRET_KEY
+              ValueFrom: !Ref AppSecret
+            - Name: SENSITIVE_DATA_ENCRYPTION_KEY
+              ValueFrom: !Ref SensitiveDataSecret
+            - Name: DB_USER
+              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:username::'
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:password::'
+            - Name: CLERK_SECRET_KEY
+              ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
+            - Name: STRIPE_SECRET_KEY
+              ValueFrom: !Sub '${StripeSecretArn}:STRIPE_SECRET_KEY::'
+            - Name: STRIPE_WEBHOOK_SECRET
+              ValueFrom: !Sub '${StripeSecretArn}:STRIPE_WEBHOOK_SECRET::'
+            - Name: ALPHA_ALLOWED_EMAILS
+              ValueFrom: !Sub '${AlphaAccessSecret}:ALPHA_ALLOWED_EMAILS::'
+            - !If
+              - HasOpenAISecret
+              - Name: OPENAI_API_KEY
+                ValueFrom: !Sub '${OpenAISecretArn}:OPENAI_API_KEY::'
+              - !Ref AWS::NoValue
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogs
+              awslogs-region: us-east-2
+              awslogs-stream-prefix: ecs
+          HealthCheck:
+            Command: [CMD-SHELL, 'curl --fail http://127.0.0.1:8000/health || exit 1']
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  WebTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kall-alpha-web
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt WebTaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: kall-web
+          Image: !Ref WebImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: KALL_API_URL
+              Value: !Sub http://${LoadBalancer.DNSName}
+            - Name: ALPHA_INVITE_ONLY
+              Value: 'true'
+          Secrets:
+            - Name: CLERK_SECRET_KEY
+              ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref WebLogs
+              awslogs-region: us-east-2
+              awslogs-stream-prefix: ecs
+
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ApiListenerRule
+    Properties:
+      ServiceName: kall-alpha-api
+      Cluster: !Ref ClusterName
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      EnableECSManagedTags: true
+      PropagateTags: TASK_DEFINITION
+      HealthCheckGracePeriodSeconds: 180
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: [!Ref ApiSecurityGroup]
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: kall-api
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  WebService:
+    Type: AWS::ECS::Service
+    DependsOn: HttpListener
+    Properties:
+      ServiceName: kall-alpha-web
+      Cluster: !Ref ClusterName
+      TaskDefinition: !Ref WebTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      EnableECSManagedTags: true
+      PropagateTags: TASK_DEFINITION
+      HealthCheckGracePeriodSeconds: 120
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: [!Ref WebSecurityGroup]
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: kall-web
+          ContainerPort: 3000
+          TargetGroupArn: !Ref WebTargetGroup
+
+  ApiUnhealthyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Kall alpha API has an unhealthy load balancer target.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApiTargetGroup.TargetGroupFullName
+
+  WebUnhealthyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Kall alpha web has an unhealthy load balancer target.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt WebTargetGroup.TargetGroupFullName
+
+Outputs:
+  AlphaUrl:
+    Value: !Sub https://${Distribution.DomainName}
+  DistributionId:
+    Value: !Ref Distribution
+  LoadBalancerDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  ApiServiceName:
+    Value: !GetAtt ApiService.Name
+  WebServiceName:
+    Value: !GetAtt WebService.Name

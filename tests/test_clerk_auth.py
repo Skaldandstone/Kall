@@ -26,9 +26,9 @@ def clerk_profile(monkeypatch: pytest.MonkeyPatch):
     """Stubs the one Clerk Backend API call ensure_local_user makes."""
     calls: list[str] = []
 
-    def fake(clerk_user_id: str) -> tuple[str, str]:
+    def fake(clerk_user_id: str) -> tuple[str, str, dict]:
         calls.append(clerk_user_id)
-        return "ada@example.com", "Ada Lovelace"
+        return "ada@example.com", "Ada Lovelace", {"alpha_access": True}
 
     monkeypatch.setattr("kall.auth._clerk_profile", fake)
     return calls
@@ -136,3 +136,42 @@ def test_an_inactive_user_is_rejected(db: Session, clerk_profile, monkeypatch: p
     with pytest.raises(HTTPException) as caught:
         get_current_user(authorization="Bearer stub", session=db)
     assert caught.value.status_code == 401
+
+
+def test_private_alpha_rejects_a_new_user_without_invitation_metadata(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kall.config import get_settings
+
+    monkeypatch.setenv("ALPHA_INVITE_ONLY", "true")
+    monkeypatch.delenv("ALPHA_ALLOWED_EMAILS", raising=False)
+    monkeypatch.setattr(
+        "kall.auth._clerk_profile",
+        lambda _: ("visitor@example.com", "Visitor", {}),
+    )
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(HTTPException) as caught:
+            ensure_local_user(db, "user_uninvited")
+        assert caught.value.status_code == 403
+        assert db.exec(select(User)).all() == []
+    finally:
+        get_settings.cache_clear()
+
+
+def test_private_alpha_allows_the_configured_owner_email(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kall.config import get_settings
+
+    monkeypatch.setenv("ALPHA_INVITE_ONLY", "true")
+    monkeypatch.setenv("ALPHA_ALLOWED_EMAILS", "owner@example.com")
+    monkeypatch.setattr(
+        "kall.auth._clerk_profile",
+        lambda _: ("Owner@Example.com", "Owner", {}),
+    )
+    get_settings.cache_clear()
+    try:
+        assert ensure_local_user(db, "user_owner").email == "Owner@Example.com"
+    finally:
+        get_settings.cache_clear()

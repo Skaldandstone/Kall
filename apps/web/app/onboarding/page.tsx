@@ -238,7 +238,11 @@ export default function Onboarding() {
                 you will review and can change anything before it is saved.
               </p>
               <form className={styles.form} onSubmit={uploadResume}>
-                <input className={styles.input} type="file" name="file" accept=".pdf,.docx" required />
+                <label>
+                  <span>Resume file</span>
+                  <input className={styles.input} type="file" name="file" accept=".pdf,.docx" required />
+                  <small>PDF or Word document.</small>
+                </label>
                 <div className={styles.note}>
                   Use a factual, current resume. Kall will not invent qualifications or silently change source facts.
                 </div>
@@ -264,28 +268,40 @@ export default function Onboarding() {
                   : 'Start with one focused direction; you can add more strategies later.'}
               </p>
               <form className={styles.form} onSubmit={createProfile}>
-                <input className={styles.input} name="name" placeholder="Strategy name, e.g. Quality Leadership" required />
-                <textarea
-                  className={styles.input}
-                  name="target_titles"
-                  rows={4}
-                  placeholder="Target titles, comma separated"
-                  defaultValue={suggestion?.target_titles.join(', ') || ''}
-                  required
-                />
-                <input
-                  className={styles.input}
-                  name="industries"
-                  placeholder="Industries, comma separated"
-                  defaultValue={suggestion?.industries.join(', ') || ''}
-                />
+                <label>Strategy name<input className={styles.input} name="name" placeholder="Quality leadership" required /></label>
+                <label>
+                  Target roles
+                  <textarea
+                    className={styles.input}
+                    name="target_titles"
+                    rows={4}
+                    placeholder="Quality director, Head of quality"
+                    defaultValue={suggestion?.target_titles.join(', ') || ''}
+                    required
+                  />
+                  <small>Separate roles with commas.</small>
+                </label>
+                <label>
+                  Industries
+                  <input
+                    className={styles.input}
+                    name="industries"
+                    placeholder="Medical devices, manufacturing"
+                    defaultValue={suggestion?.industries.join(', ') || ''}
+                  />
+                  <small>Separate industries with commas.</small>
+                </label>
                 <FunctionalAreasInput className={styles.input} />
-                <input
-                  className={styles.input}
-                  name="include_keywords"
-                  placeholder="Important keywords, comma separated"
-                  defaultValue={suggestion?.keywords.join(', ') || ''}
-                />
+                <label>
+                  Important keywords
+                  <input
+                    className={styles.input}
+                    name="include_keywords"
+                    placeholder="Audit readiness, CAPA"
+                    defaultValue={suggestion?.keywords.join(', ') || ''}
+                  />
+                  <small>Separate phrases with commas.</small>
+                </label>
                 <label>Exclude keywords<input className={styles.input} name="exclude_keywords" placeholder="Unpaid internship, door-to-door" /><small>Separate phrases with commas. Jobs mentioning these phrases are excluded.</small></label>
 
                 <label>
@@ -333,15 +349,19 @@ export default function Onboarding() {
                   </small>
                 </label>
 
-                <input
-                  className={styles.input}
-                  name="work_types"
-                  defaultValue={suggestion?.work_types.join(', ') || 'remote, hybrid'}
-                  placeholder="Work modes"
-                />
+                <label>
+                  Work arrangements
+                  <input
+                    className={styles.input}
+                    name="work_types"
+                    defaultValue={suggestion?.work_types.join(', ') || 'remote, hybrid'}
+                    placeholder="Remote, hybrid"
+                  />
+                  <small>Separate arrangements with commas.</small>
+                </label>
                 <div className={styles.two}>
-                  <input className={styles.input} name="minimum_base" type="number" placeholder="Minimum base" />
-                  <input className={styles.input} name="target_base" type="number" placeholder="Target base" />
+                  <label>Minimum base salary<input className={styles.input} name="minimum_base" type="number" inputMode="numeric" placeholder="90000" /></label>
+                  <label>Target base salary<input className={styles.input} name="target_base" type="number" inputMode="numeric" placeholder="120000" /></label>
                 </div>
                 <div className={styles.actions}>
                   <span />
