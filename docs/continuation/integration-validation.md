@@ -28,6 +28,12 @@ This file records completed checks separately from remaining release gates.
   [billing evidence](billing-security.md) and [PostgreSQL evidence](postgres-validation.md).
   The synthetic PostgreSQL pilot made ten mock requests per cycle and queued
   0/0/100 events. Its temporary loopback server was stopped after validation.
+- Local follow-up to published billing checkpoint `4c42987`: disabled unused
+  Next image optimization/static imports after bounded reproduction of the
+  vendored ICNS/JXL failures. Production build, TypeScript, 17 production HTTP
+  assertions and 27 embed/upload tests passed. See [security evidence](next-image-parser-security.md).
+  Vendor parser remains vulnerable; no current Kall remote parser exploit was
+  established. No publication/deployment or new visual acceptance is claimed.
 
 The dated checkpoints below remain historical; they are not claims that current
 head CI, cloud operation, paid delivery or device acceptance has completed.

@@ -66,6 +66,15 @@ const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // Kall serves trusted public icons directly and uses no next/image or static
+  // image imports. Close the unused optimizer and automatic import loader.
+  // This reduces exposure; it does not repair Next's vendored image-size parser.
+  // File-based metadata images use a separate loader: review before adding any.
+  // Evidence and re-enablement gates: docs/continuation/next-image-parser-security.md.
+  images: {
+    unoptimized: true,
+    disableStaticImages: true,
+  },
   async headers() {
     // Two policies. The public career page is the only route that frames
     // third-party content, so it gets the embed origins and the rest of the

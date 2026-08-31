@@ -1,1 +1,3 @@
 Kall continuation is ready for code review, not production release. See docs/continuation/README.md for current PR heads, local evidence, manual-only CI policy and remaining release gates. Inscription is selected; broader navigation is not approved. Monitoring/live email and live payments remain disabled.
+
+Local Next image exposure mitigation is ready for review atop published checkpoint 4c42987; see docs/continuation/next-image-parser-security.md. The unused optimizer/static import loader are disabled locally, but the vendored parser remains vulnerable. No push, CI dispatch, deployment or new visual/device approval.

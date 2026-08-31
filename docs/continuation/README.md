@@ -31,6 +31,12 @@ fresh/legacy migrations and the controlled five-profile pilot benchmark.
 Stripe connector reconnection, verified sandbox configuration and the actual
 constrained cloud image/network remain gates. Live payments and tax stay disabled.
 
+A subsequent **local-only** [Next image parser exposure review](next-image-parser-security.md)
+reproduced the vendored ICNS/JXL worker failures and disabled unused optimization
+and static image imports. Production build, 17 loopback HTTP assertions and 27
+existing embed/upload tests passed. This reduces exposure; the parser remains
+vulnerable and PR #171's published `4c42987` checkpoint is unchanged.
+
 | Task | Task ID | Responsibility | Status |
 | --- | --- | --- | --- |
 | Kall integration and delivery | 01a0546e-37c4-78a3-8731-d26b2350af10 | Integration, shared QA safety, release checks | In progress |
