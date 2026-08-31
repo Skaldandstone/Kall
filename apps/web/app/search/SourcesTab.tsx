@@ -36,16 +36,16 @@ export default function SourcesTab() {
   return (
     <div className="grid">
       <article className="card">
-        <h1>Add a company job board</h1>
+        <h2>Add a company job board</h2>
         <form className="form" onSubmit={submit}>
-          <select className="input" name="provider">
+          <label><span className="muted">Job board provider</span><select className="input" name="provider">
             <option value="greenhouse">Greenhouse</option>
             <option value="lever">Lever</option>
             <option value="ashby">Ashby</option>
-          </select>
-          <input className="input" name="company" placeholder="Company name" required />
-          <input className="input" name="board_key" placeholder="Board key or slug" required />
-          <button className="button">Add source</button>
+          </select></label>
+          <label><span className="muted">Company name</span><input className="input" name="company" required /></label>
+          <label><span className="muted">Board key or slug</span><input className="input" name="board_key" required /></label>
+          <button className="button" type="submit">Add source</button>
         </form>
         <p className="notice" aria-live="polite">{message}</p>
       </article>

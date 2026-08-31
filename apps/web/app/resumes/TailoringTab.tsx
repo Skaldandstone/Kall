@@ -69,7 +69,7 @@ export default function TailoringTab() {
 
   return <>
     <section className="card">
-      <h1>Evidence-grounded tailoring</h1>
+      <h2>Evidence-grounded tailoring</h2>
       <p>Create a proposal for a job. Every proposed change to your resume must be reviewed and grounded in real evidence before use in Generate.</p>
       <form className="form" onSubmit={createProposal}>
         <div className="two">

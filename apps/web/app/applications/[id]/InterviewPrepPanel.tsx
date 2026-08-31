@@ -46,8 +46,9 @@ export default function InterviewPrepPanel({ applicationId }: { applicationId: s
         {prep.questions.map((question, index) => <li key={index} style={{ marginBottom: 6 }}>{question}</li>)}
       </ul>
 
-      <h3 style={{ marginTop: 20 }}>Your notes</h3>
+      <h3 id="interview-notes-label" style={{ marginTop: 20 }}>Your notes</h3>
       <textarea
+        aria-labelledby="interview-notes-label"
         className="input"
         rows={5}
         value={notes}
@@ -55,7 +56,7 @@ export default function InterviewPrepPanel({ applicationId }: { applicationId: s
         placeholder="Talking points, questions to ask them, things to look up beforehand…"
       />
       <div style={{ marginTop: 12 }}>
-        <button className="button secondary" onClick={() => void saveNotes()} disabled={saving}>Save notes</button>
+        <button className="button secondary" type="button" onClick={() => void saveNotes()} disabled={saving}>Save notes</button>
       </div>
       <p className="notice" aria-live="polite">{message}</p>
     </section>

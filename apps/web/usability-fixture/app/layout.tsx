@@ -6,6 +6,11 @@ import '../../app/toast.css';
 import '../../app/inscription.css';
 import ToastHost from '../../app/components/ToastHost';
 
+export const metadata = {
+  title: 'Kall usability fixture',
+  description: 'Synthetic local fixture for Kall usability and accessibility tests.',
+};
+
 const syne = Syne({ subsets: ['latin'], display: 'swap', weight: ['600', '700', '800'], variable: '--font-syne' });
 const epilogue = Epilogue({ subsets: ['latin'], display: 'swap', weight: ['400', '500', '600'], variable: '--font-epilogue' });
 const mono = IBM_Plex_Mono({ subsets: ['latin'], display: 'swap', weight: ['400', '500'], variable: '--font-plex-mono' });

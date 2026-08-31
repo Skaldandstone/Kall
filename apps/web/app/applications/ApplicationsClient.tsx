@@ -109,7 +109,7 @@ export default function ApplicationsClient() {
 
   if (state === 'loading') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Loading your applications.</h1></div></section></main>;
   if (state === 'signed-out') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Sign in to view your applications.</h1></div><a className='button' href='/sign-in'>Sign in</a></section></main>;
-  if (state === 'error' || !pipeline) return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Your applications could not be loaded.</h1><p>{error}</p></div><button className='button' onClick={() => void loadPipeline()}>Try again</button></section></main>;
+  if (state === 'error' || !pipeline) return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Your applications could not be loaded.</h1><p role='alert'>{error}</p></div><button className='button' type='button' onClick={() => void loadPipeline()}>Try again</button></section></main>;
 
   const next = pipeline.next_decision;
   return <main className='app-shell'>
@@ -122,7 +122,7 @@ export default function ApplicationsClient() {
       {pipeline.stages.map(stage => <section className={styles.column} key={stage.key}>
         <header><h2>{stage.label}</h2><span>{stage.count}</span></header>
         <div className={styles.list}>{stage.items.length ? stage.items.map(item => <article className={styles.card} key={item.id} style={{ position: 'relative' }}>
-          <button type='button' onClick={() => void removeApplication(item)} disabled={busyId === item.id} aria-label={`Remove ${item.role}`} title='Remove application' style={{ position: 'absolute', top: 10, right: 10, border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 20 }}>×</button>
+          <button className={styles.remove} type='button' onClick={() => void removeApplication(item)} disabled={busyId === item.id} aria-label={`Remove ${item.role} at ${item.company}`} title='Remove application'>×</button>
           <span className={`${styles.dot} ${item.requires_review ? styles.accent : item.stage === 'submitted' ? styles.success : ''}`} aria-hidden='true'/>
           <p>{item.company}{item.location ? ` · ${item.location}` : ''}</p><h3>{item.role}</h3><span>{detail(item)}{item.match_score == null ? '' : ` · ${item.match_score}% match`}</span>
           <label style={{ display: 'grid', gap: 6, marginTop: 14 }}><span className='muted'>Move to</span><select className='input' value={item.stage} disabled={busyId === item.id} onChange={event => void moveApplication(item, event.target.value)}>{STAGES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>

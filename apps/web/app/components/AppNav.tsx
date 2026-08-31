@@ -27,7 +27,7 @@ export default function AppNav({current}:AppNavProps){
       .catch(()=>undefined);
   },[]);
   return <>
-    <a className="workspace-skip" href="#workspace-content">Skip to workspace</a>
+    <a className="workspace-skip" href="#workspace-content">Skip to page content</a>
     <header className={styles.header}>
       <a className={styles.brand} href="/" aria-label="Kall home"><KallMark size={30} />Kall</a>
       <nav className={styles.nav} aria-label="Primary navigation">

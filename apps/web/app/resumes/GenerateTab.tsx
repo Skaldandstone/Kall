@@ -168,29 +168,28 @@ export default function GenerateTab() {
         <article className="card">
           <h2>Draft grounded cover letter</h2>
           <form className="form" onSubmit={generateCoverLetter}>
-            <input className="input" name="proposal_id" placeholder="Tailoring proposal ID" required />
+            <label><span className="muted">Tailoring proposal ID</span><input className="input" name="proposal_id" required /></label>
             <div className="two">
-              <select className="input" name="emphasis" defaultValue="balanced">
+              <label><span className="muted">Emphasis</span><select className="input" name="emphasis" defaultValue="balanced">
                 <option value="balanced">Balanced</option>
                 <option value="executive">Executive</option>
                 <option value="technical">Technical</option>
-              </select>
-              <select className="input" name="tone" defaultValue="formal">
+              </select></label>
+              <label><span className="muted">Tone</span><select className="input" name="tone" defaultValue="formal">
                 <option value="formal">Formal</option>
                 <option value="conversational">Conversational</option>
-              </select>
+              </select></label>
             </div>
-            <select className="input" name="length" defaultValue="standard">
+            <label><span className="muted">Length</span><select className="input" name="length" defaultValue="standard">
               <option value="concise">Concise</option>
               <option value="standard">Standard</option>
-            </select>
-            <textarea
+            </select></label>
+            <label><span className="muted">Why this company (optional)</span><textarea
               className="input"
               name="company_interest_notes"
               rows={4}
-              placeholder="Optional company-interest notes supplied by you"
               style={{ paddingTop: 14 }}
-            />
+            /></label>
             <button className="button secondary" disabled={busy}>Create review draft</button>
           </form>
         </article>

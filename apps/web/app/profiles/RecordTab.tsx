@@ -168,7 +168,7 @@ export default function RecordTab() {
   return (
     <section className="record-layout">
       <article className="card">
-        <h1>Professional record</h1>
+        <h2>Professional record</h2>
         <label>
           <span className="muted">Section</span>
           <select

@@ -40,7 +40,7 @@ test('Inscription shell preserves keyboard access and a readable responsive hier
   await expect(page.getByRole('link', { name: /Turn a target role into specific steps/ })).toHaveAttribute('href', '/profiles?tab=growth');
 
   await page.keyboard.press('Tab');
-  const skip = page.getByRole('link', { name: 'Skip to workspace' });
+  const skip = page.getByRole('link', { name: 'Skip to page content' });
   await expect(skip).toBeFocused();
   await skip.press('Enter');
   await expect(page.locator('#workspace-content')).toBeFocused();

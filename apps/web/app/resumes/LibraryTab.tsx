@@ -142,7 +142,7 @@ export default function LibraryTab() {
                 <article key={profile.id}>
                   <h3>{profile.name}</h3>
                   <p>{profile.target_titles.join(', ') || 'No target titles yet'}</p>
-                  <select value={profile.default_resume_id ?? ''} onChange={(event) => void assign(profile.id, event.target.value ? Number(event.target.value) : null)}>
+                  <select aria-label={`Default resume for ${profile.name}`} value={profile.default_resume_id ?? ''} onChange={(event) => void assign(profile.id, event.target.value ? Number(event.target.value) : null)}>
                     <option value="">No default resume</option>
                     {data.resumes.map((resume) => <option value={resume.id} key={resume.id}>{resume.name}</option>)}
                   </select>

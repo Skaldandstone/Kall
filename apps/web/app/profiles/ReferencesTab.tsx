@@ -67,12 +67,12 @@ export default function ReferencesTab() {
       <section className="card">
         <h2>Request a testimonial or reference</h2>
         <form className="form" onSubmit={request}>
-          <input className="input" name="name" placeholder="Coworker name" required />
-          <input className="input" name="email" type="email" placeholder="Email address" required />
-          <input className="input" name="relationship" placeholder="Relationship, e.g. former manager" required />
-          <select className="input" name="request_type"><option value="testimonial">Written testimonial</option><option value="reference">Reference availability</option><option value="both">Both</option></select>
-          <textarea className="input" name="message" placeholder="Optional personal note" />
-          <button className="button">Create invitation</button>
+          <label><span className="muted">Coworker name</span><input className="input" name="name" required /></label>
+          <label><span className="muted">Email address</span><input className="input" name="email" type="email" required /></label>
+          <label><span className="muted">Relationship</span><input className="input" name="relationship" placeholder="Former manager" required /></label>
+          <label><span className="muted">Request type</span><select className="input" name="request_type"><option value="testimonial">Written testimonial</option><option value="reference">Reference availability</option><option value="both">Both</option></select></label>
+          <label><span className="muted">Personal note (optional)</span><textarea className="input" name="message" /></label>
+          <button className="button" type="submit">Create invitation</button>
         </form>
         {invite && <div className="notice" style={{ marginTop: 16, wordBreak: 'break-all' }}>{invite}</div>}
         <p className="notice">{message}</p>
@@ -85,9 +85,9 @@ export default function ReferencesTab() {
           <p><strong>{item.author_name}</strong>{item.author_title ? `, ${item.author_title}` : ''}{item.author_company ? ` at ${item.author_company}` : ''}</p>
           <p className="notice">{item.relationship} · {item.permission_granted ? 'Permission granted' : 'Permission pending'}</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-            <button className="button secondary" onClick={() => moderate(item, true, item.include_in_applications)}>Show on profile card</button>
-            <button className="button secondary" onClick={() => moderate(item, item.include_on_profile, true)}>Allow in applications</button>
-            <button className="button ghost" onClick={() => moderate(item, false, false)}>Keep private</button>
+            <button className="button secondary" type="button" onClick={() => moderate(item, true, item.include_in_applications)}>Show on profile card</button>
+            <button className="button secondary" type="button" onClick={() => moderate(item, item.include_on_profile, true)}>Allow in applications</button>
+            <button className="button ghost" type="button" onClick={() => moderate(item, false, false)}>Keep private</button>
           </div>
         </article>)}
         {!items.length && <section className="card"><p>No testimonials yet. Create an invitation to begin.</p></section>}

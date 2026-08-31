@@ -78,12 +78,12 @@ export default function GrowthTab() {
   return (
     <>
       <section className="card"><h2>Create a career goal</h2><form className="form" onSubmit={createGoal}>
-        <div className="two"><input className="input" name="title" placeholder="Goal name, e.g. Move into game art" required/><input className="input" name="target_role" placeholder="Target role, e.g. Environment Artist" required/></div>
-        <div className="two"><input className="input" name="target_industry" placeholder="Target industry"/><input className="input" name="target_date" type="date"/></div>
-        <div className="two"><input className="input" name="current_level" placeholder="Current level or background"/><input className="input" name="target_level" placeholder="Target level"/></div>
-        <div className="two"><input className="input" name="time_per_week_hours" type="number" min="1" max="80" defaultValue="5"/><select className="input" name="budget_preference" defaultValue="free_or_low_cost"><option value="free_or_low_cost">Free or low cost</option><option value="flexible">Flexible budget</option><option value="premium">Premium options considered</option></select></div>
-        <textarea className="input" name="notes" rows={4} placeholder="Relevant experience, constraints, or priorities"/>
-        <button className="button" disabled={busy}>{busy ? 'Building plan…' : 'Create goal and plan'}</button>
+        <div className="two"><label><span className="muted">Goal name</span><input className="input" name="title" placeholder="Move into game art" required/></label><label><span className="muted">Target role</span><input className="input" name="target_role" placeholder="Environment Artist" required/></label></div>
+        <div className="two"><label><span className="muted">Target industry (optional)</span><input className="input" name="target_industry"/></label><label><span className="muted">Target date (optional)</span><input className="input" name="target_date" type="date"/></label></div>
+        <div className="two"><label><span className="muted">Current level or background (optional)</span><input className="input" name="current_level"/></label><label><span className="muted">Target level (optional)</span><input className="input" name="target_level"/></label></div>
+        <div className="two"><label><span className="muted">Hours available per week</span><input className="input" name="time_per_week_hours" type="number" min="1" max="80" defaultValue="5"/></label><label><span className="muted">Budget preference</span><select className="input" name="budget_preference" defaultValue="free_or_low_cost"><option value="free_or_low_cost">Free or low cost</option><option value="flexible">Flexible budget</option><option value="premium">Premium options considered</option></select></label></div>
+        <label><span className="muted">Experience, constraints, or priorities (optional)</span><textarea className="input" name="notes" rows={4}/></label>
+        <button className="button" type="submit" disabled={busy}>{busy ? 'Building plan…' : 'Create goal and plan'}</button>
       </form><p className="notice" aria-live="polite">{message}</p></section>
 
       {data?.goals.length === 0 && <section className="card" style={{marginTop:24}}><h2>No career plan yet</h2><p>Name the role or change you want to make. Kall will propose skill gaps, milestones, and research steps for you to review.</p></section>}
@@ -136,11 +136,11 @@ function GoalCard({ goal, plan, busy, onGenerate, onPin, onMilestoneStatus, onRe
         <h3 style={{marginTop:26}}>Milestones</h3><div className="stack">{plan.milestones.map(item => <article className="card" key={item.id}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap'}}>
             <div><span className="eyebrow">{item.phase}</span><h2 style={{marginTop:12}}>{item.title}</h2></div>
-            <select className="input" style={{width:'auto'}} value={item.status} onChange={(event) => void onMilestoneStatus(item.id, event.target.value)}>
+            <label><span className="muted">Status for {item.title}</span><select className="input" style={{width:'auto'}} value={item.status} onChange={(event) => void onMilestoneStatus(item.id, event.target.value)}>
               <option value="not_started">Not started</option>
               <option value="in_progress">In progress</option>
               <option value="completed">Completed</option>
-            </select>
+            </select></label>
           </div>
           <p>{item.description}</p>
           <p style={{marginTop:10}}>{item.estimated_hours ? `${item.estimated_hours} estimated hours` : 'Flexible timing'}{item.target_date ? ` · Target ${new Date(item.target_date).toLocaleDateString()}` : ''}</p>
@@ -149,8 +149,8 @@ function GoalCard({ goal, plan, busy, onGenerate, onPin, onMilestoneStatus, onRe
         <article className="card" style={{marginTop:26}}>
           <h2>Analyze my skills</h2>
           <p>Describe your current skills, education, or vocational experience. Kall will show how it applies to {goal.target_role}.</p>
-          <textarea className="input" rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="e.g. I have three years of experience building websites, plus a certificate in UX design…"/>
-          <button className="button" style={{marginTop:12}} disabled={analyzing} onClick={() => void analyzeSkills()}>{analyzing ? 'Analyzing…' : 'AI Analyze'}</button>
+          <label><span className="muted">Current skills and experience</span><textarea className="input" rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Three years building websites, plus a certificate in UX design…"/></label>
+          <button className="button" type="button" style={{marginTop:12}} disabled={analyzing} onClick={() => void analyzeSkills()}>{analyzing ? 'Analyzing…' : 'Analyze my skills'}</button>
           {latestAssessment && <div style={{marginTop:20}}>
             <div className="metric"><strong>{latestAssessment.readiness_score}%</strong><span className="muted">readiness</span></div>
             <p style={{marginTop:10}}>{latestAssessment.narrative}</p>
@@ -166,7 +166,7 @@ function GoalCard({ goal, plan, busy, onGenerate, onPin, onMilestoneStatus, onRe
             {plan.searches.map(item => <button key={item.id} type="button" className="button secondary" onClick={() => setActiveQuery(item.query)}>{item.query}</button>)}
           </div>
           <form style={{display:'flex', gap:8, marginTop:12}} onSubmit={(event) => { event.preventDefault(); const value = new FormData(event.currentTarget).get('query'); if (value) setActiveQuery(String(value)); }}>
-            <input className="input" name="query" placeholder="Search for something specific…" defaultValue={activeQuery}/>
+            <input className="input" name="query" aria-label="Learning resource search" placeholder="Search for something specific…" defaultValue={activeQuery}/>
             <button className="button secondary" type="submit">Search</button>
           </form>
           {activeQuery && <div style={{marginTop:16}}><GoogleResourceSearchResults query={activeQuery} planId={plan.plan.id} onSaved={() => void onReload()} /></div>}

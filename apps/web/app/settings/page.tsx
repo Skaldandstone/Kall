@@ -56,7 +56,7 @@ export default function SettingsPage(){
       <h1 style={{fontSize:'clamp(42px, 7vw, 72px)'}}>Choose what Kall stores and how your account works.</h1>
       <p>Manage sign-in, contact details, notifications, privacy, your public page, and billing from one place.</p>
     </section>
-    {message&&<p className='notice'>{message}</p>}
+    {message&&<p className='notice' role='alert'>{message}</p>}
     {user&&<section className='card' style={{marginBottom:24}}><h2>{user.full_name}</h2><p>{user.email}</p><p className='muted'>{[user.state_region,user.country].filter(Boolean).join(', ')||'Location not set'} · {String(user.plan||'free').replaceAll('_',' ')} plan</p></section>}
     <section className='grid' style={{gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))'}}>
       <a className='card' href='/settings/identity'><h2>Identity & contact</h2><p>Update your name, location, links, and professional summary.</p></a>
@@ -67,25 +67,26 @@ export default function SettingsPage(){
       <a className='card' href='/privacy'><h2>Privacy controls</h2><p>Choose which profile fields Kall may use, share, or omit.</p></a>
       <a className='card' href='/billing'><h2>Plan & billing</h2><p>Review your subscription and payment options.</p></a>
     </section>
-    <section className='card' style={{marginTop:24}}><h2>Session</h2><p>Sign out of this browser and return to the Kall home page.</p><button className='button secondary' onClick={handleSignOut}>Sign out</button></section>
+    <section className='card' style={{marginTop:24}}><h2>Session</h2><p>Sign out of this browser and return to the Kall home page.</p><button className='button secondary' type='button' onClick={handleSignOut}>Sign out</button></section>
     <section className='card' style={{marginTop:24,borderColor:'var(--danger)'}}>
       <h2>Delete account</h2>
       <p>Permanently deletes your account and everything in it: resumes, applications, generated documents, and your career page. This cannot be undone.</p>
       {!confirmingDelete
-        ? <button className='button ghost' onClick={()=>setConfirmingDelete(true)}>Delete my account</button>
+        ? <button className='button ghost' type='button' onClick={()=>setConfirmingDelete(true)}>Delete my account</button>
         : <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:12}}>
             <label style={{display:'flex',flexDirection:'column',gap:4}}>
               <span className='muted'>Type your email ({user?.email ?? '…'}) to confirm</span>
               <input className='input' value={confirmEmail} onChange={e=>setConfirmEmail(e.target.value)} placeholder={user?.email} />
             </label>
-            {deleteError&&<p className='notice'>{deleteError}</p>}
+            {deleteError&&<p className='notice' role='alert'>{deleteError}</p>}
             <div style={{display:'flex',gap:8}}>
               <button
                 className='button danger'
+                type='button'
                 disabled={deleting||!user||confirmEmail.trim().toLowerCase()!==user.email.toLowerCase()}
                 onClick={handleDeleteAccount}
               >{deleting?'Deleting…':'Permanently delete my account'}</button>
-              <button className='button ghost' disabled={deleting} onClick={()=>{setConfirmingDelete(false);setConfirmEmail('');setDeleteError('');}}>Cancel</button>
+              <button className='button ghost' type='button' disabled={deleting} onClick={()=>{setConfirmingDelete(false);setConfirmEmail('');setDeleteError('');}}>Cancel</button>
             </div>
           </div>}
     </section>

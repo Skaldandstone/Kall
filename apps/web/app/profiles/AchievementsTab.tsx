@@ -58,15 +58,15 @@ export default function AchievementsTab() {
   return (
     <>
       <section className="card" style={{ marginBottom: 18 }}>
-        <h1>Verify the achievements Kall may reuse</h1>
+        <h2>Verify the achievements Kall may reuse</h2>
         <p>Review accomplishments extracted from your resumes. Kall excludes them from tailoring until you confirm they are accurate.</p>
         <div className="two">
-          <select className="input" value={resumeId} onChange={(event) => setResumeId(event.target.value)}>
+          <label><span className="muted">Resume to analyze</span><select className="input" value={resumeId} onChange={(event) => setResumeId(event.target.value)}>
             {resumes.map((resume) => <option key={resume.id} value={resume.id}>{resume.name}</option>)}
-          </select>
-          <button className="button" onClick={parse}>Parse selected resume</button>
+          </select></label>
+          <button className="button" type="button" onClick={parse}>Parse selected resume</button>
         </div>
-        <p>{message}</p>
+        <p aria-live="polite">{message}</p>
       </section>
       <section className="grid">
         {achievements.map((item) => <article className="card" key={item.id}>
@@ -75,8 +75,8 @@ export default function AchievementsTab() {
           {item.metrics.length > 0 && <p><b>Metrics:</b> {item.metrics.join(' · ')}</p>}
           {item.skills.length > 0 && <p><b>Skills:</b> {item.skills.join(' · ')}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="button" onClick={() => verify(item.id, 'verified')}>Verify</button>
-            <button className="button secondary" onClick={() => verify(item.id, 'rejected')}>Reject</button>
+            <button className="button" type="button" onClick={() => verify(item.id, 'verified')}>Verify</button>
+            <button className="button secondary" type="button" onClick={() => verify(item.id, 'rejected')}>Reject</button>
           </div>
         </article>)}
       </section>

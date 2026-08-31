@@ -84,17 +84,17 @@ export default function EmploymentTab() {
   return (
     <>
       <section className="card">
-        <h1>Work history</h1>
+        <h2>Work history</h2>
         <p>
           Employers, titles, and dates. Application forms ask for these constantly, and Kall can only
           pre-fill them for you if they are saved here — a resume alone is free text it cannot reliably read.
         </p>
         <form className="form" onSubmit={add}>
           <div className="two">
-            <input className="input" name="employer" placeholder="Employer" required />
-            <input className="input" name="job_title" placeholder="Job title" required />
+            <label><span className="muted">Employer</span><input className="input" name="employer" required /></label>
+            <label><span className="muted">Job title</span><input className="input" name="job_title" required /></label>
           </div>
-          <input className="input" name="location" placeholder="Location (optional)" />
+          <label><span className="muted">Location (optional)</span><input className="input" name="location" /></label>
           <div className="two">
             <label><span className="muted">Start date</span><input className="input" name="start_date" type="date" /></label>
             <label><span className="muted">End date</span><input className="input" name="end_date" type="date" /></label>
@@ -103,7 +103,7 @@ export default function EmploymentTab() {
             <input type="checkbox" name="is_current" />
             <span>This is my current role</span>
           </label>
-          <textarea className="input" name="description" rows={3} placeholder="What you did there (optional)" />
+          <label><span className="muted">Role description (optional)</span><textarea className="input" name="description" rows={3} /></label>
           <button className="button" disabled={busy}>{busy ? 'Saving…' : 'Add role'}</button>
         </form>
         <p className="notice" aria-live="polite">{message}</p>

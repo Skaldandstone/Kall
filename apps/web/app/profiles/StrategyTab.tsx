@@ -295,7 +295,7 @@ export default function StrategyTab() {
               <aside className={styles.sideCard}>
                 <h3>Profile resume</h3>
                 <p>Choose the default resume Kall should use for this profile.</p>
-                <select value={profile.default_resume_id ?? ''} onChange={(event) => void assignResume(profile.id, event.target.value)}>
+                <select aria-label={`Default resume for ${profile.name}`} value={profile.default_resume_id ?? ''} onChange={(event) => void assignResume(profile.id, event.target.value)}>
                   <option value="">No default resume</option>
                   {resumes.map((resume) => <option value={resume.id} key={resume.id}>{resume.name} · v{resume.version}</option>)}
                 </select>
