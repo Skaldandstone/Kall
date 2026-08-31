@@ -1,0 +1,149 @@
+# Temporary build-only workflow requested on 2026-08-30 to conserve Actions minutes.
+# ci.yml remains disabled at repository level, including for older branches.
+# Restore tests by disabling this workflow and re-enabling ci.yml in GitHub Actions.
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Manual runs exist for operational redeploys (config-only changes, a
+  # rollback to main's HEAD). Automated test workflows are paused.
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: "Deploy kall-api even if backend paths did not change"
+        type: boolean
+        default: false
+      deploy_web:
+        description: "Deploy kall-web even if apps/web did not change"
+        type: boolean
+        default: false
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-web-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm install
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+
+  extension:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-extension-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/extension/package-lock.json
+      - run: npm install
+        working-directory: apps/extension
+      - run: npm run build
+        working-directory: apps/extension
+
+  deploy:
+    if: github.repository == 'Skaldandstone/Kall' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [web, extension]
+    runs-on: ubuntu-latest
+    # One deploy at a time; a newer run supersedes rather than interleaves.
+    concurrency: production-deploy
+    # checkout needs contents:read; an empty permissions block strips even
+    # that and the job dies fetching its own repository.
+    permissions:
+      contents: read
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.KALL_DEPLOY_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.KALL_DEPLOY_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-east-2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The pushed range is needed to decide which image actually changed.
+          fetch-depth: 0
+      - name: Decide which services changed
+        id: changes
+        env:
+          BEFORE: ${{ github.event.before }}
+          FORCE_API: ${{ inputs.deploy_api }}
+          FORCE_WEB: ${{ inputs.deploy_web }}
+        run: |
+          api=false
+          web=false
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            api="$FORCE_API"
+            web="$FORCE_WEB"
+          elif [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            # Force push or unknown range: rebuild everything rather than guess.
+            api=true
+            web=true
+          else
+            changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+            printf 'changed files:\n%s\n' "$changed"
+            # Only paths that end up inside the API image (see Dockerfile.api).
+            if printf '%s\n' "$changed" | grep -qE '^(backend/|migrations/|Dockerfile\.api|alembic\.ini|pyproject\.toml)'; then
+              api=true
+            fi
+            if printf '%s\n' "$changed" | grep -qE '^apps/web/'; then
+              web=true
+            fi
+          fi
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "deploying: api=$api web=$web"
+      - name: Build and deploy via CodeBuild
+        if: steps.changes.outputs.api == 'true' || steps.changes.outputs.web == 'true'
+        # The repo is private and CodeBuild holds no GitHub credential on
+        # purpose, so CodeBuild cannot clone the source itself (its GITHUB
+        # source type died in DOWNLOAD_SOURCE with "authentication required").
+        # This job has the build commit checked out, so it ships the
+        # tree to S3 and overrides the build's source to that archive -- which
+        # also pins the deploy to the exact workflow commit. The
+        # bucket expires objects after 30 days.
+        run: |
+          zip="source-$GITHUB_SHA.zip"
+          git archive --format=zip -o "$zip" "$GITHUB_SHA"
+          aws s3 cp --no-progress "$zip" "s3://kall-build-sources-693272753663/github-deploy/$zip"
+          ids=()
+          if [ "${{ steps.changes.outputs.api }}" = "true" ]; then
+            ids+=("$(aws codebuild start-build --project-name kall-api-build \
+              --source-type-override S3 \
+              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
+              --query 'build.id' --output text)")
+          fi
+          if [ "${{ steps.changes.outputs.web }}" = "true" ]; then
+            ids+=("$(aws codebuild start-build --project-name kall-web-build \
+              --source-type-override S3 \
+              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
+              --query 'build.id' --output text)")
+          fi
+          echo "started: ${ids[*]}"
+          fail=0
+          for id in "${ids[@]}"; do
+            while :; do
+              status=$(aws codebuild batch-get-builds --ids "$id" --query 'builds[0].buildStatus' --output text)
+              [ "$status" != "IN_PROGRESS" ] && break
+              sleep 15
+            done
+            echo "$id -> $status"
+            [ "$status" = "SUCCEEDED" ] || fail=1
+          done
+          exit "$fail"
+
