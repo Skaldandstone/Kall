@@ -171,43 +171,53 @@ def test_a_free_account_with_a_stale_failure_flag_is_left_alone(engine) -> None:
         assert overdue_subscriptions(session, datetime.utcnow()) == []
 
 
-def test_webhook_routes_invoice_payment_failed_to_the_grace_period(client, engine, monkeypatch) -> None:
-    """The endpoint-level wiring, not just the service function.
+def test_webhook_preserves_first_failure_expires_and_recovers(client, engine, stripe_gateway):
+    """Signed endpoint deliveries use current Kall subscription and invoice state."""
+    from billing_fakes import delivery
 
-    apply_payment_failed/apply_payment_recovered were already correct in
-    isolation -- this proves POST /billing/webhook actually reaches them for
-    these two event types, which is exactly the layer where the earlier
-    plan-mapping bug lived (a service function that worked, called from a
-    webhook handler that did not call it correctly).
-    """
-    from kall.config import get_settings
+    event = stripe_gateway.bind(engine, client.user_id, plan="plus")
+    assert delivery(client, event).status_code == 200
+    current = stripe_gateway.subscriptions["sub_local"]
+    current["status"] = "past_due"
+    current["latest_invoice"]["status"] = "open"
+    assert delivery(client, stripe_gateway.invoice()).status_code == 200
+    with Session(engine) as session:
+        row = session.exec(select(Subscription)).one()
+        assert row.payment_failed_at is not None and row.plan == "plus"
+        first_failure = row.payment_failed_at - timedelta(hours=73)
+        row.payment_failed_at = first_failure
+        session.add(row)
+        session.commit()
+    assert delivery(client, stripe_gateway.invoice(event_id="evt_retry_failure")).status_code == 200
+    with Session(engine) as session:
+        row = session.exec(select(Subscription)).one()
+        assert row.payment_failed_at == first_failure
+        assert downgrade_overdue_subscriptions(session).downgraded == [client.user_id]
+    assert delivery(client, stripe_gateway.invoice(event_id="evt_late_failure")).status_code == 200
+    with Session(engine) as session:
+        assert session.get(User, client.user_id).plan == "free"
+        assert session.exec(select(Subscription)).one().payment_failed_at is None
+    current["status"] = "active"
+    current["latest_invoice"]["status"] = "paid"
+    assert delivery(client, stripe_gateway.invoice(event_id="evt_recovered", event_type="invoice.paid")).status_code == 200
+    with Session(engine) as session:
+        assert session.get(User, client.user_id).plan == "plus"
+        row = session.exec(select(Subscription)).one()
+        assert row.payment_failed_at is None
+        assert row.current_period_end == datetime.utcfromtimestamp(1900000000)
 
-    get_settings.cache_clear()
-    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
+
+def test_stale_grace_job_read_cannot_undo_payment_recovery(engine, monkeypatch):
+    from kall.services import billing_grace_period
 
     with Session(engine) as session:
-        target = User(clerk_user_id="user_webhook_target", email="webhook@example.com", full_name="Target", plan=SubscriptionPlan.PLUS)
-        session.add(target)
-        session.commit()
-        session.refresh(target)
-        subscription = get_subscription(session, target.id)
-        subscription.plan = SubscriptionPlan.PLUS
-        subscription.provider_customer_id = "cus_webhook"
+        user, subscription = _paid_user(session)
+        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=73)
         session.add(subscription)
         session.commit()
-
-    event = {
-        "id": "evt_1",
-        "type": "invoice.payment_failed",
-        "data": {"object": {"customer": "cus_webhook", "metadata": {}}},
-    }
-    monkeypatch.setattr("stripe.Webhook.construct_event", lambda **k: event)
-
-    response = client.post("/api/billing/webhook", content=b"{}", headers={"stripe-signature": "t=1,v1=x"})
-    assert response.status_code == 200
-
-    with Session(engine) as session:
-        subscription = find_subscription_by_customer(session, "cus_webhook")
-        assert subscription.payment_failed_at is not None
-
-    get_settings.cache_clear()
+        candidates = overdue_subscriptions(session, datetime.utcnow())
+        apply_payment_recovered(session, subscription)
+        monkeypatch.setattr(billing_grace_period, "overdue_subscriptions", lambda *_: candidates)
+        assert downgrade_overdue_subscriptions(session).downgraded == []
+        session.refresh(user)
+        assert user.plan == "premium"

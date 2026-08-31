@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import KallMark from '../components/KallMark';
-import { showToast } from '../components/ToastHost';
 import { fetchKall, getKall } from '../lib/api';
 import { METER_LABELS, PLANS, refillsOn } from '../lib/plans';
 import styles from './billing.module.css';
@@ -39,34 +38,54 @@ function fraction(state: MeterState): number | null {
 export default function PlanPicker() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [message, setMessage] = useState('');
+  const [billing, setBilling] = useState<{ enabled: boolean; can_manage: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    const [body, status] = await Promise.all([
+      getKall<Usage>('/me/usage'),
+      getKall<{ enabled: boolean; can_manage: boolean }>('/billing/status'),
+    ]);
+    if (body) setUsage(body);
+    setBilling(status);
+    if (!body || !status) setMessage('Could not load billing details. Try again before starting a payment.');
+    else setMessage(previous => previous.startsWith('Could not load billing details.') ? '' : previous);
+  }
 
   useEffect(() => {
-    void (async () => {
-      const body = await getKall<Usage>('/me/usage');
-      if (body) setUsage(body);
-      else setMessage('Could not load your usage.');
-    })();
+    if (new URLSearchParams(window.location.search).get('checkout') === 'returned') {
+      setMessage('Checkout returned. Your plan changes only after payment confirmation. Refresh your usage if it is still pending.');
+    }
+    void refresh();
   }, []);
 
-  async function choose(plan: string) {
-    // Stripe is not wired up yet. Rather than a dead button, say so plainly and
-    // record the intent -- an upgrade that silently does nothing is worse than
-    // one that admits it is not ready.
-    const response = await fetchKall('/billing/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
-    });
-    if (response.ok) {
-      const { url } = await response.json();
-      window.location.href = url;
-      return;
+  async function openBilling(plan?: string) {
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const response = await fetchKall(plan ? '/billing/checkout' : '/billing/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        ...(plan ? { body: JSON.stringify({ plan }) } : {}),
+      });
+      if (response.ok) {
+        const { url } = await response.json();
+        const target = new URL(url);
+        if (target.protocol !== 'https:' || target.hostname !== (plan ? 'checkout.stripe.com' : 'billing.stripe.com')) {
+          throw new Error('Unexpected billing redirect');
+        }
+        window.location.href = target.href;
+        return;
+      }
+      setMessage(response.status === 409
+        ? 'An existing Checkout or subscription needs attention. Use Manage billing, or finish the open Checkout before starting another.'
+        : 'Billing is temporarily unavailable. Retry here to resume the same attempt, or check Manage billing.');
+    } catch {
+      setMessage('Could not confirm the billing request. Retry here to resume the same attempt, or check Manage billing.');
+    } finally {
+      setBusy(false);
     }
-    if (response.status === 503) {
-      showToast('Payments are not switched on yet. Nothing has been charged.', 'info');
-      return;
-    }
-    showToast('That plan could not be started. Nothing has been charged.', 'error');
   }
 
   const current = usage?.plan ?? 'free';
@@ -88,6 +107,17 @@ export default function PlanPicker() {
         <span className="eyebrow">Plans</span>
         <h1 style={{ fontSize: 'clamp(40px, 6vw, 68px)' }}>Five a week, free. More when you need it.</h1>
         <p>Allowances refill every week, so a busy Sunday never locks you out until next month.</p>
+      </section>
+
+      <section className="card" style={{ marginBottom: 16 }} aria-label="Billing status">
+        <p>{billing === null ? 'Billing availability has not been confirmed.' : billing.enabled
+          ? 'Test payments are available. Live payments are disabled.'
+          : 'Payments are not switched on. You can keep using your current plan.'}</p>
+        {message && <p role="status">{message}</p>}
+        <div className={styles.actions}>
+          <button className="button secondary" type="button" disabled={busy} onClick={() => void refresh()}>Refresh usage</button>
+          {billing?.can_manage && <button className="button" type="button" disabled={busy} onClick={() => void openBilling()}>Manage billing</button>}
+        </div>
       </section>
 
       {usage && (
@@ -150,7 +180,7 @@ export default function PlanPicker() {
             {plan.id === current ? (
               <p className={styles.currentTag}>Your plan</p>
             ) : plan.id === 'free' ? null : (
-              <button className="button" type="button" onClick={() => choose(plan.id)}>
+              <button className="button" type="button" disabled={busy || !billing?.enabled || !usage} onClick={() => void openBilling(plan.id)}>
                 Choose {plan.name}
               </button>
             )}
@@ -158,7 +188,6 @@ export default function PlanPicker() {
         ))}
       </section>
 
-      {message && <p className="notice">{message}</p>}
     </main>
   );
 }

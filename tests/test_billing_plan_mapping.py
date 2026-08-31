@@ -1,57 +1,39 @@
-"""Which plan a Stripe event grants.
-
-Two bugs these pin down, both found while writing the Stripe runbook:
-the handler hardcoded "plus" regardless of what was bought, and it only
-ever wrote Subscription.plan -- never User.plan, which is the field the
-quota service actually reads.
-"""
-
-from kall.models.core import User
-from kall.models.enums import SubscriptionPlan
+"""Configured prices grant plans; provider metadata never does."""
+import pytest
+from billing_fakes import price
+from kall.models import User
 from kall.services.billing import apply_subscription_event, plan_from_event
 from sqlmodel import Session
 
-
-def test_metadata_names_the_plan() -> None:
-    assert plan_from_event({"metadata": {"kall_plan": "premium"}}) == SubscriptionPlan.PREMIUM
-    assert plan_from_event({"metadata": {"kall_plan": "plus"}}) == SubscriptionPlan.PLUS
+pytestmark = pytest.mark.usefixtures("stripe_gateway")
 
 
-def test_an_unknown_plan_in_metadata_does_not_grant_the_top_tier() -> None:
-    """Metadata is attacker-adjacent data; it must not be trusted blindly."""
-    assert plan_from_event({"metadata": {"kall_plan": "enterprise"}}) == SubscriptionPlan.PLUS
-    assert plan_from_event({}) == SubscriptionPlan.PLUS
+def payload(plan="premium", **kwargs):
+    return {"status": "active", "id": "sub_local", "customer": "cus_local",
+            "items": {"data": [{"quantity": 1, "price": price(plan)}]}, **kwargs}
 
 
-def test_buying_premium_grants_premium(engine) -> None:
+def test_configured_price_overrides_misleading_metadata():
+    assert plan_from_event(payload("plus", metadata={"kall_plan": "premium"})) == "plus"
+    assert plan_from_event(payload()) == "premium"
+
+
+@pytest.mark.parametrize("event", [{}, {"metadata": {"kall_plan": "premium"}},
+    {"items": {"data": [{"price": "price_premium"}]}},
+    {"items": {"data": [{"price": price(), "quantity": 2}]}},
+    {"items": {"data": [{"price": price()}, {"price": price("plus")}]}}])
+def test_unknown_or_ambiguous_purchase_is_free(event):
+    assert plan_from_event(event) == "free"
+
+
+def test_buying_then_cancelling_updates_the_authoritative_user(engine):
     with Session(engine) as session:
-        user = User(clerk_user_id="user_buyer", email="buyer@example.com", full_name="Buyer")
+        user = User(clerk_user_id="buyer", email="buyer@example.com", full_name="Buyer")
         session.add(user)
         session.commit()
+        row = apply_subscription_event(session, user.id, payload())
         session.refresh(user)
-
-        apply_subscription_event(
-            session, user.id,
-            {"status": "active", "customer": "cus_1", "id": "sub_1",
-             "metadata": {"kall_plan": "premium"}},
-        )
+        assert row.plan == user.plan == "premium"
+        apply_subscription_event(session, user.id, payload(status="canceled"))
         session.refresh(user)
-        # Both records move: the subscription, and the account the limits read.
-        assert user.plan == SubscriptionPlan.PREMIUM
-
-
-def test_cancelling_returns_the_account_to_free(engine) -> None:
-    with Session(engine) as session:
-        user = User(clerk_user_id="user_cancel", email="cancel@example.com",
-                    full_name="Cancel", plan=SubscriptionPlan.PREMIUM)
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-
-        apply_subscription_event(
-            session, user.id,
-            {"status": "canceled", "customer": "cus_2", "id": "sub_2",
-             "metadata": {"kall_plan": "premium"}},
-        )
-        session.refresh(user)
-        assert user.plan == SubscriptionPlan.FREE
+        assert row.plan == user.plan == "free"

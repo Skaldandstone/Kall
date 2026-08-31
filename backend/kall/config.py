@@ -64,12 +64,17 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-luna"
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    # Sandbox integration is opt-in. Live billing is blocked in this release.
+    stripe_enabled: bool = False
     stripe_livemode: bool = False
+    stripe_billing_scope: str | None = None
     stripe_portal_configuration_id: str | None = None
     #: Kall Plus. Named for the plan rather than as a bare "price id" now that
     #: there is more than one.
     stripe_price_id: str | None = None
     stripe_premium_price_id: str | None = None
+    stripe_plus_product_id: str | None = None
+    stripe_premium_product_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
     #: Shared secret for the Adminhelper Worker's machine-to-machine calls to
