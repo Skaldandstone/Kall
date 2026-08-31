@@ -102,7 +102,7 @@ export default function OpportunitiesAtsSearch() {
 
         <article className="card opportunity-search-results-column" aria-label="Unified job search results">
           <div className="section-heading">
-            <div><span className="eyebrow">Search results</span><h2 style={{ marginTop: 14 }}>Current job matches</h2></div>
+            <div><span className="eyebrow">Open roles</span><h2 style={{ marginTop: 14 }}>Results for these criteria</h2></div>
             <p>Results remain inside Kall. Choose Apply with Kall to select documents and preparation preferences.</p>
           </div>
           {activeQuery ? (

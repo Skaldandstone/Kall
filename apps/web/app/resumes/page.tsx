@@ -11,9 +11,9 @@ import styles from './page.module.css';
 
 const TABS = [
   ['library', 'Library'],
-  ['intelligence', 'Intelligence'],
-  ['tailoring', 'Tailoring'],
-  ['generate', 'Generate'],
+  ['intelligence', 'Evidence'],
+  ['tailoring', 'Tailor for a role'],
+  ['generate', 'Export'],
 ] as const;
 
 export default function ResumesPage() {
@@ -30,7 +30,8 @@ function ResumesPageContent() {
       <section className={styles.hero}>
         <div>
           <p className="eyebrow">Documents</p>
-          <h1>Your career documents, organized by purpose.</h1>
+          <h1>Keep every resume tied to the facts behind it.</h1>
+          <p>Preserve source files, compare versions, and review proposed changes before creating an application document.</p>
         </div>
       </section>
       <nav aria-label="Documents sections" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>

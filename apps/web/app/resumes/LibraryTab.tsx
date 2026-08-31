@@ -96,7 +96,7 @@ export default function LibraryTab() {
       <div className={styles.hero}>
         <div>
           <p className="eyebrow">Resume Studio</p>
-          <p>Review readiness, maintain versions, and choose the starting resume for each career strategy.</p>
+          <p>See which resume is current, what each version targets, and which career direction uses it by default.</p>
         </div>
         <a className="button" href="/onboarding">Upload resume</a>
       </div>

@@ -142,7 +142,7 @@ function NewApplicationForm() {
 
   return <main className={`app-shell ${flow.shell}`}>
     <AppNav current="applications" />
-    <section className="hero" style={{ paddingBottom: 36 }}><span className="eyebrow">Application preparation</span><h1>Prepare your application.</h1><p>Kall can pair the role with a stored profile and resume, draft tailored documents, and prepare an assisted or automatic application workflow for your review.</p></section>
+    <section className="hero" style={{ paddingBottom: 36 }}><span className="eyebrow">Application preparation</span><h1>Choose what Kall should prepare for this role.</h1><p>Select the career direction and source resume. Kall can draft tailored documents, but you review the evidence, answers, and sensitive fields before approval.</p></section>
     <div className="application-prep-columns">
       <section className="card"><span className="pill">Selected role</span><h2 style={{ marginTop: 16 }}>{externalTitle}</h2><p>{externalSnippet || 'The complete posting will remain available through the original job link.'}</p>{externalUrl && <a className="button secondary" href={externalUrl} target="_blank" rel="noreferrer" style={{ marginTop: 18 }}>View original posting</a>}</section>
       <section className="card form" aria-busy={loadingOptions || preparing}>

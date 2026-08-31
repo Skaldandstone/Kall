@@ -78,7 +78,7 @@ export default function IntelligenceTab() {
   }
 
   return <>
-    {loading && <section className="card"><p>Loading resume intelligence…</p></section>}
+    {loading && <section className="card"><p>Checking saved resume evidence…</p></section>}
     {data && <>
       <section className="grid" aria-label="Resume intelligence summary">
         <article className="card"><h3>Resumes</h3><div className="metric"><strong>{data.summary.resume_count}</strong></div><p>available for matching</p></article>
@@ -86,7 +86,7 @@ export default function IntelligenceTab() {
         <article className="card"><h3>Target roles</h3><div className="metric"><strong>{data.profile_titles.length}</strong></div><p>across active profiles</p></article>
       </section>
       {!data.resumes.length ? <section className="card" style={{ marginTop: 24 }}><h2>No resumes yet</h2><p>Upload a resume to begin evaluating readiness and role alignment.</p><a className="button" href="/resumes" style={{ marginTop: 18 }}>Upload a resume</a></section> :
-      <section style={{ marginTop: 32 }}><div className="section-heading"><div><span className="eyebrow">Portfolio</span><h2 style={{ marginTop: 14 }}>Your resume lineup</h2></div><p>AI recommendations must be reviewed before they become a new version.</p></div><div className="stack">
+      <section style={{ marginTop: 32 }}><div className="section-heading"><div><span className="eyebrow">Saved resumes</span><h2 style={{ marginTop: 14 }}>Evidence and readiness by version</h2></div><p>Review every AI suggestion before it becomes a new version.</p></div><div className="stack">
         {data.resumes.map(resume => <article className="card" key={resume.id} style={{ position: 'relative' }}>
           <button type="button" aria-label={`Remove ${resume.name}`} onClick={() => setRemoveId(resume.id)} style={{ position: 'absolute', top: 18, right: 18, border: 0, background: 'transparent', color: 'inherit', fontSize: 26, cursor: 'pointer' }}>×</button>
           {removeId === resume.id && <div className="card" role="dialog" aria-label="Remove resume confirmation" style={{ position: 'absolute', zIndex: 5, top: 56, right: 18, width: 'min(360px, calc(100% - 36px))', boxShadow: '0 18px 60px rgba(0,0,0,.35)' }}><h3>Remove this resume?</h3><p>This removes the file and clears its profile and application associations. This cannot be undone.</p><div style={{ display: 'flex', gap: 10, marginTop: 16 }}><button className="button" type="button" disabled={busyId === resume.id} onClick={() => void removeResume(resume.id)}>Yes, remove</button><button className="button ghost" type="button" onClick={() => setRemoveId(null)}>No</button></div></div>}

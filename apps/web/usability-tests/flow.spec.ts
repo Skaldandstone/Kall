@@ -26,18 +26,18 @@ test('all navigation destinations fit and both entry paths remain available', as
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
     expect(bounds!.height).toBeGreaterThanOrEqual(44);
   }
-  await expect(page.getByRole('link', { name: /Search for a job/ })).toHaveAttribute('href', '/search');
-  await expect(page.getByRole('link', { name: /Create a profile/ })).toHaveAttribute('href', '/profiles');
+  await expect(page.getByRole('link', { name: /Search open roles/ })).toHaveAttribute('href', '/search');
+  await expect(page.getByRole('link', { name: /Set a career direction/ })).toHaveAttribute('href', '/profiles');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('Inscription shell preserves keyboard access and a readable responsive hierarchy', async ({ page }) => {
   await page.goto('/morning-brief');
   await expect(page.locator('html')).toHaveAttribute('data-kall-theme', 'inscription');
-  await expect(page.getByRole('region', { name: 'Your career workspace' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /A record worth keeping/ })).toHaveAttribute('href', '/profiles');
-  await expect(page.getByRole('link', { name: /Your experience, ready/ })).toHaveAttribute('href', '/resumes');
-  await expect(page.getByRole('link', { name: /Make room for what is next/ })).toHaveAttribute('href', '/profiles?tab=growth');
+  await expect(page.getByRole('region', { name: 'Career record, resumes, and career plan' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Update the facts Kall can use/ })).toHaveAttribute('href', '/profiles');
+  await expect(page.getByRole('link', { name: /Choose the right source for each role/ })).toHaveAttribute('href', '/resumes');
+  await expect(page.getByRole('link', { name: /Turn a target role into specific steps/ })).toHaveAttribute('href', '/profiles?tab=growth');
 
   await page.keyboard.press('Tab');
   const skip = page.getByRole('link', { name: 'Skip to workspace' });

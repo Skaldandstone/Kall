@@ -171,7 +171,7 @@ function JobIntelligenceContent() {
       </section>
 
       <section className="card" aria-labelledby="analysis-heading">
-        <h2 id="analysis-heading">Build match intelligence</h2>
+        <h2 id="analysis-heading">Compare a role with your saved record</h2>
         <p style={{ marginBottom: 20 }}>Select an existing job and professional profile. Kall will compare all eligible resumes and verified achievements.</p>
         <form className="form" onSubmit={build}>
           <div className="two">
@@ -181,7 +181,7 @@ function JobIntelligenceContent() {
             </label>
             <ProfessionalProfileSelect value={profileId} onChange={setProfileId} />
           </div>
-          <button className="button" disabled={isLoading || !profileId}>{isLoading ? 'Preparing analysis…' : 'Build match intelligence'}</button>
+          <button className="button" disabled={isLoading || !profileId}>{isLoading ? 'Comparing role…' : 'Compare role'}</button>
         </form>
         <p className="notice" aria-live="polite" style={{ marginTop: 16 }}>{message}</p>
       </section>
@@ -200,7 +200,7 @@ function JobIntelligenceContent() {
 
           <section aria-labelledby="resume-ranking-heading">
             <div className="section-heading">
-              <div><span className="eyebrow">Resume ranking</span><h2 id="resume-ranking-heading" style={{ marginTop: 14 }}>Evidence, not guesswork.</h2></div>
+              <div><span className="eyebrow">Resume comparison</span><h2 id="resume-ranking-heading" style={{ marginTop: 14 }}>Why each resume fits or falls short</h2></div>
               <p>Scores are accompanied by positive evidence and visible gaps so you can review the recommendation before acting.</p>
             </div>
             <div className="stack">

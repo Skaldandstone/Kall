@@ -98,5 +98,5 @@ test('a signed-in user landing on the marketing homepage is sent to their dashbo
 
   await page.goto('/');
   await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page.getByText('Make your next move clear.')).toBeVisible();
+  await expect(page.getByText('What are you deciding today?')).toBeVisible();
 });

@@ -301,7 +301,7 @@ export default function DiscoveryTab() {
 
       <section style={{ marginTop: 32 }}>
         <div className="section-heading">
-          <div><span className="eyebrow">Results</span><h2 style={{ marginTop: 14 }}>Matched opportunities</h2></div>
+          <div><span className="eyebrow">Company-board results</span><h2 style={{ marginTop: 14 }}>Roles that meet this profile's threshold</h2></div>
           <p>{isLoading ? 'Loading…' : `${results.length} role${results.length === 1 ? '' : 's'} at or above ${minimumScore}% match.`}</p>
         </div>
         <div className="stack">
@@ -339,7 +339,7 @@ export default function DiscoveryTab() {
 
       <section className="card" style={{ marginTop: 32 }}>
         <div className="section-heading">
-          <div><span className="eyebrow">Automatic search</span><h2 style={{ marginTop: 14 }}>Keep this profile monitored</h2></div>
+          <div><span className="eyebrow">Automatic checks</span><h2 style={{ marginTop: 14 }}>Check these company boards on a schedule</h2></div>
           <p>
             {selectedSchedule
               ? selectedSchedule.cadence === 'continuous' ? 'Five-minute company-board pilot.' : `Current schedule: ${selectedSchedule.cadence} at ${selectedSchedule.run_at_local.slice(0, 5)}.`
@@ -395,8 +395,8 @@ export default function DiscoveryTab() {
 
       <section style={{ marginTop: 32 }}>
         <div className="section-heading">
-          <div><span className="eyebrow">Search history</span><h2 style={{ marginTop: 14 }}>Recent discovery runs</h2></div>
-          <p>See what each immediate or scheduled run collected and matched.</p>
+          <div><span className="eyebrow">Search history</span><h2 style={{ marginTop: 14 }}>What each search found</h2></div>
+          <p>Compare the roles collected, new postings saved, matches created, and any issues.</p>
         </div>
         <div className="stack">
           {selectedRuns.map((run) => (
@@ -425,8 +425,8 @@ export default function DiscoveryTab() {
 
       <section style={{ marginTop: 32 }}>
         <div className="section-heading">
-          <div><span className="eyebrow">Inbox</span><h2 style={{ marginTop: 14 }}>Saved workflow state</h2></div>
-          <p>Review, save, apply, or dismiss opportunities that Kall is actively tracking.</p>
+          <div><span className="eyebrow">Tracked roles</span><h2 style={{ marginTop: 14 }}>Roles waiting for your decision</h2></div>
+          <p>Keep a role, review its evidence, prepare an application, or dismiss it.</p>
         </div>
         <div className="stack">
           {selectedOpportunities.map((item) => (

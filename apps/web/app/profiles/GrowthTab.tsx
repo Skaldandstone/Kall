@@ -86,7 +86,7 @@ export default function GrowthTab() {
         <button className="button" disabled={busy}>{busy ? 'Building plan…' : 'Create goal and plan'}</button>
       </form><p className="notice" aria-live="polite">{message}</p></section>
 
-      {data?.goals.length === 0 && <section className="card" style={{marginTop:24}}><h2>Your first plan starts above.</h2><p>Describe the work you want to do. Kall will organize the first research, education, portfolio, and networking steps, and can search the web for real courses and guides once your plan exists.</p></section>}
+      {data?.goals.length === 0 && <section className="card" style={{marginTop:24}}><h2>No career plan yet</h2><p>Name the role or change you want to make. Kall will propose skill gaps, milestones, and research steps for you to review.</p></section>}
 
       <div className="stack" style={{marginTop:32}}>{data?.goals.map(({goal,plan}) => (
         <GoalCard key={goal.id} goal={goal} plan={plan} busy={busy} onGenerate={generate} onPin={pinResource} onMilestoneStatus={setMilestoneStatus} onReload={load} onError={setMessage} />

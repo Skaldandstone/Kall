@@ -98,12 +98,12 @@ export default function MorningBriefClient() {
           <p className="eyebrow">Morning Brief</p>
           <div className={styles.heroGrid}>
             <div>
-              <h1>Your career, prepared quietly.</h1>
+              <h1>Preparing your next review.</h1>
               <p className={styles.lede} role={loading ? 'status' : 'alert'}>{message}</p>
             </div>
             <aside className={styles.summary}>
               <span>Next step</span>
-              <strong>{loading ? 'Kall is gathering your saved activity.' : 'Your saved work is still available.'}</strong>
+              <strong>{loading ? 'Loading saved opportunities, applications, and document status.' : 'Your saved records are still available.'}</strong>
               {!loading && <p>You can search for a role or open your career profile while the brief is unavailable.</p>}
             </aside>
           </div>
@@ -129,43 +129,43 @@ export default function MorningBriefClient() {
           <div>
             <h1>Good morning, {brief.user.preferred_name}.</h1>
             <p className={styles.lede}>
-              Your career, in view. Build on your experience and choose what comes next.
+              Review the roles, applications, and career records that need your attention today.
             </p>
           </div>
           <aside className={styles.summary}>
             <span>Daily focus</span>
             <strong>{brief.focus.title}</strong>
             <p>{brief.focus.detail}</p>
-            <a className="text-link" href={brief.focus.href}>Continue</a>
+            <a className="text-link" href={brief.focus.href}>Open daily focus</a>
           </aside>
         </div>
       </section>
 
-      <section className={styles.careerOverview} aria-label="Your career workspace">
+      <section className={styles.careerOverview} aria-label="Career record, resumes, and career plan">
         <a href="/profiles" className={styles.overviewCard}>
-          <span className="eyebrow">Career</span>
-          <h2>A record worth keeping.</h2>
-          <p>Keep your experience, achievements and career direction together.</p>
-          <span className="text-link">Open career profile</span>
+          <span className="eyebrow">Professional record</span>
+          <h2>Update the facts Kall can use.</h2>
+          <p>Add or correct roles, skills, achievements, credentials, and references.</p>
+          <span className="text-link">Review your record</span>
         </a>
         <a href="/resumes" className={styles.overviewCard}>
-          <span className="eyebrow">Documents</span>
-          <h2>Your experience, ready.</h2>
-          <p>{brief.resumes.total ? `${brief.resumes.total} saved ${brief.resumes.total === 1 ? 'resume' : 'resumes'}. Review the source facts before tailoring.` : 'Start with your resume. Keep every version grounded in your experience.'}</p>
-          <span className="text-link">Open documents</span>
+          <span className="eyebrow">Resumes</span>
+          <h2>Choose the right source for each role.</h2>
+          <p>{brief.resumes.total ? `${brief.resumes.total} saved ${brief.resumes.total === 1 ? 'resume' : 'resumes'}. Check which version is current and where it is used.` : 'Upload a source resume before creating or tailoring a new version.'}</p>
+          <span className="text-link">Review resume versions</span>
         </a>
         <a href="/profiles?tab=growth" className={styles.overviewCard}>
-          <span className="eyebrow">Growth</span>
-          <h2>Make room for what is next.</h2>
-          <p>Review your development plans and the next milestone you want to reach.</p>
-          <span className="text-link">Explore career growth</span>
+          <span className="eyebrow">Career plan</span>
+          <h2>Turn a target role into specific steps.</h2>
+          <p>Track the gaps, milestones, and learning resources behind a career change or promotion.</p>
+          <span className="text-link">Review your career plan</span>
         </a>
       </section>
 
       <section className={styles.grid}>
         <div className={styles.main}>
           <div className={styles.heading}>
-            <div><p className="eyebrow">{opportunityCount} evaluated {opportunityCount === 1 ? 'match' : 'matches'}</p><h2>Top opportunities</h2></div>
+            <div><p className="eyebrow">{opportunityCount} evaluated {opportunityCount === 1 ? 'match' : 'matches'}</p><h2>Roles worth reviewing</h2></div>
             <a className="text-link" href="/search">View all opportunities</a>
           </div>
 
@@ -187,7 +187,7 @@ export default function MorningBriefClient() {
                         ? opportunity.strengths.join(' · ')
                         : 'This match is based on your active professional profile.'}
                     </p>
-                    {opportunity.gaps.length > 0 && <p className={styles.reason}>Review: {opportunity.gaps.join(' · ')}</p>}
+                    {opportunity.gaps.length > 0 && <p className={styles.reason}>Gaps: {opportunity.gaps.join(' · ')}</p>}
                     <div className={styles.actions}>
                       <a className="button" href={`/job-intelligence?job=${opportunity.job_id}`}>Review analysis</a>
                       <a className="button secondary" href="/search?tab=discovery">Open tracked opportunities</a>
@@ -208,7 +208,7 @@ export default function MorningBriefClient() {
             <div>
               <p className="eyebrow">Applications</p>
               <h2>{brief.applications.active} active {brief.applications.active === 1 ? 'application' : 'applications'}.</h2>
-              <p>{brief.applications.total ? 'Review progress and the next decision in your pipeline.' : 'No applications are currently tracked.'}</p>
+              <p>{brief.applications.total ? 'See which applications need answers, approval, or a status update.' : 'No applications are currently tracked.'}</p>
             </div>
             <a className="button secondary" href="/applications">Open applications</a>
           </article>
@@ -216,7 +216,7 @@ export default function MorningBriefClient() {
 
         <aside className={styles.side}>
           <article className={styles.panel}>
-            <p className="eyebrow">Career health</p>
+            <p className="eyebrow">Record coverage</p>
             <div className={styles.healthScore}><strong>{brief.career_health.score}</strong><span>{healthLabel}</span></div>
             <div className={styles.healthList}>
               {brief.career_health.dimensions.map((dimension) => (
@@ -231,12 +231,12 @@ export default function MorningBriefClient() {
 
           <article className={styles.panel}>
             <p className="eyebrow">Resume readiness</p>
-            <h2>{brief.resumes.total ? `${brief.resumes.total} ${brief.resumes.total === 1 ? 'resume' : 'resumes'} available.` : 'No resume uploaded yet.'}</h2>
+            <h2>{brief.resumes.total ? `${brief.resumes.total} ${brief.resumes.total === 1 ? 'resume' : 'resumes'} saved.` : 'No resume uploaded yet.'}</h2>
             <p>{brief.resumes.default_resume_id ? 'A default resume is selected for application preparation.' : 'Select a default resume to make preparation faster and more consistent.'}</p>
             <a className="text-link" href={brief.resumes.total ? '/resumes?tab=intelligence' : '/resumes'}>{brief.resumes.total ? 'Review resume evidence' : 'Upload your first resume'}</a>
           </article>
 
-          <p className={styles.note}>This brief uses stored Kall facts and deterministic heuristics. It does not invent activity.</p>
+          <p className={styles.note}>Counts and scores use your saved Kall records and documented rules. The brief does not invent activity or qualifications.</p>
         </aside>
       </section>
     </main>

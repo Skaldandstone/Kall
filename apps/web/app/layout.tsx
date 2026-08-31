@@ -43,11 +43,11 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Kall | Your career, in view',
+    default: 'Kall | Make better career decisions',
     template: '%s | Kall',
   },
   description:
-    'A calm, private workspace for building a meaningful career over time.',
+    'Keep your professional record current, compare roles with real experience, and prepare applications without inventing qualifications.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [

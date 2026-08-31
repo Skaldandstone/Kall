@@ -107,14 +107,14 @@ export default function ApplicationsClient() {
     } finally { setBusyId(null); }
   }
 
-  if (state === 'loading') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Gathering your pipeline.</h1></div></section></main>;
-  if (state === 'signed-out') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Sign in to view your applications.</h1></div><a className='button' href='/sign-in'>Sign in</a></section></main>;
-  if (state === 'error' || !pipeline) return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>Your pipeline could not be loaded.</h1><p>{error}</p></div><button className='button' onClick={() => void loadPipeline()}>Try again</button></section></main>;
+  if (state === 'loading') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Loading your applications.</h1></div></section></main>;
+  if (state === 'signed-out') return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Sign in to view your applications.</h1></div><a className='button' href='/sign-in'>Sign in</a></section></main>;
+  if (state === 'error' || !pipeline) return <main className='app-shell'><AppNav current='applications'/><section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>Your applications could not be loaded.</h1><p>{error}</p></div><button className='button' onClick={() => void loadPipeline()}>Try again</button></section></main>;
 
   const next = pipeline.next_decision;
   return <main className='app-shell'>
     <AppNav current='applications'/>
-    <section className={styles.hero}><div><p className='eyebrow'>Application workspace</p><h1>{pipeline.summary.active} active application{pipeline.summary.active === 1 ? '' : 's'}.</h1><p>Move applications between stages or remove records you no longer want to track.</p></div><a className='button' href='/search'>Find opportunities</a></section>
+    <section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>{pipeline.summary.active ? `${pipeline.summary.active} application${pipeline.summary.active === 1 ? '' : 's'} still in progress.` : 'No applications in progress.'}</h1><p>Track what Kall prepared, what still needs your review, and what you submitted.</p></div><a className='button' href='/search'>Search open roles</a></section>
     <section className={styles.summary} aria-label='Application summary'>
       <article><strong>{pipeline.summary.active}</strong><span>Active</span></article><article><strong>{pipeline.summary.needs_review}</strong><span>Needs review</span></article><article><strong>{pipeline.summary.submitted}</strong><span>Submitted</span></article><article><strong>{pipeline.summary.best_match == null ? '—' : `${pipeline.summary.best_match}%`}</strong><span>Best match</span></article>
     </section>
@@ -127,10 +127,10 @@ export default function ApplicationsClient() {
           <p>{item.company}{item.location ? ` · ${item.location}` : ''}</p><h3>{item.role}</h3><span>{detail(item)}{item.match_score == null ? '' : ` · ${item.match_score}% match`}</span>
           <label style={{ display: 'grid', gap: 6, marginTop: 14 }}><span className='muted'>Move to</span><select className='input' value={item.stage} disabled={busyId === item.id} onChange={event => void moveApplication(item, event.target.value)}>{STAGES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <a href={`/applications/${item.id}`}>Open application</a>
-        </article>) : <div className={styles.empty}>No applications here.</div>}</div>
+        </article>) : <div className={styles.empty}>No applications in this stage.</div>}</div>
       </section>)}
     </section>
-    {next ? <section className={`${styles.focus} card`}><div><p className='eyebrow'>Next decision</p><h2>{next.company} is ready for review.</h2><p>{detail(next)}.</p></div><a className='button' href={`/applications/${next.id}`}>Review preparation</a></section> : null}
+    {next ? <section className={`${styles.focus} card`}><div><p className='eyebrow'>Needs your decision</p><h2>Review {next.role} at {next.company}.</h2><p>{detail(next)}.</p></div><a className='button' href={`/applications/${next.id}`}>Review application</a></section> : null}
     <p className={styles.note}>Removing an application makes its job eligible to appear in search again. Closing or rejecting an application keeps the job excluded.</p>
   </main>;
 }

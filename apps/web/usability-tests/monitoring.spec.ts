@@ -56,8 +56,8 @@ test('monitoring opt-in status and schedule values survive a save error', async 
   await expect(page.getByLabel('Schedule time zone')).toHaveValue('America/Los_Angeles');
   await page.getByLabel('Enable this schedule').uncheck();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
-  await page.getByRole('heading', { name: 'Keep this profile monitored' }).scrollIntoViewIfNeeded();
-  await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Keep this profile monitored' }) }).screenshot({ path: testInfo.outputPath(`monitoring-${testInfo.project.name}.png`) });
+  await page.getByRole('heading', { name: 'Check these company boards on a schedule' }).scrollIntoViewIfNeeded();
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Check these company boards on a schedule' }) }).screenshot({ path: testInfo.outputPath(`monitoring-${testInfo.project.name}.png`) });
 });
 
 test('notification load failure can retry without losing the page', async ({ page }) => {

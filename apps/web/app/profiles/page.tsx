@@ -13,10 +13,10 @@ import ReferencesTab from './ReferencesTab';
 import styles from './page.module.css';
 
 const TABS = [
-  ['strategy', 'Strategy'],
+  ['strategy', 'Direction'],
   ['employment', 'Work history'],
   ['record', 'Professional record'],
-  ['growth', 'Growth'],
+  ['growth', 'Career plan'],
   ['achievements', 'Achievements'],
   ['references', 'References'],
 ] as const;
@@ -44,7 +44,8 @@ function ProfilesPageContent() {
       <section className={styles.hero}>
         <div>
           <p className="eyebrow">Career</p>
-          <h1>Define where your career should go.</h1>
+          <h1>Keep the record Kall uses to represent you.</h1>
+          <p>Separate stable career facts from the roles, locations, and conditions you want to pursue.</p>
         </div>
       </section>
       <nav aria-label="Career sections" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>

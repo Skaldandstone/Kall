@@ -10,8 +10,8 @@ import SourcesTab from './SourcesTab';
 
 const TABS = [
   ['search', 'Search'],
-  ['discovery', 'Tracked'],
-  ['sources', 'Sources'],
+  ['discovery', 'Tracked roles'],
+  ['sources', 'Company boards'],
 ] as const;
 
 export default function SearchPage() {
@@ -26,8 +26,8 @@ function SearchPageContent() {
     <AppNav current="opportunities" />
     <section className="hero search-page-hero">
       <span className="eyebrow">Opportunities</span>
-      <h1>Find your next role.</h1>
-      <p>Search the open web, run configured ATS discovery against your company boards, and manage which boards Kall watches.</p>
+      <h1>Search for roles that fit your criteria.</h1>
+      <p>Use titles, locations, work preferences, and a saved career direction. Add company boards when you want Kall to check specific employers.</p>
     </section>
     <nav className="section-tabs" aria-label="Opportunities sections" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
       {TABS.map(([key, label]) => (

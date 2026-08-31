@@ -125,9 +125,9 @@ export default function SearchTab() {
   );
 
   return (
-    <section className="search-page-columns" aria-label="Job search workspace">
+    <section className="search-page-columns" aria-label="Job search criteria and results">
       <article className="card search-page-controls-column">
-        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Search jobs</span><h2 style={{ marginTop: 14 }}>Build your search</h2></div></div>
+        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Search criteria</span><h2 style={{ marginTop: 14 }}>Choose what belongs in this search</h2></div></div>
         <form className="form" onSubmit={searchJobs}>
           <ProfessionalProfileSelect value={profileId} onChange={(value) => { setProfileId(value); setGroups([]); setActiveQuery(''); const url = new URL(window.location.href); if (value) url.searchParams.set('profile', value); else url.searchParams.delete('profile'); url.searchParams.delete('q'); window.history.replaceState({}, '', url); }} required={false} />
           <label><span className="muted">Job title or search terms</span><input className="input" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder={termCount ? 'Add more titles, keywords, or sites…' : 'Director of Quality Engineering remote'} /></label>
@@ -146,8 +146,8 @@ export default function SearchTab() {
         <p className="notice" aria-live="polite">{message}</p>
       </article>
       <article className="card search-page-results-column">
-        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Results</span><h2 style={{ marginTop: 14 }}>Current job matches</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
-        {activeQuery ? <GoogleJobSearchResults query={activeQuery} profileId={profileId || undefined} /> : <div className="search-empty-state"><h2>No search results yet</h2><p>Select a professional profile or enter a title, then press Search jobs.</p></div>}
+        <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Open roles</span><h2 style={{ marginTop: 14 }}>Results for these criteria</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
+        {activeQuery ? <GoogleJobSearchResults query={activeQuery} profileId={profileId || undefined} /> : <div className="search-empty-state"><h2>No search has run yet</h2><p>Select a career direction or enter a title, then choose Search jobs.</p></div>}
       </article>
     </section>
   );

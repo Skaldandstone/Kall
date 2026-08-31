@@ -21,9 +21,9 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
   await test.step('build match intelligence and select a resume', async () => {
     await page.goto(`/job-intelligence?job=${job.id}&profile=${profileId}`);
     await expect(page.locator('input[name="job_id"]')).toHaveValue(String(job.id));
-    await page.getByRole('button', { name: 'Build match intelligence' }).click();
+    await page.getByRole('button', { name: 'Compare role' }).click();
     await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole('heading', { name: 'Evidence, not guesswork.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Why each resume fits or falls short' })).toBeVisible();
     await page.getByRole('button', { name: 'Use this resume' }).first().click();
     await expect(page.getByText(/is now selected for this opportunity\./)).toBeVisible();
   });

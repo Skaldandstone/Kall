@@ -58,8 +58,8 @@ export default function AchievementsTab() {
   return (
     <>
       <section className="card" style={{ marginBottom: 18 }}>
-        <h1>Build your verified achievement library</h1>
-        <p>Kall extracts candidates from uploaded resumes. Nothing is approved for tailoring until you verify it.</p>
+        <h1>Verify the achievements Kall may reuse</h1>
+        <p>Review accomplishments extracted from your resumes. Kall excludes them from tailoring until you confirm they are accurate.</p>
         <div className="two">
           <select className="input" value={resumeId} onChange={(event) => setResumeId(event.target.value)}>
             {resumes.map((resume) => <option key={resume.id} value={resume.id}>{resume.name}</option>)}

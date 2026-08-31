@@ -24,7 +24,7 @@ test.describe('authentication boundary', () => {
 
   test('the marketing page and a testimonial invitation stay public', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: "Build your life's work." })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Know what you can do next.' })).toBeVisible();
 
     // Opened by a former colleague from an emailed link, so it must work with
     // no Kall account at all.

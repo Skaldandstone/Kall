@@ -6,33 +6,33 @@ import KallMark from './components/KallMark';
 
 const modules = [
   {
-    title: 'Career identity',
-    body: 'A private, reusable record of your experience, achievements, preferences, and professional goals.',
+    title: 'Professional record',
+    body: 'Keep your roles, achievements, skills, credentials, references, and preferences in one record you control.',
     href: '/demo/career-identity',
   },
   {
-    title: 'Opportunity intelligence',
-    body: 'Understand why a role fits, where the gaps are, and which experience best supports your candidacy.',
+    title: 'Role comparison',
+    body: 'Compare a job with your saved experience, see the evidence behind the score, and review any gaps before you act.',
     href: '/demo/opportunity-intelligence',
   },
   {
-    title: 'Resume Studio',
-    body: 'Keep multiple resumes organized and prepare role-specific versions without losing your source history.',
+    title: 'Resume versions',
+    body: 'Preserve your source resumes, choose one for each career direction, and review every proposed change.',
     href: '/demo/resume-studio',
   },
   {
-    title: 'Application preparation',
-    body: 'Review every answer and document before Kall assists with a supported application workflow.',
+    title: 'Application review',
+    body: 'Assemble the resume, cover letter, answers, and sensitive fields for your approval before anything is submitted.',
     href: '/demo/application-preparation',
   },
   {
-    title: 'Career memory',
-    body: 'Capture accomplishments as they happen so your professional story stays current over time.',
+    title: 'Career planning',
+    body: 'Turn a target role into skill gaps, milestones, and learning steps you can review and update.',
     href: '/demo/career-memory',
   },
   {
-    title: 'Across devices',
-    body: 'Continue the same career workflow on the web, desktop, and mobile without relearning the product.',
+    title: 'One continuous record',
+    body: 'Review the same saved decisions and career facts on web, desktop, and mobile.',
     href: '/demo/across-devices',
   },
 ];
@@ -61,7 +61,7 @@ export default function Home() {
           Kall
         </a>
         <nav aria-label="Primary navigation" className="marketing-nav">
-          <a href="#product-demos">Explore demos</a>
+          <a href="#product-demos">See how it works</a>
           <a href="/sign-in">Log in</a>
           <a className="button" href="/sign-up">
             Create account
@@ -70,18 +70,18 @@ export default function Home() {
       </header>
 
       <section className="hero">
-        <span className="eyebrow">The Career Operating System</span>
-        <h1>Build your life&apos;s work.</h1>
+        <span className="eyebrow">Career decisions, grounded in your record</span>
+        <h1>Know what you can do next.</h1>
         <p>
-          Kall brings your professional identity, opportunities, documents,
-          applications, and career memory into one calm, private workspace.
+          Kall keeps the facts of your career in one place, shows how they support
+          a role, and prepares the documents and questions you need to review before applying.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <a className="button" href="/sign-up">
-            Create your Kall profile
+            Create your career record
           </a>
           <a className="button secondary" href="/demo/opportunity-intelligence">
-            Explore a product demo
+            See a role comparison
           </a>
         </div>
       </section>
@@ -89,13 +89,13 @@ export default function Home() {
       <section id="product-demos" aria-labelledby="platform-heading">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Built around the individual</span>
+            <span className="eyebrow">A record you can use</span>
             <h2 id="platform-heading" style={{ marginTop: 14 }}>
-              More than a job search.
+              One source of truth for every career move.
             </h2>
           </div>
           <p>
-            Explore sample module experiences without creating an account. Live opportunities and personal workspaces remain private to signed-in users.
+            Open a sample to see what Kall records, compares, and prepares. Your opportunities and career data remain private to your account.
           </p>
         </div>
 
@@ -106,9 +106,9 @@ export default function Home() {
               href={module.href}
               key={module.title}
               style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}
-              aria-label={`Explore the ${module.title} demo`}
+              aria-label={`View the ${module.title} example`}
             >
-              <span className="pill">Explore demo</span>
+              <span className="pill">View example</span>
               <h2 style={{ marginTop: 14 }}>{module.title}</h2>
               <p>{module.body}</p>
             </a>
