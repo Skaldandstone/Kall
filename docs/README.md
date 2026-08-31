@@ -11,10 +11,14 @@ This directory is the authoritative, version-controlled source for Kall product,
 
 ## Structure
 
-- `prd/` - product vision, MVP requirements, experience flows, roadmap, and change history.
+- `prd/` - product vision, MVP requirements, experience flows, milestone roadmap, and change history.
 - `khig/` - Kall Human Interface Guidelines.
 - `architecture/` - system architecture, APIs, data, AI, integrations, and engineering contracts.
 - `adr/` - durable architecture and product decision records.
+- `releases/` - versioned release notes; `CHANGELOG.md` is the running summary.
+- `archive/` - point-in-time snapshots (handoffs, old PR summaries). Historical record only; nothing in it is current.
+
+Operational docs live at this level: `AWS_DEPLOYMENT.md` (infrastructure), `PRODUCTION_DEPLOYMENT.md` (app configuration and Stripe cutover on top of it), `STRIPE_SETUP.md`, `LOCAL_DEVELOPMENT.md`, `TESTING.md`, `SECURITY.md`. `ROADMAP.md` here is the working competitive-gap log; the milestone roadmap is `prd/02-roadmap.md`.
 
 ## Governance
 
