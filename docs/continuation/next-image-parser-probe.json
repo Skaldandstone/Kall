@@ -1,0 +1,90 @@
+{
+  "nextVersion": "15.5.23",
+  "parserSha256": "f824c02fbd558131c8d433c04c245fa3a50f6120024d78485c9b69005e2e654e",
+  "oldGenerationLimitMb": 32,
+  "watchdogMs": 10000,
+  "networkRequests": 0,
+  "results": [
+    {
+      "mode": "parser",
+      "format": "png",
+      "loaded": true,
+      "outcome": "returned",
+      "result": {
+        "height": 192,
+        "width": 192,
+        "type": "png"
+      },
+      "code": 0,
+      "elapsedMs": 41
+    },
+    {
+      "mode": "parser",
+      "format": "icns",
+      "loaded": true,
+      "outcome": "ERR_WORKER_OUT_OF_MEMORY",
+      "code": 1,
+      "elapsedMs": 281
+    },
+    {
+      "mode": "parser",
+      "format": "jxl",
+      "loaded": true,
+      "outcome": "ERR_WORKER_OUT_OF_MEMORY",
+      "code": 1,
+      "elapsedMs": 199
+    },
+    {
+      "mode": "build-helper",
+      "format": "png",
+      "loaded": true,
+      "outcome": "returned",
+      "result": {
+        "width": 192,
+        "height": 192
+      },
+      "code": 0,
+      "elapsedMs": 132
+    },
+    {
+      "mode": "build-helper",
+      "format": "icns",
+      "loaded": true,
+      "outcome": "ERR_WORKER_OUT_OF_MEMORY",
+      "code": 1,
+      "elapsedMs": 310
+    },
+    {
+      "mode": "build-helper",
+      "format": "jxl",
+      "loaded": true,
+      "outcome": "ERR_WORKER_OUT_OF_MEMORY",
+      "code": 1,
+      "elapsedMs": 262
+    },
+    {
+      "mode": "optimizer",
+      "format": "icns",
+      "loaded": true,
+      "outcome": "returned",
+      "result": {
+        "contentType": "image/x-icns",
+        "unchanged": true
+      },
+      "code": 0,
+      "elapsedMs": 136
+    },
+    {
+      "mode": "optimizer",
+      "format": "jxl",
+      "loaded": true,
+      "outcome": "returned",
+      "result": {
+        "contentType": "image/jxl",
+        "unchanged": true
+      },
+      "code": 0,
+      "elapsedMs": 128
+    }
+  ]
+}

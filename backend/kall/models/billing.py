@@ -7,11 +7,26 @@ from kall.models.core import TimestampMixin
 
 
 class Subscription(TimestampMixin, table=True):
+    __table_args__ = (
+        UniqueConstraint("billing_scope", "provider_customer_id", name="uq_subscription_scope_customer"),
+        UniqueConstraint("billing_scope", "provider_subscription_id", name="uq_subscription_scope_subscription"),
+    )
+
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id", unique=True)
     provider: str = "stripe"
     provider_customer_id: str | None = Field(default=None, index=True)
     provider_subscription_id: str | None = Field(default=None, index=True)
+    # Null marks legacy bindings requiring explicit reconciliation, not permission
+    # to attach an arbitrary customer delivered in webhook metadata.
+    billing_scope: str | None = None
+    provider_livemode: bool | None = None
+    billing_binding_key: str | None = None
+    billing_binding_created_at: datetime | None = None
+    checkout_attempt_key: str | None = None
+    checkout_plan: str | None = None
+    checkout_session_id: str | None = None
+    checkout_expires_at: datetime | None = None
     status: str = "free"
     plan: str = "free"
     price_id: str | None = None

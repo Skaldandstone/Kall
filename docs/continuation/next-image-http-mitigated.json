@@ -1,0 +1,86 @@
+{
+  "mode": "mitigated",
+  "nextVersion": "15.5.23",
+  "backendRequests": 0,
+  "checks": [
+    {
+      "path": "/icon-192.png",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/icon-512.png",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/apple-touch-icon.png",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/icon-maskable-192.png",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/icon-maskable-512.png",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/brand/kall-mark.svg",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/brand/kall-mark-on-light.svg",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/brand/kall-mark-mono.svg",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/brand/kall-lockup.svg",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/brand/kall-icon-app.svg",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "status": 200,
+      "originalBytes": true
+    },
+    {
+      "path": "/_next/image?url=%2Ficon-192.png&w=64&q=75",
+      "status": 404
+    },
+    {
+      "path": "/_next/image?url=http%3A%2F%2F127.0.0.1%3A64791%2Fsynthetic.png&w=64&q=75",
+      "status": 404
+    },
+    {
+      "path": "/_next/image",
+      "status": 404
+    },
+    {
+      "path": "/_next/image?url=%2Fapi%2Fkall%2Fme%2Fresumes&w=64&q=75",
+      "status": 404
+    },
+    {
+      "path": "/_next/image?url=%2Fsynthetic.icns&w=64&q=75",
+      "status": 404
+    },
+    {
+      "path": "/_next/image?url=%2Fsynthetic.jxl&w=64&q=75",
+      "status": 404
+    }
+  ]
+}

@@ -1,18 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from kall.models import CareerProfile, Job, JobMatch, SearchRun, SearchSource, User
+from kall.models import CareerProfile, SearchRun, SearchSource, User
 from kall.providers.ashby import AshbyProvider
 from kall.providers.greenhouse import GreenhouseProvider
 from kall.providers.lever import LeverProvider
 from kall.services.ats_web_search import build_ats_queries
-from kall.services.matching import deterministic_match, is_out_of_scope
-from kall.services.normalization import normalize_discovered
-from kall.services.opportunities import upsert_opportunity
-from kall.services.suppression import (
-    DISCOVERY_BLOCKING_REASONS,
-    is_suppressed,
-    suppressed_urls,
-)
+from kall.services.discovery_matching import ingest_discovered_jobs
 from sqlmodel import Session, select
 
 PROVIDERS={
@@ -31,7 +24,6 @@ async def run_discovery(
     (most providers don't supply one -- see providers/jobs.py) is never
     rejected for missing data, the same rule matching.location_out_of_scope
     already follows."""
-    cutoff = datetime.utcnow() - timedelta(days=max_posting_age_days) if max_posting_age_days else None
     sources = list(session.exec(select(SearchSource).where(SearchSource.user_id == user.id, SearchSource.enabled)))
     # Build the same unified ATS query used by the web workspace for every
     # immediate or scheduled run. Structured providers continue importing jobs;
@@ -54,7 +46,7 @@ async def run_discovery(
     # queried per job, and applied before any Job/JobMatch/Opportunity row is
     # touched -- otherwise a dead posting quietly reappears in the daily brief
     # every time the board still lists it.
-    blocked = suppressed_urls(session, user.id, reasons=DISCOVERY_BLOCKING_REASONS)
+    ingest_discovered_jobs(session, user, profile, [])
     collected=created=matched=0
     skipped=0
     errors=[]
@@ -65,49 +57,11 @@ async def run_discovery(
             continue
         try:
             jobs=await provider_type().collect(source.company_name,source.board_key)
-            collected += len(jobs)
-            for discovered in jobs:
-                normalized=normalize_discovered(discovered)
-                if is_suppressed(normalized["url"], blocked):
-                    skipped += 1
-                    continue
-                existing=session.exec(select(Job).where(Job.url==normalized["url"])) .first()
-                if existing:
-                    job=existing
-                else:
-                    job=Job(**normalized)
-                    session.add(job)
-                    session.commit()
-                    session.refresh(job)
-                    created+=1
-                existing_match=session.exec(select(JobMatch).where(
-                    JobMatch.user_id==user.id,
-                    JobMatch.career_profile_id==profile.id,
-                    JobMatch.job_id==job.id,
-                )).first()
-                if not existing_match and cutoff and job.posted_at and job.posted_at < cutoff:
-                    skipped += 1
-                    continue
-                if not existing_match and is_out_of_scope(job, profile):
-                    skipped += 1
-                    continue
-                if not existing_match:
-                    score,strengths,gaps=deterministic_match(job,profile)
-                    match=JobMatch(
-                        user_id=user.id,career_profile_id=profile.id,job_id=job.id,
-                        score=score,strengths=strengths,gaps=gaps,
-                        recommendation="apply" if score>=75 else "review" if score>=55 else "pass",
-                    )
-                    session.add(match)
-                    session.commit()
-                    matched += 1
-                    match_score=score
-                else:
-                    match_score=existing_match.score
-                # Every matched job also lands in the user's tracked-opportunity
-                # inbox (save/reviewing/apply/dismiss state) -- without this call
-                # the workflow-state feature has no rows to ever operate on.
-                upsert_opportunity(session, user_id=user.id, profile_id=profile.id, job=job, match_score=match_score)
+            batch = ingest_discovered_jobs(session, user, profile, jobs, max_posting_age_days=max_posting_age_days)
+            collected += batch["jobs_collected"]
+            created += batch["jobs_created"]
+            matched += batch["matches_created"]
+            skipped += batch["jobs_skipped"]
         except Exception as exc:
             errors.append(f"{source.company_name}/{source.provider}: {exc}")
     run.completed_at = datetime.utcnow()

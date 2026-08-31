@@ -1,34 +1,41 @@
-"""Draining the notification outbox: NotificationDelivery rows to sent email
-or push.
+"""Durable outbox delivery with consent checks, atomic leases and explicit outcomes.
 
-The outbox and its producer (`opportunities.queue_digest`) already existed.
-What did not exist was anything that read a `status="queued"` row and did
-something with it -- this is that.
-
-**Deduplication is enforced here, not by the schema.** `dedupe_key` is
-indexed but not unique, so nothing stops two calls to `queue_digest` in the
-same day from inserting two rows with the same key. Before sending, this
-checks whether another delivery with the same key already reached "sent" and
-skips if so -- the alternative is a person getting the same digest email
-twice because a retry or a race queued it a second time.
-
-**Preferences are re-checked at send time, not just at queue time.** Someone
-can turn off email between when a digest was queued and when this runs; an
-opted-out channel is skipped and marked accordingly rather than sent anyway.
-
-**Quiet hours delay rather than drop.** A delivery that lands inside someone's
-quiet hours is rescheduled to when they end, not silently discarded -- it is
-still something they asked to see, just not right now.
+Opportunity events coalesce into a single pending summary per user. A send is
+persisted before contacting the provider. Definite rejections retry with bounded
+backoff; a lost response or expired sending claim requires reconciliation.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta
+from html import escape
 
 from kall.models.core import Job, User
-from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
-from kall.services.notifications import NotConfiguredError, NotificationService
+from kall.models.opportunities import NotificationDelivery, NotificationPreference
+from kall.services import work_claims
+from kall.services.notification_timing import (
+    after_quiet_hours,
+    as_local,
+    digest_ready,
+    in_quiet_hours,
+    next_digest,
+)
+from kall.services.notifications import (
+    NotConfiguredError,
+    NotificationService,
+    PermanentDeliveryError,
+    RetryableDeliveryError,
+)
+from kall.services.opportunity_notifications import (
+    OPPORTUNITY_KINDS,
+    eligible_opportunities,
+    eligible_source_opportunities,
+    finish_events,
+    preference_for,
+    prepare_deliveries,
+)
 from kall.services.scheduling import local_hour
 from sqlmodel import Session, select
 
@@ -42,21 +49,11 @@ _MAX_ATTEMPTS = len(_BACKOFF_MINUTES)
 
 
 def _in_quiet_hours(preference: NotificationPreference, now: datetime) -> bool:
-    if preference.quiet_hours_start is None or preference.quiet_hours_end is None:
-        return False
-    local = now.time()
-    start, end = preference.quiet_hours_start, preference.quiet_hours_end
-    if start <= end:
-        return start <= local < end
-    return local >= start or local < end  # a window crossing midnight
+    return in_quiet_hours(preference, now)
 
 
 def _reschedule_past_quiet_hours(preference: NotificationPreference, now: datetime) -> datetime:
-    target = preference.quiet_hours_end
-    candidate = datetime.combine(now.date(), target)
-    if candidate <= now:
-        candidate += timedelta(days=1)
-    return candidate
+    return after_quiet_hours(preference, now)
 
 
 def _already_sent(session: Session, dedupe_key: str, exclude_id: int) -> bool:
@@ -72,9 +69,7 @@ def _already_sent(session: Session, dedupe_key: str, exclude_id: int) -> bool:
 def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str, str]:
     """(subject, html) for an opportunity_digest delivery."""
     ids = delivery.payload.get("opportunity_ids", [])
-    opportunities = list(
-        session.exec(select(Opportunity).where(Opportunity.id.in_(ids)))
-    ) if ids else []
+    opportunities = eligible_opportunities(session, delivery.user_id, opportunity_ids=ids) if ids else []
     jobs_by_id = {
         job.id: job
         for job in session.exec(
@@ -88,8 +83,8 @@ def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str
         if not job:
             continue
         rows.append(
-            f"<li><strong>{job.title}</strong> at {job.company} "
-            f"&mdash; {opportunity.match_score}% match</li>"
+            f"<li><strong>{escape(job.title)}</strong> at {escape(job.company)}: "
+            f"{opportunity.match_score}% match</li>"
         )
     subject = f"{len(rows)} new opportunit{'y' if len(rows) == 1 else 'ies'} today"
     html = f"<p>Kall found {len(rows)} new match{'es' if len(rows) != 1 else ''} for you.</p><ul>{''.join(rows)}</ul>"
@@ -175,6 +170,30 @@ def _professional_membership_reminder_email(delivery: NotificationDelivery) -> t
     return subject, html
 
 
+def _reference_reminder_email(delivery: NotificationDelivery) -> tuple[str, str]:
+    from html import escape
+
+    payload = delivery.payload
+    subject = f"Time to reconfirm: {payload['name']}"
+    name = escape(str(payload["name"]))
+    org_suffix = f" at {escape(str(payload['organization']))}" if payload.get("organization") else ""
+    baseline = escape(str(payload.get("baseline_date") or payload.get("last_confirmed_on") or "an earlier date"))
+    if payload.get("baseline_source") == "last_confirmed_on":
+        history = f"Last confirmed on {baseline}."
+    elif payload.get("baseline_source") == "created_at":
+        history = f"Added to Kall on {baseline}; no confirmation date is recorded."
+    else:
+        # Older queued payloads used last_confirmed_on for both baselines.
+        # Without provenance, do not present that date as a confirmation.
+        history = f"This reminder is based on the date saved with your reference: {baseline}."
+    html = (
+        f"<p>You listed <strong>{name}</strong>{org_suffix} as a reference. {history}</p>"
+        "<p>It's been a while. Check that they're still reachable and "
+        "still willing before an employer calls them.</p>"
+    )
+    return subject, html
+
+
 def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple[str, str]:
     del delivery
     subject = "Your Kall plan has been paused"
@@ -187,7 +206,7 @@ def _payment_grace_period_expired_email(delivery: NotificationDelivery) -> tuple
 
 
 def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]:
-    if delivery.kind == "opportunity_digest":
+    if delivery.kind in OPPORTUNITY_KINDS:
         return _digest_email(session, delivery)
     if delivery.kind == "payment_grace_period_expired":
         return _payment_grace_period_expired_email(delivery)
@@ -203,6 +222,8 @@ def _render(session: Session, delivery: NotificationDelivery) -> tuple[str, str]
         return _security_clearance_reminder_email(delivery)
     if delivery.kind == "professional_membership_reminder":
         return _professional_membership_reminder_email(delivery)
+    if delivery.kind == "reference_reminder":
+        return _reference_reminder_email(delivery)
     raise ValueError(f"Unknown notification kind: {delivery.kind}")
 
 
@@ -244,101 +265,171 @@ def _fail_or_retry(session: Session, delivery: NotificationDelivery, reason: str
     session.commit()
 
 
+def _digest_sent_today(session: Session, user_id: int, preference: NotificationPreference, now: datetime) -> bool:
+    today = as_local(now, preference.timezone).date()
+    recent = session.exec(select(NotificationDelivery).where(
+        NotificationDelivery.user_id == user_id,
+        NotificationDelivery.kind == "opportunity_digest",
+        NotificationDelivery.status == "sent",
+        NotificationDelivery.delivered_at >= now - timedelta(days=2),
+    ))
+    return any(as_local(row.delivered_at, preference.timezone).date() == today for row in recent)
+
+
 def process_delivery(session: Session, delivery: NotificationDelivery, now: datetime | None = None) -> str:
-    """Attempt one delivery. Returns the resulting status.
-
-    Never raises for an expected outcome (not configured, opted out, no
-    matching preference, quiet hours) -- those are all valid resting states
-    for a row, not errors in this function. A send failure from the provider
-    itself is caught and turned into a retry or a terminal failure, so a
-    single bad row cannot crash the whole drain run.
-    """
+    """Claim before sending, recheck consent, and never blindly retry an uncertain send."""
     now = now or datetime.utcnow()
-
-    if _already_sent(session, delivery.dedupe_key, delivery.id):
-        delivery.status = "duplicate"
-        session.add(delivery)
-        session.commit()
-        return delivery.status
-
-    user = session.get(User, delivery.user_id)
-    if user is None:
-        # The account was deleted after this was queued. Not an error --
-        # there is simply nobody left to notify.
-        delivery.status = "skipped"
-        session.add(delivery)
-        session.commit()
-        return delivery.status
-
-    preference = session.exec(
-        select(NotificationPreference).where(NotificationPreference.user_id == delivery.user_id)
-    ).first()
-    channel_enabled = True
-    if preference:
-        channel_enabled = preference.email_enabled if delivery.channel == "email" else preference.push_enabled
-        if channel_enabled and _in_quiet_hours(preference, now):
-            delivery.status = "retrying"
-            delivery.next_attempt_at = _reschedule_past_quiet_hours(preference, now)
+    key = (f"opportunity-user:{delivery.user_id}" if delivery.kind in OPPORTUNITY_KINDS
+           else f"delivery:{delivery.user_id}:{delivery.channel}:{delivery.dedupe_key}")
+    token = work_claims.acquire(session, key, now, user_id=delivery.user_id)
+    if not token:
+        return "busy"
+    try:
+        session.refresh(delivery)
+        if delivery.status == "sending":
+            if delivery.claimed_until and delivery.claimed_until > now:
+                return "busy"
+            delivery.status = "ambiguous"
+            delivery.last_error = "Worker stopped during a send; reconcile provider evidence before retrying."
+            finish_events(session, delivery, "ambiguous")
             session.add(delivery)
             session.commit()
             return delivery.status
-
-    if not channel_enabled:
-        delivery.status = "skipped"
+        if delivery.status not in ("queued", "retrying"):
+            return delivery.status
+        if delivery.next_attempt_at and delivery.next_attempt_at > now:
+            return delivery.status
+        other = session.exec(select(NotificationDelivery).where(
+            NotificationDelivery.user_id == delivery.user_id,
+            NotificationDelivery.channel == delivery.channel,
+            NotificationDelivery.dedupe_key == delivery.dedupe_key,
+            NotificationDelivery.id != delivery.id,
+            NotificationDelivery.status.in_(["sent", "sending", "ambiguous"]),
+        )).first()
+        if other:
+            delivery.status = "duplicate" if other.status == "sent" else "ambiguous"
+            finish_events(session, delivery, delivery.status)
+            session.add(delivery)
+            session.commit()
+            return delivery.status
+        user = session.get(User, delivery.user_id)
+        preference = preference_for(session, delivery.user_id)
+        enabled = preference.email_enabled if delivery.channel == "email" else preference.push_enabled
+        if not user or not user.is_active or not enabled:
+            delivery.status = "skipped"
+            finish_events(session, delivery, "skipped")
+            session.add(delivery)
+            session.commit()
+            return delivery.status
+        if in_quiet_hours(preference, now):
+            delivery.status = "retrying"
+            delivery.next_attempt_at = after_quiet_hours(preference, now)
+            session.add(delivery)
+            session.commit()
+            return delivery.status
+        if delivery.kind in OPPORTUNITY_KINDS:
+            if preference.delivery_mode != "immediate":
+                sent_today = _digest_sent_today(session, user.id, preference, now)
+                if not digest_ready(preference, now) or sent_today:
+                    delivery.next_attempt_at = next_digest(preference, now, tomorrow=sent_today)
+                    session.add(delivery)
+                    session.commit()
+                    return delivery.status
+                delivery.kind = "opportunity_digest"
+            else:
+                cycle_start = now.replace(second=0, microsecond=0) - timedelta(minutes=now.minute % 5)
+                recently_sent = session.exec(select(NotificationDelivery.id).where(
+                    NotificationDelivery.user_id == user.id,
+                    NotificationDelivery.kind.in_(OPPORTUNITY_KINDS),
+                    NotificationDelivery.status == "sent",
+                    NotificationDelivery.delivered_at >= cycle_start,
+                )).first()
+                if recently_sent is not None:
+                    delivery.next_attempt_at = cycle_start + timedelta(minutes=5)
+                    session.add(delivery)
+                    session.commit()
+                    return delivery.status
+                delivery.kind = "opportunity_immediate"
+            from kall.models import OpportunityNotificationEvent
+            events = list(session.exec(select(OpportunityNotificationEvent).where(
+                OpportunityNotificationEvent.delivery_id == delivery.id,
+                OpportunityNotificationEvent.user_id == user.id,
+                OpportunityNotificationEvent.status == "assigned",
+            )))
+            sources = eligible_source_opportunities(session, user.id,
+                job_ids=[event.job_id for event in events] if events else None,
+                opportunity_ids=delivery.payload.get("opportunity_ids", []))
+            eligible = list({row.id: row for rows in sources.values() for row in rows}.values())
+            for event in events:
+                if event.job_id not in sources:
+                    event.status = "skipped"
+                    session.add(event)
+            delivery.payload = {**delivery.payload, "opportunity_ids": [row.id for row in eligible]}
+            if not eligible:
+                delivery.status = "skipped"
+                finish_events(session, delivery, "skipped")
+                session.add(delivery)
+                session.commit()
+                return delivery.status
+        try:
+            subject, body = _render(session, delivery)
+        except (ValueError, KeyError, TypeError):
+            delivery.status = "failed"
+            delivery.last_error = "Notification payload could not be rendered."
+            finish_events(session, delivery, "failed")
+            session.add(delivery)
+            session.commit()
+            return delivery.status
+        delivery.status = "sending"
+        delivery.claimed_until = now + timedelta(seconds=180)
         session.add(delivery)
         session.commit()
-        return delivery.status
-
-    try:
-        subject, html = _render(session, delivery)
-    except ValueError as error:
-        logger.warning("Cannot render delivery %s: %s", delivery.id, error)
-        delivery.status = "failed"
-        delivery.last_error = str(error)
-        session.add(delivery)
-        session.commit()
-        return delivery.status
-
-    service = NotificationService()
-    try:
-        if delivery.channel == "email":
-            service.send_email(user.email, subject, html, actions=[])
+        service = NotificationService()
+        try:
+            if delivery.channel == "email":
+                message_id = service.send_email(user.email, subject, body, actions=[])
+            else:
+                message_id = service.send_push(user.id, subject, body, actions=[])
+        except NotConfiguredError:
+            delivery.status = "queued"
+            delivery.last_error = "Delivery provider is not configured."
+        except RetryableDeliveryError as error:
+            _fail_or_retry(session, delivery, str(error), now)
+        except PermanentDeliveryError as error:
+            delivery.status = "failed"
+            delivery.attempts += 1
+            delivery.last_error = str(error)
+        except Exception as error:  # an unknown outcome must not silently resend
+            delivery.status = "ambiguous"
+            delivery.attempts += 1
+            delivery.last_error = f"Uncertain provider outcome ({type(error).__name__}); manual reconciliation required."
         else:
-            service.send_push(user.id, subject, html, actions=[])
-    except NotConfiguredError as error:
-        # Distinct from a send failure: nobody could have received this
-        # regardless of retrying, so it is left queued rather than burning
-        # through its retry budget against a channel that will never work
-        # until someone configures it.
-        logger.info("Delivery %s not sent (%s): %s", delivery.id, delivery.channel, error)
+            delivery.status = "sent"
+            delivery.delivered_at = now
+            delivery.provider_message_id = message_id if isinstance(message_id, str) else None
+            delivery.last_error = None
+        delivery.claimed_until = None
+        if delivery.status in ("sent", "failed", "ambiguous"):
+            finish_events(session, delivery, delivery.status)
+        session.add(delivery)
+        session.commit()
         return delivery.status
-    except Exception as error:  # noqa: BLE001 - any provider failure lands here
-        logger.warning("Delivery %s failed: %s", delivery.id, error, exc_info=True)
-        _fail_or_retry(session, delivery, str(error), now)
-        return delivery.status
-
-    delivery.status = "sent"
-    delivery.delivered_at = now
-    session.add(delivery)
-    session.commit()
-    return delivery.status
+    finally:
+        work_claims.release(session, key, token)
 
 
-def drain(session: Session, *, now: datetime | None = None, limit: int = 500) -> dict[str, int]:
-    """Process every delivery that is due. Returns counts by resulting status."""
+def drain(session: Session, *, now: datetime | None = None, limit: int = 500,
+          deadline: float | None = None) -> dict[str, int]:
     now = now or datetime.utcnow()
-    due = session.exec(
-        select(NotificationDelivery)
-        .where(NotificationDelivery.status.in_(["queued", "retrying"]))
-        .where(
-            (NotificationDelivery.next_attempt_at.is_(None))
-            | (NotificationDelivery.next_attempt_at <= now)
-        )
-        .limit(limit)
-    ).all()
-
+    prepare_deliveries(session, now=now, deadline=deadline, limit=min(limit, 100))
+    due = session.exec(select(NotificationDelivery).where(
+        NotificationDelivery.status.in_(["queued", "retrying", "sending"]),
+        (NotificationDelivery.next_attempt_at.is_(None)) | (NotificationDelivery.next_attempt_at <= now),
+    ).order_by(NotificationDelivery.id).limit(limit)).all()
     counts: dict[str, int] = {}
     for delivery in due:
+        if deadline is not None and deadline - time.monotonic() < 15:
+            break
         status = process_delivery(session, delivery, now=now)
         counts[status] = counts.get(status, 0) + 1
     return counts

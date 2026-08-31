@@ -7,6 +7,7 @@ from kall.models.documents import *
 from kall.models.growth import *
 from kall.models.intelligence import *
 from kall.models.match_intelligence import *
+from kall.models.monitoring import *
 from kall.models.onboarding import *
 from kall.models.opportunities import *
 from kall.models.profile import *

@@ -84,3 +84,43 @@ def test_pausing_a_profile_does_not_wipe_equity_or_the_new_fields(client) -> Non
     assert paused.json()["minimum_total_comp"] == 150000
     assert paused.json()["target_bonus_percent"] == 12.5
     assert paused.json()["is_active"] is False
+
+
+def test_targeting_survives_unrelated_updates_pause_and_reactivation(client) -> None:
+    created = client.post("/api/me/professional-profiles", json={
+        "name": "Quality", "functional_areas": ["Quality Engineering"],
+        "exclude_keywords": ["unpaid", "manual tester"], "minimum_base": 0,
+    })
+    assert created.status_code == 200
+    profile_id = created.json()["id"]
+    for active in [False, True]:
+        updated = client.put(f"/api/me/career-profiles/{profile_id}", json={
+            "name": "Quality", "is_active": active, "travel_max_percent": 0, "target_bonus_percent": 0,
+        })
+        assert updated.status_code == 200
+        row = updated.json()
+        assert row["functional_areas"] == ["Quality Engineering"]
+        assert row["exclude_keywords"] == ["unpaid", "manual tester"]
+        assert row["minimum_base"] == row["travel_max_percent"] == row["target_bonus_percent"] == 0
+        assert row["is_active"] is active
+    listed = client.get("/api/me/career-profiles").json()["profiles"][0]
+    assert listed["functional_areas"] == ["Quality Engineering"]
+    assert listed["exclude_keywords"] == ["unpaid", "manual tester"]
+
+
+def test_explicitly_clearing_an_area_or_exclusion_still_works(client):
+    profile_id = client.post("/api/me/professional-profiles", json={
+        "name": "Quality", "functional_areas": ["Quality Engineering"], "exclude_keywords": ["unpaid"],
+    }).json()["id"]
+    cleared = client.put(f"/api/me/career-profiles/{profile_id}", json={
+        "name": "Quality", "functional_areas": [], "exclude_keywords": [],
+    })
+    assert cleared.json()["functional_areas"] == []
+    assert cleared.json()["exclude_keywords"] == []
+
+
+def test_functional_area_catalog_exposes_the_matching_vocabulary(client):
+    response = client.get("/api/me/career-profiles/functional-areas")
+    assert response.status_code == 200
+    area = next(area for area in response.json()["areas"] if area["name"] == "Quality Engineering")
+    assert "SDET" in area["related_roles"]

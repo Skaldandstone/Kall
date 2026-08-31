@@ -54,9 +54,13 @@ async function responseMessage(response: Response) {
 export default function MorningBriefClient() {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [message, setMessage] = useState('Preparing your brief…');
+  const [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setMessage('Preparing your brief…');
     fetch(`${API}/me/morning-brief`, {
       signal: controller.signal,
     })
@@ -71,6 +75,7 @@ export default function MorningBriefClient() {
       .then((data) => {
         setBrief(data);
         setMessage('');
+        setLoading(false);
       })
       .catch((error: Error) => {
         if (error.name === 'AbortError') return;
@@ -78,11 +83,12 @@ export default function MorningBriefClient() {
           ? 'Kall could not reach the Morning Brief service. Please try again.'
           : error.message;
         setMessage(nextMessage);
+        setLoading(false);
         showToast(nextMessage, 'error');
       });
 
     return () => controller.abort();
-  }, []);
+  }, [attempt]);
 
   if (!brief) {
     return (
@@ -93,19 +99,20 @@ export default function MorningBriefClient() {
           <div className={styles.heroGrid}>
             <div>
               <h1>Your career, prepared quietly.</h1>
-              <p className={styles.lede}>{message}</p>
+              <p className={styles.lede} role={loading ? 'status' : 'alert'}>{message}</p>
             </div>
             <aside className={styles.summary}>
               <span>Next step</span>
-              <strong>{message.startsWith('Sign in') ? 'Open your account to continue.' : 'Kall is gathering only verified data.'}</strong>
+              <strong>{loading ? 'Kall is gathering your saved activity.' : 'Your saved work is still available.'}</strong>
+              {!loading && <p>You can search for a role or open your career profile while the brief is unavailable.</p>}
             </aside>
           </div>
         </section>
-        {message.startsWith('Sign in') ? (
-          <a className="button" href="/sign-in">Sign in</a>
-        ) : message !== 'Preparing your brief…' ? (
-          <button className="button" type="button" onClick={() => window.location.reload()}>Try again</button>
-        ) : null}
+        {!loading && <div className={styles.actions} style={{ marginTop: 24 }}>
+          <button className="button" type="button" onClick={() => setAttempt((value) => value + 1)}>Try again</button>
+          <a className="button secondary" href="/search">Search for a job</a>
+          <a className="button secondary" href="/profiles">Open career profile</a>
+        </div>}
       </main>
     );
   }
@@ -164,7 +171,7 @@ export default function MorningBriefClient() {
                     {opportunity.gaps.length > 0 && <p className={styles.reason}>Review: {opportunity.gaps.join(' · ')}</p>}
                     <div className={styles.actions}>
                       <a className="button" href={`/job-intelligence?job=${opportunity.job_id}`}>Review analysis</a>
-                      <a className="button secondary" href="/search">Save for later</a>
+                      <a className="button secondary" href="/search?tab=discovery">Open tracked opportunities</a>
                     </div>
                   </div>
                 </article>
@@ -207,7 +214,7 @@ export default function MorningBriefClient() {
             <p className="eyebrow">Resume readiness</p>
             <h2>{brief.resumes.total ? `${brief.resumes.total} ${brief.resumes.total === 1 ? 'resume' : 'resumes'} available.` : 'No resume uploaded yet.'}</h2>
             <p>{brief.resumes.default_resume_id ? 'A default resume is selected for application preparation.' : 'Select a default resume to make preparation faster and more consistent.'}</p>
-            <a className="text-link" href="/resumes?tab=intelligence">Review resume evidence</a>
+            <a className="text-link" href={brief.resumes.total ? '/resumes?tab=intelligence' : '/resumes'}>{brief.resumes.total ? 'Review resume evidence' : 'Upload your first resume'}</a>
           </article>
 
           <p className={styles.note}>This brief uses stored Kall facts and deterministic heuristics. It does not invent activity.</p>

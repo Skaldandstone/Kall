@@ -284,7 +284,7 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
     # before that flag existed had nothing re-checking it, so a dead posting
     # kept showing up in this feed forever.
     blocked = suppressed_urls(session, current_user.id, reasons=DISCOVERY_BLOCKING_REASONS)
-    return [{"match_id": match.id, "job_id": job.id, "score": match.score, "recommendation": match.recommendation, "strengths": match.strengths, "gaps": match.gaps, "company": job.company, "title": job.title, "location": job.location, "work_type": job.work_type, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "source": job.source} for match, job in rows if not is_suppressed(job.url, blocked)]
+    return [{"match_id": match.id, "job_id": job.id, "score": match.score, "recommendation": match.recommendation, "strengths": match.strengths, "gaps": match.gaps, "company": job.company, "title": job.title, "location": job.location, "work_type": job.work_type, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "source": job.source} for match, job in rows if not is_suppressed(job.url, blocked) and not is_out_of_scope(job, profile)]
 
 
 @router.get("/discovery/runs", response_model=list[SearchRun])

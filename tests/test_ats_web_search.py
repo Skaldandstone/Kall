@@ -102,3 +102,32 @@ def test_keyword_and_exclusion_limits_are_respected() -> None:
     ))[0]["query"]
     assert "kw4" in query and "kw5" not in query  # keywords capped at 5
     assert "ex4" in query and "ex5" not in query  # exclusions capped at 5
+
+
+def test_functional_areas_broaden_the_same_title_group_and_retain_constraints() -> None:
+    query = build_ats_queries(_profile(
+        target_titles=["QA Director"], functional_areas=["Quality Engineering"], industries=["SaaS"],
+        include_keywords=["leadership"], exclude_keywords=["unpaid"], countries=["Canada"],
+    ))[0]["query"]
+    role_group = '("QA Director" OR "Quality Engineering" OR "quality assurance" OR "test automation" OR "software test engineer" OR "SDET")'
+    assert role_group in query
+    for constraint in ['("SaaS")', '("leadership")', '("Canada")', '-"unpaid"']:
+        assert constraint in query
+
+
+def test_custom_areas_and_aliases_are_supported_without_duplicate_expansion() -> None:
+    query = build_ats_queries(_profile(functional_areas=["quality assurance", "Quality Engineering", "Technical Writing"]))[0]["query"]
+    assert query.count('"SDET"') == 1
+    assert '"Technical Writing"' in query
+
+
+def test_empty_functional_areas_do_not_change_the_existing_title_query() -> None:
+    ordinary = _profile(target_titles=["Engineer"], industries=["SaaS"], include_keywords=["Python"])
+    empty = _profile(target_titles=["Engineer"], industries=["SaaS"], include_keywords=["Python"], functional_areas=[])
+    assert build_ats_queries(ordinary) == build_ats_queries(empty)
+
+
+def test_functional_area_query_expansion_is_bounded() -> None:
+    query = build_ats_queries(_profile(functional_areas=[f"Custom Area {i}" for i in range(6)]))[0]["query"]
+    assert '"Custom Area 4"' in query
+    assert '"Custom Area 5"' not in query

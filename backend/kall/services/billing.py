@@ -1,167 +1,136 @@
 from datetime import datetime
 
-from fastapi import HTTPException
 from kall.config import get_settings
 from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
 from sqlmodel import Session, select
 
 ACTIVE_STATUSES = {"active", "trialing"}
-
-#: How long a paid account keeps its plan after a card first fails, before
-#: services/jobs/billing_grace_period.py downgrades it to Free. Someone whose
-#: card fails mid-search should not be locked out instantly -- Stripe's own
-#: retry schedule runs over roughly two weeks, which is too long to leave a
-#: silently-still-paying account (or too long to leave someone locked out if
-#: their bank clears it in a day); 72 hours is Kall's own policy on top of
-#: that, independent of when or whether Stripe tries the card again.
 PAYMENT_GRACE_PERIOD_HOURS = 72
 
 
 def price_for(plan: str) -> str | None:
-    """The Stripe price backing a plan, or None if it is not configured."""
     settings = get_settings()
-    return {
-        SubscriptionPlan.PLUS: settings.stripe_price_id,
-        SubscriptionPlan.PREMIUM: settings.stripe_premium_price_id,
-    }.get(plan)
+    return {SubscriptionPlan.PLUS: settings.stripe_price_id,
+            SubscriptionPlan.PREMIUM: settings.stripe_premium_price_id}.get(plan)
 
 
-def create_checkout_url(user_id: int, plan: str = SubscriptionPlan.PLUS) -> str:
+def catalog() -> dict[str, tuple[str, str]]:
+    """Only explicitly configured Kall price/product pairs can grant a tier."""
     settings = get_settings()
-    price_id = price_for(plan)
-    if not settings.stripe_secret_key or not price_id:
-        # Naming the plan matters: with two paid tiers, "Stripe is not
-        # configured" alone cannot tell you which price is missing.
-        raise HTTPException(status_code=503, detail=f"Stripe is not configured for the {plan} plan")
-    import stripe
-
-    stripe.api_key = settings.stripe_secret_key
-    metadata = {"kall_user_id": str(user_id), "kall_plan": plan}
-    checkout = stripe.checkout.Session.create(
-        mode="subscription",
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{settings.frontend_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{settings.frontend_url}/billing",
-        client_reference_id=str(user_id),
-        metadata=metadata,
-        subscription_data={"metadata": metadata},
-    )
-    return checkout.url
+    entries = [(SubscriptionPlan.PLUS, settings.stripe_price_id, settings.stripe_plus_product_id),
+               (SubscriptionPlan.PREMIUM, settings.stripe_premium_price_id, settings.stripe_premium_product_id)]
+    configured = [(str(plan), price, product) for plan, price, product in entries if price and product]
+    if len({price for _, price, _ in configured}) != len(configured):
+        return {}
+    if len({product for _, _, product in configured}) != len(configured):
+        return {}
+    return {price: (plan, product) for plan, price, product in configured}
 
 
-def create_portal_url(customer_id: str) -> str:
-    settings = get_settings()
-    if not settings.stripe_secret_key:
-        raise HTTPException(status_code=503, detail="Stripe is not configured")
-    import stripe
-
-    stripe.api_key = settings.stripe_secret_key
-    portal = stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=f"{settings.frontend_url}/billing",
-    )
-    return portal.url
+def object_id(value) -> str | None:
+    return value.get("id") if isinstance(value, dict) else value if isinstance(value, str) else None
 
 
-def get_subscription(session: Session, user_id: int) -> Subscription:
+def subscription_item(payload: dict) -> dict | None:
+    items = payload.get("items") or {}
+    rows = items.get("data") or []
+    if items.get("has_more") or len(rows) != 1 or rows[0].get("quantity", 1) != 1:
+        return None
+    return rows[0]
+
+
+def plan_from_event(payload: dict) -> str:
+    """Metadata is descriptive. The actual subscription Price is authority."""
+    item = subscription_item(payload)
+    price = (item or {}).get("price") or {}
+    if not isinstance(price, dict):
+        return SubscriptionPlan.FREE
+    entry = catalog().get(price.get("id"))
+    if not entry or object_id(price.get("product")) != entry[1]:
+        return SubscriptionPlan.FREE
+    if price.get("livemode") is not False:
+        return SubscriptionPlan.FREE
+    return entry[0]
+
+
+def get_subscription(session: Session, user_id: int, *, commit: bool = True) -> Subscription:
     item = session.exec(select(Subscription).where(Subscription.user_id == user_id)).first()
     if item:
         return item
     item = Subscription(user_id=user_id)
     session.add(item)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     session.refresh(item)
     return item
 
 
-def plan_from_event(payload: dict) -> str:
-    """Which plan this subscription is for.
-
-    Prefers the `kall_plan` metadata that create_checkout_url attaches, and
-    falls back to matching the price id -- a subscription created before that
-    metadata existed will not carry it.
-    """
-    metadata = payload.get("metadata") or {}
-    named = metadata.get("kall_plan")
-    if named in {SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM}:
-        return named
-
-    price = payload.get("price") or {}
-    price_id = payload.get("price_id") or price.get("id")
-    if price_id:
-        for plan in (SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM):
-            if price_for(plan) == price_id:
-                return plan
-    # An active subscription of unknown shape is more likely Plus than nothing,
-    # but it must never silently grant the top tier.
-    return SubscriptionPlan.PLUS
-
-
-def apply_subscription_event(session: Session, user_id: int, payload: dict) -> Subscription:
-    item = get_subscription(session, user_id)
-    item.provider_customer_id = payload.get("customer") or item.provider_customer_id
-    item.provider_subscription_id = payload.get("subscription") or payload.get("id") or item.provider_subscription_id
-    item.status = str(payload.get("status", item.status))
-    # Previously hardcoded to "plus", so buying Premium granted Plus.
-    item.plan = plan_from_event(payload) if item.status in ACTIVE_STATUSES else SubscriptionPlan.FREE
-    price = payload.get("price") or {}
-    item.price_id = payload.get("price_id") or price.get("id") or item.price_id
-    period_end = payload.get("current_period_end")
-    if period_end:
-        item.current_period_end = datetime.utcfromtimestamp(int(period_end))
+def apply_subscription_event(session: Session, user_id: int, payload: dict, *, commit: bool = True) -> Subscription:
+    """Apply a current provider snapshot after the gateway verifies ownership."""
+    item = get_subscription(session, user_id, commit=False)
+    item.provider_customer_id = object_id(payload.get("customer")) or item.provider_customer_id
+    item.provider_subscription_id = payload.get("id") or item.provider_subscription_id
+    item.status = str(payload.get("status", "incomplete"))
+    purchased = plan_from_event(payload)
+    latest_invoice = payload.get("latest_invoice")
+    paid = isinstance(latest_invoice, dict) and latest_invoice.get("status") == "paid"
+    if item.status in ACTIVE_STATUSES:
+        item.plan = purchased
+        if paid or item.status == "trialing":
+            item.payment_failed_at = None
+    elif item.status == "past_due" and purchased != SubscriptionPlan.FREE:
+        # Retain an existing paid allowance for the original 72-hour policy;
+        # do not regrant a paid plan after the grace job has already expired it.
+        if item.payment_failed_at is None and item.plan != SubscriptionPlan.FREE:
+            item.payment_failed_at = datetime.utcnow()
+    else:
+        item.plan = SubscriptionPlan.FREE
+        item.payment_failed_at = None
+    sub_item = subscription_item(payload) or {}
+    price = sub_item.get("price") or {}
+    item.price_id = object_id(price)
+    period_end = sub_item.get("current_period_end", payload.get("current_period_end"))
+    item.current_period_end = datetime.utcfromtimestamp(int(period_end)) if period_end else None
     item.cancel_at_period_end = bool(payload.get("cancel_at_period_end", False))
     session.add(item)
-
-    # The quota service reads User.plan, not Subscription.plan. Without this
-    # a completed purchase changed the billing record and nothing else, so the
-    # limits never moved -- the subscription said Plus while the account was
-    # still enforced as Free.
     user = session.get(User, user_id)
-    if user and user.plan != item.plan:
+    if user:
         user.plan = item.plan
         session.add(user)
-
-    session.commit()
-    session.refresh(item)
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return item
 
 
 def find_subscription_by_customer(session: Session, customer_id: str) -> Subscription | None:
-    """Look up a subscription by Stripe customer id.
-
-    Invoice events (payment_failed, paid) do not reliably carry the
-    kall_user_id metadata that checkout/subscription events do -- Stripe does
-    not copy subscription metadata onto every invoice it generates -- so
-    `customer` is the only identifier those events can be trusted to have.
-    """
-    return session.exec(
-        select(Subscription).where(Subscription.provider_customer_id == customer_id)
-    ).first()
+    """Local lookup only. The gateway additionally verifies scope and binding."""
+    return session.exec(select(Subscription).where(Subscription.provider_customer_id == customer_id)).first()
 
 
-def apply_payment_failed(session: Session, subscription: Subscription) -> bool:
-    """Record a failed invoice. Returns True if this started a new grace window.
-
-    Only the first failure starts the clock -- Stripe retries a failing card
-    several times over its own schedule, and a second retry before the first
-    grace window has been resolved must not push the deadline back out, or a
-    card that keeps failing every 69 hours would never actually get
-    downgraded.
-    """
+def apply_payment_failed(session: Session, subscription: Subscription, *, commit: bool = True) -> bool:
     if subscription.payment_failed_at is not None:
         return False
     subscription.payment_failed_at = datetime.utcnow()
     session.add(subscription)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return True
 
 
-def apply_payment_recovered(session: Session, subscription: Subscription) -> bool:
-    """Clear a grace window because payment succeeded. Returns True if one was active."""
+def apply_payment_recovered(session: Session, subscription: Subscription, *, commit: bool = True) -> bool:
     if subscription.payment_failed_at is None:
         return False
     subscription.payment_failed_at = None
     session.add(subscription)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return True

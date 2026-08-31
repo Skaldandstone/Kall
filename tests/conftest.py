@@ -12,6 +12,27 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 
+@pytest.fixture
+def stripe_gateway(monkeypatch):
+    from billing_fakes import SCOPE, SECRET, FakeStripe
+    from kall.config import get_settings
+    from kall.services import stripe_billing
+
+    settings = get_settings()
+    for name, value in {
+        "stripe_enabled": True, "stripe_livemode": False,
+        "stripe_secret_key": "rk_test_local_placeholder", "stripe_webhook_secret": SECRET,
+        "stripe_billing_scope": SCOPE, "stripe_price_id": "price_plus",
+        "stripe_premium_price_id": "price_premium", "stripe_plus_product_id": "prod_kall_plus",
+        "stripe_premium_product_id": "prod_kall_premium", "stripe_portal_configuration_id": "bpc_kall",
+        "frontend_url": "http://localhost:3000",
+    }.items():
+        monkeypatch.setattr(settings, name, value)
+    gateway = FakeStripe()
+    monkeypatch.setattr(stripe_billing, "stripe_client", lambda: gateway)
+    return gateway
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter() -> None:
     # The limiter is a process-wide singleton keyed by remote address, and

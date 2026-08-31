@@ -23,6 +23,7 @@ from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
 from kall.services.billing import PAYMENT_GRACE_PERIOD_HOURS
 from kall.services.notification_delivery import queue
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 
@@ -48,15 +49,17 @@ def downgrade_overdue_subscriptions(session: Session, *, now: datetime | None = 
     now = now or datetime.utcnow()
     downgraded: list[int] = []
     for subscription in overdue_subscriptions(session, now):
-        subscription.plan = SubscriptionPlan.FREE
-        subscription.payment_failed_at = None
-        session.add(subscription)
-
-        user = session.get(User, subscription.user_id)
-        if user:
-            user.plan = SubscriptionPlan.FREE
-            session.add(user)
-
+        # Recheck after acquiring the row's write lock. A recovered invoice may
+        # have cleared the failure since the initial read; never undo it.
+        result = session.execute(update(Subscription).where(
+            Subscription.id == subscription.id,
+            Subscription.payment_failed_at <= now - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS),
+            Subscription.plan != SubscriptionPlan.FREE,
+        ).values(plan=SubscriptionPlan.FREE, payment_failed_at=None))
+        if result.rowcount != 1:
+            session.rollback()
+            continue
+        session.execute(update(User).where(User.id == subscription.user_id).values(plan=SubscriptionPlan.FREE))
         session.commit()
         queue(session, user_id=subscription.user_id, kind="payment_grace_period_expired")
         downgraded.append(subscription.user_id)

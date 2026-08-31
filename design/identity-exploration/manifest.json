@@ -1,0 +1,288 @@
+{
+  "status": "candidate_not_approved",
+  "candidateScreens": 24,
+  "controlScreens": 8,
+  "conceptBoards": 3,
+  "visuals": [
+    {
+      "path": "screens/edition-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 108359,
+      "sha256": "c22c1aff4cdcd5b03d12277db3896ce451e6a515713da1365993993339805751"
+    },
+    {
+      "path": "screens/edition-brief-mobile.jpg",
+      "width": 375,
+      "height": 1671,
+      "format": "JPEG",
+      "bytes": 65538,
+      "sha256": "58b3a6f0ad1b53dba51e492323a4a0c80928062b6dc9206abe0797006c61ffad"
+    },
+    {
+      "path": "screens/edition-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 115172,
+      "sha256": "e85502b5162e0682ca4c3832a499b220d2a9831195e5cc99c4dbf69264b2418f"
+    },
+    {
+      "path": "screens/edition-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1717,
+      "format": "JPEG",
+      "bytes": 69027,
+      "sha256": "4d851ac58414084fd2bfdb2377e9302ed017bb8cc2f74d34933a534b2efb1ab9"
+    },
+    {
+      "path": "screens/edition-career-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 96425,
+      "sha256": "420e7baf66ecc5215277ba384c0033681e17f67c93cf255c92500057088af92b"
+    },
+    {
+      "path": "screens/edition-career-mobile.jpg",
+      "width": 375,
+      "height": 1797,
+      "format": "JPEG",
+      "bytes": 64710,
+      "sha256": "738bd3473987a84117c1413d9668ae5d8e99a5de70ec6405c92ebd96fa4dd9b5"
+    },
+    {
+      "path": "screens/edition-review-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 106941,
+      "sha256": "98eec4e4384535c20f94aaa09f602d06c4048a64c3df9557762337270aaf0e81"
+    },
+    {
+      "path": "screens/edition-review-mobile.jpg",
+      "width": 375,
+      "height": 1797,
+      "format": "JPEG",
+      "bytes": 74821,
+      "sha256": "3df85a031953df48540f93bf2d0a1e92cb7f0e4b98ae8ce37543cc1ccb9925cd"
+    },
+    {
+      "path": "screens/vector-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 96563,
+      "sha256": "8b8d9ada022f5d577bcc0e3ab9a3f05ea4b78b371da6f6089d45688e3b51876f"
+    },
+    {
+      "path": "screens/vector-brief-mobile.jpg",
+      "width": 375,
+      "height": 1671,
+      "format": "JPEG",
+      "bytes": 62790,
+      "sha256": "4f42cbfe68e633d50dfb260c05fbbdfb515ec4bd89a9c72f03fb4e6f711cf20d"
+    },
+    {
+      "path": "screens/vector-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 109219,
+      "sha256": "206097fdb6cb4f9884507ffa1ae13f3bc3da32aa5c0ffd0d41c4525e9dd613d6"
+    },
+    {
+      "path": "screens/vector-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1717,
+      "format": "JPEG",
+      "bytes": 68198,
+      "sha256": "08c2837baef6f84f6a396a631141dc4fce261c075b8085f20f921c4c752bb7de"
+    },
+    {
+      "path": "screens/vector-career-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 94615,
+      "sha256": "585b5693f15b6fecba8f13908cd81334c503979faff4a1527a77b9e9617a8a95"
+    },
+    {
+      "path": "screens/vector-career-mobile.jpg",
+      "width": 375,
+      "height": 1797,
+      "format": "JPEG",
+      "bytes": 65241,
+      "sha256": "5723248c5530b88f92873dff5a8e4baebbf36c10f8390ae5b7b295940491a79c"
+    },
+    {
+      "path": "screens/vector-review-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 108843,
+      "sha256": "cba26283fdc44b64c05c40542cfc10ac3aba720fbc24976a1820d42c221dc550"
+    },
+    {
+      "path": "screens/vector-review-mobile.jpg",
+      "width": 375,
+      "height": 1803,
+      "format": "JPEG",
+      "bytes": 78258,
+      "sha256": "6ca4c93991fb72cf5b03b11dac050c7c7a76e595bdf63ed243199d3eadf06e58"
+    },
+    {
+      "path": "screens/horizon-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 103096,
+      "sha256": "2140132c3c11a952224dfca9a77eaa4271a5aa71a32e7eb345d411735cc733f6"
+    },
+    {
+      "path": "screens/horizon-brief-mobile.jpg",
+      "width": 375,
+      "height": 1671,
+      "format": "JPEG",
+      "bytes": 67133,
+      "sha256": "593fa05e2e608c3a67b5fe3b4cfbc53817d69ff1a997e3e44ceedf360c918e06"
+    },
+    {
+      "path": "screens/horizon-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 115393,
+      "sha256": "c5ee4ceba6aca3e1b417148edcaf5e8273a522d12d890e2dab23c17cf0b21a1c"
+    },
+    {
+      "path": "screens/horizon-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1701,
+      "format": "JPEG",
+      "bytes": 70250,
+      "sha256": "f8897e37cb2345d3d1b46312529e1b4fc7ebca54c556b5087103762f75e8c260"
+    },
+    {
+      "path": "screens/horizon-career-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 96608,
+      "sha256": "cd8ccddb2fcba4e011b733bedc3bd22e7f8c989ea7e2db1bba36eee0ae235578"
+    },
+    {
+      "path": "screens/horizon-career-mobile.jpg",
+      "width": 375,
+      "height": 1780,
+      "format": "JPEG",
+      "bytes": 66729,
+      "sha256": "c11c8bf416814bfb84bdba9112e6c1df55d8812fc0be963547620d6828c2d4ec"
+    },
+    {
+      "path": "screens/horizon-review-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 106846,
+      "sha256": "878c730a4c9e24ff4dde791e8962237f43104b392e7fc5859e8410c7a3ba8cf8"
+    },
+    {
+      "path": "screens/horizon-review-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 74985,
+      "sha256": "5a8c7cc37fc39a67dedcaad02272d66e2f1acb64e9c36f86e9adb1514bdbc552"
+    },
+    {
+      "path": "screens/current-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 103475,
+      "sha256": "9702618e99c9d8463e1fc69a268bba601a8b9dedf302beffdf65e737d2f581d5"
+    },
+    {
+      "path": "screens/current-brief-mobile.jpg",
+      "width": 375,
+      "height": 1671,
+      "format": "JPEG",
+      "bytes": 65851,
+      "sha256": "12c2ae58a461bcbfc6c6960d6a632d9be3ababb6d4269808d42f1e7d58d163ba"
+    },
+    {
+      "path": "screens/current-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1320,
+      "format": "JPEG",
+      "bytes": 117008,
+      "sha256": "10f9ce48d72ff95eee04561bc40576d15eafc408881c86af7ac94ca5bb0c688d"
+    },
+    {
+      "path": "screens/current-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1744,
+      "format": "JPEG",
+      "bytes": 70659,
+      "sha256": "b82a8e386e6c6a7dd2aa7e75a3c726597741c97e52803a498e63c22c972653b3"
+    },
+    {
+      "path": "screens/current-career-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 99449,
+      "sha256": "890819c8fc37453925c51b3eb76dc13935e46fc5585dfe04d556df611f5bbaff"
+    },
+    {
+      "path": "screens/current-career-mobile.jpg",
+      "width": 375,
+      "height": 1797,
+      "format": "JPEG",
+      "bytes": 67099,
+      "sha256": "c21f3fb4012840a1bea1c8b918534bd2afcf7523be714e1dcbd76638a6b1a615"
+    },
+    {
+      "path": "screens/current-review-desktop.jpg",
+      "width": 1440,
+      "height": 1280,
+      "format": "JPEG",
+      "bytes": 110617,
+      "sha256": "4dcd85f35024542e6b5f5be1b4cddcb3f92d928fed9c7d8db08defe62ca0bc36"
+    },
+    {
+      "path": "screens/current-review-mobile.jpg",
+      "width": 375,
+      "height": 1797,
+      "format": "JPEG",
+      "bytes": 78084,
+      "sha256": "ef94a25c9bfa68c625e06638c037cc861aac815efc9f94f5d761da76d262d275"
+    },
+    {
+      "path": "art/edition-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 2090852,
+      "sha256": "51241b06d6eb183dc1b95281cea885629f105af2cf9e4e10ec565ba56129728f"
+    },
+    {
+      "path": "art/vector-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 1726415,
+      "sha256": "e1e0a9c780f624b1ecbef0402783045e22fd92944d0b96b726550ccc977635a4"
+    },
+    {
+      "path": "art/horizon-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 1775371,
+      "sha256": "56ba74222fb240d9c8f7ba49d00334c0fb3bf1d51320a5be0e24f7b3a58bc977"
+    }
+  ]
+}

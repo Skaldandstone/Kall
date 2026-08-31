@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 export type ProfessionalProfileOption = {
   id: number;
@@ -24,6 +24,8 @@ export default function ProfessionalProfileSelect({
 }: Props) {
   const [profiles, setProfiles] = useState<ProfessionalProfileOption[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const inputId = useId();
 
   function selectProfile(nextValue: string) {
     onChange(nextValue);
@@ -33,7 +35,9 @@ export default function ProfessionalProfileSelect({
   }
 
   useEffect(() => {
-    fetch('/api/kall/me/professional-profiles')
+    const controller = new AbortController();
+    setState('loading');
+    fetch('/api/kall/me/professional-profiles', { signal: controller.signal })
       .then(async (response) => {
         if (response.status === 401) {
           window.location.replace('/sign-in');
@@ -44,39 +48,42 @@ export default function ProfessionalProfileSelect({
       })
       .then((data: ProfessionalProfileOption[]) => {
         setProfiles(Array.isArray(data) ? data : []);
-        if (!value && data[0]) selectProfile(String(data[0].id));
+        if (required && !value && data[0]) selectProfile(String(data[0].id));
         else if (value) window.dispatchEvent(new CustomEvent('kall:professional-profile-change', { detail: { value } }));
         setState('ready');
       })
-      .catch(() => setState('error'));
+      .catch((error) => { if (error.name !== 'AbortError') setState('error'); });
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
   return (
-    <label>
-      <span className="muted">{label}</span>
+    <div>
+      <label className="muted" htmlFor={inputId}>{label}{!required && ' (optional)'}</label>
       {state === 'loading' ? (
-        <select className="input" disabled><option>Loading profiles…</option></select>
+        <select id={inputId} className="input" disabled><option>Loading profiles…</option></select>
       ) : state === 'error' ? (
-        <select className="input" disabled><option>Profiles could not be loaded</option></select>
+        <><select id={inputId} className="input" disabled><option>Profiles could not be loaded</option></select><button className="button ghost" type="button" onClick={() => setAttempt((value) => value + 1)}>Retry profiles</button></>
       ) : profiles.length === 0 ? (
         <>
-          <select className="input" disabled><option>No profiles created</option></select>
+          <select id={inputId} className="input" disabled><option>No profiles created</option></select>
           <a href="/profiles" className="muted">Create a professional profile</a>
         </>
       ) : (
         <select
           className="input"
+          id={inputId}
           name={name}
           value={value}
           onChange={(event) => selectProfile(event.target.value)}
           required={required}
         >
+          {!required && <option value="">Search without a profile</option>}
           {profiles.map((profile) => (
             <option key={profile.id} value={profile.id}>{profile.name}</option>
           ))}
         </select>
       )}
-    </label>
+    </div>
   );
 }

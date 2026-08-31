@@ -19,20 +19,23 @@ class GreenhouseProvider:
                 params={"content": "true"},
             )
             response.raise_for_status()
-            rows=[]
-            for item in response.json().get("jobs", []):
-                rows.append(DiscoveredJob(
-                    source=self.name,
-                    external_id=str(item.get("id")) if item.get("id") is not None else None,
-                    company=company_name,
-                    title=item.get("title", ""),
-                    description=html.unescape(item.get("content", "")),
-                    url=item.get("absolute_url", ""),
-                    location=(item.get("location") or {}).get("name"),
-                    posted_at=parse_iso_datetime(item.get("updated_at")),
-                    metadata={"departments": item.get("departments", []), "offices": item.get("offices", [])},
-                ))
-            return rows
+            return self.parse(response.json(), company_name)
         finally:
             if owns_client:
                 await client.aclose()
+
+    def parse(self, payload, company_name: str) -> list[DiscoveredJob]:
+        rows=[]
+        for item in payload.get("jobs", []):
+            rows.append(DiscoveredJob(
+                source=self.name,
+                external_id=str(item.get("id")) if item.get("id") is not None else None,
+                company=company_name,
+                title=item.get("title", ""),
+                description=html.unescape(item.get("content", "")),
+                url=item.get("absolute_url", ""),
+                location=(item.get("location") or {}).get("name"),
+                posted_at=parse_iso_datetime(item.get("updated_at")),
+                metadata={"departments": item.get("departments", []), "offices": item.get("offices", [])},
+            ))
+        return rows

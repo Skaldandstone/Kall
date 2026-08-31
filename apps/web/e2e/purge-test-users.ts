@@ -9,6 +9,7 @@
  *
  * The pattern is deliberately narrow: only addresses this suite generates.
  * A real account signed into the same dev instance must never be touched.
+ * Stale-user cleanup is disabled unless the caller explicitly opts in.
  */
 const CLERK_API = 'https://api.clerk.com/v1';
 const TEST_EMAIL = /^(e2e|mobile-smoke)-[^@]*\+clerk_test@example\.com$/;
@@ -33,31 +34,54 @@ type ClerkUser = {
 const MIN_AGE_MS = 60 * 60 * 1000;
 
 function isCollectable(user: ClerkUser, now: number): boolean {
-  if (now - user.created_at < MIN_AGE_MS) return false;
-  return user.email_addresses.some((row) => TEST_EMAIL.test(row.email_address));
+  if (!Number.isFinite(user.created_at) || now - user.created_at < MIN_AGE_MS) return false;
+  // An actual user's account can have a test-looking secondary address.
+  // Delete only identities whose primary and every address are test addresses.
+  return user.email_addresses.length > 0
+    && user.email_addresses.some((row) => row.id === user.primary_email_address_id)
+    && user.email_addresses.every((row) => TEST_EMAIL.test(row.email_address));
 }
 
-export async function purgeTestUsers(secretKey: string): Promise<number> {
+export function assertDevelopmentKeys(secretKey: string, publishableKey?: string): void {
+  if (!secretKey.startsWith('sk_test_')
+      || (publishableKey !== undefined && !publishableKey.startsWith('pk_test_'))) {
+    throw new Error('Clerk E2E requires development keys (sk_test_ and pk_test_). Production keys are refused.');
+  }
+}
+
+export async function purgeTestUsers(
+  secretKey: string,
+  { enabled = false }: { enabled?: boolean } = {},
+): Promise<number> {
+  // A default test run must never sweep the shared development instance.
+  if (!enabled) return 0;
+  assertDevelopmentKeys(secretKey);
   const headers = { Authorization: `Bearer ${secretKey}` };
   const now = Date.now();
   let deleted = 0;
+  const candidates: ClerkUser[] = [];
 
   // Paginate: the cap is 100 users but the default page size is smaller, and
   // a partial sweep would leave the instance full for the next run.
   for (let offset = 0; ; offset += 100) {
     const response = await fetch(`${CLERK_API}/users?limit=100&offset=${offset}`, { headers });
     if (!response.ok) {
-      throw new Error(`Could not list Clerk users: ${response.status} ${await response.text()}`);
+      throw new Error(`Could not list Clerk test users: HTTP ${response.status}`);
     }
     const page: ClerkUser[] = await response.json();
     if (!page.length) break;
 
-    for (const user of page.filter((user) => isCollectable(user, now))) {
-      const removal = await fetch(`${CLERK_API}/users/${user.id}`, { method: 'DELETE', headers });
-      // A 404 means something else already removed it; that is the goal state.
-      if (removal.ok || removal.status === 404) deleted += 1;
-    }
+    candidates.push(...page.filter((user) => isCollectable(user, now)));
     if (page.length < 100) break;
+  }
+  // Collect the complete snapshot before deleting, so deleting page one cannot
+  // shift later users under the pagination offset and silently miss them.
+  for (const user of candidates) {
+    const removal = await fetch(`${CLERK_API}/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', headers });
+    if (!removal.ok && removal.status !== 404) {
+      throw new Error(`Could not remove a Clerk test user: HTTP ${removal.status}`);
+    }
+    deleted += 1;
   }
   return deleted;
 }

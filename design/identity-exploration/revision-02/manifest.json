@@ -1,0 +1,291 @@
+{
+  "status": "direction_selected_studies_pending",
+  "selectedDirection": "inscription",
+  "selectionRecord": "selection.md",
+  "round": 2,
+  "candidateScreens": 24,
+  "controlScreens": 8,
+  "conceptBoards": 3,
+  "visuals": [
+    {
+      "path": "screens/stave-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 122582,
+      "sha256": "c41215fd58963e81fcccc49b57747f29cbbda39251b9b2b10058cff0536c78ac"
+    },
+    {
+      "path": "screens/stave-brief-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 82940,
+      "sha256": "5b79796f4a18cda13a5c6911f0e5540121bd26c331d7371a9fa265deb7729547"
+    },
+    {
+      "path": "screens/stave-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 116943,
+      "sha256": "50defb4d4726c9f26c65dabba0d1c8f2adc30d529349270993ed73c1e10c717b"
+    },
+    {
+      "path": "screens/stave-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 72293,
+      "sha256": "9ca1565704f6fee0bf070107d5fbefcea1d99edbd1dc55fac30f65eafaf0369d"
+    },
+    {
+      "path": "screens/stave-career-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 96784,
+      "sha256": "5381a53bdcbcca41f8a7e54ff8a115c2f5a822172d40bad3a0848cc666541446"
+    },
+    {
+      "path": "screens/stave-career-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 64179,
+      "sha256": "c820e0512539217ba1c9f840a771d4774a480fbcd1424c81165590f0738066fd"
+    },
+    {
+      "path": "screens/stave-review-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 112024,
+      "sha256": "4fb5d16fe0b979a77f0ac4193e527af763399893e7d692b663350fe62a8e113d"
+    },
+    {
+      "path": "screens/stave-review-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 78922,
+      "sha256": "aec987db63201e91e27c6f4a018257f857a067f5b49d3df47450335c43a57f67"
+    },
+    {
+      "path": "screens/inscription-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 121641,
+      "sha256": "ebc69b9273309147931aa8402965f8c3eed3c37b8158aeb5af11518821ad529f"
+    },
+    {
+      "path": "screens/inscription-brief-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 81894,
+      "sha256": "f8b6680f378bd911a716f6baab47bc0c04b8e39bc19e9df2f065c6988ed4b68b"
+    },
+    {
+      "path": "screens/inscription-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 119071,
+      "sha256": "242ad4f5cab5f3d26b1bddd9bbc1dcfe6088014f901f19eef3c16143521e88b8"
+    },
+    {
+      "path": "screens/inscription-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 72046,
+      "sha256": "6cb09df0ee2e9992c36929a62c198ee6116d1bb8cc736199d3424c753d0cf8b3"
+    },
+    {
+      "path": "screens/inscription-career-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 95028,
+      "sha256": "42dc551ff0a4b2475d46050b0c5c0703f7df638e5b70dd4d0213d0db23199d9e"
+    },
+    {
+      "path": "screens/inscription-career-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 63201,
+      "sha256": "7d89ae5566adfc3b73833efeae094267c96cfacbde6eb63018976949d877bcf7"
+    },
+    {
+      "path": "screens/inscription-review-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 109158,
+      "sha256": "1cb91bd7be2590f43120f2dda8eca6fc5f9b77c6a5e5e002c9d6aea0972d3e1a"
+    },
+    {
+      "path": "screens/inscription-review-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 75428,
+      "sha256": "12f62b934cb637aff3e08cef5ecaf0cd912186bd6ba506dd892825df44f5fed5"
+    },
+    {
+      "path": "screens/fjord-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 122536,
+      "sha256": "0e89f6cf0a45edc61fda2c631dd5bea848cf1c43e84129d1e3d5daded1706c66"
+    },
+    {
+      "path": "screens/fjord-brief-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 83304,
+      "sha256": "19f2032d8a1f10db0e6348c919f746b710ef6092ac5e827463c08026b1a320f1"
+    },
+    {
+      "path": "screens/fjord-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 118383,
+      "sha256": "864b78fb4c9f041c9ede4cf9fc99fc7b8bbd9f675b7c739977d648fe94a1dcb3"
+    },
+    {
+      "path": "screens/fjord-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 72148,
+      "sha256": "de79f2957eb4f67686852c656b1c5d1615f7e437997f258c25e63e04854dd21d"
+    },
+    {
+      "path": "screens/fjord-career-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 97288,
+      "sha256": "6044129dbd83a36013b5f67517000e0f96b1d2bb3720cb6264808fb6aeee0728"
+    },
+    {
+      "path": "screens/fjord-career-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 63155,
+      "sha256": "a9b5de8df4d4f306393184d0e957642bb9e299c6e9454e6afd8c75e1e63daf34"
+    },
+    {
+      "path": "screens/fjord-review-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 109257,
+      "sha256": "38199078b4c552a23973f5bd7e571c593aef91d228691cf4ace945aa9c9b478a"
+    },
+    {
+      "path": "screens/fjord-review-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 76396,
+      "sha256": "e72537f901c3435bfcd735e63553a9b441fa51c3e37da8c3008f31bf61603afc"
+    },
+    {
+      "path": "screens/current-brief-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 126126,
+      "sha256": "3468f4d076b49d9594981a87416a4bc79a6acd8c3de86e59aa0c782bcfde1c60"
+    },
+    {
+      "path": "screens/current-brief-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 84933,
+      "sha256": "ac74fa141d4a8ed566012c1cf4c8082722e45e94ab8768b67a62b18ca225e95a"
+    },
+    {
+      "path": "screens/current-opportunities-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 122418,
+      "sha256": "4aab7fcceb629612120e1a1bcd7889d91cd812a2701971daa213ef7a3d6a503a"
+    },
+    {
+      "path": "screens/current-opportunities-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 73901,
+      "sha256": "10dc79e03f70be814e7287efe8ce4404609ed469b1455dcc95ffea4af34efc70"
+    },
+    {
+      "path": "screens/current-career-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 97867,
+      "sha256": "8f99f4a165f2e4da504df1c06da953a6d038da8a8b558e4eca9418c1f0804eb1"
+    },
+    {
+      "path": "screens/current-career-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 68782,
+      "sha256": "971f8b36a799042fa270e34d09dd5f79870257a50ed1e61b7ffdee8c0746545d"
+    },
+    {
+      "path": "screens/current-review-desktop.jpg",
+      "width": 1440,
+      "height": 1400,
+      "format": "JPEG",
+      "bytes": 111396,
+      "sha256": "018f9dd46e1f036b64a0996d6c4574a75f024bbd13d14fc941787c11b6befe79"
+    },
+    {
+      "path": "screens/current-review-mobile.jpg",
+      "width": 375,
+      "height": 1805,
+      "format": "JPEG",
+      "bytes": 77604,
+      "sha256": "769858b7c703aee1aab0c733fc7e4a23031d974678394d09a61960d9c146806b"
+    },
+    {
+      "path": "art/stave-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 2068962,
+      "sha256": "1589ea2ba26a0445b63197b43633e9c024fba9d16b4e90c8d6af04748b254d94"
+    },
+    {
+      "path": "art/inscription-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 2773999,
+      "sha256": "92fb0b258a5532753cef4569a6d2ee46820531c0e5cfc8beb7b560f604048df0"
+    },
+    {
+      "path": "art/fjord-board.png",
+      "width": 1536,
+      "height": 1024,
+      "format": "PNG",
+      "bytes": 1958347,
+      "sha256": "9b6b8adc1bb80345023883917fb231bfdd6b020dde2453da9e3e5a99990f6160"
+    }
+  ]
+}

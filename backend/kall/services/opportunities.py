@@ -1,17 +1,27 @@
 import hashlib
+import json
 import re
 from collections import Counter
 from datetime import datetime, timedelta
 
 from kall.models import (
     CareerGoal,
+    CareerProfile,
     DiscoverySchedule,
     GrowthMarketSignal,
     Job,
+    JobMatch,
     JobRequirementAnalysis,
     NotificationDelivery,
     Opportunity,
 )
+from kall.services.opportunity_sources import (
+    belongs_to_source,
+    refresh_representative,
+    source_jobs,
+    source_match,
+)
+from kall.services.posting_evidence import visible_department_names
 from kall.services.scheduling import local_hour, local_weekday, next_local_occurrence
 from sqlmodel import Session, select
 
@@ -30,34 +40,74 @@ def material_fingerprint(job: Job) -> str:
         normalize(job.title), normalize(job.location), normalize(job.description),
         str(job.salary_min or ""), str(job.salary_max or ""), str(job.work_type or ""),
     ])
+    names = visible_department_names(job.metadata_json)
+    if names:
+        content += "|" + json.dumps(names, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(content.encode()).hexdigest()
 
 
 def upsert_opportunity(
     session: Session, *, user_id: int, profile_id: int, job: Job, match_score: int
 ) -> Opportunity:
+    profile = session.get(CareerProfile, profile_id)
+    if not profile or profile.user_id != user_id:
+        raise ValueError("The profile must belong to the current user")
+    match = session.exec(select(JobMatch).where(
+        JobMatch.user_id == user_id, JobMatch.career_profile_id == profile_id, JobMatch.job_id == job.id,
+    )).first()
+    # Browser capture also uses this entry point but historically persisted no
+    # JobMatch. A source cannot represent a canonical row without its evidence.
+    if match is None or profile.updated_at > match.updated_at or job.updated_at > match.updated_at:
+        from kall.models import User
+        from kall.services.discovery_matching import refresh_discovered_job_match
+
+        refresh_discovered_job_match(session, user=session.get(User, user_id), profile=profile, job=job)
     key = canonical_key(job)
     fingerprint = material_fingerprint(job)
-    row = session.exec(select(Opportunity).where(
-        Opportunity.user_id == user_id,
-        Opportunity.professional_profile_id == profile_id,
-        Opportunity.canonical_key == key,
-    )).first()
-    source = {"source": job.source, "external_id": job.external_id, "url": job.url}
+    owned = list(session.exec(select(Opportunity).where(
+        Opportunity.user_id == user_id, Opportunity.professional_profile_id == profile_id,
+    ).order_by(Opportunity.id)))
+    # All associated IDs, including former representatives, precede canonical
+    # hints. Editing a source never merges two independent workflow histories.
+    row = next((candidate for candidate in owned if belongs_to_source(session, candidate, job)), None)
+    if row is None:
+        row = next((candidate for candidate in owned
+                    if candidate.canonical_key == key
+                    and (current := session.get(Job, candidate.job_id)) is not None
+                    and canonical_key(current) == key), None)
+    source = {"job_id": job.id, "source": job.source, "external_id": job.external_id, "url": job.url}
     if row:
         row.last_seen_at = datetime.utcnow()
-        row.match_score = max(row.match_score, match_score)
-        row.source_records = list({item.get("url"): item for item in [*row.source_records, source]}.values())
-        if row.state == "not_interested" and row.dismissed_fingerprint != fingerprint:
-            row.state = "new"
-        row.material_fingerprint = fingerprint
+        # Keep the first-seen cross-source identity. A title/location edit
+        # must not collide with another tracked opportunity's canonical key
+        # or merge two independent application histories.
+        # Hydrate old URL-only associations before changing representative.
+        records = {item.get("url"): dict(item) for item in row.source_records or []}
+        for item in source_jobs(session, row):
+            records[item.url] = {**records.get(item.url, {}), "job_id": item.id,
+                                 "source": item.source, "external_id": item.external_id, "url": item.url}
+        records[job.url] = {**records.get(job.url, {}), **source}
+        row.source_records = list(records.values())
+        # Posting edits and new matching evidence never undo a user's choice.
     else:
         row = Opportunity(
             user_id=user_id, professional_profile_id=profile_id, job_id=job.id,
             canonical_key=key, material_fingerprint=fingerprint, match_score=match_score,
             source_records=[source],
         )
+    # Repair old capture rows whose additional sources predate stored matching
+    # evidence. Never use an unproven aggregate score to choose a source.
+    associated = source_jobs(session, row)
+    if len(associated) > 1:
+        from kall.models import User
+        from kall.services.discovery_matching import refresh_discovered_job_match
+
+        for source_job in associated:
+            if source_match(session, row, source_job) is None:
+                refresh_discovered_job_match(session, user=session.get(User, user_id), profile=profile, job=source_job)
     session.add(row)
+    session.flush()
+    refresh_representative(session, row)
     session.commit()
     session.refresh(row)
     return row
@@ -93,7 +143,10 @@ def due_schedule(schedule: DiscoverySchedule, now: datetime) -> bool:
     regardless of the hour, and every run after that landed at whatever time
     the scheduling job happened to have last ticked, not at 8am.
     """
-    if not schedule.enabled or schedule.running_since:
+    if schedule.cadence == "continuous":
+        # The dedicated bounded worker owns this cadence, never the hourly suite.
+        return False
+    if not schedule.enabled or (schedule.running_since and schedule.running_since > now - timedelta(minutes=10)):
         return False
     if local_hour(schedule.timezone, now) != schedule.run_at_local.hour:
         return False
@@ -107,6 +160,10 @@ def due_schedule(schedule: DiscoverySchedule, now: datetime) -> bool:
 
 def advance_schedule(schedule: DiscoverySchedule, now: datetime) -> None:
     schedule.last_run_at = now
+    if schedule.cadence == "continuous":
+        schedule.next_run_at = now + timedelta(minutes=5)
+        schedule.running_since = None
+        return
     # For display only (DiscoveryTab's "Next automatic run") -- due_schedule
     # re-checks the real local hour on its own next tick rather than trusting
     # this value to the minute, so this only needs to be a good estimate.

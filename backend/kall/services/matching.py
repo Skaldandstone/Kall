@@ -1,6 +1,8 @@
 import re
 
 from kall.models.core import CareerProfile, Job
+from kall.services.functional_areas import functional_area_evidence
+from kall.services.posting_evidence import visible_department_names
 
 #: A posting mentioning any of these is treated as disclosing equity/stock
 #: compensation. Job has no structured equity field (postings rarely state a
@@ -92,6 +94,19 @@ def deterministic_match(job: Job, profile: CareerProfile) -> tuple[int, list[str
     if industry_hits:
         score += 15
         strengths.append(f"Industry alignment: {industry_hits[0]}")
+
+    area_evidence = functional_area_evidence(text, profile.functional_areas)
+    area_source = "posting"
+    if area_evidence is None:
+        for name in visible_department_names(job.metadata_json):
+            area_evidence = functional_area_evidence(name, profile.functional_areas)
+            if area_evidence:
+                area_source = "department/team"
+                break
+    if area_evidence:
+        area, phrase = area_evidence
+        score += 10
+        strengths.append(f"Functional-area alignment: {area} ({area_source} mentions {phrase}; +10)")
 
     keyword_hits = [k for k in profile.include_keywords if k.lower() in text]
     score += min(30, len(keyword_hits) * 10)

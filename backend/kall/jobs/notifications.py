@@ -46,8 +46,8 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Processed: %s", ", ".join(f"{status}={n}" for status, n in sorted(counts.items())))
     if counts.get("queued"):
         logger.info(
-            "%d delivery(ies) left queued -- no email provider is configured yet "
-            "(SES_SENDER_EMAIL unset). See docs/NEEDS_DECISION.md.",
+            "%d delivery(ies) remain queued for their delivery time or provider setup. "
+            "Inspect next_attempt_at and last_error; see docs/continuation/monitoring.md.",
             counts["queued"],
         )
     return 0

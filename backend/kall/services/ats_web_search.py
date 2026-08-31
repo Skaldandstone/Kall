@@ -1,6 +1,7 @@
 from urllib.parse import quote_plus
 
 from kall.models import CareerProfile
+from kall.services.functional_areas import functional_area_terms
 
 ATS_DOMAINS = [
     ("Ashby", "jobs.ashbyhq.com"),
@@ -61,7 +62,9 @@ def _quoted_or(values: list[str], limit: int = 8) -> str:
 
 
 def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
-    titles = _quoted_or(profile.target_titles)
+    # Areas broaden the title group. An AND clause would instead exclude
+    # related roles that use a different title, which defeats the feature.
+    titles = _quoted_or([*profile.target_titles[:8], *functional_area_terms(profile.functional_areas)], limit=33)
     industries = _quoted_or(profile.industries, limit=5)
     keywords = _quoted_or(profile.include_keywords, limit=5)
     locations = _quoted_or([*profile.states_regions, *profile.countries], limit=5)

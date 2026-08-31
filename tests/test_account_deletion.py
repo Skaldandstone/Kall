@@ -23,7 +23,7 @@ from datetime import datetime, time
 import pytest
 from kall.models.core import AdminAction, User
 from kall.services.account_deletion import delete_account, plan_deletion
-from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, Time, event, func, select
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, Integer, Time, event, func, select
 from sqlmodel import Session, SQLModel, create_engine
 
 
@@ -91,7 +91,7 @@ def _populate_every_user_scoped_table(session: Session, user_id: int) -> set[str
     from kall.services.account_deletion import _resolve_user_scoped_tables
 
     scoped = _resolve_user_scoped_tables(SQLModel.metadata)
-    created_pk: dict[str, int] = {"user": user_id}
+    created_pk: dict[str, int | str] = {"user": user_id}
 
     for table in SQLModel.metadata.sorted_tables:
         if table.name == "user":
@@ -99,7 +99,7 @@ def _populate_every_user_scoped_table(session: Session, user_id: int) -> set[str
 
         values = {}
         for column in table.columns:
-            if column.primary_key and column.autoincrement:
+            if column.primary_key and column.autoincrement and isinstance(column.type, Integer):
                 continue
             if column.foreign_keys:
                 fk = next(iter(column.foreign_keys))

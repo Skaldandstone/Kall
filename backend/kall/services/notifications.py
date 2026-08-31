@@ -25,7 +25,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from functools import lru_cache
 
+from botocore.config import Config
+from botocore.exceptions import ClientError, ConnectTimeoutError, EndpointConnectionError
 from kall.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -35,6 +38,26 @@ class NotConfiguredError(RuntimeError):
     """The channel has no working provider yet. Distinct from a send failure:
     this means nobody could have received it, not that delivery was attempted
     and failed."""
+
+
+class RetryableDeliveryError(RuntimeError):
+    """A definite rejection or a connection that never reached the provider."""
+
+
+class PermanentDeliveryError(RuntimeError):
+    """The provider definitively rejected the message; retrying will not help."""
+
+
+@lru_cache(maxsize=2)
+def _ses_client(region: str):
+    import boto3
+
+    # SendEmail has no idempotency token. The outbox owns retries, so SDK
+    # retries must not hide another send after an uncertain response.
+    return boto3.client("ses", region_name=region, config=Config(
+        connect_timeout=3, read_timeout=10,
+        retries={"total_max_attempts": 1, "mode": "standard"},
+    ))
 
 
 @dataclass
@@ -55,7 +78,7 @@ def _action_links_html(actions: list[NotificationAction]) -> str:
 class NotificationService:
     def send_email(
         self, recipient: str, subject: str, html: str, actions: list[NotificationAction]
-    ) -> None:
+    ) -> str:
         settings = get_settings()
         if not settings.ses_sender_email:
             raise NotConfiguredError(
@@ -63,18 +86,29 @@ class NotificationService:
                 "so no emails can be sent until a verified sender address is set."
             )
 
-        import boto3
-
-        client = boto3.client("ses", region_name=settings.aws_region)
+        client = _ses_client(settings.aws_region)
         body = html + _action_links_html(actions)
-        client.send_email(
-            Source=settings.ses_sender_email,
-            Destination={"ToAddresses": [recipient]},
-            Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {"Html": {"Data": body, "Charset": "UTF-8"}},
-            },
-        )
+        try:
+            response = client.send_email(
+                Source=settings.ses_sender_email,
+                Destination={"ToAddresses": [recipient]},
+                Message={
+                    "Subject": {"Data": subject, "Charset": "UTF-8"},
+                    "Body": {"Html": {"Data": body, "Charset": "UTF-8"}},
+                },
+            )
+        except (ConnectTimeoutError, EndpointConnectionError) as error:
+            raise RetryableDeliveryError("Could not connect to the email provider.") from error
+        except ClientError as error:
+            # Adapter boundary: classify an explicit AWS response without
+            # retaining recipients, credentials, or request contents.
+            code = error.response.get("Error", {}).get("Code", "Unknown")
+            if code in {"Throttling", "ThrottlingException", "TooManyRequestsException"}:
+                raise RetryableDeliveryError("Email provider throttled this attempt.") from error
+            if error.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 500) < 500:
+                raise PermanentDeliveryError(f"Email provider rejected the message ({code}).") from error
+            raise
+        return response["MessageId"]
 
     def send_push(
         self, user_id: int, title: str, body: str, actions: list[NotificationAction]

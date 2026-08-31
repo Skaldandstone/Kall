@@ -13,7 +13,7 @@ import pytest
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
 from kall.services.notification_delivery import drain, process_delivery
-from kall.services.notifications import NotificationService
+from kall.services.notifications import NotificationService, RetryableDeliveryError
 from sqlmodel import Session, select
 
 
@@ -68,7 +68,7 @@ def test_an_unconfigured_provider_leaves_the_row_queued_not_failed(engine, monke
         _job, opp = _job_and_opportunity(session, user.id)
         delivery = _queued_delivery(session, user.id, [opp.id])
 
-        status = process_delivery(session, delivery)
+        status = process_delivery(session, delivery, now=datetime(2026, 8, 30, 12))
 
         assert status == "queued"
         assert delivery.attempts == 0, "not configured must not count as a failed attempt"
@@ -87,7 +87,7 @@ def test_a_configured_provider_sends_and_marks_delivered(engine, monkeypatch) ->
         job, opp = _job_and_opportunity(session, user.id)
         delivery = _queued_delivery(session, user.id, [opp.id])
 
-        status = process_delivery(session, delivery)
+        status = process_delivery(session, delivery, now=datetime(2026, 8, 30, 12))
 
         assert status == "sent"
         assert delivery.delivered_at is not None
@@ -106,7 +106,7 @@ def test_opting_out_skips_rather_than_sends(engine, monkeypatch) -> None:
         session.commit()
         delivery = _queued_delivery(session, user.id, [opp.id])
 
-        assert process_delivery(session, delivery) == "skipped"
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "skipped"
 
 
 def test_quiet_hours_delay_rather_than_drop(engine, monkeypatch) -> None:
@@ -135,7 +135,7 @@ def test_a_deleted_account_is_skipped_not_errored(engine) -> None:
         session.delete(user)
         session.commit()
 
-        assert process_delivery(session, delivery) == "skipped"
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "skipped"
 
 
 def test_a_duplicate_dedupe_key_is_not_sent_twice(engine, monkeypatch) -> None:
@@ -148,15 +148,15 @@ def test_a_duplicate_dedupe_key_is_not_sent_twice(engine, monkeypatch) -> None:
         first = _queued_delivery(session, user.id, [opp.id], dedupe_key="digest:x:2026-08-27")
         second = _queued_delivery(session, user.id, [opp.id], dedupe_key="digest:x:2026-08-27")
 
-        assert process_delivery(session, first) == "sent"
-        assert process_delivery(session, second) == "duplicate"
+        assert process_delivery(session, first, now=datetime(2026, 8, 30, 12)) == "sent"
+        assert process_delivery(session, second, now=datetime(2026, 8, 30, 12)) == "duplicate"
         assert len(calls) == 1
 
 
 def test_a_provider_failure_retries_with_backoff_then_gives_up(engine, monkeypatch) -> None:
     monkeypatch.setattr(
         NotificationService, "send_email",
-        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("SES throttled")),
+        lambda *a, **k: (_ for _ in ()).throw(RetryableDeliveryError("SES throttled")),
     )
 
     with Session(engine) as session:
@@ -171,6 +171,7 @@ def test_a_provider_failure_retries_with_backoff_then_gives_up(engine, monkeypat
             if expected_attempt < 4:
                 assert status == "retrying"
                 assert delivery.next_attempt_at > now
+                now = delivery.next_attempt_at
             else:
                 assert status == "failed"
                 assert delivery.next_attempt_at is None
@@ -282,7 +283,7 @@ def test_the_queued_brief_renders_from_the_same_logic_the_in_app_page_uses(engin
         queue_daily_briefs(session, now=datetime(2026, 8, 27, 8, 0))
         delivery = session.exec(select(NotificationDelivery).where(NotificationDelivery.kind == "morning_brief")).one()
 
-        process_delivery(session, delivery)
+        process_delivery(session, delivery, now=datetime(2026, 8, 30, 12))
 
         from kall.services.brief import build_morning_brief
         expected = build_morning_brief(session, user)

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertDevelopmentKeys } from './purge-test-users';
 
 export const repoRoot = path.resolve(__dirname, '..', '..', '..');
 export const mobileRoot = path.resolve(__dirname, '..');
@@ -49,7 +50,13 @@ function requireClerkKeys(): void {
   const missing = ['CLERK_SECRET_KEY', 'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY'].filter(
     (name) => !process.env[name],
   );
-  if (!missing.length) return;
+  if (!missing.length) {
+    assertDevelopmentKeys(process.env.CLERK_SECRET_KEY as string, process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+    if (process.env.CLERK_PUBLISHABLE_KEY) {
+      assertDevelopmentKeys(process.env.CLERK_SECRET_KEY as string, process.env.CLERK_PUBLISHABLE_KEY);
+    }
+    return;
+  }
   throw new Error(
     `Missing ${missing.join(' and ')}. Identity lives in Clerk, so this test needs a real ` +
       'Clerk dev instance. Locally the keys are read from apps/web/.env.local; in CI they must ' +

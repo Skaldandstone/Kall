@@ -134,3 +134,49 @@ def test_is_out_of_scope_ignores_unset_location() -> None:
         description="", url="https://example.com/job/5",
     )
     assert is_out_of_scope(job, profile) is None
+
+
+def test_functional_area_alias_adds_one_ten_point_bonus_with_evidence() -> None:
+    job = _job(title="Staff SDET", description="Quality assurance and test automation")
+    profile = CareerProfile(user_id=1, name="Quality", functional_areas=["Quality Engineering", "Software Engineering"])
+    score, strengths, gaps = deterministic_match(job, profile)
+    assert score == 10
+    assert len(strengths) == 1
+    assert "Quality Engineering" in strengths[0] and "+10" in strengths[0]
+    assert not gaps
+
+
+def test_missing_functional_area_evidence_has_no_penalty_or_filter() -> None:
+    profile = CareerProfile(user_id=1, name="Quality", functional_areas=["Quality Engineering"])
+    assert deterministic_match(_job(), profile) == (0, [], [])
+    assert is_out_of_scope(_job(), profile) is None
+
+
+def test_custom_functional_areas_match_case_insensitively_on_phrase_boundaries() -> None:
+    profile = CareerProfile(user_id=1, name="Custom", functional_areas=["Technical Writing"])
+    assert deterministic_match(_job(description="TECHNICAL-WRITING experience"), profile)[0] == 10
+    profile.functional_areas = ["art"]
+    assert deterministic_match(_job(description="Start with smart devices"), profile)[0] == 0
+
+
+def test_empty_or_blank_areas_leave_existing_scores_unchanged() -> None:
+    job = _job(title="Engineer", description="SaaS automation")
+    profile = CareerProfile(user_id=1, name="Engineering", target_titles=["Engineer"], industries=["SaaS"])
+    before = deterministic_match(job, profile)
+    profile.functional_areas = [" ", "!!!"]
+    assert deterministic_match(job, profile) == before
+
+
+def test_functional_area_bonus_cannot_exceed_the_hundred_point_score_cap() -> None:
+    job = _job(title="Engineer", description="SaaS automation strategy CI/CD quality assurance",
+               work_type=WorkType.REMOTE, salary_min=200000, salary_max=220000)
+    profile = CareerProfile(user_id=1, name="P", target_titles=["Engineer"], industries=["SaaS"],
+                            include_keywords=["automation", "strategy", "CI/CD"], minimum_base=180000,
+                            functional_areas=["Quality Engineering"])
+    assert deterministic_match(job, profile)[0] == 100
+
+
+def test_functional_area_alignment_never_overrides_a_hard_exclusion() -> None:
+    profile = CareerProfile(user_id=1, name="P", functional_areas=["Quality Engineering"], exclude_keywords=["unpaid"])
+    job = _job(title="SDET", description="Unpaid role")
+    assert is_out_of_scope(job, profile) == "Contains excluded keyword: unpaid"
