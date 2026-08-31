@@ -1,6 +1,6 @@
 # Round 02 visual and package review
 
-30 August 2026. Status: **candidate_not_approved**. Visual inspection is complete for this concept package; this is not user approval, production browser QA or an accessibility certification.
+Visual QA recorded 30 August 2026. Update 31 August: **Inscription direction selected**; see [selection scope](selection.md). The remaining QA evidence describes the original concept review. Visual inspection is complete for this concept package; this is not user approval, production browser QA or an accessibility certification.
 
 ## What was actually opened and inspected
 
@@ -21,13 +21,15 @@ The gallery itself was opened and visually reviewed at 1440 x 1000 and 375 x 900
 
 ## Recorded checks
 
+Selection update, 31 August: both package validators passed after recording Inscription, changing the gallery default and updating decision copy. The chosen attachment was visually opened and its hash matched the packaged board. No raster files changed. Browser reconnection timed out, so the updated notice/default has not received a new browser visual review; the earlier screenshot review remains as recorded above.
+
 `browser-checks.json` contains 32 records covering four themes, four screens and two device classes. The validator checks matching main content across themes, no horizontal page overflow, a rendered rune in every screen and disabled approval on every review. Mobile capture bounds verify the footer ends above fixed navigation. `manifest.json` records all 35 promised raster files with dimensions, format, byte count and SHA-256 hashes.
 
 `validate_package.py` also decodes every image, checks that all files are unique, verifies the exact rune source, and checks that required documentation exists. These checks establish inventory and recorded layout consistency, not visual taste or production correctness. Screens were separately opened as described above.
 
 ## Limits and follow-up
 
-- No direction is selected. Stave is the closest written-foundation reference for discussion. Edition's previous recommendation stays withdrawn.
+- James selected Inscription on 31 August 2026. The prior Stave review reference is superseded. Detailed screen and navigation proposals remain subject to review. Edition stays withdrawn.
 - No production components, brand files, navigation or submission logic were changed. All mutation controls are inert previews. Sample scores and status do not exercise matching or monitoring services.
 - Only the selected sample state is shown, not every empty, error, loading, paused or notification state. Those require implementation review after selection.
 - Type uses local fallback families. Font licensing, production type scale, small metadata readability, full WCAG contrast, keyboard/screen-reader testing, 200% zoom and physical-device testing remain required before rollout.

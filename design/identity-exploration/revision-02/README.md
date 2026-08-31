@@ -1,6 +1,6 @@
 # Kall identity correction, round 02
 
-Status: **candidate_not_approved**. Prepared 30 August 2026. [Open the gallery](index.html), [visual QA](qa.md), [asset manifest](manifest.json), or [navigation and route proposal](../../../docs/continuation/identity-storyboard.md).
+Status: **Inscription direction selected** on 31 August 2026. Detailed screens remain proposals. Prepared 30 August 2026; see the [selection record](selection.md). [Open the gallery](index.html), [visual QA](qa.md), [asset manifest](manifest.json), or [navigation and route proposal](../../../docs/continuation/identity-storyboard.md).
 
 This round responds to James's feedback that the first studies did not read like Kall's Runestone. Edition's recommendation is withdrawn. The original images remain in [historical round 01](../round-01.html), unchanged and unapproved. This correction does not replace production assets or authorize a navigation migration.
 
@@ -23,7 +23,7 @@ Brief now leads with saved strategy and the professional record. Opportunities s
 
 The raster boards use darker material accents; live-text UI accents are lightened for legibility. Generated letterforms and material photography are exploratory. Fonts are local substitutes, no font binaries or third-party network assets are included. Final type selection and licensing, size variants, accessibility and production tokens still require review.
 
-**Review recommendation:** use Stave as the reference for the next charter-alignment discussion. It keeps the rune, material and interface closest to the written foundation. This is a design judgment, not user research or approval. James must confirm that the corrected character reads as Kall, then select a direction or request revisions. No direction is selected. The broader hierarchy requires a separate decision before implementation.
+**Decision:** James selected the corrected Inscription board on 31 August 2026. This supersedes the prior Stave review reference. Carry forward the existing rune, cut-serif wordmark character, dark stone palette and calm career focus. Direction selection is complete. Detailed screen treatment and the broader hierarchy remain proposals; production masters, fonts and accessibility validation still need preparation. See the [exact selection and scope](selection.md).
 
 ## Inventory and use
 

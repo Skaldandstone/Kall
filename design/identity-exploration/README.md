@@ -1,4 +1,4 @@
-> Start with [round 02: the rune-aligned correction](revision-02/index.html) and its [decision package](revision-02/README.md). Stave, Inscription and Fjord preserve the original rune and dark Nordic foundation. All remain unapproved. The remainder of this file records historical round 01; Edition's recommendation is withdrawn.
+> Start with [round 02: the rune-aligned correction](revision-02/index.html) and its [decision package](revision-02/README.md). Stave, Inscription and Fjord preserve the original rune and dark Nordic foundation. James selected Inscription on 31 August 2026; see the [selection record](revision-02/selection.md). Detailed screens and navigation remain proposals. The remainder of this file records historical round 01; Edition's recommendation is withdrawn.
 
 # Kall identity exploration
 
