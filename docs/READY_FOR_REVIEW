@@ -1,1 +1,1 @@
-Kall v0.3 stabilization branch is ready for review.
+Kall continuation is ready for code review, not production release. See docs/continuation/README.md for current PR heads, local evidence, manual-only CI policy and remaining release gates. Inscription is selected; broader navigation is not approved. Monitoring/live email and live payments remain disabled.

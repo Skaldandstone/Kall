@@ -1,7 +1,29 @@
 # Continuation integration validation
 
-Working branch: `codex/kall-continuation-integration`. Updated 2026-08-30.
+Working branch: `codex/kall-continuation-integration`. Updated 2026-08-31.
 This file records completed checks separately from remaining release gates.
+
+## Current branch and review status
+
+- On 2026-08-31 the owner changed GitHub automation to manual-only. Main is
+  `6bc0506`; automatic CI, Build and Ruff-fix workflows are disabled manually.
+  Nothing in this continuation re-enables them or dispatches a run.
+- PR #169 advanced to `46e2b15`, PR #170 to `2ac3947`, both with empty current
+  check rollups. PR #170's only conflict was the independently added Build file.
+  Merge `14ce61a` reconciles the reminder base and keeps PR #170's workflow blob
+  unchanged, including its mocked Clerk safety step. Main's separate manual
+  workflow is not modified. Prior green runs are historical evidence only.
+- `08b0e74` records the selected Inscription identity. Exact board provenance and
+  scope are in `design/identity-exploration/revision-02/selection.md`. No artwork
+  bytes or production branding changed. Broader layout/navigation remains open.
+- `2aaf208` integrates only the notice owner's three client files. That owner
+  passed installed web/mobile TypeScript and 23 extension unit tests, without
+  deployment, package build, physical-device or installed-extension acceptance.
+- New Stripe work is isolated on `codex/kall-billing-isolation`, not silently
+  folded into the previously validated functional queue. Live billing remains off.
+
+The dated checkpoints below remain historical; they are not claims that current
+head CI, cloud operation, paid delivery or device acceptance has completed.
 
 ## Verified at the first integration checkpoint
 
