@@ -1,5 +1,10 @@
 # Kall continuation delivery
 
+Latest: [main delivery and fresh combined validation](main-delivery.md).
+James authorized integration and the remaining implementation on 31 August.
+Earlier review/approval holds below are historical where superseded by that
+instruction; technical safety and external authentication gates remain.
+
 The approved 2026-08-30 plan is being built in isolated worktrees. This record
 tracks ownership and evidence; task creation does not mean implementation is done.
 

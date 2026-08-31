@@ -1,5 +1,12 @@
 # AWS deployment
 
+> **Current recovery note, 31 August 2026:** The infrastructure inventory below
+> describes the original deployment and is historical, including its credentials,
+> hostname and automatic-deploy claim. The replacement foundation is development
+> project `734702670689` in `us-east-2`; hosted application runtime is not yet
+> verified. GitHub builds/deployments are manual-only. See
+> [current delivery evidence](continuation/main-delivery.md) before operating.
+
 Kall's backend and web app run on AWS (account `693272753663`, region `us-east-2`), replacing an earlier Render setup, which has now been removed entirely. `docs/PRODUCTION_DEPLOYMENT.md` covers the host-independent layer on top: application configuration and the Stripe test-to-live cutover. This document records what was actually built, why it's shaped the way it is, and how to operate it - so a future session doesn't have to rediscover it by hitting access-denied errors the way this one did.
 
 ## Account context
