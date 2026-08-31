@@ -32,6 +32,10 @@ Commands from the continuation worktree with `APP_ENV=test` and
 
 - Full `python -m pytest -q --disable-warnings --tb=short`: **587 passed** in
   101.03 seconds. Existing datetime/Starlette warnings remain. No skips/failures.
+- The complete final rerun after continuation/notice integration and the ASGI
+  reconciliation adjustment also passed **587 tests in 68.02 seconds**. The
+  production web build passed with a synthetic Clerk publishable fixture key;
+  existing CSS/autoprefixer warnings remain. No real Clerk login was exercised.
 - After moving blocking webhook reconciliation off the ASGI loop, the final
   billing subset passed **71 tests** in 11.47 seconds. Files: `test_billing.py`,
   `test_billing_plan_mapping.py`, `test_billing_migrations.py`,
@@ -81,8 +85,10 @@ was exercised. `STRIPE_ENABLED=false` remains the default; live keys and live
 mode remain hard-blocked. No secrets were read or written. Tax stays explicitly
 off and no tax registrations/readiness are claimed.
 
-Disposable PostgreSQL migration/concurrency and real sandbox purchase/portal/
-decline/recovery tests remain required. Existing customer adoption and expired
+The subsequent [isolated PostgreSQL validation](postgres-validation.md) passed
+90 contracts, fresh/legacy migrations and actual eight-connection races. Target
+deployment/network validation and real sandbox purchase/portal/decline/recovery
+tests remain required. Existing customer adoption and expired
 ambiguous attempts require deliberate owner reconciliation. Before any live
 launch, decide and validate the relationship between account closure, ongoing
 subscriptions, provider retention and refunds; this work does not silently

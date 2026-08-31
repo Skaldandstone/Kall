@@ -25,8 +25,10 @@ installed-extension appearance have not been reviewed.
 The separately authorized billing continuation is isolated on
 `codex/kall-billing-isolation`, implementation `bab26bc`, with 587 backend and 42
 combined synthetic browser cases passed. It is not part of PR #170 at this
-checkpoint. Stripe connector reconnection, verified sandbox configuration and
-disposable PostgreSQL remain gates. Live payments and tax stay disabled.
+checkpoint. The billing branch also passed [90 isolated PostgreSQL contracts](postgres-validation.md),
+fresh/legacy migrations and the controlled five-profile pilot benchmark.
+Stripe connector reconnection, verified sandbox configuration and the actual
+constrained cloud image/network remain gates. Live payments and tax stay disabled.
 
 | Task | Task ID | Responsibility | Status |
 | --- | --- | --- | --- |

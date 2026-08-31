@@ -16,7 +16,7 @@ from kall.services import monitoring
 from sqlmodel import Session, SQLModel, create_engine
 
 
-async def measure():
+async def measure(*, engine_factory=create_engine, database_label="temporary SQLite"):
     monitoring.get_settings = lambda: SimpleNamespace(monitoring_enabled=True)
     cycle = 0
 
@@ -47,7 +47,7 @@ async def measure():
         return httpx.Response(200, json={"jobs": rows}, headers={"etag": str(cycle)})
 
     with tempfile.TemporaryDirectory(prefix="kall-monitoring-") as directory:
-        db = create_engine(f"sqlite:///{Path(directory) / 'benchmark.sqlite'}")
+        db = engine_factory(f"sqlite:///{Path(directory) / 'benchmark.sqlite'}")
         SQLModel.metadata.create_all(db)
         with Session(db) as session:
             for i in range(5):
@@ -100,7 +100,7 @@ async def measure():
         "fixture": "5 profiles sharing 10 boards, 20 postings each; baseline, 304, then one new and one material change per board",
         "external_requests": 0,
         "sender": "disabled",
-        "database": "temporary SQLite",
+        "database": database_label,
         "cpu_limit": "unconstrained developer host, not Fargate",
         "cycles": results,
     }

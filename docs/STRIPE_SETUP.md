@@ -122,7 +122,9 @@ Back up and validate on disposable PostgreSQL before production migration.
    Price/Product IDs, a unique Kall environment scope, and a Kall-only portal.
 3. Arrange restricted-key and signing-secret vault injection with the cloud
    owner, configure a sandbox webhook destination at the API's verified
-   `/api/billing/webhook` URL, and apply/test migration on disposable PostgreSQL.
+   `/api/billing/webhook` URL, and verify the target deployment's migration,
+   networking and TLS. Local disposable PostgreSQL validation has passed;
+   see [its evidence](continuation/postgres-validation.md).
 4. After explicit sandbox activation, test real hosted Checkout, duplicate
    delivery, portal upgrades/cancellation, delayed/out-of-order events, decline,
    72-hour expiry and recovery. Verify Clerk ownership and return routes.

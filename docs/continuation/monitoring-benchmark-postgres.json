@@ -1,0 +1,42 @@
+{
+  "fixture": "5 profiles sharing 10 boards, 20 postings each; baseline, 304, then one new and one material change per board",
+  "external_requests": 0,
+  "sender": "disabled",
+  "database": "isolated local PostgreSQL 17.11",
+  "cpu_limit": "unconstrained developer host, not Fargate",
+  "cycles": [
+    {
+      "status": "completed",
+      "requests": 10,
+      "response_bytes": 33600,
+      "feed_errors": 0,
+      "profiles_checked": 5,
+      "jobs_processed": 1000,
+      "events_queued": 0,
+      "elapsed_seconds": 17.734,
+      "measured_wall_seconds": 17.735
+    },
+    {
+      "status": "completed",
+      "requests": 10,
+      "response_bytes": 0,
+      "feed_errors": 0,
+      "profiles_checked": 5,
+      "jobs_processed": 0,
+      "events_queued": 0,
+      "elapsed_seconds": 0.203,
+      "measured_wall_seconds": 0.203
+    },
+    {
+      "status": "completed",
+      "requests": 10,
+      "response_bytes": 35490,
+      "feed_errors": 0,
+      "profiles_checked": 5,
+      "jobs_processed": 1050,
+      "events_queued": 100,
+      "elapsed_seconds": 4.812,
+      "measured_wall_seconds": 4.815
+    }
+  ]
+}

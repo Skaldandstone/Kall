@@ -1,0 +1,15 @@
+{
+  "postgresql": "PostgreSQL 17.11 on x86_64-windows, compiled by msvc-19.44.35228, 64-bit",
+  "cluster": "owned loopback-only disposable cluster",
+  "existing_service_modified": false,
+  "migration_fresh_downgrade_27_reupgrade": "passed",
+  "legacy_paid_plan_customer_and_weekday_preserved": true,
+  "runtime_pytest_exit": 0,
+  "databases_retained_for_inspection": {
+    "migration": "kall_validation_migration_1bd1dc9b53c940549c3148ca9014e65b",
+    "runtime": "kall_validation_runtime_7e77d5f2b2254c1b8fa71be79b01ed3e"
+  },
+  "stripe": "mocked",
+  "feeds": "mocked",
+  "sender": "disabled"
+}

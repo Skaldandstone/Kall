@@ -21,6 +21,13 @@ This file records completed checks separately from remaining release gates.
   deployment, package build, physical-device or installed-extension acceptance.
 - New Stripe work is isolated on `codex/kall-billing-isolation`, not silently
   folded into the previously validated functional queue. Live billing remains off.
+- On that separate branch, final local validation passed 587 backend tests,
+  42 combined safe browser cases, production web build and 90 real PostgreSQL
+  contracts, including eight-worker claim/webhook races. Fresh upgrade and
+  downgrade/re-upgrade preserve old schedules and paid customer records. See
+  [billing evidence](billing-security.md) and [PostgreSQL evidence](postgres-validation.md).
+  The synthetic PostgreSQL pilot made ten mock requests per cycle and queued
+  0/0/100 events. Its temporary loopback server was stopped after validation.
 
 The dated checkpoints below remain historical; they are not claims that current
 head CI, cloud operation, paid delivery or device acceptance has completed.

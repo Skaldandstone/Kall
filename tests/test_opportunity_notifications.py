@@ -132,7 +132,10 @@ def test_delivery_rechecks_current_eligibility(engine, sender, change):
         if change == "optout":
             pref.email_enabled = False
         if change == "ownership":
-            profile.user_id = 999
+            other = User(clerk_user_id="other-alert-owner", email="other-alert-owner@example.test", full_name="Other")
+            session.add(other)
+            session.flush()
+            profile.user_id = other.id
         session.add(profile)
         session.add(pref)
         session.commit()
