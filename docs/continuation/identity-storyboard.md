@@ -2,6 +2,8 @@
 
 Updated 31 August 2026. Status: **Inscription direction selected**. Detailed screen and navigation proposals remain under review. No production brand or routing changes.
 
+[Explore the all-pages UI plan](../../design/identity-exploration/ui-plan/index.html): 40 existing routes, 15 preserved redirect entries, 35 page/subview templates, responsive previews and per-page state/behavior notes. New browser visual review is pending because automated reopening was blocked by browser URL policy; see its [validation limits](../../design/identity-exploration/ui-plan/README.md).
+
 [Open the corrected gallery](../../design/identity-exploration/revision-02/index.html) for three rune-aligned concepts, 12 desktop and 12 mobile candidate screens, and eight current-style control screens. [Round 02 notes](../../design/identity-exploration/revision-02/README.md) explain the source alignment, samples and limitations. [Round 01](../../design/identity-exploration/round-01.html) is preserved as a historical, unapproved archive.
 
 ## Recommendation and decision
@@ -46,7 +48,7 @@ The inventory below was checked against the 40 `apps/web/app/**/page.tsx` files 
 | `/sources` | Source management within Opportunities. | Preserve current redirect to `/search?tab=sources`. |
 | `/job-intelligence` | Standalone posting-fit view and contextual opportunity panel. | Keep `job` and `profile` query parameters and selected evidence. |
 | `/profiles` | Career with Strategy first and clear secondary tabs. | Keep `strategy`, `employment`, `record`, `growth`, `achievements`, `references`, and legacy identity handling. |
-| `/profile` | Existing profile compatibility entry with selected shell. | Preserve existing purpose and stored data; do not repurpose identity fields. |
+| `/profile` | Compatibility entry into Identity & contact. | Preserve existing redirect to `/settings/identity`; do not repurpose identity fields. |
 | `/profile-details` | Professional record entry. | Preserve redirect to `/profiles?tab=record`. |
 | `/growth` | Development planning in Career. | Preserve redirect to `/profiles?tab=growth`; do not merge with posting-fit analysis. |
 | `/intelligence` | Achievements entry with unambiguous labeling. | Preserve redirect to `/profiles?tab=achievements`. |
@@ -59,9 +61,9 @@ The inventory below was checked against the 40 `apps/web/app/**/page.tsx` files 
 | `/applications` | Application pipeline and next actions. | Preserve stages, filters, IDs, owner isolation and existing records. |
 | `/applications/new` | Job-context preparation workspace. | Preserve `job`, `profile`, `external_url`, `title`, `snippet` query inputs. |
 | `/applications/[id]` | Persistent application workspace. | Preserve dynamic ID, ownership, document versions and workflow state. |
-| `/apply` | Existing assisted application entry. | Keep current behavior and deep links; no new submission capability. |
-| `/application-review` | Review screen with evidence and confirmation sequence. | Retain required confirmations, approvals and state checks. A visual refresh must not invalidate or silently grant approval. |
-| `/submissions` | Submission history and existing controls. | Keep separate submission action and existing safeguards. |
+| `/apply` | Existing application-preparation entry. | Preserve redirect to `/applications/new` with the complete existing query string. No submission behavior change. |
+| `/application-review` | Compatibility entry to the pipeline; actual review lives inside `/applications/[id]`. | Preserve current redirect to `/applications`. Do not add a duplicate approval surface. |
+| `/submissions` | Compatibility entry to applications and their recorded submission history. | Preserve current redirect to `/applications`, separate submission action and existing safeguards. |
 | `/settings` | Account and product settings. | Preserve endpoint behavior and access controls. |
 | `/settings/identity` | Clearly separate private identity details. | Preserve `/profiles?tab=identity` compatibility and sensitive-data boundaries. |
 | `/settings/notifications` | Delivery modes, timing, quiet hours and configuration status. | Digest remains default; immediate is an explicit preference. Reflect unconfigured sending honestly. |
@@ -74,7 +76,7 @@ The inventory below was checked against the 40 `apps/web/app/**/page.tsx` files 
 | `/sign-in/[[...sign-in]]` | Consistent sign-in presentation. | Preserve authentication, return destinations and security behavior. |
 | `/sign-up/[[...sign-up]]` | Consistent sign-up presentation. | Preserve authentication and consent behavior. |
 | `/onboarding` | Clear optional progression with retained form values. | Preserve both entry paths and existing persisted values. |
-| `/setup` | Existing setup flow, clearer next actions. | Preserve setup logic and user choices. |
+| `/setup` | Compatibility entry to Career Strategy. | Preserve current redirect to `/profiles`; do not add a duplicate setup page. |
 | `/demo/[module]` | Selected identity with explicit sample-data labels. | Preserve demo isolation and no real submission. |
 | `/admin` | Dense, legible operational interface. | Preserve admin authorization. No new privileges or public links. |
 
