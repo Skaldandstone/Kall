@@ -1,6 +1,8 @@
 # Kall continuation delivery
 
-Latest: [main delivery and fresh combined validation](main-delivery.md).
+Latest: [main delivery and fresh combined validation](main-delivery.md),
+[Inscription implementation](inscription-implementation.md), and
+[AWS and Stripe development readiness](provider-readiness.md).
 James authorized integration and the remaining implementation on 31 August.
 Earlier review/approval holds below are historical where superseded by that
 instruction; technical safety and external authentication gates remain.

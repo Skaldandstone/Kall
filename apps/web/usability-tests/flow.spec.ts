@@ -31,6 +31,30 @@ test('all navigation destinations fit and both entry paths remain available', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Inscription shell preserves keyboard access and a readable responsive hierarchy', async ({ page }) => {
+  await page.goto('/morning-brief');
+  await expect(page.locator('html')).toHaveAttribute('data-kall-theme', 'inscription');
+  await expect(page.getByRole('region', { name: 'Your career workspace' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /A record worth keeping/ })).toHaveAttribute('href', '/profiles');
+  await expect(page.getByRole('link', { name: /Your experience, ready/ })).toHaveAttribute('href', '/resumes');
+  await expect(page.getByRole('link', { name: /Make room for what is next/ })).toHaveAttribute('href', '/profiles?tab=growth');
+
+  await page.keyboard.press('Tab');
+  const skip = page.getByRole('link', { name: 'Skip to workspace' });
+  await expect(skip).toBeFocused();
+  await skip.press('Enter');
+  await expect(page.locator('#workspace-content')).toBeFocused();
+
+  const metrics = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
+    displayFont: getComputedStyle(document.querySelector('h1')!).fontFamily,
+    bodyContrast: getComputedStyle(document.body).color,
+  }));
+  expect(metrics.overflow).toBe(false);
+  expect(metrics.displayFont).toContain('Cormorant');
+  expect(metrics.bodyContrast).not.toBe('rgba(0, 0, 0, 0)');
+});
+
 test('optional profile does not silently replace a saved search', async ({ page }) => {
   const query = '("Quality Engineering" OR "QA Director") -"intern"';
   await page.goto(`/search?q=${encodeURIComponent(query)}`);

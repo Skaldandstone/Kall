@@ -313,7 +313,7 @@ nav a:hover {
 
 .section-heading {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
   margin: 0 0 20px;
@@ -640,7 +640,7 @@ label .muted,
   display: grid;
   grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .record-intro {

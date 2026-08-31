@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
+import { Cormorant_Garamond, Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
@@ -9,6 +9,14 @@ import './globals.css';
 import './search-apply.css';
 import './search-tracking.css';
 import './toast.css';
+import './inscription.css';
+
+const inscription = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['500', '600'],
+  variable: '--font-inscription',
+  display: 'swap',
+});
 
 // Self-hosted at build time rather than linked from fonts.googleapis.com,
 // which the CSP in next.config.mjs does not permit for styles or fonts.
@@ -35,8 +43,8 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Kall — The Career Operating System',
-    template: '%s — Kall',
+    default: 'Kall | Your career, in view',
+    template: '%s | Kall',
   },
   description:
     'A calm, private workspace for building a meaningful career over time.',
@@ -59,12 +67,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0c1420',
+  themeColor: '#191b1c',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${syne.variable} ${epilogue.variable} ${plexMono.variable}`}>
+    <html lang="en" data-kall-theme={process.env.KALL_UI_THEME === 'legacy' ? 'legacy' : 'inscription'} className={`${inscription.variable} ${syne.variable} ${epilogue.variable} ${plexMono.variable}`}>
       <body>
         {/* Inside <body>, per Clerk's placement rule for this SDK version.
             Telemetry is off deliberately: the CSP blocks clerk-telemetry.com

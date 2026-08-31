@@ -26,5 +26,19 @@ export default function AppNav({current}:AppNavProps){
       .then(data=>{if(data)setUser(data)})
       .catch(()=>undefined);
   },[]);
-  return <header className={styles.header}><a className={styles.brand} href='/' aria-label='Kall home'><KallMark />Kall</a><nav className={styles.nav} aria-label='Primary navigation'>{items.map(([key,label,href])=><a key={key} href={href} className={`${styles.link} ${current===key?styles.active:''}`} aria-current={current===key?'page':undefined}>{label}</a>)}{admin&&<a href='/admin' className={`${styles.link} ${current==='support'?styles.active:''}`} aria-current={current==='support'?'page':undefined}>Support</a>}</nav><a className={styles.account} href='/settings' aria-label='Open account settings'>{initialsFor(user)}</a></header>
+  return <>
+    <a className="workspace-skip" href="#workspace-content">Skip to workspace</a>
+    <header className={styles.header}>
+      <a className={styles.brand} href="/" aria-label="Kall home"><KallMark size={30} />Kall</a>
+      <nav className={styles.nav} aria-label="Primary navigation">
+        {items.map(([key,label,href]) => <a key={key} href={href}
+          className={`${styles.link} ${current===key?styles.active:''}`}
+          aria-current={current===key?'page':undefined}>{label}</a>)}
+        {admin && <a href="/admin" className={`${styles.link} ${current==='support'?styles.active:''}`}
+          aria-current={current==='support'?'page':undefined}>Support</a>}
+      </nav>
+      <a className={styles.account} href="/settings" aria-label="Open account settings">{initialsFor(user)}</a>
+    </header>
+    <div id="workspace-content" className="workspace-start" tabIndex={-1} />
+  </>;
 }

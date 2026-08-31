@@ -36,7 +36,7 @@
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: flex-start;
   color: #747a78;
 }
 

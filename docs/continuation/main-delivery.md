@@ -47,9 +47,14 @@ keys and scoped portals. Kall's vault record is `dev/kall/stripe`; Clerk uses
 not retrieved credentials or verified those provider objects itself. Actual
 hosted purchase, signed delivery, decline/recovery and portal acceptance remain.
 
-Dependency audits found high-severity transitive findings in the current web
-and extension dependency trees. Remediation and new-image scans precede any
-deployment. Live billing and automatic tax remain disabled.
+Dependency remediation upgraded the web app to the maintained Next 15.5.25
+backport and pinned the patched PostCSS release. The final web production audit
+reports zero findings. Extension production dependencies have 14 moderate
+upstream findings and no high or critical finding; the only automated fix is an
+unsafe Clerk downgrade. Mobile production dependencies have 22 moderate
+upstream Expo/Clerk/Solana findings and no high or critical finding, with no safe
+automated remediation. Cloud image findings remain unresolved. Live billing and
+automatic tax remain disabled.
 
 Source handoffs inspected: the `STRIPE-COMPLETION-STATUS.md` and
 `DEV-VALIDATION-HANDOFF.md` files in the 2026-08-31 overnight task's outputs, and
@@ -58,7 +63,9 @@ approval notes are superseded by those later records.
 
 ## Next delivery
 
-Implement the selected Inscription presentation across existing routes, preserve
-form and workflow behavior, resolve dependencies, validate accessible states and
-update deployment runbooks against the replacement environment. Do not use
-historical green CI or the old CloudFront hostname as current release evidence.
+Inscription is now the default shared presentation, with a career-first Brief,
+responsive navigation, keyboard skip path, preserved application workflows and
+captured desktop/mobile evidence. The final clean synthetic run passed 44 cases
+with two opt-in capture cases skipped. Provider activation still requires a safe
+Kall runtime, remediated images, a verified origin and authenticated AWS access.
+Do not use historical green CI or the old CloudFront hostname as release evidence.

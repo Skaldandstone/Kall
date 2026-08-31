@@ -30,6 +30,11 @@ Use the first value for `APP_SECRET_KEY` and the second for `SENSITIVE_DATA_ENCR
 
 Start with Stripe test credentials and the Kall Plus test price:
 
+Use the current nonsecret values from
+[`deploy/kall-development.env.example`](../deploy/kall-development.env.example).
+Keep `STRIPE_ENABLED=false` until the verified HTTPS origin, signed webhook and
+sandbox acceptance checks below have passed.
+
 ```text
 STRIPE_PRICE_ID=price_1U08lPIjMKrx5dSp2XBsn8to
 ```

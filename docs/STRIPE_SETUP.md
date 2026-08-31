@@ -1,20 +1,25 @@
 # Kall Stripe sandbox integration
 
-Status: implemented locally; payments default off and live keys are refused.
-No Stripe objects, cloud resources, secrets, or tax registrations were created.
-The Stripe connector returned `oauth_token_invalid_grant` / reauthentication
-required on 2026-08-31. Owner reconnection is still required; local tests do not
-establish a working Stripe sandbox or production payment flow.
+Status: implemented locally and sandbox catalog configured; payments default off
+and live keys are refused. Provider receipts from the Stripe owner establish the
+Kall sandbox offers, restricted key, Accounts Read verification and explicit
+portal configuration. The connector still needs reauthentication, but that does
+not invalidate the completed provider setup. No runtime secret injection,
+webhook destination, tax registration or application payment flow exists yet.
 
 ## Existing commercial model
 
 Free, Plus and Premium, quotas, billing exemptions and the 72-hour payment
 failure grace period remain unchanged. Existing copy in
 `apps/web/app/lib/plans.ts` shows Plus at $5/month and Premium at $15/month.
-These are existing product decisions, not newly created Stripe prices.
-Inventory the intended sandbox catalog and confirm that its currency, amount,
-recurrence and tax behavior match approved copy before enabling test Checkout.
-This release does not create Products or Prices or change the business model.
+The sandbox now contains Kall Plus at USD 5/month and Premium at USD 15/month:
+
+- Plus: `price_1UAZVXPo4uRuCWxjmqORD3B1`, product `prod_VAvMNUYFhL2Kit`
+- Premium: `price_1UAZWAPo4uRuCWxjhgrbIixK`, product `prod_VAvMM3BYCN82Ul`
+- Kall portal: `bpc_1UAZuwPo4uRuCWxjhHqUOhyN`
+
+The nonsecret disabled configuration is checked in at
+`deploy/kall-development.env.example`. It does not change the business model.
 
 ## Server contract
 
@@ -70,11 +75,10 @@ identity in Stripe before setup. The API alone needs keys; the web client does
 not. Supply secrets through the existing vault/runtime injection mechanism,
 never command arguments, source, screenshots, reports or chat.
 
-Cloud preparation remains owned by task
-`01a0556d-77fe-73b2-96a2-29ac8f01666f`. No deployment or secret mutation is
-authorized by this runbook. Do not conflate the shared development foundation
-project with Kall's existing deployment. Regional work remains in the verified
-selected Region `us-east-2`.
+The shared development foundation and `dev/kall/stripe` record already exist in
+AWS project `734702670689`. They do not constitute a Kall runtime. Do not
+conflate this foundation with Kall's historical deployment. Regional work stays
+in the selected Region `us-east-2`.
 
 Require a Kall-specific portal configuration. Its optional subscription-update
 catalog is checked against the same Price/Product allowlist. Prefer cancellation
@@ -116,12 +120,11 @@ Back up and validate on disposable PostgreSQL before production migration.
 
 ## Required owner actions before any real sandbox exercise
 
-1. Reauthenticate the Stripe connector and verify the intended business and
-   sandbox. Do not share keys in chat.
-2. Inventory/approve the two existing commercial tiers and matching test
-   Price/Product IDs, a unique Kall environment scope, and a Kall-only portal.
-3. Arrange restricted-key and signing-secret vault injection with the cloud
-   owner, configure a sandbox webhook destination at the API's verified
+1. Build a reviewed Kall development runtime from remediated images and establish
+   a verified HTTPS origin. Do not share keys in chat.
+2. Inject the existing restricted key from `dev/kall/stripe` through the runtime
+   secret mechanism and use the checked-in Kall IDs and unique billing scope.
+3. Configure a sandbox webhook destination at the API's verified
    `/api/billing/webhook` URL, and verify the target deployment's migration,
    networking and TLS. Local disposable PostgreSQL validation has passed;
    see [its evidence](continuation/postgres-validation.md).

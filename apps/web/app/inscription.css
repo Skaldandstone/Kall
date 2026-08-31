@@ -1,0 +1,126 @@
+/* Selected Inscription identity. Set KALL_UI_THEME=legacy to restore the prior
+   palette on the next render. Routes, consent and data behavior are unchanged. */
+html[data-kall-theme='inscription'] {
+  --canvas: #191b1c;
+  --surface: #222526;
+  --surface-raised: #2b2f30;
+  --surface-interactive: #353c3f;
+  --border: #41494b;
+  --border-strong: #65777d;
+  --text: #eeeae2;
+  --text-primary: var(--text);
+  --text-secondary: #b9c1c1;
+  --text-muted: #a4b0b2;
+  --accent: #a3bdc7;
+  --accent-hover: #c1d5dc;
+  --accent-ink: #172126;
+  --accent-rgb: 163 189 199;
+  --success: #a1c7ad;
+  --warning: #e0bc7c;
+  --danger: #f2a39a;
+  --font-display: var(--font-inscription), Georgia, 'Times New Roman', serif;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+  --page-gutter: clamp(16px, 4vw, 72px);
+}
+
+[data-kall-theme='inscription'] body {
+  background: var(--canvas);
+  line-height: 1.55;
+}
+
+[data-kall-theme='inscription'] :is(h1, h2) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+[data-kall-theme='inscription'] h1 { line-height: 1.1; }
+[data-kall-theme='inscription'] h2 { line-height: 1.2; }
+[data-kall-theme='inscription'] .brand {
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+[data-kall-theme='inscription'] .topbar {
+  min-height: 84px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+[data-kall-theme='inscription'] .hero { padding-block: 36px 48px; }
+[data-kall-theme='inscription'] .hero h1 {
+  font-weight: 500;
+  font-size: clamp(38px, 5.5vw, 72px);
+  line-height: 1.1;
+}
+
+[data-kall-theme='inscription'] :is(.button, button, input, select, textarea) {
+  font-family: var(--font-body);
+}
+[data-kall-theme='inscription'] .button { font-weight: 600; }
+[data-kall-theme='inscription'] :is(button, input, select):not([type='checkbox']):not([type='radio']) {
+  min-height: 44px;
+}
+[data-kall-theme='inscription'] :is(input, select, textarea) {
+  max-width: 100%;
+  accent-color: var(--accent);
+}
+[data-kall-theme='inscription'] :is(input, textarea)::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+[data-kall-theme='inscription'] :is(button:disabled, .button[aria-disabled='true']) {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+[data-kall-theme='inscription'] :focus-visible {
+  outline: 3px solid var(--accent-hover);
+  outline-offset: 4px;
+}
+[data-kall-theme='inscription'] :is(.eyebrow, .pill) { letter-spacing: 0.075em; }
+[data-kall-theme='inscription'] .text-link { text-underline-offset: 4px; }
+[data-kall-theme='inscription'] .text-link:hover { text-decoration: underline; }
+[data-kall-theme='inscription'] :is(.card, .panel) { box-shadow: none; }
+[data-kall-theme='inscription'] .record-details dd { color: var(--text); }
+
+.workspace-skip {
+  position: fixed;
+  top: 8px;
+  left: 16px;
+  z-index: 1000;
+  padding: 12px 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius-sm);
+  transform: translateY(-160%);
+}
+.workspace-skip:focus { transform: translateY(0); }
+.workspace-start { scroll-margin-top: 24px; }
+.workspace-start:focus { outline: none; }
+
+@media (max-width: 640px) {
+  [data-kall-theme='inscription'] .topbar { margin-bottom: 20px; }
+  [data-kall-theme='inscription'] .hero { padding-block: 28px 32px; }
+  [data-kall-theme='inscription'] .hero p { font-size: 16px; }
+  [data-kall-theme='inscription'] :is(input, select, textarea) { font-size: 16px; }
+  [data-kall-theme='inscription'] .button { white-space: normal; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-kall-theme='inscription'] *,
+  [data-kall-theme='inscription'] *::before,
+  [data-kall-theme='inscription'] *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -129,9 +129,7 @@ export default function MorningBriefClient() {
           <div>
             <h1>Good morning, {brief.user.preferred_name}.</h1>
             <p className={styles.lede}>
-              {opportunityCount
-                ? `${opportunityCount} ${opportunityCount === 1 ? 'opportunity deserves' : 'opportunities deserve'} your attention.`
-                : 'Your next career decision is ready.'}
+              Your career, in view. Build on your experience and choose what comes next.
             </p>
           </div>
           <aside className={styles.summary}>
@@ -143,10 +141,31 @@ export default function MorningBriefClient() {
         </div>
       </section>
 
+      <section className={styles.careerOverview} aria-label="Your career workspace">
+        <a href="/profiles" className={styles.overviewCard}>
+          <span className="eyebrow">Career</span>
+          <h2>A record worth keeping.</h2>
+          <p>Keep your experience, achievements and career direction together.</p>
+          <span className="text-link">Open career profile</span>
+        </a>
+        <a href="/resumes" className={styles.overviewCard}>
+          <span className="eyebrow">Documents</span>
+          <h2>Your experience, ready.</h2>
+          <p>{brief.resumes.total ? `${brief.resumes.total} saved ${brief.resumes.total === 1 ? 'resume' : 'resumes'}. Review the source facts before tailoring.` : 'Start with your resume. Keep every version grounded in your experience.'}</p>
+          <span className="text-link">Open documents</span>
+        </a>
+        <a href="/profiles?tab=growth" className={styles.overviewCard}>
+          <span className="eyebrow">Growth</span>
+          <h2>Make room for what is next.</h2>
+          <p>Review your development plans and the next milestone you want to reach.</p>
+          <span className="text-link">Explore career growth</span>
+        </a>
+      </section>
+
       <section className={styles.grid}>
         <div className={styles.main}>
           <div className={styles.heading}>
-            <div><p className="eyebrow">Grounded in your data</p><h2>Top opportunities</h2></div>
+            <div><p className="eyebrow">{opportunityCount} evaluated {opportunityCount === 1 ? 'match' : 'matches'}</p><h2>Top opportunities</h2></div>
             <a className="text-link" href="/search">View all opportunities</a>
           </div>
 
