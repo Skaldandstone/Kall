@@ -117,18 +117,37 @@ def prepare_deliveries(session: Session, *, now: datetime | None = None,
             if not events:
                 continue
             sources = eligible_source_opportunities(session, user_id, job_ids=[e.job_id for e in events])
-            opportunities = {o.id: o for rows in sources.values() for o in rows}.values()
+            # The source ledger keeps each provider's evidence, while delivery
+            # identity is canonical content. This runs under the same user lease
+            # as sending, so a later board cannot repeat a sent/uncertain message
+            # or reset a terminal failure's bounded retry budget.
+            handled = set(session.exec(select(
+                OpportunityNotificationEvent.job_id, OpportunityNotificationEvent.fingerprint,
+            ).join(NotificationDelivery, NotificationDelivery.id == OpportunityNotificationEvent.delivery_id).where(
+                OpportunityNotificationEvent.user_id == user_id,
+                NotificationDelivery.user_id == user_id,
+                OpportunityNotificationEvent.fingerprint.in_({e.fingerprint for e in events}),
+                OpportunityNotificationEvent.status.in_(["assigned", "sent", "ambiguous", "failed"]),
+                NotificationDelivery.status.in_(["sending", "sent", "ambiguous", "failed"]),
+            )))
+            associations = {o.id: {job.id for job in source_jobs(session, o)}
+                            for rows in sources.values() for o in rows}
             eligible_ids = set(sources)
             accepted = []
             for event in events:
-                if event.job_id in eligible_ids:
-                    accepted.append(event)
-                else:
+                if event.job_id not in eligible_ids:
                     event.status = "skipped"
                     session.add(event)
+                elif any((job_id, event.fingerprint) in handled
+                         for row in sources[event.job_id] for job_id in associations[row.id]):
+                    event.status = "duplicate"
+                    session.add(event)
+                else:
+                    accepted.append(event)
             if not accepted:
                 session.commit()
                 continue
+            opportunities = {o.id: o for event in accepted for o in sources[event.job_id]}.values()
             preference = preference_for(session, user_id)
             pending = session.exec(select(NotificationDelivery).where(
                 NotificationDelivery.user_id == user_id,

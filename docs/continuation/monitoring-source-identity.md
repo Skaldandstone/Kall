@@ -17,6 +17,29 @@ Monitoring, legacy schedules and notification preparation evaluate each source's
 
 The existing durable unique event key remains `(user_id, job_id, fingerprint)`. Same-source repeated observations remain suppressed, and multiple source events for the same opportunity appear once in a summary. Claims, retries, ambiguous outcomes, timing and sender configuration are unchanged.
 
+### Integration follow-up: later-cycle duplicate sources
+
+The root reviewer reproduced one further defect after the source repair: identical
+Greenhouse and Lever content arriving five minutes apart sent two emails for the
+same canonical opportunity. Four regressions failed before the correction, for
+sent, ambiguous, terminally failed and sending delivery outcomes.
+
+Preparation now compares the event fingerprint with durable delivery history for
+the owned opportunity's associated source IDs while holding the existing atomic
+user lease shared by delivery. Identical content already sent, being sent, or
+with an ambiguous/terminal failure is marked duplicate, so a second provider
+cannot restart sending or reset a retry budget. Pending and retrying summaries
+still collect both source events and render one opportunity, preserving attempts.
+Skipped ineligible events do not suppress a subsequently qualifying source.
+Changed content, independent companies and separate users remain eligible.
+Source-specific score and constraint checks still run before this suppression.
+
+The final root suite passed 533 backend tests, including nine later-cycle
+regressions. The final combined benchmark is preserved separately in
+[monitoring-benchmark-final.json](monitoring-benchmark-final.json): ten requests
+per cycle, 0/0/100 events, 67.211/0.666/14.691 seconds with browser QA running
+concurrently. No cloud performance or live-delivery claim follows from this.
+
 ## Validation
 
 All fixtures use local databases, synthetic posting data and disabled or mocked senders. No external feed, SES, Clerk, cloud, CI, push or merge operation is involved.

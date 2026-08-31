@@ -7,10 +7,10 @@ tracks ownership and evidence; task creation does not mean implementation is don
 | --- | --- | --- | --- |
 | Kall integration and delivery | 01a0546e-37c4-78a3-8731-d26b2350af10 | Integration, shared QA safety, release checks | In progress |
 | Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired, integrated, PR updated; five required checks passed |
-| Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | Integrated; combined validation in progress |
-| Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | Integrated; final combined checks running, pilot disabled |
-| Kall: user-flow polish and accessibility | 01a054aa-c624-7b52-ae4f-de9ab36af8c9 | Current-flow fixes, responsive and fixture browser QA | Integrated; 30 combined UI/targeting browser cases passed |
-| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | Reopened after Runestone feedback; Edition recommendation withdrawn |
+| Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | Integrated, including normalized department evidence |
+| Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | Integrated with source-identity repair; pilot disabled |
+| Kall: user-flow polish and accessibility | 01a054aa-c624-7b52-ae4f-de9ab36af8c9 | Current-flow fixes, responsive and fixture browser QA | Integrated; 36 combined browser cases passed |
+| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | Rune-aligned round 02 delivered; selection pending, Edition withdrawn |
 
 ## Integration order
 
@@ -79,3 +79,12 @@ commits and validation evidence before integration is considered complete.
   behavior, controlled benchmarks, the conditional cost worksheet and activation gates.
 - [Combined validation](integration-validation.md) distinguishes completed checks
   from remaining implementation and deployment gates.
+- `52a5010` is integrated as `300bf8a`: visible department/team names now affect
+  both score evidence and material fingerprints, without ID/order-only alerts.
+- `a67063d` is integrated as `6cf6244`: canonical opportunities retain workflow
+  history while source-specific evidence and notification eligibility agree.
+  See [source identity](monitoring-source-identity.md), including the additional
+  integration correction for unchanged duplicate sources arriving in later cycles.
+- `782f25b` is integrated as `339ac69`: [round 02 gallery](../../design/identity-exploration/revision-02/index.html)
+  contains Stave, Inscription and Fjord, with the original carved rune and a
+  career-first Brief. Stave is recommended for alignment review, not approved.

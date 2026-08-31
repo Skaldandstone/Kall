@@ -103,8 +103,8 @@ This file records completed checks separately from remaining release gates.
   routing; keep deployment disabled if the complete estimate exceeds $10/month.
 - Local fixture checks do not verify Clerk, live provider integration, deployed
   behavior, or inbox delivery. Review hosted results within those limits.
-- Correct the identity exploration against Runestone feedback before requesting
-  a selected direction or page hierarchy. This does not block functional repairs.
+- Select or revise the rune-aligned identity direction and page hierarchy after
+  reviewing round 02. This does not block functional repairs.
 
 ## Independent review and first combined CI
 
@@ -116,8 +116,8 @@ is visible before checking that disabling email hides it. This was a test
 failure, not a runner-start or billing restriction. No manual rerun was requested.
 
 Independent targeting review then reproduced two metadata defects and one
-canonical source-association defect. They are being repaired before a follow-up
-push; the previous 496-test result does not prove these follow-ups.
+canonical source-association defect. They are now integrated; the previous
+496-test result is historical evidence, separate from the follow-up run below.
 
 - `300bf8a` integrates shared visible department/team-name extraction. Matching
   and material fingerprints now use normalized labels, ignoring IDs, casing,
@@ -126,10 +126,42 @@ push; the previous 496-test result does not prove these follow-ups.
   All 58 focused native integration tests passed, including the controlled
   monitoring regression. The integration version requires the monitoring module
   rather than skipping its regression when the module is absent.
-- The source-association repair must keep canonical opportunity history while
-  making the displayed source, score and evidence agree, and recognize a
-  qualifying second source without borrowing another source's score. It remains
-  in isolated implementation until its regressions and integration pass.
+- `6cf6244` integrates source-specific Job associations and representative score
+  evidence, including qualifying nonrepresentative sources and captured jobs.
+  Canonical IDs and application/opportunity workflow history remain unchanged.
+- An additional root reproduction found unchanged duplicate sources could send
+  again in a later five-minute cycle. Preparation now consults durable delivery
+  history under the existing atomic user lease. Already sent, sending, ambiguous
+  or terminally failed content is suppressed across associated source IDs.
+  Pending/retrying content joins its existing summary without resetting attempts.
+  Actual content changes, unrelated companies and other users remain independent.
+- `339ac69` integrates the corrected identity package: three rune-aligned raster
+  boards, 24 candidate screen studies and eight current-style controls. Both
+  package validators passed. The lane inspected every visual; root independently
+  reviewed the boards and representative desktop/mobile views, including the
+  pending-sensitive-field and disabled-approval application review. Stave is the
+  next alignment reference, not a selected production identity. Edition stays
+  withdrawn, and the 40-route proposal awaits a hierarchy decision.
+
+## Final local follow-up validation
+
+- All **533 backend tests passed in 59.16 seconds** on the combined department,
+  source-identity and later-cycle duplicate suppression code. Existing Python
+  datetime and Starlette deprecation warnings remain; no tests were skipped.
+- Full repository Ruff, Python compilation and TypeScript checks passed. The
+  revision-02 validator's import spacing was corrected for the full CI lint scope.
+- All **36 isolated browser tests passed again in 2.4 minutes** on the final
+  integrated UI at 1440px and 375px. These cover flow recovery, keyboard access,
+  profile round trips and monitoring preferences with synthetic APIs. No Clerk
+  global setup, live sender or real application submission was invoked.
+- The final controlled measurement completed all three cycles with exactly ten
+  mock requests each, zero feed errors, and 0/0/100 events. Wall times were
+  67.211/0.666/14.691 seconds while the local browser suite ran concurrently.
+  See [final measurement](monitoring-benchmark-final.json). There were no external
+  requests or sends. These variable developer-host timings reinforce the need
+  for the CPU-limited image/PostgreSQL gate; they do not establish cloud latency.
+- Canonical checkout status was rechecked: its original branch/commit, three
+  unrelated copyright modifications and untracked files remain untouched.
 
 ## Deployment boundary
 

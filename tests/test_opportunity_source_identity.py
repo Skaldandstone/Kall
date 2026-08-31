@@ -330,3 +330,79 @@ def test_legacy_captured_sources_without_matches_do_not_reuse_an_aggregate_score
         assert [o.id for o in eligible_opportunities(session, user.id, job_ids=[jobs[1].id])] == [row.id]
         assert row.job_id == jobs[1].id and row.match_score == 65
         assert [m.score for m in session.exec(select(JobMatch).order_by(JobMatch.job_id))] == [35, 65]
+
+
+@pytest.mark.parametrize("outcome", ["sent", "ambiguous", "failed", "sending"])
+def test_duplicate_source_in_later_cycle_does_not_repeat_terminal_or_uncertain_delivery(engine, sender, outcome):
+    with Session(engine) as session:
+        user, profile, schedule, states = setup(session)
+        for state in states:
+            state.initialized = True
+            session.add(state)
+        session.commit()
+        _ingest_page(session, schedule, states[0], encode_jobs([posting("greenhouse", "automation leadership python")]), NOW)
+        assert prepare_deliveries(session, now=NOW) == 1
+        delivery = session.exec(select(NotificationDelivery)).one()
+        assert process_delivery(session, delivery, now=NOW) == "sent"
+        delivery.status = outcome
+        event = session.exec(select(OpportunityNotificationEvent)).one()
+        event.status = "assigned" if outcome == "sending" else outcome
+        session.add(delivery)
+        session.add(event)
+        session.commit()
+        later = NOW + timedelta(minutes=5)
+        _ingest_page(session, schedule, states[1], encode_jobs([posting("lever", "automation leadership python")]), later)
+        assert prepare_deliveries(session, now=later) == 0
+        assert len(session.exec(select(NotificationDelivery)).all()) == 1
+        assert len(sender) == 1
+        events = session.exec(select(OpportunityNotificationEvent).order_by(OpportunityNotificationEvent.id)).all()
+        assert events[0].fingerprint == events[1].fingerprint
+        assert events[1].status == "duplicate"
+
+
+@pytest.mark.parametrize("status", ["queued", "retrying"])
+def test_duplicate_source_in_later_cycle_joins_existing_pending_delivery(engine, sender, status):
+    with Session(engine) as session:
+        user, profile, schedule, states = setup(session)
+        for state in states:
+            state.initialized = True
+            session.add(state)
+        session.commit()
+        _ingest_page(session, schedule, states[0], encode_jobs([posting("greenhouse", "automation leadership python")]), NOW)
+        assert prepare_deliveries(session, now=NOW) == 1
+        delivery = session.exec(select(NotificationDelivery)).one()
+        delivery.status, delivery.attempts = status, 2 if status == "retrying" else 0
+        session.add(delivery)
+        session.commit()
+        later = NOW + timedelta(minutes=5)
+        _ingest_page(session, schedule, states[1], encode_jobs([posting("lever", "automation leadership python")]), later)
+        assert prepare_deliveries(session, now=later) == 0
+        assert len(session.exec(select(NotificationDelivery)).all()) == 1
+        assert len(delivery.payload["event_ids"]) == 2
+        assert len(delivery.payload["opportunity_ids"]) == 1
+        assert delivery.attempts == (2 if status == "retrying" else 0)
+        assert process_delivery(session, delivery, now=later) == "sent"
+        assert len(sender) == 1
+
+
+@pytest.mark.parametrize("variant", ["content", "company", "user"])
+def test_later_source_with_changed_content_or_distinct_identity_still_delivers(engine, sender, variant):
+    with Session(engine) as session:
+        user, profile, schedule, states = setup(session)
+        for state in states:
+            state.initialized = True
+            session.add(state)
+        session.commit()
+        for index, source in enumerate(("greenhouse", "lever")):
+            now = NOW + timedelta(minutes=index * 5)
+            description = "automation leadership python" + (" new responsibilities" if index and variant == "content" else "")
+            item = posting(source, description)
+            if index and variant == "company":
+                item.company = "Independent company"
+            if index and variant == "user":
+                user, profile, schedule, states = setup(session, "other")
+            _ingest_page(session, schedule, states[index], encode_jobs([item]), now)
+            assert prepare_deliveries(session, now=now) == 1
+            delivery = session.exec(select(NotificationDelivery).where(NotificationDelivery.status == "queued")).one()
+            assert process_delivery(session, delivery, now=now) == "sent"
+        assert len(sender) == 2
