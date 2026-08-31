@@ -1,5 +1,7 @@
 # Kall identity correction, round 02
 
+[Open the all-pages UI plan](../ui-plan/index.html) for the selected Inscription direction: all 40 existing routes and their proposed screens, states and mobile behavior. The new plan has separate validation limits; it is not yet visually approved.
+
 Status: **Inscription direction selected** on 31 August 2026. Detailed screens remain proposals. Prepared 30 August 2026; see the [selection record](selection.md). [Open the gallery](index.html), [visual QA](qa.md), [asset manifest](manifest.json), or [navigation and route proposal](../../../docs/continuation/identity-storyboard.md).
 
 This round responds to James's feedback that the first studies did not read like Kall's Runestone. Edition's recommendation is withdrawn. The original images remain in [historical round 01](../round-01.html), unchanged and unapproved. This correction does not replace production assets or authorize a navigation migration.
