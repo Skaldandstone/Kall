@@ -1,5 +1,7 @@
 {
-  "status": "candidate_not_approved",
+  "status": "direction_selected_studies_pending",
+  "selectedDirection": "inscription",
+  "selectionRecord": "selection.md",
   "round": 2,
   "candidateScreens": 24,
   "controlScreens": 8,
