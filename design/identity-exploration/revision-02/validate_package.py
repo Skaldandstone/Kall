@@ -39,7 +39,7 @@ def main():
     assert len(list((ROOT / "art").glob("*.png"))) == 3
     assert len({r["sha256"] for r in records}) == 35
     for filename in ("index.html", "review.css", "mockup.html", "mockup.js", "mockup.css",
-                     "README.md", "qa.md", "prompts.md", "browser-checks.json", "build_studies.py"):
+                     "README.md", "qa.md", "prompts.md", "selection.md", "browser-checks.json", "build_studies.py"):
         assert "\u2014" not in (ROOT / filename).read_text(encoding="utf-8"), filename
     script = (ROOT / "mockup.js").read_text(encoding="utf-8")
     assert 'x="9.2" y="1.6" width="3.6" height="28.8"' in script
@@ -65,12 +65,13 @@ def main():
             assert row["width"] == 375 and row["height"] == 900
             assert row["capture"]["footerBottom"] < row["capture"]["navTop"], row
             assert row["capture"]["pageHeight"] == 1805, row
-    manifest = {"status": "candidate_not_approved", "round": 2, "candidateScreens": 24,
+    manifest = {"status": "direction_selected_studies_pending", "selectedDirection": "inscription",
+                "selectionRecord": "selection.md", "round": 2, "candidateScreens": 24,
                 "controlScreens": 8, "conceptBoards": 3, "visuals": records}
     (ROOT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print("PASS: 3 rune-aligned boards, 24 candidate screens, 8 controls; 32 browser records.")
     print("Identical sample content, mobile footer clearance, exact rune source and image integrity verified.")
-    print("See qa.md for separate visual inspection and limitations. No production or user approval claimed.")
+    print("See selection.md for the identity decision and qa.md for review limits. Production approval is not claimed.")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Kall identity and navigation review
 
-30 August 2026. Status: **candidate_not_approved**. Design exploration only. No production brand or routing changes.
+Updated 31 August 2026. Status: **Inscription direction selected**. Detailed screen and navigation proposals remain under review. No production brand or routing changes.
 
 [Open the corrected gallery](../../design/identity-exploration/revision-02/index.html) for three rune-aligned concepts, 12 desktop and 12 mobile candidate screens, and eight current-style control screens. [Round 02 notes](../../design/identity-exploration/revision-02/README.md) explain the source alignment, samples and limitations. [Round 01](../../design/identity-exploration/round-01.html) is preserved as a historical, unapproved archive.
 
@@ -8,9 +8,9 @@
 
 The round 01 recommendation of **Edition is withdrawn** after feedback that the concepts lost Kall's carved-rune character. Round 02 follows the authoritative KHIG, product vision, existing mark construction and Notion Volume IV design foundation. All three candidates retain the crossing-stave rune, dark graphite/charcoal, warm text and muted fjord blue. Stave explores a precise grotesk system, Inscription a restrained cut-serif treatment, and Fjord an open humanist system.
 
-Use **Stave as the reference for the next alignment review** because it stays closest to the written foundation. This is a design judgment, not user research evidence or a selected direction. James must first confirm the corrected character reads as Kall. None of these candidates is approved. A separate source literally titled Runestone was not found; the correction follows the authoritative sources above and James's feedback.
+James selected **Inscription** on 31 August 2026 by choosing the corrected raster board. This supersedes the prior Stave review reference. The [selection record](../../design/identity-exploration/revision-02/selection.md) identifies the exact image and decision scope. The existing rune, cut-serif wordmark character, charcoal stone and muted fjord blue carry forward. A separate source literally titled Runestone was not found; the correction follows the authoritative sources above and James's feedback.
 
-James must select a direction before replacing the current identity. The broader page hierarchy also needs review before implementation. Current-flow polish and functional fixes can proceed independently. Do not copy these static studies into production as a shortcut around those decisions.
+Identity direction selection is complete. Production wordmark/type refinement and accessibility validation remain to be done. The broader page hierarchy still needs review before implementation. Current-flow polish and functional fixes can proceed independently. Do not copy these static studies into production as a shortcut around those decisions.
 
 ## Navigation storyboard
 
@@ -93,4 +93,4 @@ Each stage requires actual browser visual review at desktop and 375px, plus rele
 
 The exploration was implemented only in `design/identity-exploration/` and this file. The gallery, sources and images are standalone. Inherited unrelated copyright edits and untracked files were preserved. No cloud deployment, live email, new external service or runtime dependency was introduced.
 
-The [round 02 QA log](../../design/identity-exploration/revision-02/qa.md) records inspected assets, actual browser checks and limitations. The coordinator reports PR #169 run `33339187268` passed all five required jobs and the earlier runner-start payment/spending restriction did not recur. Draft PR #170 has its own CI, whose current state must be checked there. This lane did not bypass checks or change billing. Corrected identity alignment, direction selection and hierarchy review remain user decisions; they do not block independent functional repairs.
+The [round 02 QA log](../../design/identity-exploration/revision-02/qa.md) records inspected assets, actual browser checks and limitations. The coordinator reports PR #169 run `33339187268` passed all five required jobs and the earlier runner-start payment/spending restriction did not recur. Draft PR #170 has its own CI, whose current state must be checked there. This lane did not bypass checks or change billing. Inscription is selected; detailed screen and hierarchy review remain user decisions; they do not block independent functional repairs.
