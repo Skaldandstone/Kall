@@ -3,14 +3,39 @@
 The approved 2026-08-30 plan is being built in isolated worktrees. This record
 tracks ownership and evidence; task creation does not mean implementation is done.
 
+## Current checkpoint, 2026-08-31
+
+PR #170's single `build.yml` add/add conflict with updated reminder PR #169 was
+resolved in `14ce61a`, retaining the exact existing PR #170 workflow content.
+No workflow was enabled or dispatched. GitHub reports CI, Build and Ruff-fix
+workflows disabled manually; the separate Manual build workflow on main remains
+owner-dispatched with deployment off by default. Historical green runs for
+`6494525` (PR #169) and `06fb54a` (PR #170) do not certify newer heads.
+
+**Inscription is selected.** James's exact attached board matches the recorded
+SHA-256. Selection is integrated as `08b0e74`; do not ask him to select the
+direction again. Detailed screens, navigation and production masters remain
+separate review/implementation steps. Edition remains withdrawn.
+
+Studio's three scoped web/mobile/extension legal notices are integrated as
+`2aaf208` from `b748333`. Canonical untracked files remain preserved. The notice
+owner passed web/mobile TypeScript and 23 extension tests; physical-device and
+installed-extension appearance have not been reviewed.
+
+The separately authorized billing continuation is isolated on
+`codex/kall-billing-isolation`, implementation `bab26bc`, with 587 backend and 42
+combined synthetic browser cases passed. It is not part of PR #170 at this
+checkpoint. Stripe connector reconnection, verified sandbox configuration and
+disposable PostgreSQL remain gates. Live payments and tax stay disabled.
+
 | Task | Task ID | Responsibility | Status |
 | --- | --- | --- | --- |
 | Kall integration and delivery | 01a0546e-37c4-78a3-8731-d26b2350af10 | Integration, shared QA safety, release checks | In progress |
-| Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired, integrated, PR updated; five required checks passed |
+| Kall: reference reminders and PR 169 | 01a054aa-6150-70d3-a45e-67bc3f95ffc0 | Dry run, reference email, regression tests | Repaired and integrated; historical five-job run passed, newer head has no check rollup |
 | Kall: functional areas and feature audit | 01a054aa-8757-7a02-bf5d-061725f9efa7 | Profile preservation, functional areas, current matching | Integrated, including normalized department evidence |
 | Kall: continuous monitoring and notifications | 01a054aa-a6a0-70d3-b8e8-d6fbf3a4ae8d | Shared feeds, monitoring, durable alerts, disabled deployment | Integrated with source-identity repair; pilot disabled |
 | Kall: user-flow polish and accessibility | 01a054aa-c624-7b52-ae4f-de9ab36af8c9 | Current-flow fixes, responsive and fixture browser QA | Integrated; 36 combined browser cases passed |
-| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three unapproved visual directions and migration proposal | Rune-aligned round 02 delivered; selection pending, Edition withdrawn |
+| Kall: identity exploration and storyboard | 01a054aa-efc7-76d3-a952-33aa44a344b5 | Three visual directions and migration proposal | Inscription selected; detailed screens/navigation pending, Edition withdrawn |
 
 ## Integration order
 
@@ -40,7 +65,8 @@ notification-delivery service. Preserve all application and opportunity states.
 - Keep cloud scheduling/deployment disabled pending measured workload/cost
   validation. No new NAT, database service, paid search or always-running worker.
 - SES has no verified identity and remains sandboxed. No live sending is claimed.
-- Preserve concurrent copyright and Stripe work outside these tasks.
+- Preserve concurrent work. The notice owner's scoped commit is now integrated;
+  the separately authorized Stripe implementation remains on its own branch.
 - Do not change subscription pricing, production Clerk configuration, push
   credentials, or application-submission safeguards.
 - See [QA safety](qa-safety.md) before running authenticated browser suites.
@@ -87,4 +113,4 @@ commits and validation evidence before integration is considered complete.
   integration correction for unchanged duplicate sources arriving in later cycles.
 - `782f25b` is integrated as `339ac69`: [round 02 gallery](../../design/identity-exploration/revision-02/index.html)
   contains Stave, Inscription and Fjord, with the original carved rune and a
-  career-first Brief. Stave is recommended for alignment review, not approved.
+  career-first Brief. James subsequently selected Inscription in `08b0e74`.
