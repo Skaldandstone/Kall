@@ -34,12 +34,12 @@ Parameters:
     Description: Secrets Manager ARN containing username/password for the schema-migrator role.
   OriginDomainName:
     Type: String
-    Description: DNS name mapped to the ALB and covered by OriginCertificateArn.
-  OriginHostedZoneId:
-    Type: String
-    Description: Route 53 hosted zone for OriginDomainName in the same project.
+    AllowedValues: [origin.kall.skaldandstone.com]
+    Description: Externally managed DNS-only Cloudflare name mapped to the ALB and covered by OriginCertificateArn.
   OriginCertificateArn:
     Type: String
+    AllowedPattern: '^arn:aws:acm:us-east-2:734702670689:certificate/[0-9a-f-]+$'
+    ConstraintDescription: Must be an ACM certificate ARN from project 734702670689 in us-east-2.
     Description: us-east-2 ACM certificate ARN for OriginDomainName on the ALB HTTPS listener.
   OpenAISecretArn:
     Type: String
@@ -378,17 +378,6 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref WebTargetGroup
 
-  OriginDnsRecord:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref OriginHostedZoneId
-      Name: !Ref OriginDomainName
-      Type: A
-      AliasTarget:
-        DNSName: !GetAtt LoadBalancer.DNSName
-        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
-        EvaluateTargetHealth: false
-
   ApiListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
@@ -428,7 +417,6 @@ Resources:
 
   Distribution:
     Type: AWS::CloudFront::Distribution
-    DependsOn: OriginDnsRecord
     Properties:
       DistributionConfig:
         Enabled: true

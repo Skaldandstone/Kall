@@ -105,11 +105,17 @@ and calls the API. The ALB listener sends only `/api/billing/webhook` directly
 to FastAPI. This route remains dormant while sandbox billing is disabled and no
 webhook registration is authorized.
 
-The template requires `OriginDomainName`, `OriginHostedZoneId`, and an
-`us-east-2` `OriginCertificateArn`. It creates a same-project Route 53 alias to
-the ALB. CloudFront uses HTTPS-only to that domain, and the web task uses the
-same HTTPS origin for `KALL_API_URL`. The template no longer contains an
-HTTP-only CloudFront origin. This source change does not prove that DNS, the
+The authoritative zone is Cloudflare, not Route 53. The template therefore
+does not create a DNS record or accept a hosted-zone parameter. It accepts only
+`origin.kall.skaldandstone.com` as `OriginDomainName` and requires an
+`OriginCertificateArn` from project `734702670689` in `us-east-2`. The stack
+outputs the ALB DNS name so the AWS owner can coordinate the external,
+DNS-only Cloudflare CNAME after the load balancer exists. The existing
+`kall.skaldandstone.com` record remains outside this template and unchanged.
+
+CloudFront uses HTTPS-only to the external origin, and the web task uses the
+same HTTPS origin for `KALL_API_URL`. The template contains no HTTP-only
+CloudFront origin. This source change does not prove that external DNS, the
 certificate chain, CloudFront, ALB, or the server-side proxy work in a deployed
 environment. Verify all of them before registering a webhook.
 

@@ -147,8 +147,16 @@ def test_alpha_template_uses_verified_tls_and_preserves_release_holds() -> None:
     assert "Value: verify-full" in template
     assert "Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem" in template
     assert "OriginProtocolPolicy: https-only" in template
-    assert "Type: AWS::Route53::RecordSet" in template
-    assert "DependsOn: OriginDnsRecord" in template
+    assert "OriginHostedZoneId" not in template
+    assert "Type: AWS::Route53::RecordSet" not in template
+    assert "OriginDnsRecord" not in template
+    assert "AllowedValues: [origin.kall.skaldandstone.com]" in template
+    assert (
+        "AllowedPattern: '^arn:aws:acm:us-east-2:734702670689:certificate/"
+        "[0-9a-f-]+$'"
+    ) in template
+    assert "DomainName: !Ref OriginDomainName" in template
+    assert "Value: !GetAtt LoadBalancer.DNSName" in template
     assert "Value: !Sub https://${OriginDomainName}" in template
     assert "OriginProtocolPolicy: http-only" not in template
     assert "Value: 'false'\n            - Name: STRIPE_LIVEMODE" in template

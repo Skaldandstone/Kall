@@ -29,6 +29,9 @@ The replacement runtime must preserve all of these constraints:
 - route `/api/kall/*` through the authenticated web proxy and expose only the
   exact Stripe webhook path directly to the API;
 - use HTTPS from CloudFront to the ALB and from the web service to the API;
+- leave the authoritative Cloudflare zone outside the stack, expose the ALB DNS
+  output for the DNS-only `origin.kall.skaldandstone.com` CNAME, and require the
+  matching `us-east-2` ACM certificate;
 - reference retained application secrets without printing or recreating values;
 - keep Stripe live mode, automatic tax, monitoring, SES sending, and public
   invitations disabled until their separate acceptance gates pass;
