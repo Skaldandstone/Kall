@@ -14,7 +14,14 @@ export default function SignInPage() {
         </p>
       </section>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <SignIn appearance={{ elements: { footerAction: { display: 'none' } } }} />
+        <SignIn
+          appearance={{
+            elements: {
+              footerAction: { display: 'none' },
+              footerItem: { color: '#17120e' },
+            },
+          }}
+        />
       </div>
     </main>
   );

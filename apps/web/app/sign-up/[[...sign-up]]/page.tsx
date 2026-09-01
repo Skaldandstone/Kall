@@ -14,7 +14,7 @@ export default function SignUpPage() {
         </p>
       </section>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <SignUp />
+        <SignUp appearance={{ elements: { footerItem: { color: '#17120e' } } }} />
       </div>
     </main>
   );
