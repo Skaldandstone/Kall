@@ -30,6 +30,7 @@ Parameters:
 
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
+  StripeSandboxEnabled: !Equals [!Ref EnableStripeSandbox, 'true']
 
 Resources:
   AppSecret:
@@ -484,10 +485,16 @@ Resources:
               ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:password::'
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
-            - Name: STRIPE_SECRET_KEY
-              ValueFrom: !Sub '${StripeSecretArn}:STRIPE_SECRET_KEY::'
-            - Name: STRIPE_WEBHOOK_SECRET
-              ValueFrom: !Sub '${StripeSecretArn}:STRIPE_WEBHOOK_SECRET::'
+            - !If
+              - StripeSandboxEnabled
+              - Name: STRIPE_SECRET_KEY
+                ValueFrom: !Sub '${StripeSecretArn}:STRIPE_SECRET_KEY::'
+              - !Ref AWS::NoValue
+            - !If
+              - StripeSandboxEnabled
+              - Name: STRIPE_WEBHOOK_SECRET
+                ValueFrom: !Sub '${StripeSecretArn}:STRIPE_WEBHOOK_SECRET::'
+              - !Ref AWS::NoValue
             - Name: ALPHA_ALLOWED_EMAILS
               ValueFrom: !Sub '${AlphaAccessSecret}:ALPHA_ALLOWED_EMAILS::'
             - !If
@@ -502,7 +509,11 @@ Resources:
               awslogs-region: us-east-2
               awslogs-stream-prefix: ecs
           HealthCheck:
-            Command: [CMD-SHELL, 'curl --fail http://127.0.0.1:8000/health || exit 1']
+            Command:
+              - CMD-SHELL
+              - >-
+                python -c "import urllib.request;
+                urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"
             Interval: 30
             Timeout: 5
             Retries: 3
