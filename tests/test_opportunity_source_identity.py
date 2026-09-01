@@ -128,6 +128,66 @@ def test_qualifying_nonrepresentative_source_and_duplicate_events_coalesce(engin
         assert row.job_id == representative
 
 
+def test_jobs_feed_maps_every_source_to_owned_canonical_opportunity(client, engine):
+    with Session(engine) as session:
+        profile = CareerProfile(
+            user_id=client.user_id,
+            name="Primary",
+            target_titles=["Engineer"],
+            include_keywords=["automation", "leadership", "python"],
+        )
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        ingest_discovered_jobs(session, session.get(User, client.user_id), profile, [
+            posting("greenhouse", "automation leadership python"),
+            posting("lever", "automation leadership python"),
+        ])
+        opportunity = session.exec(select(Opportunity)).one()
+        jobs = {job.source: job for job in session.exec(select(Job))}
+        assert opportunity.job_id == jobs["greenhouse"].id
+
+        # A legacy URL-only association must remain actionable too.
+        opportunity.source_records = [
+            {"job_id": jobs["greenhouse"].id, "source": "greenhouse", "url": jobs["greenhouse"].url},
+            {"source": "lever", "url": jobs["lever"].url},
+        ]
+        session.add(opportunity)
+
+        other_profile = CareerProfile(user_id=client.user_id, name="Other", target_titles=["Engineer"])
+        session.add(other_profile)
+        session.flush()
+        session.add(JobMatch(
+            user_id=client.user_id,
+            career_profile_id=other_profile.id,
+            job_id=jobs["lever"].id,
+            score=75,
+            recommendation="Strong match",
+        ))
+        session.commit()
+        profile_id = profile.id
+        other_profile_id = other_profile.id
+        opportunity_id = opportunity.id
+        greenhouse_id = jobs["greenhouse"].id
+        lever_id = jobs["lever"].id
+
+    response = client.get(f"/api/jobs/feed?professional_profile_id={profile_id}")
+    assert response.status_code == 200, response.text
+    feed = response.json()
+    assert {item["job_id"] for item in feed} == {greenhouse_id, lever_id}
+    assert {item["opportunity_id"] for item in feed} == {opportunity_id}
+    assert next(item for item in feed if item["job_id"] == lever_id)["opportunity_id"] == opportunity_id
+
+    update = client.patch(f"/api/opportunities/{opportunity_id}", json={"state": "saved"})
+    assert update.status_code == 200, update.text
+    assert update.json()["state"] == "saved"
+
+    isolated = client.get(f"/api/jobs/feed?professional_profile_id={other_profile_id}")
+    assert isolated.status_code == 200, isolated.text
+    assert isolated.json()[0]["job_id"] == lever_id
+    assert isolated.json()[0]["opportunity_id"] is None
+
+
 @pytest.mark.parametrize("change", ["below_threshold", "excluded", "profile_paused"])
 def test_changed_event_source_cannot_borrow_other_sources_score_at_send(engine, sender, change):
     with Session(engine) as session:

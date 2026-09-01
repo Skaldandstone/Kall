@@ -35,6 +35,7 @@ from kall.services.admin import is_admin
 from kall.services.applications import approve_application, prepare_application
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match, is_out_of_scope
+from kall.services.opportunity_sources import opportunity_ids_by_source
 from kall.services.resume import extract_resume_text
 from kall.services.storage import get_storage
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
@@ -284,7 +285,33 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
     # before that flag existed had nothing re-checking it, so a dead posting
     # kept showing up in this feed forever.
     blocked = suppressed_urls(session, current_user.id, reasons=DISCOVERY_BLOCKING_REASONS)
-    return [{"match_id": match.id, "job_id": job.id, "score": match.score, "recommendation": match.recommendation, "strengths": match.strengths, "gaps": match.gaps, "company": job.company, "title": job.title, "location": job.location, "work_type": job.work_type, "salary_min": job.salary_min, "salary_max": job.salary_max, "url": job.url, "source": job.source} for match, job in rows if not is_suppressed(job.url, blocked) and not is_out_of_scope(job, profile)]
+    opportunity_ids, legacy_opportunity_ids = opportunity_ids_by_source(
+        session,
+        user_id=current_user.id,
+        professional_profile_id=professional_profile_id,
+    )
+    feed = []
+    for match, job in rows:
+        if is_suppressed(job.url, blocked) or is_out_of_scope(job, profile):
+            continue
+        feed.append({
+            "match_id": match.id,
+            "job_id": job.id,
+            "opportunity_id": opportunity_ids.get(job.id) or legacy_opportunity_ids.get(job.url),
+            "score": match.score,
+            "recommendation": match.recommendation,
+            "strengths": match.strengths,
+            "gaps": match.gaps,
+            "company": job.company,
+            "title": job.title,
+            "location": job.location,
+            "work_type": job.work_type,
+            "salary_min": job.salary_min,
+            "salary_max": job.salary_max,
+            "url": job.url,
+            "source": job.source,
+        })
+    return feed
 
 
 @router.get("/discovery/runs", response_model=list[SearchRun])

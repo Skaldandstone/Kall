@@ -13,6 +13,7 @@ export function fetchCareerProfiles(): Promise<{ profiles: CareerProfile[] }> {
 export type JobFeedItem = {
   match_id: number;
   job_id: number;
+  opportunity_id?: number | null;
   score: number;
   recommendation: string;
   strengths: string[];
