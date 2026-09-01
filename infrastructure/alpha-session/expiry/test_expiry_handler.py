@@ -83,6 +83,20 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertNotIn("SkaldAndStone:", body)
             self.assertIn("SkaldAndStone-SessionId", body)
 
+    def test_templates_omit_reserved_concurrency_and_keep_one_bounded_target(self):
+        root = Path(__file__).resolve().parent
+        for name in ("kall-session-expiry.template.yaml", "kall-session-expiry.yaml"):
+            body = (root / name).read_text()
+            self.assertNotIn("ReservedConcurrentExecutions", body)
+            self.assertIn("Default: 'false'", body)
+            self.assertEqual(body.count("      Targets:\n"), 1)
+            self.assertEqual(body.count("        - Arn: !GetAtt ExpiryFunction.Arn\n"), 1)
+            self.assertIn("MaximumEventAgeInSeconds: 300", body)
+            self.assertIn("MaximumRetryAttempts: 2", body)
+
+        handler = (root / "expiry_handler.py").read_text()
+        self.assertIn('ClientRequestToken=f"expiry-{config[\'session_id\']}"', handler)
+
 
 if __name__ == "__main__":
     unittest.main()

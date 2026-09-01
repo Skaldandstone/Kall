@@ -6,7 +6,7 @@ rule lambda_is_bounded {
     Resources.ExpiryFunction.Properties.Runtime == 'python3.12'
     Resources.ExpiryFunction.Properties.Timeout <= 30
     Resources.ExpiryFunction.Properties.MemorySize == 128
-    Resources.ExpiryFunction.Properties.ReservedConcurrentExecutions == 1
+    Resources.ExpiryFunction.Properties.ReservedConcurrentExecutions not exists
 }
 
 rule recovery_log_is_retained_and_bounded {
