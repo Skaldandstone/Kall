@@ -30,7 +30,11 @@ report a fixed version. No image from that build is approved for runtime use.
 - API build context: repository root, Dockerfile `Dockerfile.api`.
 - Web build context: `apps/web`, Dockerfile `apps/web/Dockerfile`.
 - API base: `python:3.12.14-alpine3.24`, pinned to index digest
-  `sha256:d09d15e60962ca365d1cd544a48773bac9d33f2fb1b00f2aa0deec78ade7dc31`.
+  `sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0`.
+  Its reviewed `linux/amd64` manifest is
+  `sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb`
+  and its immutable package database contains `libssl3=3.5.8-r0` and
+  `libcrypto3=3.5.8-r0`.
 - Web base: `node:22.23.2-alpine3.24`, pinned to index digest
   `sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32`.
   All web stages derive from this single reviewed base stage.
@@ -48,17 +52,23 @@ report a fixed version. No image from that build is approved for runtime use.
 
 ### OpenSSL build gate
 
-Both Dockerfiles intentionally fail before dependency installation while the
-base contains `libssl3` or `libcrypto3` version `3.5.7-r0`. They also require an
-explicit `ALPINE_OPENSSL_APPROVED_VERSION` build argument that exactly matches
-both installed package versions. There is no default and the affected version
-is rejected even if supplied explicitly.
+Both Dockerfiles fail before dependency installation when the base contains
+`libssl3` or `libcrypto3` version `3.5.7-r0`. They also require an explicit
+`ALPINE_OPENSSL_APPROVED_VERSION` build argument that exactly matches both
+installed package versions. There is no default and the affected version is
+rejected even if supplied explicitly.
+
+The reviewed Python base has advanced to `3.5.8-r0`. The API Dockerfile now
+accepts only that exact build argument and still validates both installed
+packages against it. The Node base remains on `3.5.7-r0`, so the web Dockerfile
+remains intentionally blocked. This clears only the API source input gate. It
+does not approve an API output image, the web image, or a runtime launch.
 
 Do not work around the gate with `apk upgrade`, a floating base tag, or an
 unreviewed alternate image. When Alpine publishes a successor:
 
-1. Review the official Python and Node image manifests and update both pinned
-   index digests.
+1. Review each official image manifest and update that image's pinned index
+   digest.
 2. Build with
    `--build-arg ALPINE_OPENSSL_APPROVED_VERSION=<reviewed-exact-version>`.
 3. Confirm `libssl3` and `libcrypto3` resolve to that exact version in both
@@ -67,9 +77,9 @@ unreviewed alternate image. When Alpine publishes a successor:
 5. Keep the launch gate closed until every critical, high, and undefined
    finding is reviewed.
 
-The pinned digests make the current vulnerable input reproducible; they do not
-remediate it. The package assertion prevents a future base refresh from being
-silently accepted without review.
+The web digest still makes its current vulnerable input reproducible; it does
+not remediate it. The package assertions prevent a future base refresh from
+being silently accepted without review.
 
 The runtime and migration task definitions accept separate Secrets Manager
 ARNs containing `username` and `password`. Before deployment, the AWS owner must
