@@ -82,6 +82,14 @@ a {
   outline-offset: 3px;
 }
 
+/* Clerk's development-mode footer renders "Secured by" over an orange
+   provider badge with translucent cream text (2.05:1 in the live alpha).
+   Use Clerk's stable public class plus semantic data attributes, never its
+   generated internal classes, to keep that required branding readable. */
+.cl-footerItem p[data-variant="buttonSmall"][data-color="inherit"] {
+  color: #17120e !important;
+}
+
 .shell {
   width: min(1180px, 100%);
   margin: 0 auto;
