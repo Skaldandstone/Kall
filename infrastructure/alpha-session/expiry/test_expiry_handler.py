@@ -163,7 +163,7 @@ class ExpiryHandlerTests(unittest.TestCase):
                 "                Action: rds:CreateDBSnapshot\n"
                 "                Resource:\n"
                 "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres\n"
-                "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*\n"
+                "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-snapshot-database-*\n"
                 "                Condition:\n"
                 "                  StringEquals:\n"
                 "                    aws:RequestedRegion: !Ref ExpectedRegion",
@@ -176,10 +176,13 @@ class ExpiryHandlerTests(unittest.TestCase):
             for broad_snapshot_pattern in (
                 "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:*",
                 "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-*",
-                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-*",
-                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-snapshot-*",
             ):
                 self.assertNotIn(broad_snapshot_pattern, body)
+            self.assertNotIn("kall-sandbox-29f1815c16c9", body)
+            self.assertIn("AllowedPattern: '^kall-sandbox-[a-f0-9]{12}$'", body)
             rds_create_actions = [
                 line.strip().removeprefix("- ").removeprefix("Action: ")
                 for line in body.splitlines()
@@ -190,14 +193,22 @@ class ExpiryHandlerTests(unittest.TestCase):
                 "- Sid: TagExactDatabaseSnapshot\n"
                 "                Effect: Allow\n"
                 "                Action: rds:AddTagsToResource\n"
-                "                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*\n"
+                "                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-snapshot-database-*\n"
                 "                Condition:\n"
                 "                  StringEquals:\n"
                 "                    aws:RequestedRegion: !Ref ExpectedRegion",
                 body,
             )
             self.assertEqual(body.count("rds:AddTagsToResource"), 1)
-            self.assertNotIn("rds:RemoveTagsFromResource", body)
+            rds_tag_actions = [
+                line.strip().removeprefix("- ").removeprefix("Action: ")
+                for line in body.splitlines()
+                if "rds:" in line and "Tags" in line
+            ]
+            self.assertEqual(
+                rds_tag_actions,
+                ["rds:ListTagsForResource", "rds:AddTagsToResource"],
+            )
             for role_name in (
                 "kall-alpha-api-execution",
                 "kall-alpha-api-task",
