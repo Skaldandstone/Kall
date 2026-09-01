@@ -269,11 +269,13 @@ does not create a DNS record or accept a hosted-zone parameter. It accepts only
 `origin.kall.skaldandstone.com` as `OriginDomainName` and requires an
 `OriginCertificateArn` from project `734702670689` in `us-east-2`. The stack
 outputs the ALB DNS name so the AWS owner can coordinate the external,
-DNS-only Cloudflare CNAME after the load balancer exists. The existing
-`kall.skaldandstone.com` record remains outside this template and unchanged.
+DNS-only Cloudflare CNAME after the load balancer exists. It also accepts only
+`kall.skaldandstone.com` as the public CloudFront alias and requires an exact
+viewer certificate ARN from project `734702670689` in `us-east-1`. Cloudflare
+continues to own the public DNS record outside this template.
 
 CloudFront uses HTTPS-only to the external origin. The web task uses the
-distribution's HTTPS domain for `KALL_API_URL`, so its server-side proxy follows
+public alias for `KALL_API_URL`, so its server-side proxy follows
 the same CloudFront-to-ALB path already allowed by the ALB security group. It
 does not call the internet-facing ALB's public addresses directly, which would
 require weakening ingress or relying on an unsupported security-group hairpin.

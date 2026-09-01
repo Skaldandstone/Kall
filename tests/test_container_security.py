@@ -238,15 +238,26 @@ def test_alpha_template_uses_verified_tls_and_preserves_release_holds() -> None:
     assert "Type: AWS::Route53::RecordSet" not in template
     assert "OriginDnsRecord" not in template
     assert "AllowedValues: [origin.kall.skaldandstone.com]" in template
+    assert "AllowedValues: [kall.skaldandstone.com]" in template
     assert (
         "AllowedPattern: '^arn:aws:acm:us-east-2:734702670689:certificate/"
         "[0-9a-f-]+$'"
     ) in template
+    assert (
+        "AllowedPattern: '^arn:aws:acm:us-east-1:734702670689:certificate/"
+        "[0-9a-f-]+$'"
+    ) in template
     assert "DomainName: !Ref OriginDomainName" in template
+    assert "Aliases:\n          - !Ref PublicDomainName" in template
+    assert "AcmCertificateArn: !Ref ViewerCertificateArn" in template
+    assert "SslSupportMethod: sni-only" in template
+    assert "CloudFrontDefaultCertificate: true" not in template
     assert "Value: !GetAtt LoadBalancer.DNSName" in template
     web_task = template.split("  WebTaskDefinition:", 1)[1].split("  ApiService:", 1)[0]
-    assert "- Name: KALL_API_URL\n              Value: !Sub https://${Distribution.DomainName}" in web_task
+    assert "- Name: KALL_API_URL\n              Value: !Sub https://${PublicDomainName}" in web_task
+    assert "- Name: KALL_API_URL\n              Value: !Sub https://${Distribution.DomainName}" not in web_task
     assert "- Name: KALL_API_URL\n              Value: !Sub https://${OriginDomainName}" not in web_task
+    assert "Value: !Sub https://${PublicDomainName}" in template
     assert "CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad" in template
     assert "OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3" in template
     assert "OriginProtocolPolicy: http-only" not in template

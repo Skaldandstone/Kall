@@ -41,6 +41,15 @@ Parameters:
     AllowedPattern: '^arn:aws:acm:us-east-2:734702670689:certificate/[0-9a-f-]+$'
     ConstraintDescription: Must be an ACM certificate ARN from project 734702670689 in us-east-2.
     Description: us-east-2 ACM certificate ARN for OriginDomainName on the ALB HTTPS listener.
+  PublicDomainName:
+    Type: String
+    AllowedValues: [kall.skaldandstone.com]
+    Description: Public Kall hostname managed in Cloudflare DNS.
+  ViewerCertificateArn:
+    Type: String
+    AllowedPattern: '^arn:aws:acm:us-east-1:734702670689:certificate/[0-9a-f-]+$'
+    ConstraintDescription: Must be an ACM certificate ARN from project 734702670689 in us-east-1.
+    Description: us-east-1 ACM certificate ARN for PublicDomainName on CloudFront.
   OpenAISecretArn:
     Type: String
     Default: ''
@@ -499,6 +508,8 @@ Resources:
         PriceClass: PriceClass_100
         HttpVersion: http2and3
         IPV6Enabled: true
+        Aliases:
+          - !Ref PublicDomainName
         Origins:
           - Id: kall-alpha-alb
             DomainName: !Ref OriginDomainName
@@ -518,7 +529,8 @@ Resources:
           OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
           ResponseHeadersPolicyId: !Ref ResponseHeadersPolicy
         ViewerCertificate:
-          CloudFrontDefaultCertificate: true
+          AcmCertificateArn: !Ref ViewerCertificateArn
+          SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
 
   ApiTaskDefinition:
@@ -569,7 +581,7 @@ Resources:
             - Name: DATABASE_SSL_ROOT_CERT
               Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem
             - Name: FRONTEND_URL
-              Value: !Sub https://${Distribution.DomainName}
+              Value: !Sub https://${PublicDomainName}
             - Name: AWS_REGION
               Value: us-east-2
             - Name: AWS_S3_BUCKET
@@ -789,7 +801,7 @@ Resources:
             - Name: NODE_ENV
               Value: production
             - Name: KALL_API_URL
-              Value: !Sub https://${Distribution.DomainName}
+              Value: !Sub https://${PublicDomainName}
             - Name: ALPHA_INVITE_ONLY
               Value: 'true'
           Secrets:
@@ -898,7 +910,7 @@ Resources:
 
 Outputs:
   AlphaUrl:
-    Value: !Sub https://${Distribution.DomainName}
+    Value: !Sub https://${PublicDomainName}
   DistributionId:
     Value: !Ref Distribution
   LoadBalancerDnsName:
