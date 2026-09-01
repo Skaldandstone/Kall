@@ -12,18 +12,8 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Manual runs exist for operational redeploys (config-only changes, a
-  # rollback to main's HEAD) -- the full test suite still runs first.
+  # Manual runs validate the current source without cloud credentials.
   workflow_dispatch:
-    inputs:
-      deploy_api:
-        description: "Deploy kall-api even if backend paths did not change"
-        type: boolean
-        default: false
-      deploy_web:
-        description: "Deploy kall-web even if apps/web did not change"
-        type: boolean
-        default: false
 
 jobs:
   backend:
@@ -32,10 +22,7 @@ jobs:
     # pattern here) used to queue up every one of these test jobs in full
     # when only the latest commit's result matters. This cancels a job
     # still running for the same ref the moment a newer commit shows up.
-    # Deliberately job-level, not workflow-level: `deploy` needs its own
-    # in-flight CodeBuild rollout to finish rather than get killed mid-way
-    # by the next push, and it already serializes itself via the separate
-    # production-deploy group below.
+    # Deliberately job-level so independent test jobs retain their own results.
     concurrency:
       group: ci-backend-${{ github.ref }}
       cancel-in-progress: true
@@ -177,101 +164,6 @@ jobs:
       # nothing ever submits the form.
       - run: npm test
         working-directory: apps/extension
-
-  # Production deploy: only on main, only after every test job above passed.
-  # The heavy lifting (docker build, ECR push, ECS rollout, stability wait)
-  # happens inside CodeBuild under kall-codebuild-role -- see
-  # ops/codebuild/*.buildspec.yml and docs/AWS_DEPLOYMENT.md. The credentials
-  # this job holds (IAM user kall-github-deploy) can start and watch those two
-  # builds and nothing else.
-  deploy:
-    if: github.repository == 'Skaldandstone/Kall' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: [backend, web, e2e, extension, mobile-e2e]
-    runs-on: ubuntu-latest
-    # One deploy at a time; a newer run supersedes rather than interleaves.
-    concurrency: production-deploy
-    # checkout needs contents:read; an empty permissions block strips even
-    # that and the job dies fetching its own repository.
-    permissions:
-      contents: read
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.KALL_DEPLOY_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.KALL_DEPLOY_AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: us-east-2
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          # The pushed range is needed to decide which image actually changed.
-          fetch-depth: 0
-      - name: Decide which services changed
-        id: changes
-        env:
-          BEFORE: ${{ github.event.before }}
-          FORCE_API: ${{ inputs.deploy_api }}
-          FORCE_WEB: ${{ inputs.deploy_web }}
-        run: |
-          api=false
-          web=false
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            api="$FORCE_API"
-            web="$FORCE_WEB"
-          elif [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
-            # Force push or unknown range: rebuild everything rather than guess.
-            api=true
-            web=true
-          else
-            changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
-            printf 'changed files:\n%s\n' "$changed"
-            # Only paths that end up inside the API image (see Dockerfile.api).
-            if printf '%s\n' "$changed" | grep -qE '^(backend/|migrations/|deploy/certs/|Dockerfile\.api|alembic\.ini|pyproject\.toml)'; then
-              api=true
-            fi
-            if printf '%s\n' "$changed" | grep -qE '^apps/web/'; then
-              web=true
-            fi
-          fi
-          echo "api=$api" >> "$GITHUB_OUTPUT"
-          echo "web=$web" >> "$GITHUB_OUTPUT"
-          echo "deploying: api=$api web=$web"
-      - name: Build and deploy via CodeBuild
-        if: steps.changes.outputs.api == 'true' || steps.changes.outputs.web == 'true'
-        # The repo is private and CodeBuild holds no GitHub credential on
-        # purpose, so CodeBuild cannot clone the source itself (its GITHUB
-        # source type died in DOWNLOAD_SOURCE with "authentication required").
-        # This job already has the gated commit checked out, so it ships the
-        # tree to S3 and overrides the build's source to that archive -- which
-        # also pins the deploy to the exact commit the tests passed on. The
-        # bucket expires objects after 30 days.
-        run: |
-          zip="source-$GITHUB_SHA.zip"
-          git archive --format=zip -o "$zip" "$GITHUB_SHA"
-          aws s3 cp --no-progress "$zip" "s3://kall-build-sources-693272753663/github-deploy/$zip"
-          ids=()
-          if [ "${{ steps.changes.outputs.api }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-api-build \
-              --source-type-override S3 \
-              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
-              --query 'build.id' --output text)")
-          fi
-          if [ "${{ steps.changes.outputs.web }}" = "true" ]; then
-            ids+=("$(aws codebuild start-build --project-name kall-web-build \
-              --source-type-override S3 \
-              --source-location-override "kall-build-sources-693272753663/github-deploy/$zip" \
-              --query 'build.id' --output text)")
-          fi
-          echo "started: ${ids[*]}"
-          fail=0
-          for id in "${ids[@]}"; do
-            while :; do
-              status=$(aws codebuild batch-get-builds --ids "$id" --query 'builds[0].buildStatus' --output text)
-              [ "$status" != "IN_PROGRESS" ] && break
-              sleep 15
-            done
-            echo "$id -> $status"
-            [ "$status" = "SUCCEEDED" ] || fail=1
-          done
-          exit "$fail"
-
   mobile-e2e:
     runs-on: ubuntu-latest
     concurrency:

@@ -6,6 +6,14 @@ from cryptography import x509
 ROOT = Path(__file__).resolve().parents[1]
 RDS_CA = ROOT / "deploy" / "certs" / "aws-rds-us-east-2-bundle.pem"
 RDS_CA_SHA256 = "d46e1bdfda05c8e7644e50930806a19b139a222542bf0348082fb59ece2b5fa5"
+PYTHON_BASE = (
+    "python:3.12.14-alpine3.24@"
+    "sha256:d09d15e60962ca365d1cd544a48773bac9d33f2fb1b00f2aa0deec78ade7dc31"
+)
+NODE_BASE = (
+    "node:22.23.2-alpine3.24@"
+    "sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+)
 
 
 def test_rds_bundle_is_the_reviewed_region_scoped_public_bundle() -> None:
@@ -28,7 +36,7 @@ def test_rds_bundle_is_the_reviewed_region_scoped_public_bundle() -> None:
 def test_api_image_runs_only_the_service_as_a_fixed_non_root_user() -> None:
     dockerfile = (ROOT / "Dockerfile.api").read_text()
 
-    assert dockerfile.startswith("FROM python:3.12.14-alpine3.24 AS runtime\n")
+    assert dockerfile.startswith(f"FROM {PYTHON_BASE} AS runtime\n")
     assert "USER 10001:10001" in dockerfile
     assert "HOME=/tmp" in dockerfile
     assert "TMPDIR=/tmp" in dockerfile
@@ -53,15 +61,36 @@ def test_api_image_has_verified_rds_tls_defaults() -> None:
     ) in dockerfile
 
 
-def test_web_image_uses_one_reviewed_supported_base_in_every_stage() -> None:
+def test_web_image_uses_one_digest_pinned_base_for_every_stage() -> None:
     dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text()
     from_lines = [line for line in dockerfile.splitlines() if line.startswith("FROM ")]
 
     assert from_lines == [
-        "FROM node:22.23.2-alpine3.24 AS dependencies",
-        "FROM node:22.23.2-alpine3.24 AS builder",
-        "FROM node:22.23.2-alpine3.24 AS runtime",
+        f"FROM {NODE_BASE} AS base",
+        "FROM base AS dependencies",
+        "FROM base AS builder",
+        "FROM base AS runtime",
     ]
+
+
+def test_container_builds_fail_closed_on_unreviewed_openssl_packages() -> None:
+    for relative_path in ("Dockerfile.api", "apps/web/Dockerfile"):
+        dockerfile = (ROOT / relative_path).read_text()
+
+        assert "ARG ALPINE_OPENSSL_APPROVED_VERSION" in dockerfile
+        assert "apk info -v libssl3" in dockerfile
+        assert "apk info -v libcrypto3" in dockerfile
+        assert 'test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"' in dockerfile
+        assert 'test "${ssl_version}" != "3.5.7-r0"' in dockerfile
+        assert 'test "${crypto_version}" != "3.5.7-r0"' in dockerfile
+        assert (
+            'test "${ssl_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            in dockerfile
+        )
+        assert (
+            'test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            in dockerfile
+        )
 
 
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:
@@ -134,14 +163,6 @@ def test_only_webhook_bypasses_the_authenticated_web_proxy() -> None:
     assert "- /api/*" not in listener_rule
 
 
-def test_reviewed_snapshot_and_build_detection_include_the_ca_bundle() -> None:
+def test_reviewed_snapshot_includes_the_ca_bundle() -> None:
     snapshot_builder = (ROOT / "scripts" / "build_reviewed_snapshot.py").read_text()
     assert '"deploy/certs/"' in snapshot_builder
-
-    for relative_path in (
-        ".github/workflows/build.yml",
-        ".github/workflows/manual-build.yml",
-        ".github/workflows/ci.yml",
-    ):
-        workflow = (ROOT / relative_path).read_text()
-        assert "deploy/certs/" in workflow

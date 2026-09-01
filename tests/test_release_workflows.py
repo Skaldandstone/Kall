@@ -1,0 +1,35 @@
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOWS = (
+    ROOT / ".github" / "workflows" / "build.yml",
+    ROOT / ".github" / "workflows" / "ci.yml",
+    ROOT / ".github" / "workflows" / "manual-build.yml",
+)
+
+
+def test_github_workflows_cannot_deploy_to_the_retired_aws_project() -> None:
+    for path in WORKFLOWS:
+        body = path.read_text()
+        assert "KALL_DEPLOY_AWS_ACCESS_KEY_ID" not in body
+        assert "KALL_DEPLOY_AWS_SECRET_ACCESS_KEY" not in body
+        assert "693272753663" not in body
+        assert "kall-api-build" not in body
+        assert "kall-web-build" not in body
+        assert "\n  deploy:\n" not in body
+        assert "deploy_api" not in body
+        assert "deploy_web" not in body
+
+
+def test_retired_account_buildspecs_are_not_executable_release_inputs() -> None:
+    legacy_directory = ROOT / "ops" / "codebuild"
+    assert not (legacy_directory / "kall-api.buildspec.yml").exists()
+    assert not (legacy_directory / "kall-web.buildspec.yml").exists()
+
+
+def test_manual_workflow_remains_explicitly_build_only() -> None:
+    body = (ROOT / ".github" / "workflows" / "manual-build.yml").read_text()
+    assert "workflow_dispatch:" in body
+    assert "jobs:\n  web:" in body
+    assert "\n  extension:\n" in body
+    assert "cloud credentials or deployment controls" in body

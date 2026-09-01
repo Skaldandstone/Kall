@@ -2,7 +2,9 @@
 
 Kall runs as three resources: a PostgreSQL database, the FastAPI service, and the Next.js service.
 
-**Infrastructure lives in [`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md)** — ECS, RDS, CodeBuild, CloudFront, and the actual account topology. This runbook covers what sits on top of it and is not AWS-specific: the application configuration, and the Stripe test-to-live cutover.
+**Infrastructure lives in [`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md).** It records
+the reviewed CloudFormation release path and current holds. This runbook covers
+the application configuration and the Stripe test-to-live cutover.
 
 ## 1. Before you start
 

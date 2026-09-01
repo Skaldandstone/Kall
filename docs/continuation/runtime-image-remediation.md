@@ -5,7 +5,10 @@ Kall development runtime. It does not approve an image or a cloud rollout.
 
 ## Source baseline and containment
 
-The final remediation commit is based on `0f0dbb615260c1c42a25b5e8c0787f1896ffd72f`.
+The release-safety follow-up is based on
+`f508a7fd3c0f8a6b279e092bf78e58ae87371537`.
+The earlier runtime hardening was based on
+`0f0dbb615260c1c42a25b5e8c0787f1896ffd72f`.
 The contained AWS runtime used API source `e6b3844` and web source `7e0b7cf`.
 The AWS owner reported both services scaled to zero and the database stopping
 after discovering the flawed runtime. No AWS mutation was made from this lane.
@@ -17,16 +20,20 @@ The contained images were:
 | API tag `1a9943715a5cf0b958468896d6d4adf307760c190e4711ba0ad1f0902f7c3416` | `sha256:1b0feac10c70f5b67e8e9e3935ddf3d0167d4b3535ea58d7cedf870f3fc0fd46` | 0 critical, 7 high, 1 medium, 2 undefined |
 | Web tag `3cb6f791d24350fd0ed546c53a2c5514610b53aa3fcc9159267a878afab51004` | `sha256:c805ab021c3f21ca8e6e9ce938e04c882ef5efd5e7406daaa6394f21837ae779` | 0 critical, 7 high, 1 medium, 2 undefined |
 
-Those findings remain open until replacement images are built from the reviewed
-commit and rescanned. Pinning current supported base tags targets image drift;
-it is not evidence that any finding is fixed.
+Those findings remain open. A later controlled build from source `2084c0d`
+also reported 0 critical, 7 high, 1 medium, and 2 undefined findings in each
+image. The findings were attributed to Alpine OpenSSL `3.5.7-r0`; ECR did not
+report a fixed version. No image from that build is approved for runtime use.
 
 ## Image contract
 
 - API build context: repository root, Dockerfile `Dockerfile.api`.
 - Web build context: `apps/web`, Dockerfile `apps/web/Dockerfile`.
-- API base: `python:3.12.14-alpine3.24`.
-- Web base in all three stages: `node:22.23.2-alpine3.24`.
+- API base: `python:3.12.14-alpine3.24`, pinned to index digest
+  `sha256:d09d15e60962ca365d1cd544a48773bac9d33f2fb1b00f2aa0deec78ade7dc31`.
+- Web base: `node:22.23.2-alpine3.24`, pinned to index digest
+  `sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32`.
+  All web stages derive from this single reviewed base stage.
 - API runtime identity: UID/GID `10001:10001`.
 - Writable paths: `/tmp`, `/app/uploads`, and `/app/generated`. The task
   definition mounts ephemeral writable volumes at these paths and keeps the
@@ -38,6 +45,31 @@ it is not evidence that any finding is fixed.
 - Migration command: `alembic upgrade head`, run once as the dedicated migration
   task before the service update. The expected Alembic head is
   `20260831_0029`.
+
+### OpenSSL build gate
+
+Both Dockerfiles intentionally fail before dependency installation while the
+base contains `libssl3` or `libcrypto3` version `3.5.7-r0`. They also require an
+explicit `ALPINE_OPENSSL_APPROVED_VERSION` build argument that exactly matches
+both installed package versions. There is no default and the affected version
+is rejected even if supplied explicitly.
+
+Do not work around the gate with `apk upgrade`, a floating base tag, or an
+unreviewed alternate image. When Alpine publishes a successor:
+
+1. Review the official Python and Node image manifests and update both pinned
+   index digests.
+2. Build with
+   `--build-arg ALPINE_OPENSSL_APPROVED_VERSION=<reviewed-exact-version>`.
+3. Confirm `libssl3` and `libcrypto3` resolve to that exact version in both
+   images.
+4. Record immutable output digests and rescan them in ECR.
+5. Keep the launch gate closed until every critical, high, and undefined
+   finding is reviewed.
+
+The pinned digests make the current vulnerable input reproducible; they do not
+remediate it. The package assertion prevents a future base refresh from being
+silently accepted without review.
 
 The runtime and migration task definitions accept separate Secrets Manager
 ARNs containing `username` and `password`. Before deployment, the AWS owner must

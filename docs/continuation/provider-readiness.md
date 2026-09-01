@@ -18,7 +18,11 @@ stopping. This repository lane made no AWS mutation. The flawed runtime is not
 approved for use.
 
 The contained Kall API and web images each reported 0 critical, 7 high, 1
-medium, and 2 undefined findings in their basic scans. The replacement source
+medium, and 2 undefined findings in their basic scans. A later controlled build
+reported the same counts and attributed them to Alpine OpenSSL `3.5.7-r0`, with
+no fixed version reported by ECR. Both Dockerfiles now pin their official base
+images by digest and intentionally reject that version. They require an exact,
+reviewed successor package version before building. The replacement source
 contract is recorded in [runtime image remediation](runtime-image-remediation.md).
 Replacement image builds, immutable digests, full scan review, RDS TLS, origin
 TLS, and constrained-runtime tests remain required.
