@@ -124,12 +124,17 @@ Resources:
                 Effect: Allow
                 Action:
                   - ecs:DeleteService
-                  - ecs:DeregisterTaskDefinition
                   - ecs:UpdateService
                 Resource:
                   - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-api
                   - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-web
-                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:task-definition/kall-alpha-*
+              - Sid: DeregisterRuntimeTaskDefinitions
+                Effect: Allow
+                Action: ecs:DeregisterTaskDefinition
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
               - Sid: DeleteExactRuntimeRoles
                 Effect: Allow
                 Action:
@@ -287,7 +292,7 @@ Resources:
           ) -> dict[str, str]:
               if action not in {"delete", "recover-delete"}:
                   raise RuntimeError("Delete arguments require a deletion action")
-              token_prefix = "expiry-v2" if action == "recover-delete" else "expiry"
+              token_prefix = "expiry-v3" if action == "recover-delete" else "expiry"
               return {
                   "StackName": str(stack["StackId"]),
                   "ClientRequestToken": f"{token_prefix}-{config['session_id']}",

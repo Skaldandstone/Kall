@@ -124,12 +124,17 @@ Resources:
                 Effect: Allow
                 Action:
                   - ecs:DeleteService
-                  - ecs:DeregisterTaskDefinition
                   - ecs:UpdateService
                 Resource:
                   - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-api
                   - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-web
-                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:task-definition/kall-alpha-*
+              - Sid: DeregisterRuntimeTaskDefinitions
+                Effect: Allow
+                Action: ecs:DeregisterTaskDefinition
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
               - Sid: DeleteExactRuntimeRoles
                 Effect: Allow
                 Action:

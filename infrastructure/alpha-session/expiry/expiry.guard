@@ -30,10 +30,18 @@ rule role_has_only_expected_scoped_statements {
 rule cloudformation_uses_a_dedicated_deletion_role {
     Resources.RuntimeDeletionRole.Type == 'AWS::IAM::Role'
     Resources.RuntimeDeletionRole.Properties.AssumeRolePolicyDocument.Statement.*.Principal.Service == 'cloudformation.amazonaws.com'
-    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeleteExactRuntimeRoles', 'DeleteRuntimeCloudFrontResources']
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteRuntimeCloudFrontResources']
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
     Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'
+}
+
+rule task_definition_deregistration_is_the_only_wildcard_ecs_mutation {
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement[ Sid == 'DeregisterRuntimeTaskDefinitions' ] {
+        Action == 'ecs:DeregisterTaskDefinition'
+        Resource == '*'
+        Condition.StringEquals.'aws:RequestedRegion'.Ref == 'ExpectedRegion'
+    }
 }
 
 rule schedule_is_frequent_and_retry_bounded {
