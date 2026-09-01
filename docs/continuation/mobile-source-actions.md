@@ -18,7 +18,8 @@ scoped by both user and profile and does not expose another profile's workflow.
 
 Mobile uses `opportunity_id` for state changes and tracked-state display. It
 retains its previous representative `job_id` lookup as a compatibility fallback
-for an older backend. The opportunity ID, workflow state and history remain
+for an older backend, scoped to the selected professional profile. The
+opportunity ID, workflow state and history remain
 canonical; source-specific match scores and evidence remain attached to their
 own feed rows.
 
