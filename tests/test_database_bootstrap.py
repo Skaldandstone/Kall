@@ -5,6 +5,7 @@ from kall.jobs.bootstrap_database_roles import (
     MIGRATOR_ROLE,
     RUNTIME_ROLE,
     _ensure_role,
+    _verify_restricted_roles,
     bootstrap_database_roles,
     load_bootstrap_config,
 )
@@ -75,6 +76,32 @@ def test_role_password_ddl_uses_driver_owned_literal_escaping(existing_role: obj
     assert "PASSWORD '" + "x" * 32 + "''quoted'" in rendered
     assert "$1" not in rendered
     assert "%s" not in rendered
+    for protected_attribute in (
+        "SUPERUSER",
+        "CREATEDB",
+        "CREATEROLE",
+        "REPLICATION",
+        "BYPASSRLS",
+    ):
+        assert protected_attribute not in rendered
+
+
+@pytest.mark.parametrize("postcondition", [(1, True), (2, False)])
+def test_role_postcondition_rejects_missing_or_privileged_roles(postcondition: tuple[int, bool]) -> None:
+    cursor = _Cursor([postcondition])
+
+    with pytest.raises(RuntimeError, match="restricted login roles"):
+        _verify_restricted_roles(cursor)
+
+    query, params = cursor.calls[-1]
+    assert params == (MIGRATOR_ROLE, RUNTIME_ROLE)
+    assert "NOT rolsuper" in query
+    assert "NOT rolcreatedb" in query
+    assert "NOT rolcreaterole" in query
+    assert "NOT rolreplication" in query
+    assert "NOT rolbypassrls" in query
+    assert "NOT rolinherit" in query
+    assert "rolcanlogin" in query
 
 
 def test_bootstrap_rejects_wrong_role_names_shared_passwords_and_unverified_tls(
@@ -127,7 +154,7 @@ def test_bootstrap_uses_master_then_migrator_and_grants_runtime_only_data_access
     root_cert = tmp_path / "rds.pem"
     root_cert.write_text("certificate")
     config = load_bootstrap_config(_environment(root_cert))
-    master_cursor = _Cursor([None, None, (0,), (0,)])
+    master_cursor = _Cursor([None, None, (2, True), (0,), (0,)])
     migrator_cursor = _Cursor([])
     connections: list[dict[str, object]] = []
 
@@ -142,9 +169,11 @@ def test_bootstrap_uses_master_then_migrator_and_grants_runtime_only_data_access
     assert all(connection["sslrootcert"] == str(root_cert) for connection in connections)
     master_sql = "\n".join(str(query) for query, _ in master_cursor.calls)
     migrator_sql = "\n".join(str(query) for query, _ in migrator_cursor.calls)
-    assert "NOSUPERUSER" in master_sql
-    assert "NOCREATEDB" in master_sql
-    assert "NOCREATEROLE" in master_sql
+    assert "NOT rolsuper" in master_sql
+    assert "NOT rolcreatedb" in master_sql
+    assert "NOT rolcreaterole" in master_sql
+    assert "NOT rolreplication" in master_sql
+    assert "NOT rolbypassrls" in master_sql
     assert "GRANT SELECT, INSERT, UPDATE, DELETE" in master_sql
     assert "GRANT USAGE, CREATE" in master_sql
     assert "ALTER DEFAULT PRIVILEGES" in migrator_sql
@@ -154,7 +183,7 @@ def test_bootstrap_refuses_unreviewed_legacy_object_ownership(tmp_path: Path) ->
     root_cert = tmp_path / "rds.pem"
     root_cert.write_text("certificate")
     config = load_bootstrap_config(_environment(root_cert))
-    master_cursor = _Cursor([(1,), (1,), (2,)])
+    master_cursor = _Cursor([(1,), (1,), (2, True), (2,)])
 
     with pytest.raises(RuntimeError, match="ownership must be reviewed"):
         bootstrap_database_roles(config, connect=lambda **_kwargs: _Connection(master_cursor))
@@ -164,7 +193,7 @@ def test_bootstrap_refuses_inherited_role_membership(tmp_path: Path) -> None:
     root_cert = tmp_path / "rds.pem"
     root_cert.write_text("certificate")
     config = load_bootstrap_config(_environment(root_cert))
-    master_cursor = _Cursor([(1,), (1,), (0,), (1,)])
+    master_cursor = _Cursor([(1,), (1,), (2, True), (0,), (1,)])
 
     with pytest.raises(RuntimeError, match="membership must be reviewed"):
         bootstrap_database_roles(config, connect=lambda **_kwargs: _Connection(master_cursor))

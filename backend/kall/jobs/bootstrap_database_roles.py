@@ -100,11 +100,35 @@ def _ensure_role(cursor: Any, role: str, password: str) -> None:
     if cursor.fetchone() is None:
         cursor.execute(sql.SQL("CREATE ROLE {}").format(sql.Identifier(role)))
     cursor.execute(
-        sql.SQL(
-            "ALTER ROLE {} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
-            "NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD {}"
-        ).format(sql.Identifier(role), sql.Literal(password))
+        sql.SQL("ALTER ROLE {} WITH LOGIN NOINHERIT PASSWORD {}").format(
+            sql.Identifier(role), sql.Literal(password)
+        )
     )
+
+
+def _verify_restricted_roles(cursor: Any) -> None:
+    cursor.execute(
+        """
+        SELECT count(*),
+               bool_and(
+                   rolcanlogin
+                   AND NOT rolsuper
+                   AND NOT rolcreatedb
+                   AND NOT rolcreaterole
+                   AND NOT rolinherit
+                   AND NOT rolreplication
+                   AND NOT rolbypassrls
+               )
+        FROM pg_roles
+        WHERE rolname IN (%s, %s)
+        """,
+        (MIGRATOR_ROLE, RUNTIME_ROLE),
+    )
+    role_count, roles_are_restricted = cursor.fetchone()
+    if role_count != 2 or roles_are_restricted is not True:
+        raise RuntimeError(
+            "kall_migrator and kall_runtime must exist as restricted login roles"
+        )
 
 
 def bootstrap_database_roles(
@@ -120,6 +144,7 @@ def bootstrap_database_roles(
         cursor.execute("SELECT pg_advisory_xact_lock(%s)", (BOOTSTRAP_LOCK_KEY,))
         _ensure_role(cursor, MIGRATOR_ROLE, config.migrator_password)
         _ensure_role(cursor, RUNTIME_ROLE, config.runtime_password)
+        _verify_restricted_roles(cursor)
 
         cursor.execute(
             sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(sql.Identifier(DATABASE_NAME))

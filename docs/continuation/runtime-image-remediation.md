@@ -190,13 +190,17 @@ The source defines two one-shot task definitions:
 
 1. `BootstrapTaskDefinition` receives the RDS managed-master username/password
    plus the separate migrator and runtime role secrets. It accepts only exact
-   usernames `kalladmin`, `kall_migrator`, and `kall_runtime`, requires three
-   distinct passwords of at least 32 characters, and connects with
-   `verify-full` using the checked-in Region CA. It creates or rotates the two
-   application roles, removes public schema creation, gives DDL only to the
-   migrator, gives data access only to the runtime role, and installs runtime
-   default privileges for objects the migrator creates. Existing public objects
-   owned by another role stop the job for explicit review.
+   usernames `kalladmin`, `kall_migrator`, and `kall_runtime`, requires a
+   nonempty AWS-managed master password and distinct migrator/runtime passwords
+   of at least 32 characters, and connects with `verify-full` using the checked-in
+   Region CA. It creates or rotates the two application roles using only role
+   attributes that the non-superuser RDS master can alter. A postcondition
+   requires both roles to exist with login enabled, inheritance disabled, and
+   every superuser, database-creation, role-creation, replication, and RLS-bypass
+   flag false. It removes public schema creation, gives DDL only to the migrator,
+   gives data access only to the runtime role, and installs runtime default
+   privileges for objects the migrator creates. Existing elevated roles or
+   public objects owned by another role stop the transaction for explicit review.
 2. `MigrationTaskDefinition` receives only the migrator credential. It runs
    Alembic to `head`, opens a fresh connection, and exits nonzero unless the
    database heads exactly equal the source heads.
