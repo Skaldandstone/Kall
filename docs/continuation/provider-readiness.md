@@ -22,11 +22,16 @@ medium, and 2 undefined findings in their basic scans. A later controlled build
 reported the same counts and attributed them to Alpine OpenSSL `3.5.7-r0`.
 Both Dockerfiles pin their official bases by digest and reject that version.
 The reviewed Python base now contains `3.5.8-r0`, and the API source gate accepts
-only that exact package version. The Node base still contains `3.5.7-r0`, so the
-web build remains blocked. The replacement source contract is recorded in
-[runtime image remediation](runtime-image-remediation.md). A reviewed API output
-image and scan, a supported Node successor, immutable image digests, full scan
-review, RDS TLS, origin TLS, and constrained-runtime tests remain required.
+only that exact package version. The API was reproducibly built from exact source
+`c2ea5e8`; immutable image
+`sha256:d0ec99f105678507fb63d641ac77f0c18951fce9c0a14ca3e7d15403f4b74107`
+passed config and layer inspection plus ECR basic scanning with zero findings.
+Amazon Inspector enhanced ECR scanning is disabled. The Node base still contains
+`3.5.7-r0`; its official tag remained unchanged on the final live recheck, so the
+web build remains blocked. The replacement source and output evidence is recorded
+in [runtime image remediation](runtime-image-remediation.md).
+A supported Node successor, reviewed web image, RDS TLS, origin TLS, and
+constrained-runtime tests remain required.
 
 The runtime stack now creates application services at desired count zero by
 default. A one-shot master-only bootstrap creates or rotates exact migrator and

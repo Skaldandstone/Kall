@@ -1,7 +1,8 @@
 # Kall runtime image remediation
 
 This record defines the source and deployment contract for the replacement
-Kall development runtime. It does not approve an image or a cloud rollout.
+Kall development runtime and records the reviewed API successor image. It does
+not approve the web image or a cloud rollout.
 
 ## Source baseline and containment
 
@@ -25,6 +26,37 @@ also reported 0 critical, 7 high, 1 medium, and 2 undefined findings in each
 image. The findings were attributed to Alpine OpenSSL `3.5.7-r0`; ECR did not
 report a fixed version. No image from that build is approved for runtime use.
 
+## Reviewed API successor
+
+The AWS owner built the API from exact canonical source
+`c2ea5e80136fd9402d5f29b92db5ee79845b0e13` using the exact reviewed OpenSSL
+argument. The source was sealed and independently checked before the build:
+
+| Evidence | Value |
+| --- | --- |
+| Source manifest SHA-256 | `528281a0b9263d72e8882220b40e2bd2c6c7fd9c69ced139f2b54de12b1f7170` |
+| Source archive SHA-256 | `7d7932e9f90e0461eeea6dd637064f77a9504b16667c4672276c1f949bb6970` |
+| Archive inventory | 526080 bytes, 337 entries; repeat byte-identical and independent Git-byte verification passed |
+| Retained source version | S3 VersionId `VJ9sZh9TXM7JPhTYuwuZ4SmCFJxX7Cxw` |
+| CodeBuild build | `cb46855e-4b79-43b3-b697-30c3d886696e`, succeeded |
+| Immutable image digest | `sha256:d0ec99f105678507fb63d641ac77f0c18951fce9c0a14ca3e7d15403f4b74107` |
+| Image config digest | `sha256:8ddcaafb5655d2ee594a526c6533430dbf00dadc8d0eb821c89214b25ec28cca` |
+| Image platform and size | `linux/amd64`, 101797094 bytes |
+
+Immutable config and layer inspection confirms UID/GID `10001:10001`, the
+Uvicorn-only runtime command, Python health check, `verify-full` with the fixed
+Region CA path, CA SHA-256
+`d46e1bdfda05c8e7644e50930806a19b139a222542bf0348082fb59ece2b5fa5`,
+`libssl3=3.5.8-r0`, `libcrypto3=3.5.8-r0`, and no curl, Alembic runtime command,
+or secret-like environment values. ECR basic scanning completed with zero
+findings. Amazon Inspector enhanced ECR scanning is disabled, so this is not an
+enhanced-scan claim.
+
+This completes the API build and basic-scan gate. It does not clear the web
+image, database activation, constrained Fargate execution, TLS, provider, or
+hosted acceptance gates. The two rejected source attempts created no image,
+tag, or push and are not reusable release inputs.
+
 ## Image contract
 
 - API build context: repository root, Dockerfile `Dockerfile.api`.
@@ -37,7 +69,10 @@ report a fixed version. No image from that build is approved for runtime use.
   `libcrypto3=3.5.8-r0`.
 - Web base: `node:22.23.2-alpine3.24`, pinned to index digest
   `sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32`.
-  All web stages derive from this single reviewed base stage.
+  All web stages derive from this single reviewed base stage. A live official
+  image recheck after the API build found the tag unchanged, last updated
+  2026-07-29T20:40:53Z, with `libssl3` and `libcrypto3` still at the rejected
+  `3.5.7-r0` version.
 - API runtime identity: UID/GID `10001:10001`.
 - Writable paths: `/tmp`, `/app/uploads`, and `/app/generated`. The task
   definition mounts ephemeral writable volumes at these paths and keeps the
@@ -58,11 +93,12 @@ Both Dockerfiles fail before dependency installation when the base contains
 installed package versions. There is no default and the affected version is
 rejected even if supplied explicitly.
 
-The reviewed Python base has advanced to `3.5.8-r0`. The API Dockerfile now
-accepts only that exact build argument and still validates both installed
-packages against it. The Node base remains on `3.5.7-r0`, so the web Dockerfile
-remains intentionally blocked. This clears only the API source input gate. It
-does not approve an API output image, the web image, or a runtime launch.
+The reviewed Python base has advanced to `3.5.8-r0`. The API Dockerfile accepts
+only that exact build argument and validates both installed packages against it.
+The reviewed API output above has passed the reproducible build, immutable
+inspection, and basic-scan gate. The Node base remains on `3.5.7-r0`, so the web
+Dockerfile remains intentionally blocked. This does not approve the web image or
+a runtime launch.
 
 The Dockerfiles use `apk info --exists` with exact `name=version` constraints.
 They do not parse human-readable `apk info -v` output. Each gate independently
@@ -201,12 +237,14 @@ exact E3691 finding; no other template error is waived.
 
 ## Required AWS-owner validation
 
-1. Build both images from the exact reviewed commit and record immutable image
-   digests and source-manifest digest.
-2. Scan both immutable images and review every high, critical, and undefined
-   result. The old 7-high results per image are not waived.
-3. Inspect the API image configuration for user `10001:10001`, Uvicorn-only
-   command, fixed CA path, and absence of curl.
+1. Wait for and review the official Node successor, then build the web image from
+   an exact reviewed commit and record its source manifest and immutable image
+   digests. The API evidence is recorded above.
+2. Scan the web image and review every high, critical, and undefined result. The
+   old web findings are not waived. The API basic scan is clear; enhanced ECR
+   scanning remains unavailable.
+3. Retain the inspected API configuration evidence above when selecting the
+   immutable image for runtime validation.
 4. Run the migration task with the migrator secret, verify head
    `20260831_0029`, then run the service with the runtime secret.
 5. Verify the read-only root filesystem and the three writable mounts under the
