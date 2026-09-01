@@ -52,7 +52,7 @@ class ExpiryHandlerTests(unittest.TestCase):
         self.assertEqual(arguments["StackName"], self.stack["StackId"])
         self.assertEqual(
             arguments["ClientRequestToken"],
-            "expiry-v3-kall-0123456789abcdef0123456789abcdef",
+            "expiry-v4-kall-0123456789abcdef0123456789abcdef",
         )
         self.assertEqual(arguments["RoleARN"], self.environment["DELETION_ROLE_ARN"])
 
@@ -126,7 +126,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertIn("MaximumRetryAttempts: 2", body)
 
         handler = (root / "expiry_handler.py").read_text()
-        self.assertIn('token_prefix = "expiry-v3" if action == "recover-delete" else "expiry"', handler)
+        self.assertIn('token_prefix = "expiry-v4" if action == "recover-delete" else "expiry"', handler)
         self.assertIn('"RoleARN": str(config["deletion_role_arn"])', handler)
 
     def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
@@ -157,6 +157,25 @@ class ExpiryHandlerTests(unittest.TestCase):
                 body,
             )
             self.assertEqual(body.count("ecs:DeregisterTaskDefinition"), 1)
+            for role_name in (
+                "kall-alpha-api-execution",
+                "kall-alpha-api-task",
+                "kall-alpha-web-execution",
+                "kall-alpha-web-task",
+                "kall-alpha-bootstrap-execution",
+                "kall-alpha-migration-execution",
+            ):
+                self.assertIn(f"role/{role_name}", body)
+            self.assertNotIn("role/${ManagedStackName}-*", body)
+            self.assertIn(
+                "Action: logs:DeleteLogGroup\n"
+                "                Resource: !Sub arn:${AWS::Partition}:logs:${ExpectedRegion}:${ExpectedAccount}:log-group:/skaldandstone/alpha/kall-database-admin",
+                body,
+            )
+            self.assertEqual(body.count("logs:DeleteLogGroup"), 1)
+            self.assertNotIn("log-group:/skaldandstone/alpha/kall-api", body)
+            self.assertNotIn("log-group:/skaldandstone/alpha/kall-web", body)
+            self.assertNotIn("logs:${ExpectedRegion}:${ExpectedAccount}:log-group:/skaldandstone/development/kall-expiry", body)
             for action in required_actions:
                 self.assertIn(f"- {action}", body)
             for forbidden in ("ec2:Create", "ecs:RegisterTaskDefinition", "rds:Create", "secretsmanager:"):

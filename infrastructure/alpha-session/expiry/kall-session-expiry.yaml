@@ -142,7 +142,17 @@ Resources:
                   - iam:DeleteRolePolicy
                   - iam:DetachRolePolicy
                   - iam:RemoveRoleFromInstanceProfile
-                Resource: !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/${ManagedStackName}-*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-api-execution
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-api-task
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-web-execution
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-web-task
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-bootstrap-execution
+                  - !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/kall-alpha-migration-execution
+              - Sid: DeleteDatabaseAdminLogGroup
+                Effect: Allow
+                Action: logs:DeleteLogGroup
+                Resource: !Sub arn:${AWS::Partition}:logs:${ExpectedRegion}:${ExpectedAccount}:log-group:/skaldandstone/alpha/kall-database-admin
               - Sid: DeleteRuntimeCloudFrontResources
                 Effect: Allow
                 Action:
@@ -292,7 +302,7 @@ Resources:
           ) -> dict[str, str]:
               if action not in {"delete", "recover-delete"}:
                   raise RuntimeError("Delete arguments require a deletion action")
-              token_prefix = "expiry-v3" if action == "recover-delete" else "expiry"
+              token_prefix = "expiry-v4" if action == "recover-delete" else "expiry"
               return {
                   "StackName": str(stack["StackId"]),
                   "ClientRequestToken": f"{token_prefix}-{config['session_id']}",

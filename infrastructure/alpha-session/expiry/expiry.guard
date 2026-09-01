@@ -30,10 +30,17 @@ rule role_has_only_expected_scoped_statements {
 rule cloudformation_uses_a_dedicated_deletion_role {
     Resources.RuntimeDeletionRole.Type == 'AWS::IAM::Role'
     Resources.RuntimeDeletionRole.Properties.AssumeRolePolicyDocument.Statement.*.Principal.Service == 'cloudformation.amazonaws.com'
-    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteRuntimeCloudFrontResources']
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteDatabaseAdminLogGroup', 'DeleteRuntimeCloudFrontResources']
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
     Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'
+}
+
+rule database_admin_log_delete_is_exact {
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement[ Sid == 'DeleteDatabaseAdminLogGroup' ] {
+        Action == 'logs:DeleteLogGroup'
+        Resource.'Fn::Sub' == 'arn:${AWS::Partition}:logs:${ExpectedRegion}:${ExpectedAccount}:log-group:/skaldandstone/alpha/kall-database-admin'
+    }
 }
 
 rule task_definition_deregistration_is_the_only_wildcard_ecs_mutation {
