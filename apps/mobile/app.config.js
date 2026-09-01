@@ -7,6 +7,7 @@ module.exports = ({ config }) => {
   const clerkPublishableKey =
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
   const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
+  const registrationOverride = process.env.KALL_MOBILE_ALLOW_REGISTRATION;
 
   // A review APK must be tied to an explicitly selected HTTPS runtime and
   // Clerk instance. This prevents a release build from quietly inheriting a
@@ -39,9 +40,14 @@ module.exports = ({ config }) => {
       // The Clerk publishable key identifies an instance and is public by
       // design. Secret keys never belong in an Expo or Android build.
       clerkPublishableKey,
-      // Account creation stays available to local automated tests only. The
-      // invite-only alpha accepts users who already received an invitation.
-      allowRegistration: isRelease ? false : config.extra.allowRegistration,
+      // A release can never enable account creation. Non-release fixtures may
+      // explicitly disable it so CI can exercise the invite-only screen while
+      // ordinary local development retains app.json's registration setting.
+      allowRegistration: isRelease
+        ? false
+        : registrationOverride === undefined
+          ? config.extra.allowRegistration
+          : registrationOverride === '1',
     },
   };
 };

@@ -46,6 +46,10 @@ export default defineConfig({
         // app.config.js reads this to hand ClerkProvider its key; without it
         // the app boots signed-out with no way to sign in.
         EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
+        // The first production release is invite-only. The browser fixture
+        // must cover that screen even though ordinary local development keeps
+        // app.json's account-creation convenience enabled.
+        KALL_MOBILE_ALLOW_REGISTRATION: '0',
       },
       url: baseURL,
       timeout: 120_000,

@@ -47,3 +47,10 @@ def test_manual_workflow_remains_explicitly_build_only() -> None:
     assert "jobs:\n  web:" in body
     assert "\n  extension:\n" in body
     assert "cloud credentials or deployment controls" in body
+
+
+def test_mobile_browser_gate_exercises_invite_only_release_ui() -> None:
+    app_config = (ROOT / "apps" / "mobile" / "app.config.js").read_text()
+    playwright_config = (ROOT / "apps" / "mobile" / "playwright.config.ts").read_text()
+    assert "isRelease\n        ? false" in app_config
+    assert "KALL_MOBILE_ALLOW_REGISTRATION: '0'" in playwright_config
