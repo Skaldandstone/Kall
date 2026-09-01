@@ -19,13 +19,14 @@ approved for use.
 
 The contained Kall API and web images each reported 0 critical, 7 high, 1
 medium, and 2 undefined findings in their basic scans. A later controlled build
-reported the same counts and attributed them to Alpine OpenSSL `3.5.7-r0`, with
-no fixed version reported by ECR. Both Dockerfiles now pin their official base
-images by digest and intentionally reject that version. They require an exact,
-reviewed successor package version before building. The replacement source
-contract is recorded in [runtime image remediation](runtime-image-remediation.md).
-Replacement image builds, immutable digests, full scan review, RDS TLS, origin
-TLS, and constrained-runtime tests remain required.
+reported the same counts and attributed them to Alpine OpenSSL `3.5.7-r0`.
+Both Dockerfiles pin their official bases by digest and reject that version.
+The reviewed Python base now contains `3.5.8-r0`, and the API source gate accepts
+only that exact package version. The Node base still contains `3.5.7-r0`, so the
+web build remains blocked. The replacement source contract is recorded in
+[runtime image remediation](runtime-image-remediation.md). A reviewed API output
+image and scan, a supported Node successor, immutable image digests, full scan
+review, RDS TLS, origin TLS, and constrained-runtime tests remain required.
 
 The runtime stack now creates application services at desired count zero by
 default. A one-shot master-only bootstrap creates or rotates exact migrator and

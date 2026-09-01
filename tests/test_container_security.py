@@ -8,7 +8,7 @@ RDS_CA = ROOT / "deploy" / "certs" / "aws-rds-us-east-2-bundle.pem"
 RDS_CA_SHA256 = "d46e1bdfda05c8e7644e50930806a19b139a222542bf0348082fb59ece2b5fa5"
 PYTHON_BASE = (
     "python:3.12.14-alpine3.24@"
-    "sha256:d09d15e60962ca365d1cd544a48773bac9d33f2fb1b00f2aa0deec78ade7dc31"
+    "sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0"
 )
 NODE_BASE = (
     "node:22.23.2-alpine3.24@"
@@ -91,6 +91,21 @@ def test_container_builds_fail_closed_on_unreviewed_openssl_packages() -> None:
             'test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"'
             in dockerfile
         )
+
+
+def test_api_approves_only_the_reviewed_openssl_successor() -> None:
+    dockerfile = (ROOT / "Dockerfile.api").read_text()
+
+    assert 'test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"' in dockerfile
+
+
+def test_web_remains_blocked_on_the_affected_openssl_base() -> None:
+    dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text()
+
+    assert dockerfile.startswith(f"FROM {NODE_BASE} AS base\n")
+    assert 'test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"' not in dockerfile
+    assert 'test "${ssl_version}" != "3.5.7-r0"' in dockerfile
+    assert 'test "${crypto_version}" != "3.5.7-r0"' in dockerfile
 
 
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:
