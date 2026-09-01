@@ -4,14 +4,12 @@ FROM python:3.12.14-alpine3.24@sha256:d81968c559557b881aa557ff6d1200acec8e72a2c8
 # exact version so a future base refresh cannot be accepted silently.
 ARG ALPINE_OPENSSL_APPROVED_VERSION
 RUN set -eu; \
-    ssl_version="$(apk info -v libssl3 | sed 's/^libssl3-//')"; \
-    crypto_version="$(apk info -v libcrypto3 | sed 's/^libcrypto3-//')"; \
     test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
     test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"; \
-    test "${ssl_version}" != "3.5.7-r0"; \
-    test "${crypto_version}" != "3.5.7-r0"; \
-    test "${ssl_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
-    test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"
+    ! apk info --exists "libssl3=3.5.7-r0"; \
+    ! apk info --exists "libcrypto3=3.5.7-r0"; \
+    apk info --exists "libssl3=${ALPINE_OPENSSL_APPROVED_VERSION}"; \
+    apk info --exists "libcrypto3=${ALPINE_OPENSSL_APPROVED_VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
