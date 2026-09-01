@@ -268,6 +268,17 @@ def test_web_proxy_path_precedes_the_direct_bearer_api() -> None:
     assert "TargetGroupArn: !Ref ApiTargetGroup" in api_rule
 
 
+def test_only_the_exact_bff_health_route_is_public_for_hosted_probes() -> None:
+    middleware = (ROOT / "apps" / "web" / "middleware.ts").read_text()
+    public_routes = middleware.split("const isPublicRoute = createRouteMatcher([", 1)[1].split(
+        "]);", 1
+    )[0]
+
+    assert public_routes.count("'/api/kall/health'") == 1
+    assert "'/api/kall/(.*)'" not in public_routes
+    assert "'/api/kall/*'" not in public_routes
+
+
 def test_reviewed_snapshot_includes_the_ca_bundle() -> None:
     snapshot_builder = (ROOT / "scripts" / "build_reviewed_snapshot.py").read_text()
     assert '"deploy/certs/"' in snapshot_builder

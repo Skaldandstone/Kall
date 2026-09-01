@@ -63,6 +63,9 @@ Current provider and release gates are recorded in
    then review a second change set that enables the API and web services.
 5. Verify TLS, proxy routing, health, Clerk allowlist behavior, storage,
    application safeguards, cost, and automatic expiry.
+   `/api/kall/health` is the one public BFF probe; it forwards only to the
+   backend's public health response. Every application route under
+   `/api/kall/*` remains Clerk-protected.
 6. Configure and test Stripe sandbox, monitoring, SES, and optional OpenAI one
    at a time. None is enabled merely because the base runtime is healthy.
 7. Tear down the session on schedule and verify retained recovery artifacts and

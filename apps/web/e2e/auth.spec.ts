@@ -12,6 +12,10 @@ import { test, expect, signInAsNewUser } from './helpers';
  */
 test.describe('authentication boundary', () => {
   test('a signed-out visitor cannot reach a protected page or the API', async ({ page }) => {
+    const health = await page.request.get('/api/kall/health');
+    expect(health.status()).toBe(200);
+    expect(await health.json()).toMatchObject({ status: 'ok', product: 'Kall' });
+
     await page.goto('/applications');
     // Clerk's middleware redirects to Kall's own sign-in, not its hosted
     // accounts.dev domain, and preserves where the visitor was heading.
