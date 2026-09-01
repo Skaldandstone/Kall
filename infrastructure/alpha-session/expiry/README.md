@@ -15,4 +15,7 @@ cfn-lint .\kall-session-expiry.yaml
 aws cloudformation validate-template --template-body file://kall-session-expiry.yaml --profile skaldandstone-dev --region us-east-2
 ```
 
-Deployment remains blocked by the unresolved Kall image findings and the absent exact external-DNS/ACM origin. `ControllerEnabled` defaults to `false`; no schedule or recurring AWS resource was created by this preparation.
+Deployment remains blocked by the unresolved Kall image findings and the absent
+external Cloudflare DNS record and matching `us-east-2` ACM certificate for
+`origin.kall.skaldandstone.com`. `ControllerEnabled` defaults to `false`; no
+schedule or recurring AWS resource was created by this preparation.
