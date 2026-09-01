@@ -27,7 +27,12 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    plugins: [...(config.plugins ?? []), '@clerk/expo', 'expo-web-browser'],
+    plugins: [
+      ...(config.plugins ?? []),
+      '@clerk/expo',
+      'expo-web-browser',
+      ...(isRelease ? ['./plugins/with-release-signing'] : []),
+    ],
     extra: {
       ...config.extra,
       apiBaseUrl,

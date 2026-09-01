@@ -64,6 +64,19 @@ expired CloudFront URL. Release builds also force self-service registration
 off. Invited alpha users sign in with the account attached to their invitation;
 the registration screen remains available only to local automated tests.
 
+Build the signed internal APK from PowerShell after the alpha URL is known:
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
+.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://example.cloudfront.net/api' -ClerkPublishableKey 'pk_test_...'
+```
+
+The first run creates a dedicated alpha signing key under
+`$env:USERPROFILE\.kall\android`, locks the directory to the current Windows
+user, and protects the password with Windows DPAPI. Private signing material is
+never written into this repository. Keep that local directory backed up: later
+alpha APKs must use the same key to upgrade an existing installation.
+
 ## Structure
 
 ```
