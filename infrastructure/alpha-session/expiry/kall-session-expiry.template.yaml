@@ -123,7 +123,9 @@ Resources:
               - Sid: SnapshotExactDatabase
                 Effect: Allow
                 Action: rds:CreateDBSnapshot
-                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
+                Resource:
+                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
+                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-c2skycxnlyib
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion

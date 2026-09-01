@@ -123,7 +123,9 @@ Resources:
               - Sid: SnapshotExactDatabase
                 Effect: Allow
                 Action: rds:CreateDBSnapshot
-                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
+                Resource:
+                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
+                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-c2skycxnlyib
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion
@@ -309,7 +311,7 @@ Resources:
           ) -> dict[str, str]:
               if action not in {"delete", "recover-delete"}:
                   raise RuntimeError("Delete arguments require a deletion action")
-              token_prefix = "expiry-v5" if action == "recover-delete" else "expiry"
+              token_prefix = "expiry-v6" if action == "recover-delete" else "expiry"
               return {
                   "StackName": str(stack["StackId"]),
                   "ClientRequestToken": f"{token_prefix}-{config['session_id']}",

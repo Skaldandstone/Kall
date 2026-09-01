@@ -75,7 +75,7 @@ def _delete_arguments(
 ) -> dict[str, str]:
     if action not in {"delete", "recover-delete"}:
         raise RuntimeError("Delete arguments require a deletion action")
-    token_prefix = "expiry-v5" if action == "recover-delete" else "expiry"
+    token_prefix = "expiry-v6" if action == "recover-delete" else "expiry"
     return {
         "StackName": str(stack["StackId"]),
         "ClientRequestToken": f"{token_prefix}-{config['session_id']}",
