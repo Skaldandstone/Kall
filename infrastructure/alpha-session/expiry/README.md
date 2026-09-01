@@ -6,6 +6,12 @@ The controller evaluates one stack whose name matches `kall-sandbox-[a-f0-9]{12}
 
 The runtime stack must retain recovery secrets and logs and use `DeletionPolicy: Snapshot` for PostgreSQL. This controller does not bypass a failed final snapshot or delete retained recovery artifacts. A failed or rollback stack state, wrong ARN, missing tag, wrong tag, excessive session duration, or wrong account/region fails closed.
 
+The runtime stack-level tags use CloudFormation-safe hyphenated keys. The exact
+contract is `SkaldAndStone-ManagedBy=kall-session-expiry-v1`,
+`SkaldAndStone-SessionId=<SessionId>`, and
+`SkaldAndStone-ExpiresAtEpoch=<ExpiresAtEpoch>`. Colon-delimited predecessors
+are invalid for this launch path and the handler rejects them.
+
 Generate and validate from this directory:
 
 ```powershell

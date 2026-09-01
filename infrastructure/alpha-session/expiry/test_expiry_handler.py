@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 import expiry_handler as expiry
@@ -22,9 +23,9 @@ class ExpiryHandlerTests(unittest.TestCase):
             "StackId": "arn:aws:cloudformation:us-east-2:734702670689:stack/kall-sandbox-012345abcdef/uuid",
             "StackStatus": "CREATE_COMPLETE",
             "Tags": [
-                {"Key": "SkaldAndStone:ManagedBy", "Value": "kall-session-expiry-v1"},
-                {"Key": "SkaldAndStone:SessionId", "Value": self.environment["SESSION_ID"]},
-                {"Key": "SkaldAndStone:ExpiresAtEpoch", "Value": "8200"},
+                {"Key": "SkaldAndStone-ManagedBy", "Value": "kall-session-expiry-v1"},
+                {"Key": "SkaldAndStone-SessionId", "Value": self.environment["SESSION_ID"]},
+                {"Key": "SkaldAndStone-ExpiresAtEpoch", "Value": "8200"},
             ],
         }
 
@@ -49,14 +50,22 @@ class ExpiryHandlerTests(unittest.TestCase):
             expiry._evaluate(self.stack, self.config, 9000)
 
     def test_rejects_wrong_stack_name(self):
-        self.stack["StackId"] = self.stack["StackId"].replace("kall-sandbox-012345abcdef", "other-stack")
+        self.stack["StackId"] = self.stack["StackId"].replace(
+            "kall-sandbox-012345abcdef", "other-stack"
+        )
         with self.assertRaises(RuntimeError):
             expiry._evaluate(self.stack, self.config, 9000)
 
     def test_rejects_missing_or_wrong_tags(self):
         for tag in self.stack["Tags"]:
-            if tag["Key"] == "SkaldAndStone:SessionId":
+            if tag["Key"] == "SkaldAndStone-SessionId":
                 tag["Value"] = "kall-ffffffffffffffffffffffffffffffff"
+        with self.assertRaises(RuntimeError):
+            expiry._evaluate(self.stack, self.config, 9000)
+
+    def test_rejects_the_legacy_colon_tag_contract(self):
+        for tag in self.stack["Tags"]:
+            tag["Key"] = tag["Key"].replace("SkaldAndStone-", "SkaldAndStone:")
         with self.assertRaises(RuntimeError):
             expiry._evaluate(self.stack, self.config, 9000)
 
@@ -66,6 +75,13 @@ class ExpiryHandlerTests(unittest.TestCase):
                 self.stack["StackStatus"] = status
                 with self.assertRaises(RuntimeError):
                     expiry._evaluate(self.stack, self.config, 9000)
+
+    def test_templates_use_only_the_safe_tag_key_contract(self):
+        root = Path(__file__).resolve().parent
+        for name in ("kall-session-expiry.template.yaml", "kall-session-expiry.yaml"):
+            body = (root / name).read_text()
+            self.assertNotIn("SkaldAndStone:", body)
+            self.assertIn("SkaldAndStone-SessionId", body)
 
 
 if __name__ == "__main__":

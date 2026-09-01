@@ -39,9 +39,9 @@ Resources:
       LogGroupName: !Sub /skaldandstone/development/kall-expiry/${SessionId}
       RetentionInDays: 30
       Tags:
-        - Key: SkaldAndStone:Product
+        - Key: SkaldAndStone-Product
           Value: kall
-        - Key: SkaldAndStone:SessionId
+        - Key: SkaldAndStone-SessionId
           Value: !Ref SessionId
 
   ExpiryRole:
@@ -100,9 +100,9 @@ Resources:
         ZipFile: |
           __EXPIRY_HANDLER__
       Tags:
-        - Key: SkaldAndStone:Product
+        - Key: SkaldAndStone-Product
           Value: kall
-        - Key: SkaldAndStone:SessionId
+        - Key: SkaldAndStone-SessionId
           Value: !Ref SessionId
 
   ExpiryRule:

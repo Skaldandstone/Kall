@@ -15,6 +15,10 @@ session longer than two hours, deletes only that exact stack after expiry, and
 disables its own schedule after the stack is absent. The runtime stack must keep
 its own secret, log, and final-snapshot retention policies.
 
+Runtime stack tags use the CloudFormation-safe keys
+`SkaldAndStone-ManagedBy`, `SkaldAndStone-SessionId`, and
+`SkaldAndStone-ExpiresAtEpoch`. The older colon-delimited keys are rejected.
+
 Run the local evidence from this directory:
 
 ```powershell

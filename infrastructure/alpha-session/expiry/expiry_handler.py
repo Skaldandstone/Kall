@@ -47,9 +47,9 @@ def _evaluate(stack: dict[str, object], config: dict[str, object], now: int) -> 
         raise RuntimeError("Resolved stack ARN is outside the exact account, region, or name")
     tags = {str(item["Key"]): str(item["Value"]) for item in stack.get("Tags", [])}
     expected_tags = {
-        "SkaldAndStone:ManagedBy": "kall-session-expiry-v1",
-        "SkaldAndStone:SessionId": str(config["session_id"]),
-        "SkaldAndStone:ExpiresAtEpoch": str(config["expires"]),
+        "SkaldAndStone-ManagedBy": "kall-session-expiry-v1",
+        "SkaldAndStone-SessionId": str(config["session_id"]),
+        "SkaldAndStone-ExpiresAtEpoch": str(config["expires"]),
     }
     if any(tags.get(key) != value for key, value in expected_tags.items()):
         raise RuntimeError("Runtime stack expiry tags do not match the controller contract")
