@@ -83,6 +83,15 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertNotIn("SkaldAndStone:", body)
             self.assertIn("SkaldAndStone-SessionId", body)
 
+    def test_function_writes_to_the_retained_custom_log_group(self):
+        root = Path(__file__).resolve().parent
+        for name in ("kall-session-expiry.template.yaml", "kall-session-expiry.yaml"):
+            body = (root / name).read_text()
+            self.assertIn("      LoggingConfig:\n        LogGroup: !Ref ExpiryLogGroup", body)
+            self.assertEqual(body.count("LogGroup: !Ref ExpiryLogGroup"), 1)
+            self.assertNotIn("DependsOn: ExpiryLogGroup", body)
+            self.assertNotIn("/aws/lambda/", body)
+
     def test_templates_omit_reserved_concurrency_and_keep_one_bounded_target(self):
         root = Path(__file__).resolve().parent
         for name in ("kall-session-expiry.template.yaml", "kall-session-expiry.yaml"):

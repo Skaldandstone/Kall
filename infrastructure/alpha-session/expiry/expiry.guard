@@ -13,6 +13,7 @@ rule recovery_log_is_retained_and_bounded {
     Resources.ExpiryLogGroup.DeletionPolicy == 'Retain'
     Resources.ExpiryLogGroup.UpdateReplacePolicy == 'Retain'
     Resources.ExpiryLogGroup.Properties.RetentionInDays == 30
+    Resources.ExpiryFunction.Properties.LoggingConfig.LogGroup.Ref == 'ExpiryLogGroup'
 }
 
 rule controller_resource_tags_use_cloudformation_safe_keys {

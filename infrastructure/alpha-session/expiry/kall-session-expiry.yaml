@@ -78,7 +78,6 @@ Resources:
 
   ExpiryFunction:
     Type: AWS::Lambda::Function
-    DependsOn: ExpiryLogGroup
     Properties:
       Architectures: [arm64]
       Runtime: python3.12
@@ -86,6 +85,8 @@ Resources:
       Role: !GetAtt ExpiryRole.Arn
       MemorySize: 128
       Timeout: 30
+      LoggingConfig:
+        LogGroup: !Ref ExpiryLogGroup
       Environment:
         Variables:
           MANAGED_STACK_NAME: !Ref ManagedStackName
