@@ -87,40 +87,53 @@ tag, or push and are not reusable release inputs.
 
 ### OpenSSL build gate
 
-Both Dockerfiles fail before dependency installation when the base contains
-`libssl3` or `libcrypto3` version `3.5.7-r0`. They also require an explicit
-`ALPINE_OPENSSL_APPROVED_VERSION` build argument that exactly matches both
-installed package versions. There is no default and the affected version is
-rejected even if supplied explicitly.
+Both Dockerfiles fail before dependency installation when the effective
+`libssl3` or `libcrypto3` version is `3.5.7-r0`, but the two images now obtain
+Node and Python differently.
 
 The reviewed Python base has advanced to `3.5.8-r0`. The API Dockerfile accepts
 only that exact build argument and validates both installed packages against it.
 The reviewed API output above has passed the reproducible build, immutable
-inspection, and basic-scan gate. The Node base remains on `3.5.7-r0`, so the web
-Dockerfile remains intentionally blocked. This does not approve the web image or
-a runtime launch.
+inspection, and basic-scan gate.
 
-The Dockerfiles use `apk info --exists` with exact `name=version` constraints.
-They do not parse human-readable `apk info -v` output. Each gate independently
+The official Node `24.20.0-alpine3.24` and `24.20.0-bookworm-slim` images were
+both rejected. The Alpine image still installs `3.5.7-r0`; the Debian image
+omits the Debian OpenSSL packages but its Node executable bundles OpenSSL
+`3.5.7`. Changing only the OS family would have hidden the affected package
+without repairing Node's runtime.
+
+The web Dockerfile instead starts from official `alpine:3.24.1` index digest
+`sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b`
+and installs Alpine's exact LTS distribution packages in one transaction:
+`nodejs=24.18.1-r0`, `npm=11.12.1-r0`, `libssl3=3.5.8-r0`, and
+`libcrypto3=3.5.8-r0`. A negative diagnostic proved that omitting the two
+explicit OpenSSL upgrades leaves the base-provided `3.5.7-r0` libraries. The
+corrected diagnostic reports `process.versions.openssl=3.5.8`, and `ldd` proves
+that `/usr/bin/node` loads `/usr/lib/libssl.so.3` and
+`/usr/lib/libcrypto.so.3`. The Dockerfile verifies those facts, the exact
+package versions and ownership, the rejected-version absence, and curl absence
+before installing application dependencies. BusyBox still exposes its wget
+applet; this image does not claim to be wget-free.
+
+The Dockerfiles use `apk info --exists` with exact `name=version` constraints
+and do not parse human-readable `apk info -v` output. Each gate independently
 rejects the affected version and requires both installed libraries to satisfy
-the explicit reviewed version constraint.
+the reviewed exact version.
 
-Do not work around the gate with `apk upgrade`, a floating base tag, or an
-unreviewed alternate image. When Alpine publishes a successor:
+Do not work around the gate with an unbounded `apk upgrade`, a floating base
+tag, or an unreviewed alternate image. For each future refresh:
 
-1. Review each official image manifest and update that image's pinned index
-   digest.
-2. Build with
-   `--build-arg ALPINE_OPENSSL_APPROVED_VERSION=<reviewed-exact-version>`.
-3. Confirm `libssl3` and `libcrypto3` resolve to that exact version in both
-   images.
+1. Review the official base manifest and update its pinned index digest.
+2. Confirm the signed Alpine stable indexes still provide every exact package.
+3. Confirm Node dynamically loads the reviewed OpenSSL libraries and reports
+   the same version at runtime.
 4. Record immutable output digests and rescan them in ECR.
 5. Keep the launch gate closed until every critical, high, and undefined
    finding is reviewed.
 
-The web digest still makes its current vulnerable input reproducible; it does
-not remediate it. The package assertions prevent a future base refresh from
-being silently accepted without review.
+The packaged-Node diagnostic is source-input evidence. It is not a Kall web
+image build, immutable output inspection, ECR scan, or runtime approval. Those
+gates remain required after this source change is integrated.
 
 The runtime and migration task definitions accept separate Secrets Manager
 ARNs containing `username` and `password`. Before deployment, the AWS owner must
