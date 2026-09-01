@@ -4,7 +4,7 @@ import { getClerkInstance } from '@clerk/expo';
 
 const API_BASE_URL: string =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  'https://d7wb2yokfqcku.cloudfront.net/api';
+  'http://10.0.2.2:8000/api';
 
 /**
  * The current Clerk session token, or null when signed out.

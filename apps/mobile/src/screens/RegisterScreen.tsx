@@ -103,6 +103,11 @@ export default function RegisterScreen({ navigation }: Props) {
           placeholder="Verification code"
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
+          autoComplete="one-time-code"
+          textContentType="oneTimeCode"
+          accessibilityLabel="Verification code"
+          returnKeyType="done"
+          onSubmitEditing={() => void handleVerify()}
           value={code}
           onChangeText={setCode}
         />
@@ -112,6 +117,9 @@ export default function RegisterScreen({ navigation }: Props) {
             style={styles.input}
             placeholder="Full name"
             placeholderTextColor={theme.textMuted}
+            autoComplete="name"
+            textContentType="name"
+            accessibilityLabel="Full name"
             value={fullName}
             onChangeText={setFullName}
           />
@@ -121,6 +129,9 @@ export default function RegisterScreen({ navigation }: Props) {
             placeholderTextColor={theme.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
+            autoComplete="email"
+            textContentType="emailAddress"
+            accessibilityLabel="Email address"
             value={email}
             onChangeText={setEmail}
           />
@@ -129,18 +140,25 @@ export default function RegisterScreen({ navigation }: Props) {
             placeholder="Password"
             placeholderTextColor={theme.textMuted}
             secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            accessibilityLabel="Password"
+            returnKeyType="done"
+            onSubmitEditing={() => void handleCreate()}
             value={password}
             onChangeText={setPassword}
           />
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
       <Pressable
         style={styles.button}
         onPress={awaitingCode ? handleVerify : handleCreate}
         disabled={submitting || !signUp}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: submitting || !signUp, busy: submitting }}
       >
         {submitting ? (
           <ActivityIndicator color={theme.accentInk} />
@@ -149,7 +167,7 @@ export default function RegisterScreen({ navigation }: Props) {
         )}
       </Pressable>
 
-      <Pressable onPress={() => navigation.navigate('Login')}>
+      <Pressable onPress={() => navigation.navigate('Login')} accessibilityRole="link" hitSlop={10}>
         <Text style={styles.link}>Already have an account? Sign in</Text>
       </Pressable>
     </View>

@@ -3,6 +3,7 @@ import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@clerk/expo';
+import Constants from 'expo-constants';
 import { theme } from '../theme';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -18,6 +19,7 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const ApplicationsStack = createNativeStackNavigator<ApplicationsStackParamList>();
 const OpportunitiesStack = createNativeStackNavigator<OpportunitiesStackParamList>();
 const Tab = createBottomTabNavigator<AppTabParamList>();
+const allowRegistration = Constants.expoConfig?.extra?.allowRegistration === true;
 
 const navTheme = {
   ...DarkTheme,
@@ -41,7 +43,7 @@ function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
-      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      {allowRegistration ? <AuthStack.Screen name="Register" component={RegisterScreen} /> : null}
     </AuthStack.Navigator>
   );
 }
@@ -116,7 +118,7 @@ export default function RootNavigator() {
   if (!isLoaded) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.text} />
+        <ActivityIndicator color={theme.text} accessibilityLabel="Loading Kall" />
       </View>
     );
   }

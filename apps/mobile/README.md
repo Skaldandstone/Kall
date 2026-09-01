@@ -52,13 +52,17 @@ change it now if it should be anything else. `ios.bundleIdentifier` matches.
 
 | What | Where | Override |
 | --- | --- | --- |
-| API base URL | `app.json` → `expo.extra.apiBaseUrl` | `API_BASE_URL` env var |
+| API base URL | `app.json` → `expo.extra.apiBaseUrl` (Android emulator localhost) | `API_BASE_URL` env var |
 | Clerk publishable key | `app.json` → `expo.extra.clerkPublishableKey` | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` env var |
 
-Both defaults point at the development Clerk instance and the production
-CloudFront API. `app.config.js` reads the env vars, so a production build
-**must** set `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` or it ships pointing at the
-dev Clerk instance - which fails quietly rather than loudly.
+The defaults support local Android-emulator development and the development
+Clerk instance. A review or production build must set `KALL_MOBILE_RELEASE=1`,
+`API_BASE_URL` to the selected HTTPS runtime ending in `/api`, and
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`. `app.config.js` fails the build when any
+release value is missing, so an APK cannot silently ship with a localhost or
+expired CloudFront URL. Release builds also force self-service registration
+off. Invited alpha users sign in with the account attached to their invitation;
+the registration screen remains available only to local automated tests.
 
 ## Structure
 

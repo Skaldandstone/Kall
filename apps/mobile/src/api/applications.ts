@@ -39,18 +39,6 @@ export async function fetchReview(applicationId: number): Promise<ReviewData> {
   return apiRequest<ReviewData>(`/applications/${applicationId}/review`);
 }
 
-export function confirmReview(applicationId: number) {
-  return apiRequest(`/applications/${applicationId}/review`, {
-    method: 'PUT',
-    body: {
-      documents_confirmed: true,
-      answers_confirmed: true,
-      sensitive_fields_confirmed: true,
-      attestations_confirmed: true,
-    },
-  });
-}
-
 export function approveReview(applicationId: number) {
   return apiRequest(`/applications/${applicationId}/review/approve`, { method: 'POST' });
 }

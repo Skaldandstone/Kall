@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSignIn } from '@clerk/expo';
+import Constants from 'expo-constants';
 import { theme } from '../theme';
 import type { AuthStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 const GENERIC_ERROR = 'Unable to sign in. Please try again.';
+const allowRegistration = Constants.expoConfig?.extra?.allowRegistration === true;
 
 export default function LoginScreen({ navigation }: Props) {
   // @clerk/expo v4 exposes the signals API: methods resolve to { error } rather
@@ -85,6 +87,9 @@ export default function LoginScreen({ navigation }: Props) {
           ? `Enter the code we sent to ${email.trim()} to confirm this device.`
           : 'Sign in to your career workspace.'}
       </Text>
+      {!allowRegistration && !awaitingCode ? (
+        <Text style={styles.inviteNote}>Invite-only alpha. Sign in with the email address that received your invitation.</Text>
+      ) : null}
 
       {awaitingCode ? (
         <TextInput
@@ -92,6 +97,11 @@ export default function LoginScreen({ navigation }: Props) {
           placeholder="Verification code"
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
+          autoComplete="one-time-code"
+          textContentType="oneTimeCode"
+          accessibilityLabel="Verification code"
+          returnKeyType="done"
+          onSubmitEditing={() => void handleCode()}
           value={code}
           onChangeText={setCode}
         />
@@ -103,6 +113,10 @@ export default function LoginScreen({ navigation }: Props) {
             placeholderTextColor={theme.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
+            autoComplete="email"
+            textContentType="emailAddress"
+            accessibilityLabel="Email address"
+            returnKeyType="next"
             value={email}
             onChangeText={setEmail}
           />
@@ -111,18 +125,26 @@ export default function LoginScreen({ navigation }: Props) {
             placeholder="Password"
             placeholderTextColor={theme.textMuted}
             secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
+            accessibilityLabel="Password"
+            returnKeyType="done"
+            onSubmitEditing={() => void handlePassword()}
             value={password}
             onChangeText={setPassword}
           />
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
       <Pressable
         style={styles.button}
         onPress={awaitingCode ? handleCode : handlePassword}
         disabled={submitting || !signIn}
+        accessibilityRole="button"
+        accessibilityLabel={awaitingCode ? 'Verify this device' : 'Sign in to Kall'}
+        accessibilityState={{ disabled: submitting || !signIn, busy: submitting }}
       >
         {submitting ? (
           <ActivityIndicator color={theme.accentInk} />
@@ -131,9 +153,16 @@ export default function LoginScreen({ navigation }: Props) {
         )}
       </Pressable>
 
-      <Pressable onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.link}>Need an account? Create one</Text>
-      </Pressable>
+      {allowRegistration ? (
+        <Pressable
+          onPress={() => navigation.navigate('Register')}
+          accessibilityRole="link"
+          accessibilityLabel="Create a Kall account"
+          hitSlop={10}
+        >
+          <Text style={styles.link}>Need an account? Create one</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -142,6 +171,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background, padding: 24, justifyContent: 'center' },
   title: { color: theme.text, fontSize: 32, fontWeight: '700', marginBottom: 4 },
   subtitle: { color: theme.textSecondary, fontSize: 15, marginBottom: 32, lineHeight: 21 },
+  inviteNote: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, marginTop: -16, marginBottom: 20 },
   input: {
     backgroundColor: theme.surfaceRaised,
     borderColor: theme.border,

@@ -2,18 +2,41 @@
 // URL, which needs to be overridable for e2e/local testing against a
 // non-production backend without hand-editing app.json each time (the
 // previous approach, error-prone and easy to accidentally commit).
-module.exports = ({ config }) => ({
-  ...config,
-  plugins: [...(config.plugins ?? []), '@clerk/expo', 'expo-web-browser'],
-  extra: {
-    ...config.extra,
-    apiBaseUrl: process.env.API_BASE_URL || config.extra.apiBaseUrl,
-    // Identity lives in Clerk. The publishable key is public by design (it
-    // only names the instance), so app.json carries the *development* key as
-    // a default to keep local dev zero-config. A production build MUST set
-    // EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY -- otherwise it ships pointing at the
-    // dev Clerk instance, which fails silently rather than loudly.
-    clerkPublishableKey:
-      process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey,
-  },
-});
+module.exports = ({ config }) => {
+  const apiBaseUrl = process.env.API_BASE_URL || config.extra.apiBaseUrl;
+  const clerkPublishableKey =
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
+  const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
+
+  // A review APK must be tied to an explicitly selected HTTPS runtime and
+  // Clerk instance. This prevents a release build from quietly inheriting a
+  // localhost URL or a stale CloudFront distribution from app.json.
+  if (isRelease) {
+    const missing = [];
+    if (!process.env.API_BASE_URL) missing.push('API_BASE_URL');
+    if (!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+      missing.push('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
+    }
+    if (missing.length) {
+      throw new Error(`Kall mobile release build is missing ${missing.join(' and ')}`);
+    }
+    if (!apiBaseUrl.startsWith('https://') || !apiBaseUrl.endsWith('/api')) {
+      throw new Error('API_BASE_URL must be an HTTPS URL ending in /api');
+    }
+  }
+
+  return {
+    ...config,
+    plugins: [...(config.plugins ?? []), '@clerk/expo', 'expo-web-browser'],
+    extra: {
+      ...config.extra,
+      apiBaseUrl,
+      // The Clerk publishable key identifies an instance and is public by
+      // design. Secret keys never belong in an Expo or Android build.
+      clerkPublishableKey,
+      // Account creation stays available to local automated tests only. The
+      // invite-only alpha accepts users who already received an invitation.
+      allowRegistration: isRelease ? false : config.extra.allowRegistration,
+    },
+  };
+};
