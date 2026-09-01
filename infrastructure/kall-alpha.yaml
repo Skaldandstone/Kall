@@ -217,18 +217,8 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
 
-  ApiLogs:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /skaldandstone/alpha/kall-api
-      RetentionInDays: 30
-
-  WebLogs:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /skaldandstone/alpha/kall-web
-      RetentionInDays: 30
-
+  # API and web tasks reuse retained log groups from the contained runtime.
+  # This stack manages only the separate database-administration log group.
   DatabaseAdminLogs:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -624,7 +614,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref ApiLogs
+              awslogs-group: /skaldandstone/alpha/kall-api
               awslogs-region: us-east-2
               awslogs-stream-prefix: ecs
           HealthCheck:
@@ -795,7 +785,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref WebLogs
+              awslogs-group: /skaldandstone/alpha/kall-web
               awslogs-region: us-east-2
               awslogs-stream-prefix: ecs
 

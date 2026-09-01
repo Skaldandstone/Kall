@@ -210,11 +210,20 @@ def test_alpha_template_references_retained_secrets_instead_of_creating_them() -
     assert "ValueFrom: !Sub '${AlphaAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'" in template
 
 
-def test_alpha_template_keeps_explicit_log_and_database_retention() -> None:
+def test_alpha_template_reuses_retained_app_logs_and_keeps_admin_log_retention() -> None:
     template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
+    resources = template.split("Resources:\n", 1)[1]
     database = template.split("  Database:\n", 1)[1].split("  LoadBalancer:\n", 1)[0]
 
-    assert template.count("RetentionInDays: 30") == 3
+    assert "  ApiLogs:\n" not in resources
+    assert "  WebLogs:\n" not in resources
+    assert resources.count("Type: AWS::Logs::LogGroup") == 1
+    assert "  DatabaseAdminLogs:\n    Type: AWS::Logs::LogGroup" in resources
+    assert template.count("RetentionInDays: 30") == 1
+    assert "awslogs-group: /skaldandstone/alpha/kall-api" in template
+    assert "awslogs-group: /skaldandstone/alpha/kall-web" in template
+    assert "awslogs-group: !Ref DatabaseAdminLogs" in template
+    assert "awslogs-create-group" not in template
     assert "DeletionPolicy: Snapshot" in database
     assert "UpdateReplacePolicy: Snapshot" in database
 
