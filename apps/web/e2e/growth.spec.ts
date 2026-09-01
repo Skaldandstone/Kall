@@ -32,8 +32,8 @@ test('creating a career goal produces a plan, and resources can be saved and pin
   });
 
   await test.step('analyze skills with the deterministic fallback', async () => {
-    await page.getByPlaceholder(/three years of experience/).fill('Five years leading a small backend team, mentoring two engineers.');
-    await page.getByRole('button', { name: 'AI Analyze' }).click();
+    await page.getByLabel('Current skills and experience').fill('Five years leading a small backend team, mentoring two engineers.');
+    await page.getByRole('button', { name: 'Analyze my skills' }).click();
     await expect(page.getByText('40%')).toBeVisible();
     await expect(page.getByText(/general starting estimate/)).toBeVisible();
   });

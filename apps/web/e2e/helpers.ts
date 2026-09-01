@@ -158,7 +158,10 @@ export async function completeOnboarding(page: Page, strategyName = 'Backend Lea
   await page.goto('/onboarding');
   await page.setInputFiles('input[type="file"][name="file"]', path.join(__dirname, 'fixtures', 'sample-resume.txt'));
   await page.getByRole('button', { name: 'Upload resume' }).click();
-  await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible();
+  // Resume parsing and profile creation involve the backend and object storage.
+  // Give that network boundary room on a cold CI worker without relaxing the
+  // suite-wide timeout or hiding unrelated failures.
+  await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible({ timeout: 30_000 });
 
   await page.locator('input[name="name"]').fill(strategyName);
   await page.locator('textarea[name="target_titles"]').fill('Senior Backend Engineer, Staff Engineer');

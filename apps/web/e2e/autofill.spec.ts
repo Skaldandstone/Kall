@@ -58,7 +58,9 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     await page.getByRole('button', { name: 'Prepare application' }).click();
     await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('link', { name: 'Continue to application review' }).click();
-    await page.getByRole('button', { name: 'Confirm review items' }).click();
+    const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
+    await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
+    await confirmReview.click();
     await expect(page.getByText('All required review items are complete.')).toBeVisible();
     await page.getByRole('button', { name: 'Approve application package' }).click();
     await expect(page.getByText('Stage: approved')).toBeVisible({ timeout: 15_000 });
