@@ -17,11 +17,10 @@ if config.config_file_name is not None:
 
 target_metadata = SQLModel.metadata
 
-# A stable, application-specific PostgreSQL advisory-lock key. A rolling deploy
-# briefly runs more than one instance of the service at once -- an ECS
-# deployment overlaps the new and old tasks by design -- and the API container
-# runs migrations on startup. Without serialization, two Alembic processes can
-# both pass SQLAlchemy's existence checks and race to create the same table.
+# A stable, application-specific PostgreSQL advisory-lock key. Migrations run as
+# a one-shot task before application services are enabled. The lock still makes
+# an accidental duplicate invocation serialize instead of racing through the
+# same schema changes.
 MIGRATION_LOCK_KEY = 1262570572
 
 
