@@ -30,7 +30,7 @@ report a fixed version. No image from that build is approved for runtime use.
 - API build context: repository root, Dockerfile `Dockerfile.api`.
 - Web build context: `apps/web`, Dockerfile `apps/web/Dockerfile`.
 - API base: `python:3.12.14-alpine3.24`, pinned to index digest
-  `sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0`.
+  `sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0b`.
   Its reviewed `linux/amd64` manifest is
   `sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb`
   and its immutable package database contains `libssl3=3.5.8-r0` and

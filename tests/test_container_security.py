@@ -8,7 +8,7 @@ RDS_CA = ROOT / "deploy" / "certs" / "aws-rds-us-east-2-bundle.pem"
 RDS_CA_SHA256 = "d46e1bdfda05c8e7644e50930806a19b139a222542bf0348082fb59ece2b5fa5"
 PYTHON_BASE = (
     "python:3.12.14-alpine3.24@"
-    "sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0"
+    "sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0b"
 )
 NODE_BASE = (
     "node:22.23.2-alpine3.24@"
@@ -31,6 +31,14 @@ def test_rds_bundle_is_the_reviewed_region_scoped_public_bundle() -> None:
         "Amazon RDS us-east-2 Root CA RSA4096 G1",
         "Amazon RDS us-east-2 Root CA ECC384 G1",
     }
+
+
+def test_container_base_digests_are_complete_sha256_values() -> None:
+    for base in (PYTHON_BASE, NODE_BASE):
+        digest = base.rsplit("@sha256:", 1)[1]
+
+        assert len(digest) == 64
+        assert all(character in "0123456789abcdef" for character in digest)
 
 
 def test_api_image_runs_only_the_service_as_a_fixed_non_root_user() -> None:
