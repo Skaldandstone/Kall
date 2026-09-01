@@ -1,11 +1,10 @@
-# Kall Stripe sandbox integration
+# Kall Stripe integration
 
-Status: implemented locally and sandbox catalog configured; payments default off
-and live keys are refused. Provider receipts from the Stripe owner establish the
-Kall sandbox offers, restricted key, Accounts Read verification and explicit
-portal configuration. The connector still needs reauthentication, but that does
-not invalidate the completed provider setup. No runtime secret injection,
-webhook destination, tax registration or application payment flow exists yet.
+Status: hosted billing is implemented with separate test and live contracts.
+Payments default off. The existing sandbox catalog remains development evidence;
+the live Kall catalog, restricted key, portal configuration, webhook destination,
+and controlled live transaction have not yet been created or accepted. No tax
+registration or automatic-tax readiness is claimed.
 
 ## Existing commercial model
 
@@ -34,13 +33,15 @@ The nonsecret disabled configuration is checked in at
   existing **signed-in web page**, not a public pricing endpoint. Studio should
   retain its existing product root link until a public destination is agreed.
 - `POST /api/billing/webhook` verifies the exact raw body with Stripe's SDK,
-  limits it to 512 KiB, rejects live/Connect events and unknown customers, and
+  limits it to 512 KiB, rejects events from the other mode, Connect events and
+  unknown customers, and
   handles subscription created/updated/deleted plus invoice paid/payment failed.
   Checkout return is informational and cannot grant access.
 
 The server creates a dedicated Customer using a persisted random binding and a
 Kall/environment scope. Every customer and subscription must carry matching
-`kall_user_id`, `kall_billing_scope` and `kall_binding` metadata and test mode.
+`kall_user_id`, `kall_billing_scope` and `kall_binding` metadata and the selected
+test or live mode.
 An event's metadata alone cannot attach a Customer to a user. Actual current
 subscription Price/Product pairs determine entitlements; missing, foreign,
 mixed or ambiguous items grant Free. Informational `kall_plan` is not trusted.
@@ -56,9 +57,9 @@ Both tier pairs and the signing secret must exist before the opt-in gate opens:
 
 ```dotenv
 STRIPE_ENABLED=false
-STRIPE_LIVEMODE=false
-STRIPE_BILLING_SCOPE=kall:<unique-environment-name>
-STRIPE_SECRET_KEY=<restricted-test-key-from-vault>
+STRIPE_LIVEMODE=true
+STRIPE_BILLING_SCOPE=kall:production
+STRIPE_SECRET_KEY=<restricted-live-key-from-vault>
 STRIPE_WEBHOOK_SECRET=<destination-signing-secret-from-vault>
 STRIPE_PRICE_ID=<approved-plus-recurring-price-id>
 STRIPE_PLUS_PRODUCT_ID=<approved-plus-product-id>
@@ -68,12 +69,14 @@ STRIPE_PORTAL_CONFIGURATION_ID=<kall-only-portal-configuration-id>
 FRONTEND_URL=<verified-web-origin>
 ```
 
-Use a restricted test key with the necessary Customer, Checkout Session and
-portal-session write permissions and Price, subscription, invoice and portal
-configuration read permissions. Confirm exact permission names and sandbox
-identity in Stripe before setup. The API alone needs keys; the web client does
-not. Supply secrets through the existing vault/runtime injection mechanism,
-never command arguments, source, screenshots, reports or chat.
+Use a dedicated restricted live key with the necessary Customer, Checkout
+Session and portal-session write permissions and Price, subscription, invoice
+and portal-configuration read permissions. Do not reuse another product's key.
+Confirm exact permissions and live-mode identity in Stripe before injection. The
+API alone needs Stripe keys; the browser does not. Supply secrets through the
+existing vault/runtime injection mechanism, never command arguments, source,
+screenshots, reports or chat. Keep `STRIPE_ENABLED=false` until the live objects
+and endpoint have been verified.
 
 The shared development foundation and `dev/kall/stripe` record already exist in
 AWS project `734702670689`. They do not constitute a Kall runtime. Do not
@@ -118,21 +121,30 @@ legacy scope/bindings NULL. Existing customers require explicit owner review
 before being attached to a scope; no automatic metadata adoption is performed.
 Back up and validate on disposable PostgreSQL before production migration.
 
-## Required owner actions before any real sandbox exercise
+## Required acceptance before live activation
 
-1. Build a reviewed Kall development runtime from remediated images and establish
-   a verified HTTPS origin. Do not share keys in chat.
-2. Inject the existing restricted key from `dev/kall/stripe` through the runtime
-   secret mechanism and use the checked-in Kall IDs and unique billing scope.
-3. Configure a sandbox webhook destination at the API's verified
+1. Complete the existing sandbox exercise on a reviewed HTTPS runtime. Configure
+   a sandbox webhook destination at the API's verified
    `/api/billing/webhook` URL, and verify the target deployment's migration,
    networking and TLS. Local disposable PostgreSQL validation has passed;
    see [its evidence](continuation/postgres-validation.md).
-4. After explicit sandbox activation, test real hosted Checkout, duplicate
+2. Test hosted sandbox Checkout, duplicate
    delivery, portal upgrades/cancellation, delayed/out-of-order events, decline,
    72-hour expiry and recovery. Verify Clerk ownership and return routes.
-5. Review those results and release separately. Live billing requires a separate
-   code/config review; setting `STRIPE_LIVEMODE=true` remains rejected here.
+3. In Stripe live mode, create separate Kall Plus and Premium products and
+   monthly recurring prices using the already approved commercial amounts. Do
+   not copy sandbox IDs into live configuration or invent new prices.
+4. Create a Kall-only live portal configuration and restricted key. Register the
+   live `/api/billing/webhook` destination for the supported subscription and
+   invoice events, using the source-pinned API version. Store only the live
+   signing secret and restricted key in the production vault.
+5. Deploy with live IDs and `STRIPE_LIVEMODE=true` while
+   `STRIPE_ENABLED=false`. Verify configuration and provider reads, then enable
+   billing in a separately reviewed change.
+6. Complete one controlled live payment with an invited production Clerk user,
+   verify entitlement and portal ownership, cancel/refund it, and confirm the
+   final Free entitlement and durable webhook receipts. This is the point at
+   which live payment acceptance can be claimed.
 
 Automatic tax is explicitly off. No tax readiness is claimed. Confirm legal
 entity, jurisdictions/registrations, product tax codes and inclusive/exclusive

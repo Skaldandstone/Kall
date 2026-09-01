@@ -13,7 +13,8 @@ def complete_production_config(tmp_path) -> dict[str, object]:
         "database_url": "postgresql+psycopg://localhost/kall",
         "database_ssl_mode": "verify-full",
         "database_ssl_root_cert": str(ca_bundle),
-        "clerk_secret_key": "sk_test_example",
+        "clerk_secret_key": "sk_live_example",
+        "clerk_authorized_parties": "https://kall.example.com",
         "frontend_url": "https://kall.example.com",
         "auto_create_tables": False,
         "aws_s3_bucket": "kall-production-documents",
@@ -70,7 +71,7 @@ def test_production_requires_verified_postgres_tls(tmp_path) -> None:
             sensitive_data_encryption_key="y" * 32,
             database_url="postgresql+psycopg://localhost/kall",
             database_ssl_root_cert=str(ca_bundle),
-            clerk_secret_key="sk_test_example",
+            clerk_secret_key="sk_live_example",
         )
 
 
@@ -83,14 +84,14 @@ def test_production_requires_a_readable_postgres_ca_bundle(tmp_path) -> None:
             database_url="postgresql+psycopg://localhost/kall",
             database_ssl_mode="verify-full",
             database_ssl_root_cert=str(tmp_path / "missing.pem"),
-            clerk_secret_key="sk_test_example",
+            clerk_secret_key="sk_live_example",
         )
 
 
 def test_production_accepts_a_complete_configuration(tmp_path) -> None:
     """The guards above must not reject a correctly configured service."""
     settings = Settings(**complete_production_config(tmp_path))
-    assert settings.clerk_secret_key == "sk_test_example"
+    assert settings.clerk_secret_key == "sk_live_example"
 
 
 @pytest.mark.parametrize(
@@ -104,7 +105,6 @@ def test_production_accepts_a_complete_configuration(tmp_path) -> None:
         ("alpha_invite_only", False, "invite-only"),
         ("sensitive_data_encryption_key", "short", "at least 32"),
         ("sensitive_data_encryption_key", "x" * 32, "must be distinct"),
-        ("stripe_livemode", True, "Live Stripe billing"),
     ],
 )
 def test_production_rejects_unsafe_release_configuration(
@@ -124,7 +124,7 @@ def test_production_requires_complete_product_scoped_stripe_sandbox(tmp_path) ->
 
     config.update(
         stripe_webhook_secret="whsec_example",
-        stripe_billing_scope="other:production",
+        stripe_billing_scope="other:test",
         stripe_price_id="price_plus",
         stripe_plus_product_id="prod_plus",
         stripe_premium_price_id="price_premium",
@@ -134,7 +134,45 @@ def test_production_requires_complete_product_scoped_stripe_sandbox(tmp_path) ->
     with pytest.raises(ValidationError, match="product-scoped to Kall"):
         Settings(**config)
 
-    config["stripe_billing_scope"] = "kall:production"
+    config["stripe_billing_scope"] = "kall:test:production-candidate"
     settings = Settings(**config)
     assert settings.stripe_enabled is True
     assert settings.stripe_livemode is False
+
+
+def test_production_accepts_only_matching_live_stripe_configuration(tmp_path) -> None:
+    config = complete_production_config(tmp_path)
+    config.update(
+        stripe_enabled=True,
+        stripe_livemode=True,
+        stripe_secret_key="rk_live_example",
+        stripe_webhook_secret="whsec_example",
+        stripe_billing_scope="kall:production",
+        stripe_price_id="price_plus_live",
+        stripe_plus_product_id="prod_plus_live",
+        stripe_premium_price_id="price_premium_live",
+        stripe_premium_product_id="prod_premium_live",
+        stripe_portal_configuration_id="bpc_kall_live",
+    )
+    assert Settings(**config).stripe_livemode is True
+
+    config["stripe_secret_key"] = "rk_test_wrong_environment"
+    with pytest.raises(ValidationError, match="environment does not match"):
+        Settings(**config)
+
+    config["stripe_secret_key"] = "rk_live_example"
+    config["stripe_billing_scope"] = "kall:test"
+    with pytest.raises(ValidationError, match="kall:production"):
+        Settings(**config)
+
+
+def test_production_rejects_development_clerk_or_missing_authorized_origin(tmp_path) -> None:
+    config = complete_production_config(tmp_path)
+    config["clerk_secret_key"] = "sk_test_wrong_environment"
+    with pytest.raises(ValidationError, match="Clerk production secret"):
+        Settings(**config)
+
+    config["clerk_secret_key"] = "sk_live_example"
+    config["clerk_authorized_parties"] = "https://other.example.com"
+    with pytest.raises(ValidationError, match="production frontend origin"):
+        Settings(**config)

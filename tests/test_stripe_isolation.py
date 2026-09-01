@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 import stripe
-from billing_fakes import delivery
+from billing_fakes import SCOPE, FakeStripe, delivery
 from fastapi import HTTPException
 from kall.config import get_settings
 from kall.models import BillingEvent, Subscription, User
@@ -55,15 +55,56 @@ def test_rejects_unsafe_delivery_without_receipt(client, engine, stripe_gateway,
     assert stripe_gateway.calls == []
 
 
-@pytest.mark.parametrize("setting,value", [("stripe_enabled", False), ("stripe_livemode", True),
+@pytest.mark.parametrize("setting,value", [("stripe_enabled", False),
     ("stripe_secret_key", "rk_live_fake"), ("stripe_billing_scope", "studio:test"),
     ("stripe_webhook_secret", None), ("stripe_plus_product_id", "prod_kall_premium")])
-def test_unconfigured_or_live_billing_is_closed(client, stripe_gateway, monkeypatch, setting, value):
+def test_unconfigured_or_mismatched_billing_is_closed(client, stripe_gateway, monkeypatch, setting, value):
     monkeypatch.setattr(get_settings(), setting, value)
     assert client.post("/api/billing/checkout", json={"plan": "premium"}).status_code == 503
     assert client.post("/api/billing/portal").status_code == 503
     assert client.post("/api/billing/webhook", content="{}").status_code == 503
     assert stripe_gateway.calls == []
+
+
+def test_live_checkout_and_webhook_require_live_objects_end_to_end(client, engine, monkeypatch):
+    settings = get_settings()
+    live = FakeStripe(livemode=True)
+    for name, value in {
+        "stripe_enabled": True,
+        "stripe_livemode": True,
+        "stripe_secret_key": "rk_live_local_placeholder",
+        "stripe_billing_scope": SCOPE,
+    }.items():
+        monkeypatch.setattr(settings, name, value)
+    monkeypatch.setattr(stripe_billing, "stripe_client", lambda: live)
+
+    response = client.post("/api/billing/checkout", json={"plan": "plus"})
+    assert response.status_code == 200
+    with Session(engine) as session:
+        row = session.exec(select(Subscription)).one()
+        assert row.provider_livemode is True
+        assert row.checkout_session_id.startswith("cs_live_")
+
+    checkout = next(iter(live.checkouts.values()))
+    current = {
+        "id": "sub_live",
+        "customer": checkout["customer"],
+        "livemode": True,
+        "metadata": checkout["metadata"],
+        "status": "active",
+        "items": {"data": [{"price": live.prices["price_plus"], "quantity": 1}]},
+        "latest_invoice": {"id": "in_live", "status": "paid"},
+    }
+    live.subscriptions["sub_live"] = current
+    event = live.event("sub_live", event_id="evt_live")
+    assert delivery(client, event).status_code == 200
+    with Session(engine) as session:
+        assert session.get(User, client.user_id).plan == "plus"
+        assert session.exec(select(BillingEvent)).one().payload_json["livemode"] is True
+
+    event["id"] = "evt_wrong_mode"
+    event["livemode"] = False
+    assert delivery(client, event).status_code == 400
 
 
 def test_checkout_uses_server_prices_owned_customer_and_one_persisted_attempt(client, engine, stripe_gateway):

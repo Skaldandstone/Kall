@@ -49,7 +49,7 @@ def plan_from_event(payload: dict) -> str:
     entry = catalog().get(price.get("id"))
     if not entry or object_id(price.get("product")) != entry[1]:
         return SubscriptionPlan.FREE
-    if price.get("livemode") is not False:
+    if price.get("livemode") is not get_settings().stripe_livemode:
         return SubscriptionPlan.FREE
     return entry[0]
 

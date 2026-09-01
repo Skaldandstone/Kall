@@ -1,4 +1,4 @@
-"""Kall-only hosted billing. No live payments are enabled by this release."""
+"""Kall-only hosted billing with explicit test/live environment isolation."""
 
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -27,10 +27,13 @@ TERMINAL_SUBSCRIPTIONS = {"canceled", "incomplete_expired"}
 
 def validate_key_environment() -> None:
     settings = get_settings()
-    if settings.stripe_livemode:
-        raise HTTPException(503, "Live billing is disabled for this release")
-    if not (settings.stripe_secret_key or "").startswith(("rk_test_", "sk_test_")):
+    prefixes = ("rk_live_", "sk_live_") if settings.stripe_livemode else ("rk_test_", "sk_test_")
+    if not (settings.stripe_secret_key or "").startswith(prefixes):
         raise HTTPException(503, "Stripe key environment does not match")
+
+
+def expected_livemode() -> bool:
+    return get_settings().stripe_livemode
 
 
 def require_configuration() -> None:
@@ -94,7 +97,7 @@ def metadata_for(row: Subscription) -> dict[str, str]:
 
 def owns_object(row: Subscription, value: dict) -> bool:
     metadata = value.get("metadata") or {}
-    return bool(row.billing_binding_key and value.get("livemode") is False
+    return bool(row.billing_binding_key and value.get("livemode") is expected_livemode()
                 and all(metadata.get(key) == expected for key, expected in metadata_for(row).items()))
 
 
@@ -121,12 +124,13 @@ def frontend_url() -> str:
 def bound_row(session: Session, user_id: int) -> Subscription:
     row = get_subscription(session, user_id, commit=False)
     scope = get_settings().stripe_billing_scope
-    if row.billing_scope and (row.billing_scope != scope or row.provider_livemode is not False):
+    livemode = expected_livemode()
+    if row.billing_scope and (row.billing_scope != scope or row.provider_livemode is not livemode):
         raise HTTPException(503, "Billing customer belongs to a different environment")
     if row.provider_customer_id and (not row.billing_scope or not row.billing_binding_key):
         raise HTTPException(503, "Existing billing customer requires owner reconciliation")
     if not row.billing_binding_key:
-        row.billing_scope, row.provider_livemode = scope, False
+        row.billing_scope, row.provider_livemode = scope, livemode
         row.billing_binding_key = uuid4().hex
         row.billing_binding_created_at = datetime.utcnow()
         session.add(row)
@@ -145,7 +149,8 @@ def checked_portal_configuration(client) -> str:
     if not configuration_id:
         raise HTTPException(503, "Kall customer portal is not configured")
     configuration = provider_call(client.v1.billing_portal.configurations.retrieve, configuration_id)
-    if configuration.get("id") != configuration_id or not configuration.get("active") or configuration.get("livemode") is not False:
+    if (configuration.get("id") != configuration_id or not configuration.get("active")
+            or configuration.get("livemode") is not expected_livemode()):
         raise HTTPException(503, "Kall customer portal configuration is unavailable")
     # A shared default portal must never advertise another product's plans.
     updates = (configuration.get("features") or {}).get("subscription_update") or {}
@@ -180,7 +185,7 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
         checked_portal_configuration(client)
         price = provider_call(client.v1.prices.retrieve, price_id)
         recurring = price.get("recurring") or {}
-        if (price.get("id") != price_id or price.get("livemode") is not False or not price.get("active")
+        if (price.get("id") != price_id or price.get("livemode") is not expected_livemode() or not price.get("active")
                 or object_id(price.get("product")) != catalog()[price_id][1]
                 or recurring.get("interval") != "month" or recurring.get("interval_count") != 1):
             raise HTTPException(503, "Kall recurring price configuration could not be verified")
@@ -237,8 +242,9 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
             "expires_at": int(row.checkout_expires_at.replace(tzinfo=UTC).timestamp()),
             "integration_identifier": tag, "automatic_tax": {"enabled": False},
         }, {"idempotency_key": f"kall-checkout-{row.checkout_attempt_key}"})
+        checkout_prefix = "cs_live_" if expected_livemode() else "cs_test_"
         if (not owns_object(row, checkout) or object_id(checkout.get("customer")) != row.provider_customer_id
-                or not str(checkout.get("id", "")).startswith("cs_test_")):
+                or not str(checkout.get("id", "")).startswith(checkout_prefix)):
             raise HTTPException(503, "Checkout ownership could not be verified")
         row.checkout_session_id = checkout["id"]
         session.add(row)
@@ -288,7 +294,7 @@ def event_owner(session: Session, event: dict) -> Subscription | None:
     return session.exec(select(Subscription).where(
         Subscription.provider_customer_id == customer_id,
         Subscription.billing_scope == get_settings().stripe_billing_scope,
-        Subscription.provider_livemode.is_(False), Subscription.billing_binding_key.is_not(None),
+        Subscription.provider_livemode.is_(expected_livemode()), Subscription.billing_binding_key.is_not(None),
     )).first()
 
 

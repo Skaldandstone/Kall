@@ -141,6 +141,15 @@ def test_web_image_uses_the_reviewed_non_root_node_user() -> None:
     assert "USER nextjs" in dockerfile
 
 
+def test_web_build_fails_closed_on_a_mismatched_clerk_instance() -> None:
+    dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text()
+
+    assert "ARG KALL_CLERK_INSTANCE=development" in dockerfile
+    assert 'production) test "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY#pk_live_}"' in dockerfile
+    assert 'development) test "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY#pk_test_}"' in dockerfile
+    assert "KALL_CLERK_INSTANCE must be production or development" in dockerfile
+
+
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:
     template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
     api_execution = template.split("  ApiExecutionRole:\n", 1)[1].split("  BootstrapExecutionRole:\n", 1)[0]

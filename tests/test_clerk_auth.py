@@ -159,6 +159,34 @@ def test_private_alpha_rejects_a_new_user_without_invitation_metadata(
         get_settings.cache_clear()
 
 
+def test_token_verification_passes_the_configured_authorized_parties(monkeypatch: pytest.MonkeyPatch) -> None:
+    from kall.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "clerk_secret_key", "sk_live_local_placeholder")
+    monkeypatch.setattr(
+        settings,
+        "clerk_authorized_parties",
+        "https://kall.skaldandstone.com,https://mobile.kall.invalid/",
+    )
+    captured = {}
+
+    def fake_verify(token, options):
+        captured["token"] = token
+        captured["secret_key"] = options.secret_key
+        captured["authorized_parties"] = options.authorized_parties
+        return {"sub": "user_production"}
+
+    monkeypatch.setattr("kall.auth.verify_token", fake_verify)
+
+    assert verify_clerk_token("session-token") == {"sub": "user_production"}
+    assert captured == {
+        "token": "session-token",
+        "secret_key": "sk_live_local_placeholder",
+        "authorized_parties": ["https://kall.skaldandstone.com", "https://mobile.kall.invalid"],
+    }
+
+
 def test_private_alpha_allows_the_configured_owner_email(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

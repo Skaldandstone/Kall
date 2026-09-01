@@ -1,9 +1,11 @@
 # Kall production readiness
 
 Updated 1 September 2026. This is the release contract for the first Kall
-production candidate. It is invitation-only. Live Stripe, automatic tax, SES
-sending, continuous monitoring, public signup, and application auto-submission
-remain disabled until their separate acceptance gates pass.
+production candidate. It is invitation-only. The source now supports isolated
+live Stripe and Clerk production credentials, but provider activation is still
+disabled until the acceptance gates below pass. Automatic tax, SES sending,
+continuous monitoring, public signup, and application auto-submission remain
+disabled.
 
 ## Current state
 
@@ -20,14 +22,18 @@ Production startup now fails closed unless all of the following are true:
 - PostgreSQL uses `verify-full` with a readable CA bundle;
 - signing and sensitive-data encryption keys are distinct and at least 32
   characters;
-- Clerk is configured;
+- Clerk uses a production secret and the token verifier includes the production
+  frontend in its authorized-party allowlist;
 - the frontend is a credential-free HTTPS origin;
 - Alembic owns schema changes and automatic table creation is off;
 - durable S3 document storage is configured in the selected Region `us-east-2`;
 - signup remains invitation-only;
-- live Stripe mode remains off; and
-- any enabled Stripe sandbox has the complete Kall-only catalog, portal,
-  signing secret, test key, and billing scope.
+- any enabled Stripe environment has a matching test or live key, complete
+  Kall-only catalog, portal, signing secret, and environment-specific scope;
+- live Stripe uses exactly `kall:production`, while sandbox objects cannot use
+  that scope; and
+- the production web image is built with a Clerk production publishable key and
+  `KALL_CLERK_INSTANCE=production`.
 
 The ALB API target uses `/ready`, which verifies database connectivity. The
 container's own `/health` probe remains a liveness check, allowing operations to
@@ -64,7 +70,8 @@ version under this exception.
 
 Current local evidence on the production-preparation source:
 
-- 637 backend tests passed;
+- 642 backend tests passed, including matching live-mode Checkout, webhook,
+  entitlement, Clerk-origin, and key-environment regressions;
 - full Ruff and Python compilation passed;
 - the web lockfile install, production build, TypeScript check, and production
   dependency audit passed with zero findings;
@@ -98,9 +105,9 @@ These are external gates and cannot be marked complete by source tests:
 3. Build API and web images from the exact release commit, record immutable
    digests, inspect final files/config, and pass ECR scanning. Basic scanning is
    insufficient if enhanced scanning is required by the release policy.
-4. Verify the production Clerk instance, invitation path, allowed redirect and
-   origin domains, MFA/session policy, account deletion, and one signed-in BFF
-   request without exposing tokens or cookies.
+4. Create and verify the production Clerk instance, custom domain, DNS,
+   invitation path, allowed redirects and origins, MFA/session policy, account
+   deletion, and one signed-in BFF request without exposing tokens or cookies.
 5. Create a dedicated production S3 bucket with public access blocked,
    versioning, encryption, lifecycle rules, access logging or CloudTrail data
    events as approved, and a synthetic upload/read/delete test from the task
@@ -111,9 +118,12 @@ These are external gates and cannot be marked complete by source tests:
 7. Review privacy policy, terms, support contact, data retention, account
    closure, backup retention, incident response, and subscription/refund policy
    before inviting anyone outside the controlled cohort.
-8. Exercise Stripe sandbox, SES, monitoring, OpenAI, mobile signing, and the
-   installed extension independently. A healthy base runtime enables none of
-   them automatically.
+8. Exercise Stripe sandbox before live mode. Then create Kall-only live products,
+   monthly prices, restricted key, portal configuration, and webhook endpoint.
+   Verify hosted Checkout, webhook deduplication, portal changes, decline,
+   cancellation, grace and recovery, plus a controlled live payment and refund.
+   Exercise SES, monitoring, OpenAI, mobile signing, and the installed extension
+   independently. A healthy base runtime enables none of them automatically.
 
 ## Deployment sequence
 
@@ -145,3 +155,5 @@ restore or retained-artifact deletion requires a separate reviewed action.
 
 Live billing, automatic tax, public signup, sender activation, monitoring
 polling, and application submission each require their own go/no-go record.
+Automatic tax stays off until actual registrations and tax treatment are
+verified; source support for live payments is not a tax-readiness claim.

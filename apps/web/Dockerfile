@@ -45,11 +45,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # build args are recorded in the image history. The proxy reads it at runtime
 # from the service environment instead.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG KALL_CLERK_INSTANCE=development
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN set -eu; \
+    case "$KALL_CLERK_INSTANCE" in \
+      production) test "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY#pk_live_}" != "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" ;; \
+      development) test "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY#pk_test_}" != "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" ;; \
+      *) echo "KALL_CLERK_INSTANCE must be production or development" >&2; exit 1 ;; \
+    esac; \
+    npm run build
 
 FROM base AS runtime
 WORKDIR /app

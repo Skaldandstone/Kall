@@ -21,6 +21,7 @@ from kall.services.stripe_billing import (
     create_portal_url,
     event_owner,
     event_subscription_id,
+    expected_livemode,
     reconcile_event,
     require_configuration,
 )
@@ -44,7 +45,8 @@ def billing_status(user: User = Depends(get_current_user), session: Session = De
         enabled = False
     row = session.exec(select(Subscription).where(Subscription.user_id == user.id)).first()
     bound = bool(row and row.provider_customer_id and row.billing_binding_key
-                 and row.billing_scope == get_settings().stripe_billing_scope and row.provider_livemode is False)
+                 and row.billing_scope == get_settings().stripe_billing_scope
+                 and row.provider_livemode is expected_livemode())
     # No provider identity, binding token, or key crosses the browser boundary.
     return {"enabled": enabled, "can_manage": enabled and bound}
 
@@ -82,7 +84,7 @@ async def webhook(request: Request, session: Session = Depends(get_session)):
             raise ValueError("Invalid event shape")
     except (ValueError, KeyError, TypeError, stripe.SignatureVerificationError):
         raise HTTPException(400, "Invalid Stripe webhook") from None
-    if event.get("livemode") is not False or event.get("account"):
+    if event.get("livemode") is not expected_livemode() or event.get("account"):
         raise HTTPException(400, "Stripe webhook environment does not match")
     if event["type"] not in SUPPORTED_EVENTS:
         return {"received": True, "ignored": True}
@@ -110,7 +112,7 @@ def _process_webhook_event(session: Session, event: dict):
             applied = _apply_event(session, event)
             # Retain reconciliation references, never invoice addresses or the
             # whole provider payload. No signature or secret is persisted.
-            record.payload_json = {"id": event_id, "type": event["type"], "livemode": False,
+            record.payload_json = {"id": event_id, "type": event["type"], "livemode": expected_livemode(),
                                    "object_id": event["data"]["object"].get("id"),
                                    "subscription_id": event_subscription_id(event), "applied": bool(applied)}
             record.status, record.processed_at, record.error = "processed", datetime.utcnow(), None

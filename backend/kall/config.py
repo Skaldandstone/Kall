@@ -71,7 +71,9 @@ class Settings(BaseSettings):
     alpha_allowed_emails: str = ""
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
-    # Sandbox integration is opt-in. Live billing is blocked in this release.
+    # Billing is opt-in. Stripe test and live objects are separate, and every
+    # provider object is checked against this explicit environment before it
+    # can change an entitlement.
     stripe_enabled: bool = False
     stripe_livemode: bool = False
     stripe_billing_scope: str | None = None
@@ -95,6 +97,7 @@ class Settings(BaseSettings):
     # maps it to a local User row -- see kall/auth.py.
     clerk_secret_key: str | None = None
     clerk_publishable_key: str | None = None
+    clerk_authorized_parties: str = ""
 
     # Object storage for uploaded resumes and generated documents. When unset,
     # files are written to the local filesystem instead -- fine for local
@@ -121,6 +124,10 @@ class Settings(BaseSettings):
             for email in self.alpha_allowed_emails.split(",")
             if email.strip()
         }
+
+    @property
+    def clerk_authorized_party_list(self) -> list[str]:
+        return [party.strip().rstrip("/") for party in self.clerk_authorized_parties.split(",") if party.strip()]
 
     @model_validator(mode="after")
     def normalize_and_validate(self) -> "Settings":
@@ -154,6 +161,8 @@ class Settings(BaseSettings):
                     "CLERK_SECRET_KEY is required in production — without it every "
                     "authenticated request fails token verification"
                 )
+            if not self.clerk_secret_key.startswith("sk_live_"):
+                raise ValueError("Production requires a Clerk production secret key")
             try:
                 frontend = urlsplit(self.frontend_url)
                 frontend_port = frontend.port
@@ -170,6 +179,11 @@ class Settings(BaseSettings):
                 or frontend.fragment
             ):
                 raise ValueError("FRONTEND_URL must be a valid HTTPS origin in production")
+            frontend_origin = f"{frontend.scheme}://{frontend.hostname}"
+            if frontend_port:
+                frontend_origin += f":{frontend_port}"
+            if frontend_origin not in self.clerk_authorized_party_list:
+                raise ValueError("CLERK_AUTHORIZED_PARTIES must include the production frontend origin")
             if self.auto_create_tables:
                 raise ValueError("AUTO_CREATE_TABLES must be false in production; run Alembic separately")
             if not self.aws_s3_bucket:
@@ -178,8 +192,6 @@ class Settings(BaseSettings):
                 raise ValueError("AWS_REGION must match the selected Region us-east-2")
             if not self.alpha_invite_only:
                 raise ValueError("Production launch remains invite-only until public sign-up is approved")
-            if self.stripe_livemode:
-                raise ValueError("Live Stripe billing is not approved for this release")
             if self.stripe_enabled:
                 required_billing = {
                     "STRIPE_SECRET_KEY": self.stripe_secret_key,
@@ -194,14 +206,19 @@ class Settings(BaseSettings):
                 missing = [name for name, value in required_billing.items() if not value]
                 if missing:
                     raise ValueError(
-                        "Stripe sandbox configuration is incomplete: " + ", ".join(missing)
+                        "Stripe configuration is incomplete: " + ", ".join(missing)
                     )
-                if not self.stripe_secret_key.startswith(("rk_test_", "sk_test_")):
-                    raise ValueError("Production candidate accepts only Stripe sandbox keys")
+                expected_prefixes = ("rk_live_", "sk_live_") if self.stripe_livemode else ("rk_test_", "sk_test_")
+                if not self.stripe_secret_key.startswith(expected_prefixes):
+                    raise ValueError("Stripe key environment does not match STRIPE_LIVEMODE")
                 if not self.stripe_webhook_secret.startswith("whsec_"):
                     raise ValueError("STRIPE_WEBHOOK_SECRET must be a Stripe signing secret")
                 if not self.stripe_billing_scope.startswith("kall:"):
                     raise ValueError("STRIPE_BILLING_SCOPE must be product-scoped to Kall")
+                if self.stripe_livemode and self.stripe_billing_scope != "kall:production":
+                    raise ValueError("Live Stripe billing must use STRIPE_BILLING_SCOPE=kall:production")
+                if not self.stripe_livemode and self.stripe_billing_scope == "kall:production":
+                    raise ValueError("Stripe sandbox billing must not use the production billing scope")
         return self
 
 

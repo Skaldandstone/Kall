@@ -43,7 +43,13 @@ def verify_clerk_token(token: str) -> dict:
         # deployment is simply missing its key.
         raise HTTPException(status_code=503, detail="Authentication is not configured")
     try:
-        return verify_token(token, VerifyTokenOptions(secret_key=settings.clerk_secret_key))
+        return verify_token(
+            token,
+            VerifyTokenOptions(
+                secret_key=settings.clerk_secret_key,
+                authorized_parties=settings.clerk_authorized_party_list or None,
+            ),
+        )
     except TokenVerificationError as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired session") from exc
 
