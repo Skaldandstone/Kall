@@ -272,11 +272,17 @@ outputs the ALB DNS name so the AWS owner can coordinate the external,
 DNS-only Cloudflare CNAME after the load balancer exists. The existing
 `kall.skaldandstone.com` record remains outside this template and unchanged.
 
-CloudFront uses HTTPS-only to the external origin, and the web task uses the
-same HTTPS origin for `KALL_API_URL`. The template contains no HTTP-only
-CloudFront origin. This source change does not prove that external DNS, the
-certificate chain, CloudFront, ALB, or the server-side proxy work in a deployed
-environment. Verify all of them before registering a webhook.
+CloudFront uses HTTPS-only to the external origin. The web task uses the
+distribution's HTTPS domain for `KALL_API_URL`, so its server-side proxy follows
+the same CloudFront-to-ALB path already allowed by the ALB security group. It
+does not call the internet-facing ALB's public addresses directly, which would
+require weakening ingress or relying on an unsupported security-group hairpin.
+The proxy changes `/api/kall/...` to `/api/...`, and the ALB's API rule sends
+that path to FastAPI without recursing into Next. The distribution uses the
+managed all-viewer origin request policy and caching-disabled policy so Clerk
+bearer headers reach FastAPI without caching authenticated responses. The
+template contains no HTTP-only CloudFront origin. Verify the complete path in
+the hosted environment before registering a webhook.
 
 ## Secret and retention interface
 

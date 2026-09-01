@@ -32,6 +32,8 @@ The replacement runtime must preserve all of these constraints:
 - route `/api/kall/*` through the authenticated web proxy before routing
   `/api/*` to the bearer-authenticated API used by mobile and the extension;
 - use HTTPS from CloudFront to the ALB and from the web service to the API;
+- make the server-side web proxy call the CloudFront HTTPS domain, not the
+  internet-facing ALB's public addresses or a broadened ALB ingress rule;
 - leave the authoritative Cloudflare zone outside the stack, expose the ALB DNS
   output for the DNS-only `origin.kall.skaldandstone.com` CNAME, and require the
   matching `us-east-2` ACM certificate;
