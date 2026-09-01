@@ -23,6 +23,7 @@ def _config(environment: dict[str, str]) -> dict[str, object]:
         "account": environment["EXPECTED_ACCOUNT"],
         "region": environment["EXPECTED_REGION"],
         "rule_name": environment["RULE_NAME"],
+        "deletion_role_arn": environment["DELETION_ROLE_ARN"],
     }
     if not STACK_RE.fullmatch(str(config["stack_name"])):
         raise RuntimeError("Managed stack name is outside the Kall sandbox boundary")
@@ -32,6 +33,12 @@ def _config(environment: dict[str, str]) -> dict[str, object]:
         raise RuntimeError("Expected account is invalid")
     if config["region"] != "us-east-2":
         raise RuntimeError("Expected region is invalid")
+    expected_role_arn = (
+        f"arn:aws:iam::{config['account']}:role/"
+        f"kall-expiry-{config['session_id']}-delete"
+    )
+    if config["deletion_role_arn"] != expected_role_arn:
+        raise RuntimeError("CloudFormation deletion role is outside the exact session boundary")
     if expires <= created or expires - created > MAX_SESSION_SECONDS:
         raise RuntimeError("Expiry must be after creation and within two hours")
     return config
@@ -56,9 +63,24 @@ def _evaluate(stack: dict[str, object], config: dict[str, object], now: int) -> 
     status = str(stack["StackStatus"])
     if status == "DELETE_IN_PROGRESS":
         return "deleting"
+    if status == "DELETE_FAILED":
+        return "recover-delete" if now >= int(config["expires"]) else "wait"
     if status.endswith("_IN_PROGRESS") or status.endswith("_FAILED") or "ROLLBACK" in status:
         raise RuntimeError("Runtime stack is not in a deletion-safe stable state")
     return "delete" if now >= int(config["expires"]) else "wait"
+
+
+def _delete_arguments(
+    stack: dict[str, object], config: dict[str, object], action: str
+) -> dict[str, str]:
+    if action not in {"delete", "recover-delete"}:
+        raise RuntimeError("Delete arguments require a deletion action")
+    token_prefix = "expiry-v2" if action == "recover-delete" else "expiry"
+    return {
+        "StackName": str(stack["StackId"]),
+        "ClientRequestToken": f"{token_prefix}-{config['session_id']}",
+        "RoleARN": str(config["deletion_role_arn"]),
+    }
 
 
 def handler(_event, _context):
@@ -80,10 +102,7 @@ def handler(_event, _context):
         raise
 
     action = _evaluate(stack, config, int(time.time()))
-    if action == "delete":
-        cloudformation.delete_stack(
-            StackName=str(stack["StackId"]),
-            ClientRequestToken=f"expiry-{config['session_id']}",
-        )
+    if action in {"delete", "recover-delete"}:
+        cloudformation.delete_stack(**_delete_arguments(stack, config, action))
     print(json.dumps({"state": action, "stackName": config["stack_name"], "sessionId": config["session_id"]}))
     return {"state": action}

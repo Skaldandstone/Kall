@@ -1,6 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Disabled-by-default expiry controller for one bounded Kall sandbox session.
 
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@2
+
 Parameters:
   ManagedStackName:
     Type: String
@@ -44,6 +48,106 @@ Resources:
         - Key: SkaldAndStone-SessionId
           Value: !Ref SessionId
 
+  RuntimeDeletionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Gives CloudFormation the bounded service permissions required to delete the exact Kall sandbox stack.
+        must: Be passed only by this session controller; never grant create actions or provider-secret access.
+    Properties:
+      RoleName: !Sub kall-expiry-${SessionId}-delete
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: exact-kall-runtime-deletion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDeletionState
+                Effect: Allow
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:GetResponseHeadersPolicy
+                  - cloudfront:GetResponseHeadersPolicyConfig
+                  - cloudfront:ListTagsForResource
+                  - cloudwatch:DescribeAlarms
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSecurityGroupRules
+                  - ec2:DescribeSecurityGroups
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:DescribeTags
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeTargetHealth
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                  - iam:ListRolePolicies
+                  - iam:ListRoleTags
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBParameterGroups
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBSubnetGroups
+                  - rds:ListTagsForResource
+                Resource: '*'
+              - Sid: DeleteRegionalRuntimeResources
+                Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - ec2:DeleteSecurityGroup
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - elasticloadbalancing:DeleteListener
+                  - elasticloadbalancing:DeleteLoadBalancer
+                  - elasticloadbalancing:DeleteRule
+                  - elasticloadbalancing:DeleteTargetGroup
+                  - rds:DeleteDBInstance
+                  - rds:DeleteDBParameterGroup
+                  - rds:DeleteDBSubnetGroup
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
+              - Sid: DeleteExactEcsWorkloads
+                Effect: Allow
+                Action:
+                  - ecs:DeleteService
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:UpdateService
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-api
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-web
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:task-definition/kall-alpha-*
+              - Sid: DeleteExactRuntimeRoles
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:RemoveRoleFromInstanceProfile
+                Resource: !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/${ManagedStackName}-*
+              - Sid: DeleteRuntimeCloudFrontResources
+                Effect: Allow
+                Action:
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:DeleteResponseHeadersPolicy
+                  - cloudfront:UpdateDistribution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudfront::${ExpectedAccount}:distribution/*
+                  - !Sub arn:${AWS::Partition}:cloudfront::${ExpectedAccount}:response-headers-policy/*
+
   ExpiryRole:
     Type: AWS::IAM::Role
     Properties:
@@ -65,6 +169,13 @@ Resources:
                   - cloudformation:DescribeStacks
                   - cloudformation:DeleteStack
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${ExpectedRegion}:${ExpectedAccount}:stack/${ManagedStackName}/*
+              - Sid: PassDeletionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt RuntimeDeletionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
               - Sid: OwnSchedule
                 Effect: Allow
                 Action: events:DisableRule
@@ -96,22 +207,23 @@ Resources:
           EXPECTED_ACCOUNT: !Ref ExpectedAccount
           EXPECTED_REGION: !Ref ExpectedRegion
           RULE_NAME: !Sub kall-expiry-${SessionId}
+          DELETION_ROLE_ARN: !GetAtt RuntimeDeletionRole.Arn
       Code:
         ZipFile: |
           """Fail-closed expiry handler for one tagged Kall sandbox stack."""
-          
+
           from __future__ import annotations
-          
+
           import json
           import os
           import re
           import time
-          
+
           STACK_RE = re.compile(r"^kall-sandbox-[a-f0-9]{12}$")
           SESSION_RE = re.compile(r"^kall-[a-f0-9]{32}$")
           MAX_SESSION_SECONDS = 2 * 60 * 60
-          
-          
+
+
           def _config(environment: dict[str, str]) -> dict[str, object]:
               created = int(environment["CREATED_AT_EPOCH"])
               expires = int(environment["EXPIRES_AT_EPOCH"])
@@ -123,6 +235,7 @@ Resources:
                   "account": environment["EXPECTED_ACCOUNT"],
                   "region": environment["EXPECTED_REGION"],
                   "rule_name": environment["RULE_NAME"],
+                  "deletion_role_arn": environment["DELETION_ROLE_ARN"],
               }
               if not STACK_RE.fullmatch(str(config["stack_name"])):
                   raise RuntimeError("Managed stack name is outside the Kall sandbox boundary")
@@ -132,11 +245,17 @@ Resources:
                   raise RuntimeError("Expected account is invalid")
               if config["region"] != "us-east-2":
                   raise RuntimeError("Expected region is invalid")
+              expected_role_arn = (
+                  f"arn:aws:iam::{config['account']}:role/"
+                  f"kall-expiry-{config['session_id']}-delete"
+              )
+              if config["deletion_role_arn"] != expected_role_arn:
+                  raise RuntimeError("CloudFormation deletion role is outside the exact session boundary")
               if expires <= created or expires - created > MAX_SESSION_SECONDS:
                   raise RuntimeError("Expiry must be after creation and within two hours")
               return config
-          
-          
+
+
           def _evaluate(stack: dict[str, object], config: dict[str, object], now: int) -> str:
               stack_id = str(stack["StackId"])
               expected_prefix = (
@@ -156,15 +275,30 @@ Resources:
               status = str(stack["StackStatus"])
               if status == "DELETE_IN_PROGRESS":
                   return "deleting"
+              if status == "DELETE_FAILED":
+                  return "recover-delete" if now >= int(config["expires"]) else "wait"
               if status.endswith("_IN_PROGRESS") or status.endswith("_FAILED") or "ROLLBACK" in status:
                   raise RuntimeError("Runtime stack is not in a deletion-safe stable state")
               return "delete" if now >= int(config["expires"]) else "wait"
-          
-          
+
+
+          def _delete_arguments(
+              stack: dict[str, object], config: dict[str, object], action: str
+          ) -> dict[str, str]:
+              if action not in {"delete", "recover-delete"}:
+                  raise RuntimeError("Delete arguments require a deletion action")
+              token_prefix = "expiry-v2" if action == "recover-delete" else "expiry"
+              return {
+                  "StackName": str(stack["StackId"]),
+                  "ClientRequestToken": f"{token_prefix}-{config['session_id']}",
+                  "RoleARN": str(config["deletion_role_arn"]),
+              }
+
+
           def handler(_event, _context):
               import boto3
               from botocore.exceptions import ClientError
-          
+
               config = _config(dict(os.environ))
               cloudformation = boto3.client("cloudformation", region_name=str(config["region"]))
               events = boto3.client("events", region_name=str(config["region"]))
@@ -178,16 +312,13 @@ Resources:
                       print(json.dumps({"state": "cleanup-verified-stack-absent", "scheduleDisabled": True}))
                       return {"state": "complete"}
                   raise
-          
+
               action = _evaluate(stack, config, int(time.time()))
-              if action == "delete":
-                  cloudformation.delete_stack(
-                      StackName=str(stack["StackId"]),
-                      ClientRequestToken=f"expiry-{config['session_id']}",
-                  )
+              if action in {"delete", "recover-delete"}:
+                  cloudformation.delete_stack(**_delete_arguments(stack, config, action))
               print(json.dumps({"state": action, "stackName": config["stack_name"], "sessionId": config["session_id"]}))
               return {"state": action}
-          
+
       Tags:
         - Key: SkaldAndStone-Product
           Value: kall

@@ -1,6 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Disabled-by-default expiry controller for one bounded Kall sandbox session.
 
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@2
+
 Parameters:
   ManagedStackName:
     Type: String
@@ -44,6 +48,106 @@ Resources:
         - Key: SkaldAndStone-SessionId
           Value: !Ref SessionId
 
+  RuntimeDeletionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Gives CloudFormation the bounded service permissions required to delete the exact Kall sandbox stack.
+        must: Be passed only by this session controller; never grant create actions or provider-secret access.
+    Properties:
+      RoleName: !Sub kall-expiry-${SessionId}-delete
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: exact-kall-runtime-deletion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadDeletionState
+                Effect: Allow
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:GetResponseHeadersPolicy
+                  - cloudfront:GetResponseHeadersPolicyConfig
+                  - cloudfront:ListTagsForResource
+                  - cloudwatch:DescribeAlarms
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSecurityGroupRules
+                  - ec2:DescribeSecurityGroups
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:DescribeTags
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeTargetHealth
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                  - iam:ListRolePolicies
+                  - iam:ListRoleTags
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBParameterGroups
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBSubnetGroups
+                  - rds:ListTagsForResource
+                Resource: '*'
+              - Sid: DeleteRegionalRuntimeResources
+                Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - ec2:DeleteSecurityGroup
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - elasticloadbalancing:DeleteListener
+                  - elasticloadbalancing:DeleteLoadBalancer
+                  - elasticloadbalancing:DeleteRule
+                  - elasticloadbalancing:DeleteTargetGroup
+                  - rds:DeleteDBInstance
+                  - rds:DeleteDBParameterGroup
+                  - rds:DeleteDBSubnetGroup
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
+              - Sid: DeleteExactEcsWorkloads
+                Effect: Allow
+                Action:
+                  - ecs:DeleteService
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:UpdateService
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-api
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:service/*/kall-alpha-web
+                  - !Sub arn:${AWS::Partition}:ecs:${ExpectedRegion}:${ExpectedAccount}:task-definition/kall-alpha-*
+              - Sid: DeleteExactRuntimeRoles
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:RemoveRoleFromInstanceProfile
+                Resource: !Sub arn:${AWS::Partition}:iam::${ExpectedAccount}:role/${ManagedStackName}-*
+              - Sid: DeleteRuntimeCloudFrontResources
+                Effect: Allow
+                Action:
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:DeleteResponseHeadersPolicy
+                  - cloudfront:UpdateDistribution
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudfront::${ExpectedAccount}:distribution/*
+                  - !Sub arn:${AWS::Partition}:cloudfront::${ExpectedAccount}:response-headers-policy/*
+
   ExpiryRole:
     Type: AWS::IAM::Role
     Properties:
@@ -65,6 +169,13 @@ Resources:
                   - cloudformation:DescribeStacks
                   - cloudformation:DeleteStack
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${ExpectedRegion}:${ExpectedAccount}:stack/${ManagedStackName}/*
+              - Sid: PassDeletionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt RuntimeDeletionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
               - Sid: OwnSchedule
                 Effect: Allow
                 Action: events:DisableRule
@@ -96,6 +207,7 @@ Resources:
           EXPECTED_ACCOUNT: !Ref ExpectedAccount
           EXPECTED_REGION: !Ref ExpectedRegion
           RULE_NAME: !Sub kall-expiry-${SessionId}
+          DELETION_ROLE_ARN: !GetAtt RuntimeDeletionRole.Arn
       Code:
         ZipFile: |
           __EXPIRY_HANDLER__

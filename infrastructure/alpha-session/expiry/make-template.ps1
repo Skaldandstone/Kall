@@ -6,7 +6,9 @@ $handlerPath = Join-Path $root 'expiry_handler.py'
 $targetPath = Join-Path $root 'kall-session-expiry.yaml'
 $template = Get-Content -LiteralPath $sourcePath -Raw
 $handler = Get-Content -LiteralPath $handlerPath -Raw
-$indented = (($handler -split "`r?`n") | ForEach-Object { '          ' + $_ }) -join "`n"
+$indented = (($handler -split "`r?`n") | ForEach-Object {
+  if ($_ -eq '') { '' } else { '          ' + $_ }
+}) -join "`n"
 $rendered = $template.Replace('          __EXPIRY_HANDLER__', $indented)
 if ($rendered -eq $template -or $rendered.Contains('__EXPIRY_HANDLER__')) {
   throw 'Expiry handler placeholder was not rendered exactly once.'

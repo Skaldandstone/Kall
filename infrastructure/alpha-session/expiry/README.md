@@ -1,10 +1,21 @@
-# Kall session expiry controller candidate
+# Kall session expiry controller
 
-This is a disabled-by-default local CloudFormation candidate. It is not deployed.
+This source template remains disabled by default. The designated AWS task owns
+deployment and may enable it only for one reviewed bounded sandbox session.
 
-The controller evaluates one stack whose name matches `kall-sandbox-[a-f0-9]{12}`. It requires an exact account, region, session identifier, expiry timestamp, and three matching stack tags. The configured lifetime must be greater than zero and no more than two hours. Before expiry it does nothing. At expiry it requests CloudFormation deletion using a stable request token. After the managed stack is absent, it disables its own EventBridge rule.
+The controller evaluates one stack whose name matches `kall-sandbox-[a-f0-9]{12}`. It requires an exact account, region, session identifier, expiry timestamp, and three matching stack tags. The configured lifetime must be greater than zero and no more than two hours. Before expiry it does nothing. At expiry it passes an exact, session-named deletion role to CloudFormation and requests deletion using a stable request token. If that first operation reaches `DELETE_FAILED`, the controller allows one deterministic `expiry-v2` recovery operation with the same role. After the managed stack is absent, it disables its own EventBridge rule.
 
-The runtime stack must retain recovery secrets and logs and use `DeletionPolicy: Snapshot` for PostgreSQL. This controller does not bypass a failed final snapshot or delete retained recovery artifacts. A failed or rollback stack state, wrong ARN, missing tag, wrong tag, excessive session duration, or wrong account/region fails closed.
+The Lambda role can describe and delete only the exact runtime stack, pass only
+the session's deletion role to CloudFormation, disable its own rule, and write
+its own retained logs. CloudFormation alone can assume the deletion role. That
+role has no create actions and no secret access. Its mutation verbs cover only
+the runtime stack's EC2 security groups, ECS services and task definitions,
+load-balancer resources, CloudWatch alarms, RDS instance/supporting groups,
+generated runtime IAM roles, CloudFront distribution, and response-headers
+policy. Regional mutations are restricted to `us-east-2`; ECS and IAM mutations
+also use the runtime's exact family, service, and stack-name patterns.
+
+The runtime stack must retain recovery secrets and logs and use `DeletionPolicy: Snapshot` for PostgreSQL. This controller does not bypass a failed final snapshot or delete retained recovery artifacts. Failure states other than exact `DELETE_FAILED`, rollback states, wrong ARN, missing tag, wrong tag, excessive session duration, wrong deletion-role ARN, or wrong account/region fail closed.
 
 The runtime stack-level tags use CloudFormation-safe hyphenated keys. The exact
 contract is `SkaldAndStone-ManagedBy=kall-session-expiry-v1`,
@@ -21,7 +32,5 @@ cfn-lint .\kall-session-expiry.yaml
 aws cloudformation validate-template --template-body file://kall-session-expiry.yaml --profile skaldandstone-dev --region us-east-2
 ```
 
-Deployment remains blocked by the unresolved Kall image findings and the absent
-external Cloudflare DNS record and matching `us-east-2` ACM certificate for
-`origin.kall.skaldandstone.com`. `ControllerEnabled` defaults to `false`; no
-schedule or recurring AWS resource was created by this preparation.
+`ControllerEnabled` defaults to `false`. A source validation or local template
+render does not create, update, or delete an AWS resource.

@@ -17,6 +17,10 @@ class ExpiryHandlerTests(unittest.TestCase):
             "EXPECTED_ACCOUNT": "734702670689",
             "EXPECTED_REGION": "us-east-2",
             "RULE_NAME": "kall-expiry-kall-0123456789abcdef0123456789abcdef",
+            "DELETION_ROLE_ARN": (
+                "arn:aws:iam::734702670689:role/"
+                "kall-expiry-kall-0123456789abcdef0123456789abcdef-delete"
+            ),
         }
         self.config = expiry._config(self.environment)
         self.stack = {
@@ -38,6 +42,24 @@ class ExpiryHandlerTests(unittest.TestCase):
     def test_accepts_existing_delete(self):
         self.stack["StackStatus"] = "DELETE_IN_PROGRESS"
         self.assertEqual(expiry._evaluate(self.stack, self.config, 9000), "deleting")
+
+    def test_recovers_only_an_expired_delete_failed_stack(self):
+        self.stack["StackStatus"] = "DELETE_FAILED"
+        self.assertEqual(expiry._evaluate(self.stack, self.config, 8199), "wait")
+        self.assertEqual(expiry._evaluate(self.stack, self.config, 8200), "recover-delete")
+
+        arguments = expiry._delete_arguments(self.stack, self.config, "recover-delete")
+        self.assertEqual(arguments["StackName"], self.stack["StackId"])
+        self.assertEqual(
+            arguments["ClientRequestToken"],
+            "expiry-v2-kall-0123456789abcdef0123456789abcdef",
+        )
+        self.assertEqual(arguments["RoleARN"], self.environment["DELETION_ROLE_ARN"])
+
+    def test_rejects_a_deletion_role_outside_the_exact_session(self):
+        bad = dict(self.environment, DELETION_ROLE_ARN="arn:aws:iam::734702670689:role/other")
+        with self.assertRaises(RuntimeError):
+            expiry._config(bad)
 
     def test_rejects_over_two_hours(self):
         bad = dict(self.environment, EXPIRES_AT_EPOCH="8201")
@@ -104,7 +126,31 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertIn("MaximumRetryAttempts: 2", body)
 
         handler = (root / "expiry_handler.py").read_text()
-        self.assertIn('ClientRequestToken=f"expiry-{config[\'session_id\']}"', handler)
+        self.assertIn('token_prefix = "expiry-v2" if action == "recover-delete" else "expiry"', handler)
+        self.assertIn('"RoleARN": str(config["deletion_role_arn"])', handler)
+
+    def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
+        root = Path(__file__).resolve().parent
+        required_actions = {
+            "cloudwatch:DeleteAlarms",
+            "ec2:RevokeSecurityGroupIngress",
+            "ecs:DescribeServices",
+            "ecs:DeregisterTaskDefinition",
+            "elasticloadbalancing:DescribeRules",
+            "rds:DeleteDBInstance",
+            "cloudfront:UpdateDistribution",
+            "iam:DeleteRolePolicy",
+        }
+        for name in ("kall-session-expiry.template.yaml", "kall-session-expiry.yaml"):
+            body = (root / name).read_text()
+            self.assertIn("Service: cloudformation.amazonaws.com", body)
+            self.assertIn("Action: iam:PassRole", body)
+            self.assertIn("iam:PassedToService: cloudformation.amazonaws.com", body)
+            self.assertIn("DELETION_ROLE_ARN: !GetAtt RuntimeDeletionRole.Arn", body)
+            for action in required_actions:
+                self.assertIn(f"- {action}", body)
+            for forbidden in ("ec2:Create", "ecs:RegisterTaskDefinition", "rds:Create", "secretsmanager:"):
+                self.assertNotIn(forbidden, body)
 
 
 if __name__ == "__main__":

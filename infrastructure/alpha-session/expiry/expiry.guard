@@ -22,9 +22,18 @@ rule controller_resource_tags_use_cloudformation_safe_keys {
 }
 
 rule role_has_only_expected_scoped_statements {
-    Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ExactRuntimeStack', 'OwnSchedule', 'OwnLogs']
+    Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ExactRuntimeStack', 'PassDeletionRole', 'OwnSchedule', 'OwnLogs']
     Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
+}
+
+rule cloudformation_uses_a_dedicated_deletion_role {
+    Resources.RuntimeDeletionRole.Type == 'AWS::IAM::Role'
+    Resources.RuntimeDeletionRole.Properties.AssumeRolePolicyDocument.Statement.*.Principal.Service == 'cloudformation.amazonaws.com'
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeleteExactRuntimeRoles', 'DeleteRuntimeCloudFrontResources']
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
+    Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt'[0] == 'RuntimeDeletionRole'
 }
 
 rule schedule_is_frequent_and_retry_bounded {
