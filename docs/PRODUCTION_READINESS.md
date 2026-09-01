@@ -38,7 +38,8 @@ distinguish a dead process from a temporarily unavailable database.
 One CI workflow is the automatic source gate. It runs backend tests and Ruff,
 the production web build, authenticated browser tests, extension build/tests,
 and mobile browser tests on pull requests and `main`. Package installs use the
-committed lockfiles through `npm ci`. The manual build workflow remains
+committed lockfiles through `npm ci`, under the same Node 24.18.1 runtime used
+by the reviewed web container. The manual build workflow remains
 credential-free and cannot deploy. The obsolete partial build workflow is
 removed so it cannot be re-enabled as a weaker or duplicate required check.
 

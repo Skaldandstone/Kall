@@ -37,11 +37,13 @@ def test_ci_is_the_single_complete_automatic_source_gate() -> None:
     for job in ("backend", "web", "e2e", "extension", "mobile-e2e"):
         assert f"\n  {job}:\n" in body
     assert body.count("npm ci") == 4
+    assert body.count('node-version: "24.18.1"') == 4
 
 
 def test_manual_workflow_remains_explicitly_build_only() -> None:
     body = (ROOT / ".github" / "workflows" / "manual-build.yml").read_text()
     assert "workflow_dispatch:" in body
+    assert body.count('node-version: "24.18.1"') == 2
     assert "jobs:\n  web:" in body
     assert "\n  extension:\n" in body
     assert "cloud credentials or deployment controls" in body
