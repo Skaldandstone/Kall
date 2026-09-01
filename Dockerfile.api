@@ -1,4 +1,4 @@
-FROM python:3.12.14-alpine3.24@sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0 AS runtime
+FROM python:3.12.14-alpine3.24@sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0b AS runtime
 
 # This API base contains the reviewed Alpine OpenSSL successor. Require its
 # exact version so a future base refresh cannot be accepted silently.
