@@ -45,9 +45,11 @@ export default function OpportunitiesScreen() {
 
   const trackedByJobId = useMemo(() => {
     const map = new Map<number, TrackedOpportunity>();
-    for (const item of tracked) map.set(item.job_id, item);
+    for (const item of tracked) {
+      if (item.professional_profile_id === profileId) map.set(item.job_id, item);
+    }
     return map;
-  }, [tracked]);
+  }, [profileId, tracked]);
 
   const trackedById = useMemo(() => {
     const map = new Map<number, TrackedOpportunity>();
