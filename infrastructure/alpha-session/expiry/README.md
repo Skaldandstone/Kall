@@ -27,12 +27,13 @@ are outside that statement and remain preserved.
 
 The final database snapshot permission allows only `rds:CreateDBSnapshot` on the
 exact `kall-alpha-postgres` DB ARN and the provider-generated snapshot prefix for
-the fixed recovery stack and `Database` logical resource in the selected Region.
-Only the provider's regenerated suffix is wildcarded. The policy rejects account-
-wide, stack-wide, and logical-resource-wide snapshot patterns and grants no other
-RDS create action. A separate statement allows only `rds:AddTagsToResource` on
-that same generated-snapshot prefix because the CloudFormation RDS provider tags
-the final snapshot. It grants no tag operation on the DB or any other resource.
+the validated `ManagedStackName` and `Database` logical resource in the selected
+Region. `ManagedStackName` must match `^kall-sandbox-[a-f0-9]{12}$`; only the
+provider's regenerated suffix is wildcarded. The policy rejects account-wide,
+stack-wide, and logical-resource-wide snapshot patterns and grants no other RDS
+create action. A separate statement allows only `rds:AddTagsToResource` on that
+same generated-snapshot prefix because the CloudFormation RDS provider tags the
+final snapshot. It grants no tag operation on the DB or any other resource.
 
 The runtime stack must retain recovery secrets and logs and use `DeletionPolicy: Snapshot` for PostgreSQL. This controller does not bypass a failed final snapshot or delete retained recovery artifacts. Failure states other than exact `DELETE_FAILED`, rollback states, wrong ARN, missing tag, wrong tag, excessive session duration, wrong deletion-role ARN, or wrong account/region fail closed.
 

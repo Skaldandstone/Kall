@@ -125,14 +125,14 @@ Resources:
                 Action: rds:CreateDBSnapshot
                 Resource:
                   - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
-                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*
+                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-snapshot-database-*
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion
               - Sid: TagExactDatabaseSnapshot
                 Effect: Allow
                 Action: rds:AddTagsToResource
-                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*
+                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:${ManagedStackName}-snapshot-database-*
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion
