@@ -15,6 +15,11 @@ rule recovery_log_is_retained_and_bounded {
     Resources.ExpiryLogGroup.Properties.RetentionInDays == 30
 }
 
+rule controller_resource_tags_use_cloudformation_safe_keys {
+    Resources.ExpiryLogGroup.Properties.Tags.*.Key IN ['SkaldAndStone-Product', 'SkaldAndStone-SessionId']
+    Resources.ExpiryFunction.Properties.Tags.*.Key IN ['SkaldAndStone-Product', 'SkaldAndStone-SessionId']
+}
+
 rule role_has_only_expected_scoped_statements {
     Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ExactRuntimeStack', 'OwnSchedule', 'OwnLogs']
     Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
