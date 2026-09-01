@@ -3,7 +3,7 @@
 This source template remains disabled by default. The designated AWS task owns
 deployment and may enable it only for one reviewed bounded sandbox session.
 
-The controller evaluates one stack whose name matches `kall-sandbox-[a-f0-9]{12}`. It requires an exact account, region, session identifier, expiry timestamp, and three matching stack tags. The configured lifetime must be greater than zero and no more than two hours. Before expiry it does nothing. At expiry it passes an exact, session-named deletion role to CloudFormation and requests deletion using a stable request token. If a reviewed operation reaches `DELETE_FAILED`, the checked-in controller revision supplies one deterministic recovery token with the same role. Current recovery source uses `expiry-v6` after the earlier caller-role, task-definition, fixed-role, stack-managed log, and final-snapshot policy failures. After the managed stack is absent, it disables its own EventBridge rule.
+The controller evaluates one stack whose name matches `kall-sandbox-[a-f0-9]{12}`. It requires an exact account, region, session identifier, expiry timestamp, and three matching stack tags. The configured lifetime must be greater than zero and no more than two hours. Before expiry it does nothing. At expiry it passes an exact, session-named deletion role to CloudFormation and requests deletion using a stable request token. If a reviewed operation reaches `DELETE_FAILED`, the checked-in controller revision supplies one deterministic recovery token with the same role. Current recovery source uses `expiry-v7` after the earlier caller-role, task-definition, fixed-role, stack-managed log, and final-snapshot policy failures. After the managed stack is absent, it disables its own EventBridge rule.
 
 The Lambda role can describe and delete only the exact runtime stack, pass only
 the session's deletion role to CloudFormation, disable its own rule, and write
@@ -26,9 +26,11 @@ The preexisting API and web log groups and the retained expiry recovery log grou
 are outside that statement and remain preserved.
 
 The final database snapshot permission allows only `rds:CreateDBSnapshot` on the
-exact `kall-alpha-postgres` DB ARN and the exact provider-generated snapshot ARN
-observed for this recovery in the selected Region. It grants no snapshot wildcard
-and no other RDS create action.
+exact `kall-alpha-postgres` DB ARN and the provider-generated snapshot prefix for
+the fixed recovery stack and `Database` logical resource in the selected Region.
+Only the provider's regenerated suffix is wildcarded. The policy rejects account-
+wide, stack-wide, and logical-resource-wide snapshot patterns and grants no other
+RDS create action.
 
 The runtime stack must retain recovery secrets and logs and use `DeletionPolicy: Snapshot` for PostgreSQL. This controller does not bypass a failed final snapshot or delete retained recovery artifacts. Failure states other than exact `DELETE_FAILED`, rollback states, wrong ARN, missing tag, wrong tag, excessive session duration, wrong deletion-role ARN, or wrong account/region fail closed.
 

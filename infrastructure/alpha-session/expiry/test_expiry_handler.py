@@ -52,7 +52,7 @@ class ExpiryHandlerTests(unittest.TestCase):
         self.assertEqual(arguments["StackName"], self.stack["StackId"])
         self.assertEqual(
             arguments["ClientRequestToken"],
-            "expiry-v6-kall-0123456789abcdef0123456789abcdef",
+            "expiry-v7-kall-0123456789abcdef0123456789abcdef",
         )
         self.assertEqual(arguments["RoleARN"], self.environment["DELETION_ROLE_ARN"])
 
@@ -126,7 +126,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertIn("MaximumRetryAttempts: 2", body)
 
         handler = (root / "expiry_handler.py").read_text()
-        self.assertIn('token_prefix = "expiry-v6" if action == "recover-delete" else "expiry"', handler)
+        self.assertIn('token_prefix = "expiry-v7" if action == "recover-delete" else "expiry"', handler)
         self.assertIn('"RoleARN": str(config["deletion_role_arn"])', handler)
 
     def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
@@ -163,7 +163,7 @@ class ExpiryHandlerTests(unittest.TestCase):
                 "                Action: rds:CreateDBSnapshot\n"
                 "                Resource:\n"
                 "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres\n"
-                "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-c2skycxnlyib\n"
+                "                  - !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*\n"
                 "                Condition:\n"
                 "                  StringEquals:\n"
                 "                    aws:RequestedRegion: !Ref ExpectedRegion",
@@ -173,8 +173,13 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertEqual(
                 body.count("rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:"), 1
             )
-            self.assertNotIn("rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:*", body)
-            self.assertNotIn("snapshot:kall-sandbox-*", body)
+            for broad_snapshot_pattern in (
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-*",
+                "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-*",
+            ):
+                self.assertNotIn(broad_snapshot_pattern, body)
             rds_create_actions = [
                 line.strip().removeprefix("- ").removeprefix("Action: ")
                 for line in body.splitlines()
