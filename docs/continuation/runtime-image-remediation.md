@@ -64,6 +64,11 @@ packages against it. The Node base remains on `3.5.7-r0`, so the web Dockerfile
 remains intentionally blocked. This clears only the API source input gate. It
 does not approve an API output image, the web image, or a runtime launch.
 
+The Dockerfiles use `apk info --exists` with exact `name=version` constraints.
+They do not parse human-readable `apk info -v` output. Each gate independently
+rejects the affected version and requires both installed libraries to satisfy
+the explicit reviewed version constraint.
+
 Do not work around the gate with `apk upgrade`, a floating base tag, or an
 unreviewed alternate image. When Alpine publishes a successor:
 

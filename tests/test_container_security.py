@@ -86,19 +86,26 @@ def test_container_builds_fail_closed_on_unreviewed_openssl_packages() -> None:
         dockerfile = (ROOT / relative_path).read_text()
 
         assert "ARG ALPINE_OPENSSL_APPROVED_VERSION" in dockerfile
-        assert "apk info -v libssl3" in dockerfile
-        assert "apk info -v libcrypto3" in dockerfile
         assert 'test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"' in dockerfile
-        assert 'test "${ssl_version}" != "3.5.7-r0"' in dockerfile
-        assert 'test "${crypto_version}" != "3.5.7-r0"' in dockerfile
         assert (
-            'test "${ssl_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            '! apk info --exists "libssl3=3.5.7-r0"'
             in dockerfile
         )
         assert (
-            'test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            '! apk info --exists "libcrypto3=3.5.7-r0"'
             in dockerfile
         )
+        assert (
+            'apk info --exists "libssl3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            in dockerfile
+        )
+        assert (
+            'apk info --exists "libcrypto3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
+            in dockerfile
+        )
+        assert "apk info -v" not in dockerfile
+        assert "sed 's/^libssl3-/" not in dockerfile
+        assert "sed 's/^libcrypto3-/" not in dockerfile
 
 
 def test_api_approves_only_the_reviewed_openssl_successor() -> None:
@@ -112,8 +119,8 @@ def test_web_remains_blocked_on_the_affected_openssl_base() -> None:
 
     assert dockerfile.startswith(f"FROM {NODE_BASE} AS base\n")
     assert 'test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"' not in dockerfile
-    assert 'test "${ssl_version}" != "3.5.7-r0"' in dockerfile
-    assert 'test "${crypto_version}" != "3.5.7-r0"' in dockerfile
+    assert '! apk info --exists "libssl3=3.5.7-r0"' in dockerfile
+    assert '! apk info --exists "libcrypto3=3.5.7-r0"' in dockerfile
 
 
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:

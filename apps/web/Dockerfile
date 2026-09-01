@@ -4,13 +4,11 @@ FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166
 # Alpine publishes a successor and the exact installed version is reviewed.
 ARG ALPINE_OPENSSL_APPROVED_VERSION
 RUN set -eu; \
-    ssl_version="$(apk info -v libssl3 | sed 's/^libssl3-//')"; \
-    crypto_version="$(apk info -v libcrypto3 | sed 's/^libcrypto3-//')"; \
     test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
-    test "${ssl_version}" != "3.5.7-r0"; \
-    test "${crypto_version}" != "3.5.7-r0"; \
-    test "${ssl_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
-    test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"
+    ! apk info --exists "libssl3=3.5.7-r0"; \
+    ! apk info --exists "libcrypto3=3.5.7-r0"; \
+    apk info --exists "libssl3=${ALPINE_OPENSSL_APPROVED_VERSION}"; \
+    apk info --exists "libcrypto3=${ALPINE_OPENSSL_APPROVED_VERSION}"
 
 FROM base AS dependencies
 WORKDIR /app
