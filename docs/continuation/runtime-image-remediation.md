@@ -5,7 +5,7 @@ Kall development runtime. It does not approve an image or a cloud rollout.
 
 ## Source baseline and containment
 
-The remediation branch starts at `7e0b7cf97b370a1d8b341337ec944fc8be745caf`.
+The final remediation commit is based on `0f0dbb615260c1c42a25b5e8c0787f1896ffd72f`.
 The contained AWS runtime used API source `e6b3844` and web source `7e0b7cf`.
 The AWS owner reported both services scaled to zero and the database stopping
 after discovering the flawed runtime. No AWS mutation was made from this lane.
