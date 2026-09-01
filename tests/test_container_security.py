@@ -259,10 +259,10 @@ def test_web_proxy_path_precedes_the_direct_bearer_api() -> None:
         "  ResponseHeadersPolicy:", 1
     )[0]
 
-    assert "Priority: 10" in proxy_rule
+    assert "Priority: 5" in proxy_rule
     assert "- /api/kall/*" in proxy_rule
     assert "TargetGroupArn: !Ref WebTargetGroup" in proxy_rule
-    assert "Priority: 20" in api_rule
+    assert "Priority: 10" in api_rule
     assert "- /api/*" in api_rule
     assert "- /api/kall/*" not in api_rule
     assert "TargetGroupArn: !Ref ApiTargetGroup" in api_rule

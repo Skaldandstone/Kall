@@ -253,9 +253,11 @@ rebuild because the reviewed source snapshot now includes `deploy/certs/`.
 The web application owns `/api/kall/*`; its server proxy derives a Clerk token
 and calls the API at `/api/*`. The mobile app and browser extension also use
 the direct `/api/*` surface with their own Clerk bearer tokens. The ALB therefore
-routes `/api/kall/*` to the web target at priority 10 and `/api/*` to FastAPI at
-priority 20. The explicit higher-priority web rule prevents the broader API
-rule from bypassing the Next proxy. A route-dependency audit at this revision
+routes `/api/kall/*` to the web target at priority 5 and `/api/*` to FastAPI at
+the preexisting priority 10. Keeping the API rule's current priority avoids a
+CloudFormation update-order collision while the explicit higher-precedence web
+rule prevents the broader API rule from bypassing the Next proxy. A
+route-dependency audit at this revision
 found authentication on every nonpublic FastAPI route. The intentional public
 exceptions are health/readiness, published career pages, token-protected
 testimonial responses, and the signature-verified Stripe webhook. The webhook
