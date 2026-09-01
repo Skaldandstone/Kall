@@ -28,9 +28,10 @@ test('the paywall appears when a free account runs out, and says when it refills
     await expect(page.getByRole('button', { name: 'Choose Premium' })).toBeVisible();
   });
 
-  await test.step('choosing a plan says payments are off rather than failing silently', async () => {
-    await page.getByRole('button', { name: 'Choose Plus' }).click();
-    await expect(page.getByText(/not switched on yet/)).toBeVisible();
+  await test.step('paid plans fail closed while payments are off', async () => {
+    await expect(page.getByText(/Payments are not switched on/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Choose Plus' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Choose Premium' })).toBeDisabled();
   });
 });
 
