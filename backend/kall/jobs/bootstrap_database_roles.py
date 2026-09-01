@@ -102,9 +102,8 @@ def _ensure_role(cursor: Any, role: str, password: str) -> None:
     cursor.execute(
         sql.SQL(
             "ALTER ROLE {} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
-            "NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD %s"
-        ).format(sql.Identifier(role)),
-        (password,),
+            "NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD {}"
+        ).format(sql.Identifier(role), sql.Literal(password))
     )
 
 

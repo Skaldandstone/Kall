@@ -4,9 +4,11 @@ import pytest
 from kall.jobs.bootstrap_database_roles import (
     MIGRATOR_ROLE,
     RUNTIME_ROLE,
+    _ensure_role,
     bootstrap_database_roles,
     load_bootstrap_config,
 )
+from psycopg import sql
 
 
 def _environment(root_cert: Path) -> dict[str, str]:
@@ -55,6 +57,24 @@ class _Connection:
 
     def cursor(self) -> _Cursor:
         return self._cursor
+
+
+@pytest.mark.parametrize("existing_role", [None, (1,)])
+def test_role_password_ddl_uses_driver_owned_literal_escaping(existing_role: object) -> None:
+    cursor = _Cursor([existing_role])
+    password = "x" * 32 + "'quoted"
+
+    _ensure_role(cursor, MIGRATOR_ROLE, password)
+
+    query, params = cursor.calls[-1]
+    rendered = query.as_string()
+    assert params is None
+    assert any(isinstance(part, sql.Identifier) for part in query)
+    assert any(isinstance(part, sql.Literal) for part in query)
+    assert 'ALTER ROLE "kall_migrator"' in rendered
+    assert "PASSWORD '" + "x" * 32 + "''quoted'" in rendered
+    assert "$1" not in rendered
+    assert "%s" not in rendered
 
 
 def test_bootstrap_rejects_wrong_role_names_shared_passwords_and_unverified_tls(
