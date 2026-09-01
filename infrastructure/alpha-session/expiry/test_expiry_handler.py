@@ -131,6 +131,9 @@ class ExpiryHandlerTests(unittest.TestCase):
 
     def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
         root = Path(__file__).resolve().parent
+        guard = (root / "expiry.guard").read_text()
+        self.assertIn(".'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'", guard)
+        self.assertNotIn(".'Fn::GetAtt'[0]", guard)
         required_actions = {
             "cloudwatch:DeleteAlarms",
             "ec2:RevokeSecurityGroupIngress",

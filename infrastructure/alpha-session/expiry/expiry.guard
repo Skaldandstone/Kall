@@ -33,7 +33,7 @@ rule cloudformation_uses_a_dedicated_deletion_role {
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeleteExactRuntimeRoles', 'DeleteRuntimeCloudFrontResources']
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
-    Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt'[0] == 'RuntimeDeletionRole'
+    Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'
 }
 
 rule schedule_is_frequent_and_retry_bounded {
