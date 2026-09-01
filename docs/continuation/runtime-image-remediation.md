@@ -78,6 +78,53 @@ needs schema migration permissions and advisory-lock access. The runtime role
 needs only the application data privileges required after migration. The
 runtime task must never receive the RDS master credentials.
 
+### Database activation sequence
+
+The stack defaults `EnableApplicationServices` to `false`, which creates the API
+and web service resources at desired count zero. Application tasks cannot race
+the database bootstrap or migration. Enabling services requires both
+`VerifiedBootstrapRevision=kall-db-roles-v1` and
+`VerifiedMigrationHead=20260831_0029`; CloudFormation rejects an activation
+update without both values.
+
+The source defines two one-shot task definitions:
+
+1. `BootstrapTaskDefinition` receives the RDS managed-master username/password
+   plus the separate migrator and runtime role secrets. It accepts only exact
+   usernames `kalladmin`, `kall_migrator`, and `kall_runtime`, requires three
+   distinct passwords of at least 32 characters, and connects with
+   `verify-full` using the checked-in Region CA. It creates or rotates the two
+   application roles, removes public schema creation, gives DDL only to the
+   migrator, gives data access only to the runtime role, and installs runtime
+   default privileges for objects the migrator creates. Existing public objects
+   owned by another role stop the job for explicit review.
+2. `MigrationTaskDefinition` receives only the migrator credential. It runs
+   Alembic to `head`, opens a fresh connection, and exits nonzero unless the
+   database heads exactly equal the source heads.
+
+The bootstrap execution role alone can read the RDS managed-master, migrator,
+and runtime role secrets. The migration execution role cannot read the master
+or runtime secret. The API execution role cannot read the master or migrator
+secret. Neither one-shot container receives an AWS task role. Both run as UID
+`10001`, use a read-only root filesystem and a dedicated no-ingress database
+admin security group, and write only to `/tmp`.
+
+Deployment order is fail closed:
+
+1. Create the initial stack with services disabled and externally generated
+   migrator/runtime secret ARNs.
+2. Run the bootstrap task once through `DatabaseAdminSecurityGroupId`; require
+   exit code zero and the
+   `database role bootstrap verified: kall-db-roles-v1` log line.
+3. Run the migration task through the same security group; require exit code
+   zero and `verified alembic heads: 20260831_0029`.
+4. Review a second change set that supplies both evidence parameters and changes
+   `EnableApplicationServices` to `true`.
+
+Do not pass secret values in ECS command overrides, shell history, stack
+parameters, or logs. A source assertion does not substitute for inspecting the
+two stopped-task exit codes before the activation change set.
+
 ECS execution permissions are split across web, API runtime, and migration
 roles. The web execution role can read only the Clerk secret. The API execution
 role can read only its application, alpha, provider, and runtime database
@@ -130,6 +177,12 @@ logs for 30 days. The database keeps `DeletionPolicy: Snapshot` and
 Runtime expiry, cost enforcement, retained snapshots and secrets, and teardown
 are owned entirely by the designated AWS task. This source change adds no
 lifecycle controller and performs no AWS mutation.
+
+Local `cfn-lint` 1.55.1 reports E3691 for RDS PostgreSQL `16.15` because its
+packaged schema lags the service. The AWS owner verified read-only that exact
+`16.15` is available for `db.t4g.micro` in `us-east-2`, uses `postgres16`, and
+supports certificate rotation without restart. Validation may ignore only that
+exact E3691 finding; no other template error is waived.
 
 ## Required AWS-owner validation
 

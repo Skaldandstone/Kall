@@ -28,10 +28,10 @@ Parameters:
     Type: String
   RuntimeDatabaseSecretArn:
     Type: String
-    Description: Secrets Manager ARN containing username/password for the least-privilege Kall runtime role.
+    Description: Secrets Manager ARN containing exact username kall_runtime and a generated password.
   MigratorDatabaseSecretArn:
     Type: String
-    Description: Secrets Manager ARN containing username/password for the schema-migrator role.
+    Description: Secrets Manager ARN containing exact username kall_migrator and a generated password.
   OriginDomainName:
     Type: String
     AllowedValues: [origin.kall.skaldandstone.com]
@@ -48,10 +48,33 @@ Parameters:
     Type: String
     AllowedValues: ['true', 'false']
     Default: 'false'
+  EnableApplicationServices:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: Keep false until database role bootstrap and migration-head verification succeed.
+  VerifiedBootstrapRevision:
+    Type: String
+    AllowedValues: ['', kall-db-roles-v1]
+    Default: ''
+  VerifiedMigrationHead:
+    Type: String
+    AllowedValues: ['', '20260831_0029']
+    Default: ''
+
+Rules:
+  ApplicationActivationRequiresDatabaseEvidence:
+    RuleCondition: !Equals [!Ref EnableApplicationServices, 'true']
+    Assertions:
+      - Assert: !Equals [!Ref VerifiedBootstrapRevision, kall-db-roles-v1]
+        AssertDescription: Run and verify the kall-db-roles-v1 bootstrap before enabling services.
+      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260831_0029']
+        AssertDescription: Verify the database is at Alembic head 20260831_0029 before enabling services.
 
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
   StripeSandboxEnabled: !Equals [!Ref EnableStripeSandbox, 'true']
+  ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
 
 Resources:
   ApiExecutionRole:
@@ -82,6 +105,31 @@ Resources:
                   - !Ref RuntimeDatabaseSecretArn
                   - !If [StripeSandboxEnabled, !Ref StripeSecretArn, !Ref AWS::NoValue]
                   - !If [HasOpenAISecret, !Ref OpenAISecretArn, !Ref AWS::NoValue]
+
+  BootstrapExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-bootstrap-execution
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: kall-alpha-bootstrap-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref MigratorDatabaseSecretArn
+                  - !Ref RuntimeDatabaseSecretArn
 
   MigrationExecutionRole:
     Type: AWS::IAM::Role
@@ -181,6 +229,12 @@ Resources:
       LogGroupName: /skaldandstone/alpha/kall-web
       RetentionInDays: 30
 
+  DatabaseAdminLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /skaldandstone/alpha/kall-database-admin
+      RetentionInDays: 30
+
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -207,6 +261,15 @@ Resources:
       Tags:
         - Key: Name
           Value: kall-alpha-api
+
+  DatabaseAdminSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: One-shot Kall database bootstrap and migration tasks.
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: kall-alpha-database-admin
 
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -261,6 +324,15 @@ Resources:
       FromPort: 5432
       ToPort: 5432
       SourceSecurityGroupId: !Ref ApiSecurityGroup
+
+  DatabaseFromAdminIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref DatabaseAdminSecurityGroup
 
   DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -570,6 +642,62 @@ Resources:
         - Name: runtime-uploads
         - Name: runtime-generated
 
+  BootstrapTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kall-alpha-database-bootstrap
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt BootstrapExecutionRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: kall-database-bootstrap
+          Image: !Ref ApiImage
+          Essential: true
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          Command: [python, -m, kall.jobs.bootstrap_database_roles]
+          MountPoints:
+            - SourceVolume: bootstrap-tmp
+              ContainerPath: /tmp
+              ReadOnly: false
+          Environment:
+            - Name: DB_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DB_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DB_NAME
+              Value: kall
+            - Name: DATABASE_SSL_MODE
+              Value: verify-full
+            - Name: DATABASE_SSL_ROOT_CERT
+              Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem
+          Secrets:
+            - Name: MASTER_DB_USER
+              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:username::'
+            - Name: MASTER_DB_PASSWORD
+              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:password::'
+            - Name: MIGRATOR_DB_USER
+              ValueFrom: !Sub '${MigratorDatabaseSecretArn}:username::'
+            - Name: MIGRATOR_DB_PASSWORD
+              ValueFrom: !Sub '${MigratorDatabaseSecretArn}:password::'
+            - Name: RUNTIME_DB_USER
+              ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:username::'
+            - Name: RUNTIME_DB_PASSWORD
+              ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:password::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref DatabaseAdminLogs
+              awslogs-region: us-east-2
+              awslogs-stream-prefix: bootstrap
+      Volumes:
+        - Name: bootstrap-tmp
+
   MigrationTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -588,7 +716,7 @@ Resources:
           Essential: true
           User: '10001:10001'
           ReadonlyRootFilesystem: true
-          Command: [alembic, upgrade, head]
+          Command: [python, -m, kall.jobs.migrate_database]
           MountPoints:
             - SourceVolume: migration-tmp
               ContainerPath: /tmp
@@ -628,7 +756,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref ApiLogs
+              awslogs-group: !Ref DatabaseAdminLogs
               awslogs-region: us-east-2
               awslogs-stream-prefix: migration
       Volumes:
@@ -678,7 +806,7 @@ Resources:
       ServiceName: kall-alpha-api
       Cluster: !Ref ClusterName
       TaskDefinition: !Ref ApiTaskDefinition
-      DesiredCount: 1
+      DesiredCount: !If [ApplicationServicesEnabled, 1, 0]
       LaunchType: FARGATE
       PlatformVersion: LATEST
       EnableECSManagedTags: true
@@ -707,7 +835,7 @@ Resources:
       ServiceName: kall-alpha-web
       Cluster: !Ref ClusterName
       TaskDefinition: !Ref WebTaskDefinition
-      DesiredCount: 1
+      DesiredCount: !If [ApplicationServicesEnabled, 1, 0]
       LaunchType: FARGATE
       PlatformVersion: LATEST
       EnableECSManagedTags: true
@@ -778,5 +906,11 @@ Outputs:
     Value: !GetAtt ApiService.Name
   WebServiceName:
     Value: !GetAtt WebService.Name
+  BootstrapTaskDefinitionArn:
+    Value: !Ref BootstrapTaskDefinition
   MigrationTaskDefinitionArn:
     Value: !Ref MigrationTaskDefinition
+  DatabaseAdminSecurityGroupId:
+    Value: !Ref DatabaseAdminSecurityGroup
+  ApplicationServicesEnabled:
+    Value: !Ref EnableApplicationServices

@@ -95,30 +95,60 @@ def test_container_builds_fail_closed_on_unreviewed_openssl_packages() -> None:
 
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:
     template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
-    api_execution = template.split("  ApiExecutionRole:\n", 1)[1].split("  MigrationExecutionRole:\n", 1)[0]
+    api_execution = template.split("  ApiExecutionRole:\n", 1)[1].split("  BootstrapExecutionRole:\n", 1)[0]
+    bootstrap_execution = template.split("  BootstrapExecutionRole:\n", 1)[1].split("  MigrationExecutionRole:\n", 1)[0]
     migration_execution = template.split("  MigrationExecutionRole:\n", 1)[1].split("  WebExecutionRole:\n", 1)[0]
     web_execution = template.split("  WebExecutionRole:\n", 1)[1].split("  ApiTaskRole:\n", 1)[0]
-    runtime = template.split("  ApiTaskDefinition:", 1)[1].split("  MigrationTaskDefinition:", 1)[0]
+    runtime = template.split("  ApiTaskDefinition:", 1)[1].split("  BootstrapTaskDefinition:", 1)[0]
+    bootstrap = template.split("  BootstrapTaskDefinition:", 1)[1].split("  MigrationTaskDefinition:", 1)[0]
     migration = template.split("  MigrationTaskDefinition:", 1)[1].split("  WebTaskDefinition:", 1)[0]
 
     assert "!Ref RuntimeDatabaseSecretArn" in api_execution
     assert "!Ref MigratorDatabaseSecretArn" not in api_execution
+    assert "Database.MasterUserSecret.SecretArn" not in api_execution
+    assert "Database.MasterUserSecret.SecretArn" in bootstrap_execution
+    assert "!Ref MigratorDatabaseSecretArn" in bootstrap_execution
+    assert "!Ref RuntimeDatabaseSecretArn" in bootstrap_execution
+    assert "AppSecretArn" not in bootstrap_execution
+    assert "ClerkSecretArn" not in bootstrap_execution
     assert "!Ref MigratorDatabaseSecretArn" in migration_execution
     assert "!Ref RuntimeDatabaseSecretArn" not in migration_execution
+    assert "Database.MasterUserSecret.SecretArn" not in migration_execution
     assert "Resource: !Ref ClerkSecretArn" in web_execution
     assert "DatabaseSecretArn" not in web_execution
     assert "ExecutionRoleArn: !GetAtt ApiExecutionRole.Arn" in runtime
+    assert "ExecutionRoleArn: !GetAtt BootstrapExecutionRole.Arn" in bootstrap
     assert "ExecutionRoleArn: !GetAtt MigrationExecutionRole.Arn" in migration
     assert "ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:username::'" in runtime
     assert "ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:password::'" in runtime
     assert "MasterUserSecret" not in runtime
-    assert "Command: [alembic, upgrade, head]" in migration
+    assert "Command: [python, -m, kall.jobs.bootstrap_database_roles]" in bootstrap
+    assert "Database.MasterUserSecret.SecretArn}:username::" in bootstrap
+    assert "Database.MasterUserSecret.SecretArn}:password::" in bootstrap
+    assert "Command: [python, -m, kall.jobs.migrate_database]" in migration
     assert "ValueFrom: !Sub '${MigratorDatabaseSecretArn}:username::'" in migration
     assert "ValueFrom: !Sub '${MigratorDatabaseSecretArn}:password::'" in migration
     assert "User: '10001:10001'" in runtime
+    assert "User: '10001:10001'" in bootstrap
     assert "User: '10001:10001'" in migration
     assert "ReadonlyRootFilesystem: true" in runtime
+    assert "ReadonlyRootFilesystem: true" in bootstrap
     assert "ReadonlyRootFilesystem: true" in migration
+
+
+def test_alpha_services_default_to_zero_and_require_database_evidence() -> None:
+    template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
+    parameters = template.split("Parameters:\n", 1)[1].split("Rules:\n", 1)[0]
+    activation_rule = template.split("Rules:\n", 1)[1].split("Conditions:\n", 1)[0]
+    services = template.split("  ApiService:\n", 1)[1].split("  ApiUnhealthyAlarm:\n", 1)[0]
+
+    assert "  EnableApplicationServices:\n    Type: String" in parameters
+    assert "    Default: 'false'" in parameters
+    assert "VerifiedBootstrapRevision" in activation_rule
+    assert "kall-db-roles-v1" in activation_rule
+    assert "VerifiedMigrationHead" in activation_rule
+    assert "20260831_0029" in activation_rule
+    assert services.count("DesiredCount: !If [ApplicationServicesEnabled, 1, 0]") == 2
 
 
 def test_alpha_template_references_retained_secrets_instead_of_creating_them() -> None:
@@ -136,7 +166,7 @@ def test_alpha_template_keeps_explicit_log_and_database_retention() -> None:
     template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
     database = template.split("  Database:\n", 1)[1].split("  LoadBalancer:\n", 1)[0]
 
-    assert template.count("RetentionInDays: 30") == 2
+    assert template.count("RetentionInDays: 30") == 3
     assert "DeletionPolicy: Snapshot" in database
     assert "UpdateReplacePolicy: Snapshot" in database
 

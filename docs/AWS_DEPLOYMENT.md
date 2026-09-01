@@ -24,6 +24,9 @@ The replacement runtime must preserve all of these constraints:
 - fail the image scan gate before any runtime is created;
 - use the nonroot, read-only API and web images;
 - run Alembic once with a dedicated migrator credential, then run Uvicorn alone;
+- create services at desired count zero, bootstrap exact database roles with the
+  managed-master secret in a one-shot task, verify the Alembic head with the
+  migrator, and require a second reviewed change set before desired count one;
 - verify the RDS hostname with the checked-in `us-east-2` CA bundle;
 - keep RDS private and use separate runtime and migrator database roles;
 - route `/api/kall/*` through the authenticated web proxy and expose only the
@@ -53,9 +56,11 @@ Current provider and release gates are recorded in
    replacement project's private build jobs.
 2. Record immutable digests and complete the reviewed image scan gate.
 3. Validate the CloudFormation template with cfn-lint, cfn-guard, AWS template
-   validation, and a reviewable change set.
-4. Provision one bounded alpha session, run the migrator task, then start the
-   API and web services.
+   validation, and a reviewable change set. Local cfn-lint may ignore only its
+   documented stale-schema E3691 for the live-verified PostgreSQL 16.15 version.
+4. Provision one bounded alpha session with application desired counts at zero.
+   Run and verify the database-role bootstrap, run and verify the migrator task,
+   then review a second change set that enables the API and web services.
 5. Verify TLS, proxy routing, health, Clerk allowlist behavior, storage,
    application safeguards, cost, and automatic expiry.
 6. Configure and test Stripe sandbox, monitoring, SES, and optional OpenAI one
