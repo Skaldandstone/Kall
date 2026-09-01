@@ -32,6 +32,32 @@ AWS access and mutations remain owned by the designated AWS task. This source
 lane does not read secret values, build or upload images, start tasks, change
 billing, or deploy infrastructure.
 
+## Clerk identity
+
+The configured development publishable and secret keys belong to the same Clerk
+instance. Read-only backend checks succeeded, and a fresh browser session reached
+the hosted sign-in form without the earlier development-browser redirect loop.
+Local tests must use the `localhost` hostname because Clerk's development flow
+redirects there from `127.0.0.1`.
+
+This proves the development key pair and sign-in page work. It does not prove a
+production Clerk instance, an invited non-owner account, MFA, password recovery,
+or a complete hosted sign-in and sign-out pass. Keep the alpha allowlist active
+and complete one invited-user acceptance pass on the replacement HTTPS runtime.
+
+## OpenAI
+
+Kall has no Anthropic or Claude runtime dependency. Onboarding assistance,
+resume intelligence, growth suggestions, interview preparation and compatibility
+checks all use the shared OpenAI Responses API adapter with strict JSON schemas,
+`store: false`, and model `gpt-5.6-luna`. The focused OpenAI suite passed 28 tests.
+
+No Kall-specific `OPENAI_API_KEY` is configured in the replacement AWS project.
+The product falls back safely when the key is absent, but live AI behavior is not
+proved. Create a product-scoped secret through the AWS owner, inject only that
+secret into the API execution role, and run one authenticated acceptance case for
+each AI surface before calling those features enabled.
+
 ## Stripe sandbox
 
 Provider receipts from the Stripe owner establish the shared sandbox business
