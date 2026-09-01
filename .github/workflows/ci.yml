@@ -223,7 +223,7 @@ jobs:
             changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
             printf 'changed files:\n%s\n' "$changed"
             # Only paths that end up inside the API image (see Dockerfile.api).
-            if printf '%s\n' "$changed" | grep -qE '^(backend/|migrations/|Dockerfile\.api|alembic\.ini|pyproject\.toml)'; then
+            if printf '%s\n' "$changed" | grep -qE '^(backend/|migrations/|deploy/certs/|Dockerfile\.api|alembic\.ini|pyproject\.toml)'; then
               api=true
             fi
             if printf '%s\n' "$changed" | grep -qE '^apps/web/'; then

@@ -1,4 +1,6 @@
+import os
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import quote
 
 from pydantic import model_validator
@@ -137,6 +139,14 @@ class Settings(BaseSettings):
                 raise ValueError("SENSITIVE_DATA_ENCRYPTION_KEY is required in production")
             if self.database_url.startswith("sqlite"):
                 raise ValueError("Production must use PostgreSQL or another server database")
+            if self.database_url.startswith("postgresql+psycopg://"):
+                if "sslmode=verify-full" not in self.database_url:
+                    raise ValueError("Production PostgreSQL must use DATABASE_SSL_MODE=verify-full")
+                if not self.database_ssl_root_cert:
+                    raise ValueError("DATABASE_SSL_ROOT_CERT is required for production PostgreSQL")
+                certificate_bundle = Path(self.database_ssl_root_cert)
+                if not certificate_bundle.is_file() or not os.access(certificate_bundle, os.R_OK):
+                    raise ValueError("DATABASE_SSL_ROOT_CERT must name a readable certificate bundle")
             if not self.clerk_secret_key:
                 raise ValueError(
                     "CLERK_SECRET_KEY is required in production — without it every "
