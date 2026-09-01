@@ -52,7 +52,7 @@ class ExpiryHandlerTests(unittest.TestCase):
         self.assertEqual(arguments["StackName"], self.stack["StackId"])
         self.assertEqual(
             arguments["ClientRequestToken"],
-            "expiry-v4-kall-0123456789abcdef0123456789abcdef",
+            "expiry-v5-kall-0123456789abcdef0123456789abcdef",
         )
         self.assertEqual(arguments["RoleARN"], self.environment["DELETION_ROLE_ARN"])
 
@@ -126,7 +126,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertIn("MaximumRetryAttempts: 2", body)
 
         handler = (root / "expiry_handler.py").read_text()
-        self.assertIn('token_prefix = "expiry-v4" if action == "recover-delete" else "expiry"', handler)
+        self.assertIn('token_prefix = "expiry-v5" if action == "recover-delete" else "expiry"', handler)
         self.assertIn('"RoleARN": str(config["deletion_role_arn"])', handler)
 
     def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
@@ -157,6 +157,24 @@ class ExpiryHandlerTests(unittest.TestCase):
                 body,
             )
             self.assertEqual(body.count("ecs:DeregisterTaskDefinition"), 1)
+            self.assertIn(
+                "- Sid: SnapshotExactDatabase\n"
+                "                Effect: Allow\n"
+                "                Action: rds:CreateDBSnapshot\n"
+                "                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres\n"
+                "                Condition:\n"
+                "                  StringEquals:\n"
+                "                    aws:RequestedRegion: !Ref ExpectedRegion",
+                body,
+            )
+            self.assertEqual(body.count("rds:CreateDBSnapshot"), 1)
+            self.assertNotIn("rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:*", body)
+            rds_create_actions = [
+                line.strip().removeprefix("- ").removeprefix("Action: ")
+                for line in body.splitlines()
+                if "rds:Create" in line
+            ]
+            self.assertEqual(rds_create_actions, ["rds:CreateDBSnapshot"])
             for role_name in (
                 "kall-alpha-api-execution",
                 "kall-alpha-api-task",
@@ -178,7 +196,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertNotIn("logs:${ExpectedRegion}:${ExpectedAccount}:log-group:/skaldandstone/development/kall-expiry", body)
             for action in required_actions:
                 self.assertIn(f"- {action}", body)
-            for forbidden in ("ec2:Create", "ecs:RegisterTaskDefinition", "rds:Create", "secretsmanager:"):
+            for forbidden in ("ec2:Create", "ecs:RegisterTaskDefinition", "secretsmanager:"):
                 self.assertNotIn(forbidden, body)
 
 

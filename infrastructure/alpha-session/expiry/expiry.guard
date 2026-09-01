@@ -30,10 +30,18 @@ rule role_has_only_expected_scoped_statements {
 rule cloudformation_uses_a_dedicated_deletion_role {
     Resources.RuntimeDeletionRole.Type == 'AWS::IAM::Role'
     Resources.RuntimeDeletionRole.Properties.AssumeRolePolicyDocument.Statement.*.Principal.Service == 'cloudformation.amazonaws.com'
-    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteDatabaseAdminLogGroup', 'DeleteRuntimeCloudFrontResources']
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'SnapshotExactDatabase', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteDatabaseAdminLogGroup', 'DeleteRuntimeCloudFrontResources']
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
     Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'
+}
+
+rule final_database_snapshot_is_exact_and_region_bounded {
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement[ Sid == 'SnapshotExactDatabase' ] {
+        Action == 'rds:CreateDBSnapshot'
+        Resource.'Fn::Sub' == 'arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres'
+        Condition.StringEquals.'aws:RequestedRegion'.Ref == 'ExpectedRegion'
+    }
 }
 
 rule database_admin_log_delete_is_exact {

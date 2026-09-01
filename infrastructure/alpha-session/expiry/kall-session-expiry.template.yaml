@@ -120,6 +120,13 @@ Resources:
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion
+              - Sid: SnapshotExactDatabase
+                Effect: Allow
+                Action: rds:CreateDBSnapshot
+                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
               - Sid: DeleteExactEcsWorkloads
                 Effect: Allow
                 Action:
