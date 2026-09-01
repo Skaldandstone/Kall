@@ -11,8 +11,8 @@ PYTHON_BASE = (
     "sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0b"
 )
 NODE_BASE = (
-    "node:22.23.2-alpine3.24@"
-    "sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+    "alpine:3.24.1@"
+    "sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
 )
 
 
@@ -81,31 +81,24 @@ def test_web_image_uses_one_digest_pinned_base_for_every_stage() -> None:
     ]
 
 
-def test_container_builds_fail_closed_on_unreviewed_openssl_packages() -> None:
-    for relative_path in ("Dockerfile.api", "apps/web/Dockerfile"):
-        dockerfile = (ROOT / relative_path).read_text()
+def test_api_build_fails_closed_on_unreviewed_openssl_packages() -> None:
+    dockerfile = (ROOT / "Dockerfile.api").read_text()
 
-        assert "ARG ALPINE_OPENSSL_APPROVED_VERSION" in dockerfile
-        assert 'test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"' in dockerfile
-        assert (
-            '! apk info --exists "libssl3=3.5.7-r0"'
-            in dockerfile
-        )
-        assert (
-            '! apk info --exists "libcrypto3=3.5.7-r0"'
-            in dockerfile
-        )
-        assert (
-            'apk info --exists "libssl3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
-            in dockerfile
-        )
-        assert (
-            'apk info --exists "libcrypto3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
-            in dockerfile
-        )
-        assert "apk info -v" not in dockerfile
-        assert "sed 's/^libssl3-/" not in dockerfile
-        assert "sed 's/^libcrypto3-/" not in dockerfile
+    assert "ARG ALPINE_OPENSSL_APPROVED_VERSION" in dockerfile
+    assert 'test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"' in dockerfile
+    assert '! apk info --exists "libssl3=3.5.7-r0"' in dockerfile
+    assert '! apk info --exists "libcrypto3=3.5.7-r0"' in dockerfile
+    assert (
+        'apk info --exists "libssl3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
+        in dockerfile
+    )
+    assert (
+        'apk info --exists "libcrypto3=${ALPINE_OPENSSL_APPROVED_VERSION}"'
+        in dockerfile
+    )
+    assert "apk info -v" not in dockerfile
+    assert "sed 's/^libssl3-/" not in dockerfile
+    assert "sed 's/^libcrypto3-/" not in dockerfile
 
 
 def test_api_approves_only_the_reviewed_openssl_successor() -> None:
@@ -114,13 +107,38 @@ def test_api_approves_only_the_reviewed_openssl_successor() -> None:
     assert 'test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"' in dockerfile
 
 
-def test_web_remains_blocked_on_the_affected_openssl_base() -> None:
+def test_web_uses_distribution_node_with_reviewed_openssl_packages() -> None:
     dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text()
+    base_stage = dockerfile.split("FROM base AS dependencies", 1)[0]
 
     assert dockerfile.startswith(f"FROM {NODE_BASE} AS base\n")
-    assert 'test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"' not in dockerfile
+    assert base_stage.count("apk add --no-cache") == 1
+    assert "edge" not in base_stage
+    for package in (
+        "nodejs=24.18.1-r0",
+        "npm=11.12.1-r0",
+        "libssl3=3.5.8-r0",
+        "libcrypto3=3.5.8-r0",
+    ):
+        assert package in base_stage
+    assert 'test "$(node -p process.versions.node)" = "24.18.1"' in dockerfile
+    assert 'test "$(npm --version)" = "11.12.1"' in dockerfile
+    assert 'test "$(node -p process.versions.openssl)" = "3.5.8"' in dockerfile
     assert '! apk info --exists "libssl3=3.5.7-r0"' in dockerfile
     assert '! apk info --exists "libcrypto3=3.5.7-r0"' in dockerfile
+    assert 'apk info --exists "libssl3=3.5.8-r0"' in dockerfile
+    assert 'apk info --exists "libcrypto3=3.5.8-r0"' in dockerfile
+    assert 'apk info --who-owns /usr/bin/node | grep -F "nodejs-24.18.1-r0"' in dockerfile
+    assert 'ldd /usr/bin/node | grep -F "/usr/lib/libssl.so.3"' in dockerfile
+    assert 'ldd /usr/bin/node | grep -F "/usr/lib/libcrypto.so.3"' in dockerfile
+    assert "! command -v curl >/dev/null 2>&1" in dockerfile
+
+
+def test_web_image_uses_the_reviewed_non_root_node_user() -> None:
+    dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text()
+
+    assert dockerfile.count("--chown=nextjs:nodejs") == 4
+    assert "USER nextjs" in dockerfile
 
 
 def test_alpha_template_separates_migration_and_runtime_privileges() -> None:

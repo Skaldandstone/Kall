@@ -20,18 +20,25 @@ approved for use.
 The contained Kall API and web images each reported 0 critical, 7 high, 1
 medium, and 2 undefined findings in their basic scans. A later controlled build
 reported the same counts and attributed them to Alpine OpenSSL `3.5.7-r0`.
-Both Dockerfiles pin their official bases by digest and reject that version.
-The reviewed Python base now contains `3.5.8-r0`, and the API source gate accepts
+Both Dockerfiles pin their official bases by digest and reject that version. The
+reviewed Python base now contains `3.5.8-r0`, and the API source gate accepts
 only that exact package version. The API was reproducibly built from exact source
 `c2ea5e8`; immutable image
 `sha256:d0ec99f105678507fb63d641ac77f0c18951fce9c0a14ca3e7d15403f4b74107`
 passed config and layer inspection plus ECR basic scanning with zero findings.
-Amazon Inspector enhanced ECR scanning is disabled. The Node base still contains
-`3.5.7-r0`; its official tag remained unchanged on the final live recheck, so the
-web build remains blocked. The replacement source and output evidence is recorded
-in [runtime image remediation](runtime-image-remediation.md).
-A supported Node successor, reviewed web image, RDS TLS, origin TLS, and
-constrained-runtime tests remain required.
+Amazon Inspector enhanced ECR scanning is disabled.
+
+The official Node Alpine and Debian images were rejected because their effective
+Node OpenSSL remains `3.5.7`. The replacement web source uses digest-pinned
+official Alpine `3.24.1` plus exact distribution packages `nodejs=24.18.1-r0`,
+`npm=11.12.1-r0`, and `libssl3/libcrypto3=3.5.8-r0`. A corrected no-push
+diagnostic proved the Node executable dynamically loads the patched libraries
+and reports OpenSSL `3.5.8`; a negative diagnostic proved the OpenSSL upgrades
+must be explicit. This removes the upstream-image wait from the source queue.
+The Kall web application image still needs a reproducible build, immutable
+inspection, and ECR scan before runtime activation. The evidence is recorded in
+[runtime image remediation](runtime-image-remediation.md). RDS TLS, origin TLS,
+and constrained-runtime tests also remain required.
 
 The runtime stack now creates application services at desired count zero by
 default. A one-shot master-only bootstrap creates or rotates exact migrator and
