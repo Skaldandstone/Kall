@@ -1,4 +1,18 @@
-FROM node:22.23.2-alpine3.24 AS dependencies
+FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS base
+
+# ECR found OpenSSL 3.5.7-r0 in the reviewed base. Keep builds blocked until
+# Alpine publishes a successor and the exact installed version is reviewed.
+ARG ALPINE_OPENSSL_APPROVED_VERSION
+RUN set -eu; \
+    ssl_version="$(apk info -v libssl3 | sed 's/^libssl3-//')"; \
+    crypto_version="$(apk info -v libcrypto3 | sed 's/^libcrypto3-//')"; \
+    test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
+    test "${ssl_version}" != "3.5.7-r0"; \
+    test "${crypto_version}" != "3.5.7-r0"; \
+    test "${ssl_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
+    test "${crypto_version}" = "${ALPINE_OPENSSL_APPROVED_VERSION}"
+
+FROM base AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then \
@@ -7,13 +21,13 @@ RUN if [ -f package-lock.json ]; then \
       npm install --no-audit --no-fund; \
     fi
 
-FROM node:22.23.2-alpine3.24 AS builder
+FROM base AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # next build inlines NEXT_PUBLIC_* values into the client bundle, and it runs
-# *here*, inside the image build -- so setting this on the CodeBuild project
-# is not enough on its own, it has to be passed through as a build arg.
+# *here*, inside the image build -- so setting it only on a runtime task is not
+# enough; it has to be passed through as a build argument.
 # Without it @clerk/nextjs fails the build outright with
 # "Missing publishableKey".
 #
@@ -28,7 +42,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22.23.2-alpine3.24 AS runtime
+FROM base AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

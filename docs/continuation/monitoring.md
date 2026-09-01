@@ -52,7 +52,10 @@ Visual evidence: [monitoring desktop](monitoring-visuals/monitoring-desktop.png)
 
 ## Complete incremental cost worksheet
 
-Selected Region: **us-east-2**. Project context previously verified by coordination: 693272753663, FREE/ACTIVE. No free credits are subtracted from this estimate. Reconfirm plan and selected Region in AWS Settings before any approved activation.
+Selected Region: **us-east-2**. The replacement development project is
+`734702670689`. No credits or free tier are subtracted from this estimate.
+Reconfirm the project plan, spend status and selected Region through the
+read-only development-readiness script before an approved activation.
 
 730 hours/month at five-minute intervals is 8,760 tasks. Linux/x86 Fargate rates were read from the [regional AWS catalog](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/us-east-2/index.json): $0.04048/vCPU-hour and $0.004445/GB-hour. At 0.25 vCPU and 0.5 GB, 60 to 120 billed seconds per task gives $1.80 to $3.60/month. [Fargate billing](https://aws.amazon.com/fargate/pricing/) starts with image download and has a one-minute minimum, so startup and image pull must be measured separately from the application watchdog.
 
