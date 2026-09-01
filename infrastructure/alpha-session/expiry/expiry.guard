@@ -1,0 +1,28 @@
+rule controller_defaults_disabled {
+    Parameters.ControllerEnabled.Default == 'false'
+}
+
+rule lambda_is_bounded {
+    Resources.ExpiryFunction.Properties.Runtime == 'python3.12'
+    Resources.ExpiryFunction.Properties.Timeout <= 30
+    Resources.ExpiryFunction.Properties.MemorySize == 128
+    Resources.ExpiryFunction.Properties.ReservedConcurrentExecutions == 1
+}
+
+rule recovery_log_is_retained_and_bounded {
+    Resources.ExpiryLogGroup.DeletionPolicy == 'Retain'
+    Resources.ExpiryLogGroup.UpdateReplacePolicy == 'Retain'
+    Resources.ExpiryLogGroup.Properties.RetentionInDays == 30
+}
+
+rule role_has_only_expected_scoped_statements {
+    Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ExactRuntimeStack', 'OwnSchedule', 'OwnLogs']
+    Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
+    Resources.ExpiryRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
+}
+
+rule schedule_is_frequent_and_retry_bounded {
+    Resources.ExpiryRule.Properties.ScheduleExpression == 'rate(5 minutes)'
+    Resources.ExpiryRule.Properties.Targets.*.RetryPolicy.MaximumEventAgeInSeconds == 300
+    Resources.ExpiryRule.Properties.Targets.*.RetryPolicy.MaximumRetryAttempts == 2
+}

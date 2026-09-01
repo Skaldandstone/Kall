@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Disabled-by-default expiry controller for one bounded Kall sandbox session.
+
+Parameters:
+  ManagedStackName:
+    Type: String
+    AllowedPattern: '^kall-sandbox-[a-f0-9]{12}$'
+  SessionId:
+    Type: String
+    AllowedPattern: '^kall-[a-f0-9]{32}$'
+  CreatedAtEpoch:
+    Type: Number
+    MinValue: 1
+  ExpiresAtEpoch:
+    Type: Number
+    MinValue: 1
+  ExpectedAccount:
+    Type: String
+    Default: '734702670689'
+    AllowedPattern: '^\d{12}$'
+  ExpectedRegion:
+    Type: String
+    Default: us-east-2
+    AllowedValues: [us-east-2]
+  ControllerEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+Conditions:
+  ControllerIsEnabled: !Equals [!Ref ControllerEnabled, 'true']
+
+Resources:
+  ExpiryLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /skaldandstone/development/kall-expiry/${SessionId}
+      RetentionInDays: 30
+      Tags:
+        - Key: SkaldAndStone:Product
+          Value: kall
+        - Key: SkaldAndStone:SessionId
+          Value: !Ref SessionId
+
+  ExpiryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: exact-kall-session-expiry
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ExactRuntimeStack
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DeleteStack
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${ExpectedRegion}:${ExpectedAccount}:stack/${ManagedStackName}/*
+              - Sid: OwnSchedule
+                Effect: Allow
+                Action: events:DisableRule
+                Resource: !Sub arn:${AWS::Partition}:events:${ExpectedRegion}:${ExpectedAccount}:rule/kall-expiry-${SessionId}
+              - Sid: OwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub ${ExpiryLogGroup.Arn}:*
+
+  ExpiryFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ExpiryLogGroup
+    Properties:
+      Architectures: [arm64]
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt ExpiryRole.Arn
+      MemorySize: 128
+      Timeout: 30
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          MANAGED_STACK_NAME: !Ref ManagedStackName
+          SESSION_ID: !Ref SessionId
+          CREATED_AT_EPOCH: !Ref CreatedAtEpoch
+          EXPIRES_AT_EPOCH: !Ref ExpiresAtEpoch
+          EXPECTED_ACCOUNT: !Ref ExpectedAccount
+          EXPECTED_REGION: !Ref ExpectedRegion
+          RULE_NAME: !Sub kall-expiry-${SessionId}
+      Code:
+        ZipFile: |
+          __EXPIRY_HANDLER__
+      Tags:
+        - Key: SkaldAndStone:Product
+          Value: kall
+        - Key: SkaldAndStone:SessionId
+          Value: !Ref SessionId
+
+  ExpiryRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub kall-expiry-${SessionId}
+      Description: Deletes only the exact, correctly tagged Kall sandbox stack after expiry.
+      ScheduleExpression: rate(5 minutes)
+      State: !If [ControllerIsEnabled, ENABLED, DISABLED]
+      Targets:
+        - Arn: !GetAtt ExpiryFunction.Arn
+          Id: kall-session-expiry
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 300
+            MaximumRetryAttempts: 2
+
+  ExpiryInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ExpiryFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ExpiryRule.Arn
+
+Outputs:
+  ControllerState:
+    Value: !If [ControllerIsEnabled, ENABLED, DISABLED]
+  ManagedStackArnPattern:
+    Value: !Sub arn:${AWS::Partition}:cloudformation:${ExpectedRegion}:${ExpectedAccount}:stack/${ManagedStackName}/*
+  MaximumSessionSeconds:
+    Value: '7200'

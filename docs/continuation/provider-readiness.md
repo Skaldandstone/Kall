@@ -23,6 +23,11 @@ contract is recorded in [runtime image remediation](runtime-image-remediation.md
 Replacement image builds, immutable digests, full scan review, RDS TLS, origin
 TLS, and constrained-runtime tests remain required.
 
+The bounded-session cost worksheet and disabled expiry controller are checked in
+under `infrastructure/alpha-session`. The two-hour scenario is USD17.65, while a
+24-hour cleanup delay reaches USD25.61 and fails the USD20 target. These controls
+are source evidence only and have not been deployed.
+
 Run `scripts/check_aws_development_readiness.ps1` after authenticating profile
 `skaldandstone-dev`. It is read-only, requires the exact project and selected
 Region, checks the two secret records by metadata, and counts runtime resources.

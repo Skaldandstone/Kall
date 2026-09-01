@@ -1,0 +1,271 @@
+{
+  "checkedAt": "2026-08-31T18:47:32.187776+00:00",
+  "readOnly": true,
+  "region": "us-east-2",
+  "prices": {
+    "rds_instance": {
+      "service": "AmazonRDS",
+      "filters": {
+        "regionCode": "us-east-2",
+        "sku": "GGD6FE59WWUNDKDC"
+      },
+      "price": {
+        "sku": "GGD6FE59WWUNDKDC",
+        "region": "us-east-2",
+        "attributes": {
+          "engineCode": "14",
+          "instanceTypeFamily": "T4G",
+          "memory": "1 GiB",
+          "vcpu": "2",
+          "instanceType": "db.t4g.micro",
+          "unbundledLicensing": "FALSE",
+          "usagetype": "USE2-InstanceUsage:db.t4g.micro",
+          "locationType": "AWS Region",
+          "storage": "EBS Only",
+          "normalizationSizeFactor": "0.5",
+          "instanceFamily": "General purpose",
+          "databaseEngine": "PostgreSQL",
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonRDS",
+          "physicalProcessor": "AWS Graviton2",
+          "licenseModel": "No license required",
+          "currentGeneration": "Yes",
+          "networkPerformance": "Up to 5 Gigabit",
+          "deploymentOption": "Single-AZ",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Relational Database Service",
+          "processorArchitecture": "64-bit",
+          "operation": "CreateDBInstance:0014"
+        },
+        "effectiveDate": "2026-08-01T00:00:00Z",
+        "unit": "Hrs",
+        "usd": "0.0160000000",
+        "description": "$ 0.016 per RDS db.t4g.micro Single-AZ instance hour (or partial hour) running PostgreSQL",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "rds_storage": {
+      "service": "AmazonRDS",
+      "filters": {
+        "regionCode": "us-east-2",
+        "sku": "JQQGK6D789TWJF8B"
+      },
+      "price": {
+        "sku": "JQQGK6D789TWJF8B",
+        "region": "us-east-2",
+        "attributes": {
+          "volumeType": "General Purpose-GP3",
+          "engineCode": "14",
+          "usagetype": "USE2-RDS:GP3-Storage",
+          "locationType": "AWS Region",
+          "maxVolumeSize": "16 TB",
+          "databaseEngine": "PostgreSQL",
+          "storageMedia": "SSD",
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonRDS",
+          "deploymentOption": "Single-AZ",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Relational Database Service",
+          "operation": "CreateDBInstance:0014",
+          "minVolumeSize": "5 GB"
+        },
+        "effectiveDate": "2026-08-01T00:00:00Z",
+        "unit": "GB-Mo",
+        "usd": "0.1150000000",
+        "description": "$0.115 per GB-month of provisioned GP3 storage running PostgreSQL",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "rds_backup": {
+      "service": "AmazonRDS",
+      "filters": {
+        "regionCode": "us-east-2",
+        "usagetype": "USE2-RDS:ChargedBackupUsage",
+        "databaseEngine": "PostgreSQL"
+      },
+      "price": {
+        "sku": "HQRQUXJ6DAN3XS6X",
+        "region": "us-east-2",
+        "attributes": {
+          "storageMedia": "AmazonS3",
+          "engineCode": "14",
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonRDS",
+          "deploymentOption": "Single-AZ",
+          "usagetype": "USE2-RDS:ChargedBackupUsage",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Relational Database Service",
+          "operation": "CreateDBInstance:0014",
+          "databaseEngine": "PostgreSQL"
+        },
+        "effectiveDate": "2026-08-01T00:00:00Z",
+        "unit": "GB-Mo",
+        "usd": "0.0950000000",
+        "description": "$0.095 per additional GB-month of backup storage exceeding free allocation running PostgreSQL",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "fargate_cpu": {
+      "service": "AmazonECS",
+      "filters": {
+        "regionCode": "us-east-2",
+        "usagetype": "USE2-Fargate-vCPU-Hours:perCPU"
+      },
+      "price": {
+        "sku": "UGSJ89BUWB7SMJ6A",
+        "region": "us-east-2",
+        "attributes": {
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonECS",
+          "tenancy": "Shared",
+          "usagetype": "USE2-Fargate-vCPU-Hours:perCPU",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Elastic Container Service",
+          "cputype": "perCPU",
+          "operation": ""
+        },
+        "effectiveDate": "2026-07-01T00:00:00Z",
+        "unit": "hours",
+        "usd": "0.0404800000",
+        "description": "AWS Fargate - vCPU  - US East 2 (Ohio)",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "fargate_memory": {
+      "service": "AmazonECS",
+      "filters": {
+        "regionCode": "us-east-2",
+        "usagetype": "USE2-Fargate-GB-Hours"
+      },
+      "price": {
+        "sku": "HH5EE3ZFWSFKGKWM",
+        "region": "us-east-2",
+        "attributes": {
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonECS",
+          "tenancy": "Shared",
+          "usagetype": "USE2-Fargate-GB-Hours",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Elastic Container Service",
+          "memorytype": "perGB",
+          "operation": ""
+        },
+        "effectiveDate": "2026-07-01T00:00:00Z",
+        "unit": "hours",
+        "usd": "0.0044450000",
+        "description": "AWS Fargate - Memory  - US East 2 (Ohio)",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "alb_hour": {
+      "service": "AWSELB",
+      "filters": {
+        "regionCode": "us-east-2",
+        "sku": "HCVPZW9WEWSJKJWJ"
+      },
+      "price": {
+        "sku": "HCVPZW9WEWSJKJWJ",
+        "region": "us-east-2",
+        "attributes": {
+          "regionCode": "us-east-2",
+          "servicecode": "AWSELB",
+          "groupDescription": "LoadBalancer hourly usage by Application Load Balancer",
+          "usagetype": "USE2-LoadBalancerUsage",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Elastic Load Balancing",
+          "operation": "LoadBalancing:Application",
+          "group": "ELB:Balancing"
+        },
+        "effectiveDate": "2026-08-01T00:00:00Z",
+        "unit": "Hrs",
+        "usd": "0.0225000000",
+        "description": "$0.0225 per Application LoadBalancer-hour (or partial hour)",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "alb_lcu": {
+      "service": "AWSELB",
+      "filters": {
+        "regionCode": "us-east-2",
+        "sku": "S3YDM2U7G69S4W5C"
+      },
+      "price": {
+        "sku": "S3YDM2U7G69S4W5C",
+        "region": "us-east-2",
+        "attributes": {
+          "regionCode": "us-east-2",
+          "servicecode": "AWSELB",
+          "groupDescription": "Used Application Load Balancer capacity units-hr",
+          "usagetype": "USE2-LCUUsage",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Elastic Load Balancing",
+          "operation": "LoadBalancing:Application",
+          "group": "ELB:Balancing"
+        },
+        "effectiveDate": "2026-08-01T00:00:00Z",
+        "unit": "LCU-Hrs",
+        "usd": "0.0080000000",
+        "description": "$0.008 per used Application load balancer capacity unit-hour (or partial hour)",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    },
+    "ipv4": {
+      "service": "AmazonVPC",
+      "filters": {
+        "regionCode": "us-east-2",
+        "usagetype": "USE2-PublicIPv4:InUseAddress"
+      },
+      "price": {
+        "sku": "8HFJK44D9234XNWA",
+        "region": "us-east-2",
+        "attributes": {
+          "regionCode": "us-east-2",
+          "servicecode": "AmazonVPC",
+          "groupDescription": "Hourly charge for In-use Public IPv4 Addresses",
+          "usagetype": "USE2-PublicIPv4:InUseAddress",
+          "locationType": "AWS Region",
+          "location": "US East (Ohio)",
+          "servicename": "Amazon Virtual Private Cloud",
+          "operation": "",
+          "group": "VPCPublicIPv4Address"
+        },
+        "effectiveDate": "2026-07-01T00:00:00Z",
+        "unit": "Hrs",
+        "usd": "0.0050000000",
+        "description": "$0.005 per In-use public IPv4 address per hour",
+        "beginRange": "0",
+        "endRange": "Inf"
+      }
+    }
+  },
+  "publicRates": {
+    "rds_cpu_credit": {
+      "usd": "0.075",
+      "unit": "vCPU-Hr",
+      "source": "https://aws.amazon.com/rds/postgresql/pricing/",
+      "note": "T4g Unlimited credit rate, all regions; reserve both vCPUs at full usage"
+    },
+    "secret": {
+      "usd": "0.40",
+      "unit": "secret-month",
+      "source": "https://aws.amazon.com/secrets-manager/pricing/"
+    },
+    "kms": {
+      "usd": "1.00",
+      "unit": "key-month",
+      "source": "https://aws.amazon.com/kms/pricing/"
+    }
+  }
+}
