@@ -35,10 +35,13 @@ official Alpine `3.24.1` plus exact distribution packages `nodejs=24.18.1-r0`,
 diagnostic proved the Node executable dynamically loads the patched libraries
 and reports OpenSSL `3.5.8`; a negative diagnostic proved the OpenSSL upgrades
 must be explicit. This removes the upstream-image wait from the source queue.
-The Kall web application image still needs a reproducible build, immutable
-inspection, and ECR scan before runtime activation. The evidence is recorded in
-[runtime image remediation](runtime-image-remediation.md). RDS TLS, origin TLS,
-and constrained-runtime tests also remain required.
+The web image was then built from exact canonical source `9bb8377`; immutable
+image `sha256:d541a72875a4930af7b48817065d3408d92319343f2f17eddfa524e2b0736bd2`
+passed config and final-rootfs inspection plus ECR basic scanning with zero
+findings. This completes both application-image build/basic-scan gates. Amazon
+Inspector enhanced ECR scanning remains disabled. The full evidence is recorded
+in [runtime image remediation](runtime-image-remediation.md). RDS TLS, origin
+TLS, database bootstrap/migration, and constrained-runtime tests still remain.
 
 The runtime stack now creates application services at desired count zero by
 default. A one-shot master-only bootstrap creates or rotates exact migrator and

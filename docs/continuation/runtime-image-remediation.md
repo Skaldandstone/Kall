@@ -1,8 +1,8 @@
 # Kall runtime image remediation
 
 This record defines the source and deployment contract for the replacement
-Kall development runtime and records the reviewed API successor image. It does
-not approve the web image or a cloud rollout.
+Kall development runtime and records the reviewed API and web successor images.
+It does not approve a cloud rollout.
 
 ## Source baseline and containment
 
@@ -52,10 +52,46 @@ or secret-like environment values. ECR basic scanning completed with zero
 findings. Amazon Inspector enhanced ECR scanning is disabled, so this is not an
 enhanced-scan claim.
 
-This completes the API build and basic-scan gate. It does not clear the web
-image, database activation, constrained Fargate execution, TLS, provider, or
-hosted acceptance gates. The two rejected source attempts created no image,
-tag, or push and are not reusable release inputs.
+This completes the API build and basic-scan gate. It does not clear database
+activation, constrained Fargate execution, TLS, provider, or hosted acceptance
+gates. The two rejected source attempts created no image, tag, or push and are
+not reusable release inputs.
+
+## Reviewed web successor
+
+The AWS owner built the web image from exact canonical source
+`9bb8377a5754d2484559db8513a6624135ec91be`. The accepted source ZIP was created
+from immutable Git objects after a working-tree archive with CRLF-normalized
+bytes was rejected.
+
+| Evidence | Value |
+| --- | --- |
+| Source tree | `b6be8ee7180a727920843436817f5ba869e7ed35` |
+| Source manifest SHA-256 | `789c78b6acdd2a47019852299a3a262fb8e23b122b5be39728c845914c4a14ec` |
+| Source archive SHA-256 | `47a5dd0c8e66d4ba44fdff616488f8365c7a7e927a00cb08033c0f66ec5e2121` |
+| Archive inventory | 21545305 bytes, 709 entries; zero CRC, path, duplicate, hash, or Git-byte mismatches |
+| Retained source version | S3 VersionId `BH90YNA0uyyrMrzh6GF.eF.iZb.iWly7` |
+| CodeBuild build | `ecc79734-9b38-4fae-be9a-d069e52585d3`, succeeded |
+| Immutable image digest | `sha256:d541a72875a4930af7b48817065d3408d92319343f2f17eddfa524e2b0736bd2` |
+| Image config digest | `sha256:6140db5596c9ab71e0564d3330e81e6cab96f357652d20d5b00855e25fb1d18e` |
+| Image platform | `linux/amd64` |
+
+Immutable config and final-rootfs layer inspection confirms nonroot user
+`nextjs`, command `npm run start`, the exact source label, only the expected
+Node, telemetry, port, and hostname environment values, Alpine 3.24.1,
+`nodejs=24.18.1-r0`, `npm=11.12.1-r0`, and
+`libssl3/libcrypto3=3.5.8-r0`. The Node executable SHA-256 starts with
+`af89883f` and its ELF dependencies include `libssl.so.3` and `libcrypto.so.3`.
+Curl is absent. BusyBox wget remains present as documented in the source
+contract. ECR basic scanning completed with zero findings at 21:02:46 Pacific
+time on 2026-08-31. Amazon Inspector enhanced ECR scanning is disabled, so this
+is not an enhanced-scan claim.
+
+This completes the web build and basic-scan gate. A separate no-source pull
+diagnostic could not run because the least-privilege build role intentionally
+lacks `ecr:BatchGetImage`; IAM was not broadened. Direct ECR manifest, config,
+and layer inspection supplied the immutable evidence instead. No runtime was
+activated.
 
 ## Image contract
 
@@ -67,12 +103,11 @@ tag, or push and are not reusable release inputs.
   `sha256:78e98729f8fc4099e53cffb3fe59fd15b18dfa4ace8c914dee0cefa5320068eb`
   and its immutable package database contains `libssl3=3.5.8-r0` and
   `libcrypto3=3.5.8-r0`.
-- Web base: `node:22.23.2-alpine3.24`, pinned to index digest
-  `sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32`.
-  All web stages derive from this single reviewed base stage. A live official
-  image recheck after the API build found the tag unchanged, last updated
-  2026-07-29T20:40:53Z, with `libssl3` and `libcrypto3` still at the rejected
-  `3.5.7-r0` version.
+- Web base: `alpine:3.24.1`, pinned to index digest
+  `sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b`.
+  All web stages derive from this base and install exact distribution packages
+  `nodejs=24.18.1-r0`, `npm=11.12.1-r0`, and
+  `libssl3/libcrypto3=3.5.8-r0`.
 - API runtime identity: UID/GID `10001:10001`.
 - Writable paths: `/tmp`, `/app/uploads`, and `/app/generated`. The task
   definition mounts ephemeral writable volumes at these paths and keeps the
@@ -131,9 +166,9 @@ tag, or an unreviewed alternate image. For each future refresh:
 5. Keep the launch gate closed until every critical, high, and undefined
    finding is reviewed.
 
-The packaged-Node diagnostic is source-input evidence. It is not a Kall web
-image build, immutable output inspection, ECR scan, or runtime approval. Those
-gates remain required after this source change is integrated.
+The packaged-Node diagnostic was source-input evidence only. The reviewed Kall
+web build, immutable output inspection, and ECR basic scan are recorded above.
+They do not establish constrained runtime behavior or approve cloud activation.
 
 The runtime and migration task definitions accept separate Secrets Manager
 ARNs containing `username` and `password`. Before deployment, the AWS owner must
