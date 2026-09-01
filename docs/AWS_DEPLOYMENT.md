@@ -50,6 +50,7 @@ The source template is [infrastructure/kall-alpha.yaml](../infrastructure/kall-a
 The bounded-session controls are in
 [infrastructure/alpha-session](../infrastructure/alpha-session/README.md).
 Current provider and release gates are recorded in
+[production readiness](PRODUCTION_READINESS.md),
 [provider readiness](continuation/provider-readiness.md),
 [runtime image remediation](continuation/runtime-image-remediation.md),
 [billing security](continuation/billing-security.md), and

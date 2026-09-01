@@ -3,6 +3,25 @@ from kall.config import Settings
 from pydantic import ValidationError
 
 
+def complete_production_config(tmp_path) -> dict[str, object]:
+    ca_bundle = tmp_path / "ca.pem"
+    ca_bundle.write_text("test certificate bundle")
+    return {
+        "app_env": "production",
+        "app_secret_key": "x" * 32,
+        "sensitive_data_encryption_key": "y" * 32,
+        "database_url": "postgresql+psycopg://localhost/kall",
+        "database_ssl_mode": "verify-full",
+        "database_ssl_root_cert": str(ca_bundle),
+        "clerk_secret_key": "sk_test_example",
+        "frontend_url": "https://kall.example.com",
+        "auto_create_tables": False,
+        "aws_s3_bucket": "kall-production-documents",
+        "aws_region": "us-east-2",
+        "alpha_invite_only": True,
+    }
+
+
 def test_production_rejects_default_secret() -> None:
     with pytest.raises(ValidationError):
         Settings(app_env="production", database_url="postgresql+psycopg://localhost/kall")
@@ -70,15 +89,52 @@ def test_production_requires_a_readable_postgres_ca_bundle(tmp_path) -> None:
 
 def test_production_accepts_a_complete_configuration(tmp_path) -> None:
     """The guards above must not reject a correctly configured service."""
-    ca_bundle = tmp_path / "ca.pem"
-    ca_bundle.write_text("test certificate bundle")
-    settings = Settings(
-        app_env="production",
-        app_secret_key="x" * 32,
-        sensitive_data_encryption_key="y" * 32,
-        database_url="postgresql+psycopg://localhost/kall",
-        database_ssl_mode="verify-full",
-        database_ssl_root_cert=str(ca_bundle),
-        clerk_secret_key="sk_test_example",
-    )
+    settings = Settings(**complete_production_config(tmp_path))
     assert settings.clerk_secret_key == "sk_test_example"
+
+
+@pytest.mark.parametrize(
+    ("setting", "value", "message"),
+    [
+        ("frontend_url", "http://kall.example.com", "HTTPS origin"),
+        ("frontend_url", "https://kall.example.com:99999", "HTTPS origin"),
+        ("auto_create_tables", True, "Alembic"),
+        ("aws_s3_bucket", None, "AWS_S3_BUCKET"),
+        ("aws_region", "us-east-1", "selected Region"),
+        ("alpha_invite_only", False, "invite-only"),
+        ("sensitive_data_encryption_key", "short", "at least 32"),
+        ("sensitive_data_encryption_key", "x" * 32, "must be distinct"),
+        ("stripe_livemode", True, "Live Stripe billing"),
+    ],
+)
+def test_production_rejects_unsafe_release_configuration(
+    tmp_path, setting: str, value: object, message: str
+) -> None:
+    config = complete_production_config(tmp_path)
+    config[setting] = value
+    with pytest.raises(ValidationError, match=message):
+        Settings(**config)
+
+
+def test_production_requires_complete_product_scoped_stripe_sandbox(tmp_path) -> None:
+    config = complete_production_config(tmp_path)
+    config.update(stripe_enabled=True, stripe_secret_key="rk_test_example")
+    with pytest.raises(ValidationError, match="STRIPE_WEBHOOK_SECRET"):
+        Settings(**config)
+
+    config.update(
+        stripe_webhook_secret="whsec_example",
+        stripe_billing_scope="other:production",
+        stripe_price_id="price_plus",
+        stripe_plus_product_id="prod_plus",
+        stripe_premium_price_id="price_premium",
+        stripe_premium_product_id="prod_premium",
+        stripe_portal_configuration_id="bpc_kall",
+    )
+    with pytest.raises(ValidationError, match="product-scoped to Kall"):
+        Settings(**config)
+
+    config["stripe_billing_scope"] = "kall:production"
+    settings = Settings(**config)
+    assert settings.stripe_enabled is True
+    assert settings.stripe_livemode is False

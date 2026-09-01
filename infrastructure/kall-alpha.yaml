@@ -426,7 +426,7 @@ Resources:
       Protocol: HTTP
       Port: 8000
       TargetType: ip
-      HealthCheckPath: /health
+      HealthCheckPath: /ready
       HealthCheckIntervalSeconds: 30
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3

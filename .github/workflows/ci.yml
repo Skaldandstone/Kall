@@ -67,7 +67,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - name: Check Clerk test cleanup safety without credentials
         run: node --experimental-strip-types --test ../../tests/clerk-test-safety.test.mjs
-      - run: npm install
+      - run: npm ci
       - run: npm run build
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
@@ -89,7 +89,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - run: npm install
+      - run: npm ci
         working-directory: apps/web
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -136,7 +136,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/extension/package-lock.json
-      - run: npm install
+      - run: npm ci
         working-directory: apps/extension
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -181,7 +181,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
-      - run: npm install
+      - run: npm ci
         working-directory: apps/mobile
       - name: Cache Playwright browsers
         uses: actions/cache@v4

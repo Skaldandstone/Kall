@@ -1,7 +1,7 @@
 import os
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -135,8 +135,10 @@ class Settings(BaseSettings):
         if self.app_env == "production":
             if self.app_secret_key == "change-me" or len(self.app_secret_key) < 32:
                 raise ValueError("APP_SECRET_KEY must be at least 32 characters in production")
-            if not self.sensitive_data_encryption_key:
-                raise ValueError("SENSITIVE_DATA_ENCRYPTION_KEY is required in production")
+            if not self.sensitive_data_encryption_key or len(self.sensitive_data_encryption_key) < 32:
+                raise ValueError("SENSITIVE_DATA_ENCRYPTION_KEY must be at least 32 characters in production")
+            if self.sensitive_data_encryption_key == self.app_secret_key:
+                raise ValueError("Production signing and sensitive-data keys must be distinct")
             if self.database_url.startswith("sqlite"):
                 raise ValueError("Production must use PostgreSQL or another server database")
             if self.database_url.startswith("postgresql+psycopg://"):
@@ -152,6 +154,54 @@ class Settings(BaseSettings):
                     "CLERK_SECRET_KEY is required in production — without it every "
                     "authenticated request fails token verification"
                 )
+            try:
+                frontend = urlsplit(self.frontend_url)
+                frontend_port = frontend.port
+            except ValueError as exc:
+                raise ValueError("FRONTEND_URL must be a valid HTTPS origin in production") from exc
+            if (
+                frontend.scheme != "https"
+                or not frontend.hostname
+                or frontend.username
+                or frontend.password
+                or frontend_port not in {None, 443}
+                or frontend.path not in {"", "/"}
+                or frontend.query
+                or frontend.fragment
+            ):
+                raise ValueError("FRONTEND_URL must be a valid HTTPS origin in production")
+            if self.auto_create_tables:
+                raise ValueError("AUTO_CREATE_TABLES must be false in production; run Alembic separately")
+            if not self.aws_s3_bucket:
+                raise ValueError("AWS_S3_BUCKET is required for durable production document storage")
+            if self.aws_region != "us-east-2":
+                raise ValueError("AWS_REGION must match the selected Region us-east-2")
+            if not self.alpha_invite_only:
+                raise ValueError("Production launch remains invite-only until public sign-up is approved")
+            if self.stripe_livemode:
+                raise ValueError("Live Stripe billing is not approved for this release")
+            if self.stripe_enabled:
+                required_billing = {
+                    "STRIPE_SECRET_KEY": self.stripe_secret_key,
+                    "STRIPE_WEBHOOK_SECRET": self.stripe_webhook_secret,
+                    "STRIPE_BILLING_SCOPE": self.stripe_billing_scope,
+                    "STRIPE_PRICE_ID": self.stripe_price_id,
+                    "STRIPE_PLUS_PRODUCT_ID": self.stripe_plus_product_id,
+                    "STRIPE_PREMIUM_PRICE_ID": self.stripe_premium_price_id,
+                    "STRIPE_PREMIUM_PRODUCT_ID": self.stripe_premium_product_id,
+                    "STRIPE_PORTAL_CONFIGURATION_ID": self.stripe_portal_configuration_id,
+                }
+                missing = [name for name, value in required_billing.items() if not value]
+                if missing:
+                    raise ValueError(
+                        "Stripe sandbox configuration is incomplete: " + ", ".join(missing)
+                    )
+                if not self.stripe_secret_key.startswith(("rk_test_", "sk_test_")):
+                    raise ValueError("Production candidate accepts only Stripe sandbox keys")
+                if not self.stripe_webhook_secret.startswith("whsec_"):
+                    raise ValueError("STRIPE_WEBHOOK_SECRET must be a Stripe signing secret")
+                if not self.stripe_billing_scope.startswith("kall:"):
+                    raise ValueError("STRIPE_BILLING_SCOPE must be product-scoped to Kall")
         return self
 
 

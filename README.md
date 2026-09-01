@@ -35,3 +35,6 @@ Web app: http://localhost:3000
 Current version: see [`VERSION`](VERSION). Full history: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 Kall runs on AWS (ECS Fargate, RDS Postgres, S3, CloudFront - see [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md)), with CI covering backend tests, a web production build, and an end-to-end browser smoke test on every push.
+
+The first production-candidate contract, provider gates, deployment order, and
+rollback plan are in [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).

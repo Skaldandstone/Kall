@@ -2,7 +2,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = (
-    ROOT / ".github" / "workflows" / "build.yml",
     ROOT / ".github" / "workflows" / "ci.yml",
     ROOT / ".github" / "workflows" / "manual-build.yml",
 )
@@ -25,6 +24,19 @@ def test_retired_account_buildspecs_are_not_executable_release_inputs() -> None:
     legacy_directory = ROOT / "ops" / "codebuild"
     assert not (legacy_directory / "kall-api.buildspec.yml").exists()
     assert not (legacy_directory / "kall-web.buildspec.yml").exists()
+
+
+def test_obsolete_duplicate_build_workflow_is_removed() -> None:
+    assert not (ROOT / ".github" / "workflows" / "build.yml").exists()
+
+
+def test_ci_is_the_single_complete_automatic_source_gate() -> None:
+    body = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    assert "push:\n    branches: [main]" in body
+    assert "pull_request:" in body
+    for job in ("backend", "web", "e2e", "extension", "mobile-e2e"):
+        assert f"\n  {job}:\n" in body
+    assert body.count("npm ci") == 4
 
 
 def test_manual_workflow_remains_explicitly_build_only() -> None:

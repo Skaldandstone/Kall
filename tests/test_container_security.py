@@ -263,6 +263,9 @@ def test_alpha_template_uses_verified_tls_and_preserves_release_holds() -> None:
     assert "OriginProtocolPolicy: http-only" not in template
     assert "Value: 'false'\n            - Name: STRIPE_LIVEMODE" in template
     assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in template
+    api_target = template.split("  ApiTargetGroup:", 1)[1].split("  HttpsListener:", 1)[0]
+    assert "HealthCheckPath: /ready" in api_target
+    assert "HealthCheckPath: /health" not in api_target
 
 
 def test_web_proxy_path_precedes_the_direct_bearer_api() -> None:

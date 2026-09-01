@@ -23,6 +23,12 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_readiness_endpoint_checks_the_database() -> None:
+    response = TestClient(app).get("/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
 def test_operations_routes_are_registered() -> None:
     paths = _app_paths()
     assert "/health" in paths
