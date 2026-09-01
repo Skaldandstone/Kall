@@ -29,8 +29,8 @@ The replacement runtime must preserve all of these constraints:
   migrator, and require a second reviewed change set before desired count one;
 - verify the RDS hostname with the checked-in `us-east-2` CA bundle;
 - keep RDS private and use separate runtime and migrator database roles;
-- route `/api/kall/*` through the authenticated web proxy and expose only the
-  exact Stripe webhook path directly to the API;
+- route `/api/kall/*` through the authenticated web proxy before routing
+  `/api/*` to the bearer-authenticated API used by mobile and the extension;
 - use HTTPS from CloudFront to the ALB and from the web service to the API;
 - leave the authoritative Cloudflare zone outside the stack, expose the ALB DNS
   output for the DNS-only `origin.kall.skaldandstone.com` CNAME, and require the

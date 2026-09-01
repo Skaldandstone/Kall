@@ -247,9 +247,16 @@ rebuild because the reviewed source snapshot now includes `deploy/certs/`.
 ## Routing and origin TLS
 
 The web application owns `/api/kall/*`; its server proxy derives a Clerk token
-and calls the API. The ALB listener sends only `/api/billing/webhook` directly
-to FastAPI. This route remains dormant while sandbox billing is disabled and no
-webhook registration is authorized.
+and calls the API at `/api/*`. The mobile app and browser extension also use
+the direct `/api/*` surface with their own Clerk bearer tokens. The ALB therefore
+routes `/api/kall/*` to the web target at priority 10 and `/api/*` to FastAPI at
+priority 20. The explicit higher-priority web rule prevents the broader API
+rule from bypassing the Next proxy. A route-dependency audit at this revision
+found authentication on every nonpublic FastAPI route. The intentional public
+exceptions are health/readiness, published career pages, token-protected
+testimonial responses, and the signature-verified Stripe webhook. The webhook
+remains dormant while sandbox billing is disabled and no registration is
+authorized.
 
 The authoritative zone is Cloudflare, not Route 53. The template therefore
 does not create a DNS record or accept a hosted-zone parameter. It accepts only

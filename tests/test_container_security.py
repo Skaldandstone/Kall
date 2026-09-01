@@ -250,12 +250,22 @@ def test_alpha_template_uses_verified_tls_and_preserves_release_holds() -> None:
     assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in template
 
 
-def test_only_webhook_bypasses_the_authenticated_web_proxy() -> None:
+def test_web_proxy_path_precedes_the_direct_bearer_api() -> None:
     template = (ROOT / "infrastructure" / "kall-alpha.yaml").read_text()
-    listener_rule = template.split("  ApiListenerRule:", 1)[1].split("  ResponseHeadersPolicy:", 1)[0]
+    proxy_rule = template.split("  WebProxyListenerRule:", 1)[1].split(
+        "  ApiListenerRule:", 1
+    )[0]
+    api_rule = template.split("  ApiListenerRule:", 1)[1].split(
+        "  ResponseHeadersPolicy:", 1
+    )[0]
 
-    assert "- /api/billing/webhook" in listener_rule
-    assert "- /api/*" not in listener_rule
+    assert "Priority: 10" in proxy_rule
+    assert "- /api/kall/*" in proxy_rule
+    assert "TargetGroupArn: !Ref WebTargetGroup" in proxy_rule
+    assert "Priority: 20" in api_rule
+    assert "- /api/*" in api_rule
+    assert "- /api/kall/*" not in api_rule
+    assert "TargetGroupArn: !Ref ApiTargetGroup" in api_rule
 
 
 def test_reviewed_snapshot_includes_the_ca_bundle() -> None:
