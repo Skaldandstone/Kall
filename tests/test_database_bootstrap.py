@@ -74,6 +74,33 @@ def test_bootstrap_rejects_wrong_role_names_shared_passwords_and_unverified_tls(
             load_bootstrap_config(environ)
 
 
+def test_bootstrap_accepts_managed_master_length_but_enforces_application_passwords(
+    tmp_path: Path,
+) -> None:
+    root_cert = tmp_path / "rds.pem"
+    root_cert.write_text("certificate")
+    environ = _environment(root_cert)
+    environ["MASTER_DB_PASSWORD"] = "managed-master"
+
+    assert load_bootstrap_config(environ).master_password == "managed-master"
+
+    missing_master = dict(environ)
+    missing_master["MASTER_DB_PASSWORD"] = ""
+    with pytest.raises(ValueError, match="MASTER_DB_PASSWORD is required"):
+        load_bootstrap_config(missing_master)
+
+    shared_master = dict(environ)
+    shared_master["MASTER_DB_PASSWORD"] = shared_master["MIGRATOR_DB_PASSWORD"]
+    with pytest.raises(ValueError, match="master, migrator, and runtime passwords must be distinct"):
+        load_bootstrap_config(shared_master)
+
+    for name in ("MIGRATOR_DB_PASSWORD", "RUNTIME_DB_PASSWORD"):
+        invalid = dict(environ)
+        invalid[name] = "x" * 31
+        with pytest.raises(ValueError, match="migrator and runtime database passwords"):
+            load_bootstrap_config(invalid)
+
+
 def test_bootstrap_uses_master_then_migrator_and_grants_runtime_only_data_access(
     tmp_path: Path,
 ) -> None:

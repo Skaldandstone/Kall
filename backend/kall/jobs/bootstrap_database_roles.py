@@ -70,9 +70,10 @@ def load_bootstrap_config(environ: Mapping[str, str] | None = None) -> Bootstrap
         raise ValueError(f"MIGRATOR_DB_USER must be {MIGRATOR_ROLE}")
     if config.runtime_user != RUNTIME_ROLE:
         raise ValueError(f"RUNTIME_DB_USER must be {RUNTIME_ROLE}")
-    passwords = (config.master_password, config.migrator_password, config.runtime_password)
-    if any(len(password) < MINIMUM_PASSWORD_LENGTH for password in passwords):
-        raise ValueError("database passwords must be at least 32 characters")
+    application_passwords = (config.migrator_password, config.runtime_password)
+    if any(len(password) < MINIMUM_PASSWORD_LENGTH for password in application_passwords):
+        raise ValueError("migrator and runtime database passwords must be at least 32 characters")
+    passwords = (config.master_password, *application_passwords)
     if len(set(passwords)) != len(passwords):
         raise ValueError("master, migrator, and runtime passwords must be distinct")
     root_cert = Path(config.root_cert)
