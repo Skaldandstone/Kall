@@ -7,7 +7,7 @@ import { API_PORT, WEB_PORT, apiURL, backendEnv, baseURL, repoRoot } from './e2e
  * without extra setup), so this covers what react-native-web actually
  * renders rather than true native behavior. app.config.js's API_BASE_URL
  * override points the app at this run's own local backend instead of the
- * hardcoded production CloudFront URL in app.json.
+ * Android-emulator development URL in app.json.
  */
 export default defineConfig({
   testDir: './e2e',

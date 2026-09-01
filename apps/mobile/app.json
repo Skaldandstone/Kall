@@ -9,7 +9,11 @@
     "scheme": "kall",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.skaldandstone.kall"
+      "bundleIdentifier": "com.skaldandstone.kall",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.skaldandstone.kall",

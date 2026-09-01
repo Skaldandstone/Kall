@@ -183,6 +183,8 @@ jobs:
           cache-dependency-path: apps/mobile/package-lock.json
       - run: npm ci
         working-directory: apps/mobile
+      - run: npm run validate:ios-alpha
+        working-directory: apps/mobile
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache

@@ -68,7 +68,7 @@ Build the signed internal APK from PowerShell after the alpha URL is known:
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
-.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://example.cloudfront.net/api' -ClerkPublishableKey 'pk_test_...'
+.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_test_...'
 ```
 
 The first run creates a dedicated alpha signing key under
@@ -76,6 +76,42 @@ The first run creates a dedicated alpha signing key under
 user, and protects the password with Windows DPAPI. Private signing material is
 never written into this repository. Keep that local directory backed up: later
 alpha APKs must use the same key to upgrade an existing installation.
+
+### Building the iOS alpha from Windows
+
+EAS Build can compile the iOS project in Expo's macOS build environment, so a
+local Mac is not required. Both iOS profiles use the same release safeguards as
+the Android alpha: the vanity API base, the alpha Clerk publishable key, and
+self-service registration disabled.
+
+Validate the bundle identifier, build number, icon, release profiles, and
+retired-host exclusion locally:
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
+npm run validate:ios-alpha
+```
+
+After signing in to Expo, queue a release-mode iOS Simulator build. This build
+does not require Apple Developer membership, but its `.app` artifact runs only
+in an iOS Simulator on a Mac:
+
+```powershell
+npx eas-cli@23.2.0 login
+.\scripts\build-alpha-ios.ps1 -Target Simulator -Wait
+```
+
+An installable invite-only iPhone build uses the `ios-device-alpha` internal
+distribution profile. Apple Developer membership, an Apple signing team, and
+the test device UDID are required before EAS can create its ad hoc provisioning
+profile:
+
+```powershell
+.\scripts\build-alpha-ios.ps1 -Target Device -Wait
+```
+
+These profiles do not submit anything to TestFlight or the App Store. Store
+submission remains a separate provider action after device testing and review.
 
 ## Structure
 

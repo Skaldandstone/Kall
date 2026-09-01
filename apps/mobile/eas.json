@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 23.2.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "ios-simulator-alpha": {
+      "distribution": "internal",
+      "env": {
+        "KALL_MOBILE_RELEASE": "1",
+        "API_BASE_URL": "https://kall.skaldandstone.com/api",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y2hhcm1pbmctbW9jY2FzaW4tODc0OC5jbGVyay5hY2NvdW50cy5kZXYk"
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      }
+    },
+    "ios-device-alpha": {
+      "distribution": "internal",
+      "env": {
+        "KALL_MOBILE_RELEASE": "1",
+        "API_BASE_URL": "https://kall.skaldandstone.com/api",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y2hhcm1pbmctbW9jY2FzaW4tODc0OC5jbGVyay5hY2NvdW50cy5kZXYk"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      }
+    }
+  }
+}
