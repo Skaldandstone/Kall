@@ -49,6 +49,17 @@ export default function OpportunitiesScreen() {
     return map;
   }, [tracked]);
 
+  const trackedById = useMemo(() => {
+    const map = new Map<number, TrackedOpportunity>();
+    for (const item of tracked) map.set(item.id, item);
+    return map;
+  }, [tracked]);
+
+  const trackedOpportunity = useCallback((item: JobFeedItem) => (
+    (item.opportunity_id ? trackedById.get(item.opportunity_id) : undefined)
+    ?? trackedByJobId.get(item.job_id)
+  ), [trackedById, trackedByJobId]);
+
   const load = useCallback(async (currentProfileId: number | null) => {
     try {
       const { profiles: fetchedProfiles } = await fetchCareerProfiles();
@@ -112,14 +123,14 @@ export default function OpportunitiesScreen() {
   }
 
   async function setState(item: JobFeedItem, state: OpportunityState) {
-    const existing = trackedByJobId.get(item.job_id);
-    if (!existing) {
+    const opportunityId = item.opportunity_id ?? trackedOpportunity(item)?.id;
+    if (!opportunityId) {
       setMessage('This role has not been added to your tracked inbox yet -- run a search first.');
       return;
     }
-    setPendingId(existing.id);
+    setPendingId(opportunityId);
     try {
-      await updateOpportunityState(existing.id, state);
+      await updateOpportunityState(opportunityId, state);
       setTracked(await fetchOpportunities());
     } catch (err) {
       setMessage(err instanceof ApiError ? err.message : 'Unable to update this opportunity.');
@@ -177,8 +188,8 @@ export default function OpportunitiesScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(profileId); }} tintColor={theme.text} />}
             ListEmptyComponent={<Text style={styles.empty}>No matches yet. Try Search now.</Text>}
             renderItem={({ item }) => {
-              const trackedItem = trackedByJobId.get(item.job_id);
-              const busy = pendingId === trackedItem?.id;
+              const trackedItem = trackedOpportunity(item);
+              const busy = pendingId === (item.opportunity_id ?? trackedItem?.id);
               return (
                 <View style={styles.card}>
                   <View style={styles.cardHeader}>

@@ -7,6 +7,41 @@ from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed,
 from sqlmodel import Session, select
 
 
+def opportunity_ids_by_source(
+    session: Session,
+    *,
+    user_id: int,
+    professional_profile_id: int,
+) -> tuple[dict[int, int], dict[str, int]]:
+    """Map every known source job to its owned canonical opportunity.
+
+    New source records carry a stable job ID. The URL map keeps older rows
+    usable until normal discovery traffic repairs those legacy records.
+    """
+    by_job_id: dict[int, int] = {}
+    by_url: dict[str, int] = {}
+    rows = session.exec(
+        select(Opportunity)
+        .where(
+            Opportunity.user_id == user_id,
+            Opportunity.professional_profile_id == professional_profile_id,
+        )
+        .order_by(Opportunity.id)
+    )
+    for row in rows:
+        if row.id is None:
+            continue
+        by_job_id.setdefault(row.job_id, row.id)
+        for record in row.source_records or []:
+            job_id = record.get("job_id")
+            url = record.get("url")
+            if isinstance(job_id, int):
+                by_job_id.setdefault(job_id, row.id)
+            elif isinstance(url, str) and url:
+                by_url.setdefault(url, row.id)
+    return by_job_id, by_url
+
+
 def source_jobs(session: Session, row: Opportunity) -> list[Job]:
     """Resolve additive job IDs and legacy URL-only records without global criteria."""
     jobs = {}
