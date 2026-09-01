@@ -13,16 +13,37 @@ Parameters:
     Type: String
   WebImage:
     Type: String
+  AppSecretArn:
+    Type: String
+    Description: ARN of the retained Kall application-signing secret.
+  SensitiveDataSecretArn:
+    Type: String
+    Description: ARN of the retained Kall field-encryption secret.
+  AlphaAccessSecretArn:
+    Type: String
+    Description: ARN of the retained private-alpha allowlist secret.
   ClerkSecretArn:
     Type: String
   StripeSecretArn:
     Type: String
+  RuntimeDatabaseSecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing username/password for the least-privilege Kall runtime role.
+  MigratorDatabaseSecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing username/password for the schema-migrator role.
+  OriginDomainName:
+    Type: String
+    Description: DNS name mapped to the ALB and covered by OriginCertificateArn.
+  OriginHostedZoneId:
+    Type: String
+    Description: Route 53 hosted zone for OriginDomainName in the same project.
+  OriginCertificateArn:
+    Type: String
+    Description: us-east-2 ACM certificate ARN for OriginDomainName on the ALB HTTPS listener.
   OpenAISecretArn:
     Type: String
     Default: ''
-  AlphaOwnerEmail:
-    Type: String
-    NoEcho: true
   EnableStripeSandbox:
     Type: String
     AllowedValues: ['true', 'false']
@@ -33,50 +54,10 @@ Conditions:
   StripeSandboxEnabled: !Equals [!Ref EnableStripeSandbox, 'true']
 
 Resources:
-  AppSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: dev/kall/app-secret
-      Description: Kall alpha application signing secret.
-      GenerateSecretString:
-        PasswordLength: 64
-        ExcludePunctuation: true
-      Tags:
-        - Key: Product
-          Value: Kall
-        - Key: Environment
-          Value: alpha
-
-  SensitiveDataSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: dev/kall/sensitive-data
-      Description: Kall alpha field encryption source secret.
-      GenerateSecretString:
-        PasswordLength: 64
-        ExcludePunctuation: true
-      Tags:
-        - Key: Product
-          Value: Kall
-        - Key: Environment
-          Value: alpha
-
-  AlphaAccessSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: dev/kall/alpha
-      Description: Kall private alpha owner allowlist.
-      SecretString: !Sub '{"ALPHA_ALLOWED_EMAILS":"${AlphaOwnerEmail}"}'
-      Tags:
-        - Key: Product
-          Value: Kall
-        - Key: Environment
-          Value: alpha
-
-  TaskExecutionRole:
+  ApiExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: kall-alpha-ecs-execution
+      RoleName: kall-alpha-api-execution
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -87,20 +68,68 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Policies:
-        - PolicyName: kall-alpha-runtime-secrets
+        - PolicyName: kall-alpha-api-secrets
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource:
-                  - !Ref AppSecret
-                  - !Ref SensitiveDataSecret
-                  - !Ref AlphaAccessSecret
+                  - !Ref AppSecretArn
+                  - !Ref SensitiveDataSecretArn
+                  - !Ref AlphaAccessSecretArn
                   - !Ref ClerkSecretArn
-                  - !Ref StripeSecretArn
-                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RuntimeDatabaseSecretArn
+                  - !If [StripeSandboxEnabled, !Ref StripeSecretArn, !Ref AWS::NoValue]
                   - !If [HasOpenAISecret, !Ref OpenAISecretArn, !Ref AWS::NoValue]
+
+  MigrationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-migration-execution
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: kall-alpha-migration-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref AppSecretArn
+                  - !Ref SensitiveDataSecretArn
+                  - !Ref ClerkSecretArn
+                  - !Ref MigratorDatabaseSecretArn
+
+  WebExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: kall-alpha-web-execution
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: kall-alpha-web-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref ClerkSecretArn
 
   ApiTaskRole:
     Type: AWS::IAM::Role
@@ -193,8 +222,8 @@ Resources:
     Properties:
       GroupId: !Ref AlbSecurityGroup
       IpProtocol: tcp
-      FromPort: 80
-      ToPort: 80
+      FromPort: 443
+      ToPort: 443
       SourcePrefixListId: pl-b6a144df
 
   AlbFromWebIngress:
@@ -202,8 +231,8 @@ Resources:
     Properties:
       GroupId: !Ref AlbSecurityGroup
       IpProtocol: tcp
-      FromPort: 80
-      ToPort: 80
+      FromPort: 443
+      ToPort: 443
       SourceSecurityGroupId: !Ref WebSecurityGroup
 
   WebFromAlbIngress:
@@ -336,25 +365,39 @@ Resources:
         - Key: deregistration_delay.timeout_seconds
           Value: '30'
 
-  HttpListener:
+  HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
-      Protocol: HTTP
-      Port: 80
+      Protocol: HTTPS
+      Port: 443
+      Certificates:
+        - CertificateArn: !Ref OriginCertificateArn
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref WebTargetGroup
 
+  OriginDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref OriginHostedZoneId
+      Name: !Ref OriginDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+        EvaluateTargetHealth: false
+
   ApiListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
-      ListenerArn: !Ref HttpListener
+      ListenerArn: !Ref HttpsListener
       Priority: 10
       Conditions:
         - Field: path-pattern
           Values:
-            - /api/*
+            - /api/billing/webhook
       Actions:
         - Type: forward
           TargetGroupArn: !Ref ApiTargetGroup
@@ -385,6 +428,7 @@ Resources:
 
   Distribution:
     Type: AWS::CloudFront::Distribution
+    DependsOn: OriginDnsRecord
     Properties:
       DistributionConfig:
         Enabled: true
@@ -394,10 +438,11 @@ Resources:
         IPV6Enabled: true
         Origins:
           - Id: kall-alpha-alb
-            DomainName: !GetAtt LoadBalancer.DNSName
+            DomainName: !Ref OriginDomainName
             CustomOriginConfig:
-              HTTPPort: 80
-              OriginProtocolPolicy: http-only
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
               OriginReadTimeout: 60
               OriginKeepaliveTimeout: 5
         DefaultCacheBehavior:
@@ -421,7 +466,7 @@ Resources:
       Memory: '512'
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ExecutionRoleArn: !GetAtt ApiExecutionRole.Arn
       TaskRoleArn: !GetAtt ApiTaskRole.Arn
       RuntimePlatform:
         CpuArchitecture: X86_64
@@ -430,6 +475,18 @@ Resources:
         - Name: kall-api
           Image: !Ref ApiImage
           Essential: true
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          MountPoints:
+            - SourceVolume: runtime-tmp
+              ContainerPath: /tmp
+              ReadOnly: false
+            - SourceVolume: runtime-uploads
+              ContainerPath: /app/uploads
+              ReadOnly: false
+            - SourceVolume: runtime-generated
+              ContainerPath: /app/generated
+              ReadOnly: false
           PortMappings:
             - ContainerPort: 8000
               Protocol: tcp
@@ -445,7 +502,9 @@ Resources:
             - Name: DB_NAME
               Value: kall
             - Name: DATABASE_SSL_MODE
-              Value: require
+              Value: verify-full
+            - Name: DATABASE_SSL_ROOT_CERT
+              Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem
             - Name: FRONTEND_URL
               Value: !Sub https://${Distribution.DomainName}
             - Name: AWS_REGION
@@ -476,13 +535,13 @@ Resources:
               Value: 'false'
           Secrets:
             - Name: APP_SECRET_KEY
-              ValueFrom: !Ref AppSecret
+              ValueFrom: !Ref AppSecretArn
             - Name: SENSITIVE_DATA_ENCRYPTION_KEY
-              ValueFrom: !Ref SensitiveDataSecret
+              ValueFrom: !Ref SensitiveDataSecretArn
             - Name: DB_USER
-              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:username::'
+              ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:username::'
             - Name: DB_PASSWORD
-              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:password::'
+              ValueFrom: !Sub '${RuntimeDatabaseSecretArn}:password::'
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
             - !If
@@ -496,7 +555,7 @@ Resources:
                 ValueFrom: !Sub '${StripeSecretArn}:STRIPE_WEBHOOK_SECRET::'
               - !Ref AWS::NoValue
             - Name: ALPHA_ALLOWED_EMAILS
-              ValueFrom: !Sub '${AlphaAccessSecret}:ALPHA_ALLOWED_EMAILS::'
+              ValueFrom: !Sub '${AlphaAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'
             - !If
               - HasOpenAISecret
               - Name: OPENAI_API_KEY
@@ -518,6 +577,74 @@ Resources:
             Timeout: 5
             Retries: 3
             StartPeriod: 60
+      Volumes:
+        - Name: runtime-tmp
+        - Name: runtime-uploads
+        - Name: runtime-generated
+
+  MigrationTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: kall-alpha-migration
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt MigrationExecutionRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: kall-migration
+          Image: !Ref ApiImage
+          Essential: true
+          User: '10001:10001'
+          ReadonlyRootFilesystem: true
+          Command: [alembic, upgrade, head]
+          MountPoints:
+            - SourceVolume: migration-tmp
+              ContainerPath: /tmp
+              ReadOnly: false
+          Environment:
+            - Name: APP_ENV
+              Value: production
+            - Name: AUTO_CREATE_TABLES
+              Value: 'false'
+            - Name: DB_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DB_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DB_NAME
+              Value: kall
+            - Name: DATABASE_SSL_MODE
+              Value: verify-full
+            - Name: DATABASE_SSL_ROOT_CERT
+              Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem
+            - Name: STRIPE_ENABLED
+              Value: 'false'
+            - Name: STRIPE_LIVEMODE
+              Value: 'false'
+            - Name: MONITORING_ENABLED
+              Value: 'false'
+          Secrets:
+            - Name: APP_SECRET_KEY
+              ValueFrom: !Ref AppSecretArn
+            - Name: SENSITIVE_DATA_ENCRYPTION_KEY
+              ValueFrom: !Ref SensitiveDataSecretArn
+            - Name: DB_USER
+              ValueFrom: !Sub '${MigratorDatabaseSecretArn}:username::'
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub '${MigratorDatabaseSecretArn}:password::'
+            - Name: CLERK_SECRET_KEY
+              ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogs
+              awslogs-region: us-east-2
+              awslogs-stream-prefix: migration
+      Volumes:
+        - Name: migration-tmp
 
   WebTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -527,7 +654,7 @@ Resources:
       Memory: '512'
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ExecutionRoleArn: !GetAtt WebExecutionRole.Arn
       TaskRoleArn: !GetAtt WebTaskRole.Arn
       RuntimePlatform:
         CpuArchitecture: X86_64
@@ -543,7 +670,7 @@ Resources:
             - Name: NODE_ENV
               Value: production
             - Name: KALL_API_URL
-              Value: !Sub http://${LoadBalancer.DNSName}
+              Value: !Sub https://${OriginDomainName}
             - Name: ALPHA_INVITE_ONLY
               Value: 'true'
           Secrets:
@@ -587,7 +714,7 @@ Resources:
 
   WebService:
     Type: AWS::ECS::Service
-    DependsOn: HttpListener
+    DependsOn: HttpsListener
     Properties:
       ServiceName: kall-alpha-web
       Cluster: !Ref ClusterName
@@ -663,3 +790,5 @@ Outputs:
     Value: !GetAtt ApiService.Name
   WebServiceName:
     Value: !GetAtt WebService.Name
+  MigrationTaskDefinitionArn:
+    Value: !Ref MigrationTaskDefinition

@@ -2,7 +2,10 @@
 
 Latest: [main delivery and fresh combined validation](main-delivery.md),
 [Inscription implementation](inscription-implementation.md), and
-[AWS and Stripe development readiness](provider-readiness.md). The current
+[AWS and Stripe development readiness](provider-readiness.md). The source-only
+[runtime image remediation contract](runtime-image-remediation.md) records the
+non-root image, verified RDS TLS, migration separation, and HTTPS origin gates.
+The current
 [interface copy standard](interface-copy.md) keeps headings and section
 descriptions concrete as the visual system expands.
 James authorized integration and the remaining implementation on 31 August.

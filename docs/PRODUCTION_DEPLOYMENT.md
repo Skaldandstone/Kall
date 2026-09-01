@@ -6,7 +6,12 @@ Kall runs as three resources: a PostgreSQL database, the FastAPI service, and th
 
 ## 1. Before you start
 
-The services must already exist per `AWS_DEPLOYMENT.md`. The API container runs `alembic upgrade head` before starting Uvicorn, so its database account must be permitted to run migrations.
+The services must already exist per `AWS_DEPLOYMENT.md`. Run the one-shot
+`alembic upgrade head` migration task with the dedicated migrator database role,
+verify the expected head, and only then update the Uvicorn service. The runtime
+database role must not have schema-migration permissions or RDS master
+credentials. See the current
+[runtime remediation contract](continuation/runtime-image-remediation.md).
 
 ## 2. Configure Clerk
 

@@ -8,13 +8,21 @@ import json
 import subprocess
 import zipfile
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipInfo
 
-INCLUDED_PREFIXES = ("backend/", "migrations/", "apps/web/")
+INCLUDED_PREFIXES = ("backend/", "migrations/", "apps/web/", "deploy/certs/")
 INCLUDED_FILES = {"Dockerfile.api", "pyproject.toml", "alembic.ini"}
 
 
 def git(*args: str) -> bytes:
     return subprocess.check_output(["git", *args])
+
+
+def write_deterministic_entry(archive: zipfile.ZipFile, name: str, body: bytes) -> None:
+    info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = ZIP_DEFLATED
+    info.external_attr = 0o100644 << 16
+    archive.writestr(info, body)
 
 
 def main() -> None:
@@ -48,10 +56,10 @@ def main() -> None:
     digest = hashlib.sha256(manifest_body).hexdigest()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(args.output, "w") as archive:
         for name, body in files.items():
-            archive.writestr(name, body)
-        archive.writestr(".aws-rebuild/manifest.json", manifest_body)
+            write_deterministic_entry(archive, name, body)
+        write_deterministic_entry(archive, ".aws-rebuild/manifest.json", manifest_body)
 
     print(json.dumps({"archive": str(args.output.resolve()), "commit": commit, "source_sha256": digest}))
 
