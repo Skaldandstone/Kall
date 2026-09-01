@@ -52,7 +52,7 @@ class ExpiryHandlerTests(unittest.TestCase):
         self.assertEqual(arguments["StackName"], self.stack["StackId"])
         self.assertEqual(
             arguments["ClientRequestToken"],
-            "expiry-v7-kall-0123456789abcdef0123456789abcdef",
+            "expiry-v8-kall-0123456789abcdef0123456789abcdef",
         )
         self.assertEqual(arguments["RoleARN"], self.environment["DELETION_ROLE_ARN"])
 
@@ -126,7 +126,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             self.assertIn("MaximumRetryAttempts: 2", body)
 
         handler = (root / "expiry_handler.py").read_text()
-        self.assertIn('token_prefix = "expiry-v7" if action == "recover-delete" else "expiry"', handler)
+        self.assertIn('token_prefix = "expiry-v8" if action == "recover-delete" else "expiry"', handler)
         self.assertIn('"RoleARN": str(config["deletion_role_arn"])', handler)
 
     def test_cloudformation_uses_a_dedicated_bounded_deletion_role(self):
@@ -171,7 +171,7 @@ class ExpiryHandlerTests(unittest.TestCase):
             )
             self.assertEqual(body.count("rds:CreateDBSnapshot"), 1)
             self.assertEqual(
-                body.count("rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:"), 1
+                body.count("rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:"), 2
             )
             for broad_snapshot_pattern in (
                 "rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:*",
@@ -186,6 +186,18 @@ class ExpiryHandlerTests(unittest.TestCase):
                 if "rds:Create" in line
             ]
             self.assertEqual(rds_create_actions, ["rds:CreateDBSnapshot"])
+            self.assertIn(
+                "- Sid: TagExactDatabaseSnapshot\n"
+                "                Effect: Allow\n"
+                "                Action: rds:AddTagsToResource\n"
+                "                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*\n"
+                "                Condition:\n"
+                "                  StringEquals:\n"
+                "                    aws:RequestedRegion: !Ref ExpectedRegion",
+                body,
+            )
+            self.assertEqual(body.count("rds:AddTagsToResource"), 1)
+            self.assertNotIn("rds:RemoveTagsFromResource", body)
             for role_name in (
                 "kall-alpha-api-execution",
                 "kall-alpha-api-task",

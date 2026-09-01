@@ -30,7 +30,7 @@ rule role_has_only_expected_scoped_statements {
 rule cloudformation_uses_a_dedicated_deletion_role {
     Resources.RuntimeDeletionRole.Type == 'AWS::IAM::Role'
     Resources.RuntimeDeletionRole.Properties.AssumeRolePolicyDocument.Statement.*.Principal.Service == 'cloudformation.amazonaws.com'
-    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'SnapshotExactDatabase', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteDatabaseAdminLogGroup', 'DeleteRuntimeCloudFrontResources']
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Sid IN ['ReadDeletionState', 'DeleteRegionalRuntimeResources', 'SnapshotExactDatabase', 'TagExactDatabaseSnapshot', 'DeleteExactEcsWorkloads', 'DeregisterRuntimeTaskDefinitions', 'DeleteExactRuntimeRoles', 'DeleteDatabaseAdminLogGroup', 'DeleteRuntimeCloudFrontResources']
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Effect == 'Allow'
     Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement.*.Resource exists
     Resources.ExpiryFunction.Properties.Environment.Variables.DELETION_ROLE_ARN.'Fn::GetAtt' == 'RuntimeDeletionRole.Arn'
@@ -43,6 +43,14 @@ rule final_database_snapshot_is_exact_and_region_bounded {
             { 'Fn::Sub': 'arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:db:kall-alpha-postgres' },
             { 'Fn::Sub': 'arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*' }
         ]
+        Condition.StringEquals.'aws:RequestedRegion'.Ref == 'ExpectedRegion'
+    }
+}
+
+rule final_database_snapshot_tagging_is_exact_and_region_bounded {
+    Resources.RuntimeDeletionRole.Properties.Policies.*.PolicyDocument.Statement[ Sid == 'TagExactDatabaseSnapshot' ] {
+        Action == 'rds:AddTagsToResource'
+        Resource.'Fn::Sub' == 'arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*'
         Condition.StringEquals.'aws:RequestedRegion'.Ref == 'ExpectedRegion'
     }
 }

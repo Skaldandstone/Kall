@@ -129,6 +129,13 @@ Resources:
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: !Ref ExpectedRegion
+              - Sid: TagExactDatabaseSnapshot
+                Effect: Allow
+                Action: rds:AddTagsToResource
+                Resource: !Sub arn:${AWS::Partition}:rds:${ExpectedRegion}:${ExpectedAccount}:snapshot:kall-sandbox-29f1815c16c9-snapshot-database-*
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref ExpectedRegion
               - Sid: DeleteExactEcsWorkloads
                 Effect: Allow
                 Action:
