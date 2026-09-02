@@ -48,11 +48,16 @@ export const LEGAL = {
    * printed. A privacy policy that names no address is not a compliant one.
    * Multi-line: one array entry per line.
    *
-   * Deliberately null: a PO box is being obtained so that a residential address
-   * does not become permanently public on a page that cannot be quietly taken
-   * back down. Do not fill this with a home address in the meantime.
+   * This is the commercial registered agent's Washington address (Registered
+   * Agents Inc), deliberately not a residential one: what goes on a legal page
+   * is permanently public and indexed, and cannot be quietly taken back down.
+   * If this ever needs replacing, replace it with another business address --
+   * never with a home address, not even as a placeholder.
+   *
+   * The pages print `operatorLegalName` on the line above this, so these are
+   * the street lines only.
    */
-  mailingAddress: null as Fillable<string[]>,
+  mailingAddress: ['100 N Howard St Ste R', 'Spokane, WA 99201'] as Fillable<string[]>,
 
   /**
    * Where a privacy request, access request, or deletion request goes.
