@@ -9,9 +9,9 @@ section.
 """
 
 import re
-from datetime import datetime
 from typing import Any
 
+from kall.clock import utcnow
 from kall.models import (
     AwardHonor,
     CandidateProfile,
@@ -296,5 +296,5 @@ def render_public_page(session: Session, page: CareerPage) -> dict[str, Any]:
 def publish(page: CareerPage, published: bool) -> CareerPage:
     page.published = published
     if published and page.published_at is None:
-        page.published_at = datetime.utcnow()
+        page.published_at = utcnow()
     return page

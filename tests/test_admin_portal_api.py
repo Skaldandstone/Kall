@@ -5,6 +5,7 @@ X-Admin-Token instead, and disabled entirely when ADMIN_API_TOKEN is unset.
 """
 
 import pytest
+from kall.clock import utcnow
 from kall.config import get_settings
 
 TOKEN = "test-admin-token-0123456789abcdef"
@@ -89,7 +90,6 @@ def test_portal_unknown_user_404s(client, admin_token):
 
 
 def test_portal_pipeline_inspector_reads_matches_and_applications(client, admin_token, engine):
-    from datetime import datetime
 
     from kall.models.core import Application, CareerProfile, Job, JobMatch
     from sqlmodel import Session
@@ -114,7 +114,7 @@ def test_portal_pipeline_inspector_reads_matches_and_applications(client, admin_
         ))
         session.add(Application(
             user_id=user_id, job_id=job.id, career_profile_id=career_profile.id,
-            submitted_at=datetime.utcnow(),
+            submitted_at=utcnow(),
         ))
         session.commit()
 

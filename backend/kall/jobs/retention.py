@@ -23,6 +23,7 @@ import logging
 
 from sqlmodel import Session, select
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.models import DocumentArtifact
 from kall.services.documents import ARTIFACT_RETENTION_DAYS, expire_artifacts
@@ -43,9 +44,9 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
-            cutoff = datetime.utcnow() - timedelta(days=args.days)
+            cutoff = utcnow() - timedelta(days=args.days)
             stale = session.exec(
                 select(DocumentArtifact).where(DocumentArtifact.created_at < cutoff)
             ).all()

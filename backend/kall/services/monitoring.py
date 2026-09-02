@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 import httpx
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.models import (
     CareerProfile,
@@ -205,7 +206,7 @@ async def run_monitoring(session: Session, *, now: datetime | None = None,
                          send_notifications: bool = False) -> dict:
     started = time.monotonic()
     deadline = started + min(WORK_SECONDS, max(0, work_seconds))
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     result = {"status": "disabled", "requests": 0, "response_bytes": 0, "feed_errors": 0,
               "profiles_checked": 0, "jobs_processed": 0, "events_queued": 0}
     if not get_settings().monitoring_enabled:

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import (
     CareerGoal,
@@ -184,7 +185,7 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
         plan.recommended_roles = content["recommended_roles"]
         plan.provider = provider
         plan.provider_version = provider_version
-        plan.generated_at = datetime.utcnow()
+        plan.generated_at = utcnow()
         session.add(plan)
     else:
         plan = CareerGrowthPlan(
@@ -210,7 +211,7 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
             title=milestone["title"],
             description=milestone["description"],
             category=milestone["category"],
-            target_date=(datetime.utcnow() + timedelta(days=sequence * 30)).date(),
+            target_date=(utcnow() + timedelta(days=sequence * 30)).date(),
             estimated_hours=milestone.get("estimated_hours"),
         ))
 
@@ -316,7 +317,7 @@ def update_milestone_status(
     if not milestone or milestone.user_id != current_user.id:
         raise HTTPException(404, "Milestone not found")
     milestone.status = payload.status
-    milestone.completed_at = datetime.utcnow() if payload.status == "completed" else None
+    milestone.completed_at = utcnow() if payload.status == "completed" else None
     session.add(milestone)
     session.commit()
     session.refresh(milestone)

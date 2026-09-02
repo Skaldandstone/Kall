@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Literal, NamedTuple
 
 from fastapi import HTTPException
+from kall.clock import utcnow
 from kall.models.billing import UsageCounter
 from kall.models.core import ResumeDocument, User
 from kall.models.enums import SubscriptionPlan
@@ -98,7 +99,7 @@ def period_key(period: Period, now: datetime | None = None) -> str:
     """
     if period == LIFETIME:
         return LIFETIME
-    moment = now or datetime.utcnow()
+    moment = now or utcnow()
     if period == "week":
         iso = moment.isocalendar()
         return f"{iso.year:04d}-W{iso.week:02d}"

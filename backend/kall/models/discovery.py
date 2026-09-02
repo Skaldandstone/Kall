@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlmodel import JSON, Column, Field, UniqueConstraint
 
+from kall.clock import utcnow
 from kall.models.core import TimestampMixin
 
 
@@ -18,7 +19,7 @@ class SearchRun(TimestampMixin, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(index=True, foreign_key="user.id")
     professional_profile_id: int = Field(index=True, foreign_key="careerprofile.id")
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utcnow)
     completed_at: datetime | None = None
     providers_requested: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     # The exact hidden-market search string this run generated from the
@@ -55,4 +56,4 @@ class SuppressedResult(TimestampMixin, table=True):
     #               the application itself is the record that matters.
     reason: str = "dead_link"
     title: str | None = None
-    suppressed_at: datetime = Field(default_factory=datetime.utcnow)
+    suppressed_at: datetime = Field(default_factory=utcnow)

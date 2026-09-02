@@ -13,10 +13,10 @@ own dedupe check only ever lets one of them actually send.
 
 import argparse
 import logging
-from datetime import datetime
 
 from sqlmodel import Session
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.services.reference_reminders import eligible_references, queue_reference_reminders
 
@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            count = len(eligible_references(session, now=datetime.utcnow()))
+            count = len(eligible_references(session, now=utcnow()))
             logger.info("Would queue %d reminder(s).", count)
             return 0
 

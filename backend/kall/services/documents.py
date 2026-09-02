@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from docx import Document
+from kall.clock import utcnow
 from kall.models import (
     CoverLetterChange,
     CoverLetterProposal,
@@ -175,7 +176,7 @@ def generate_resume_documents(
         # ones (validate_submission) was comparing {} to {} and could never
         # actually catch a resume that changed after approval.
         status="finalized",
-        finalized_at=datetime.utcnow(),
+        finalized_at=utcnow(),
     )
     session.add(generated)
     session.commit()
@@ -257,7 +258,7 @@ def review_cover_letter_change(
         raise ValueError("Edited text is required")
     change.status = decision
     change.edited_text = edited_text if decision == "edited" else None
-    change.reviewed_at = datetime.utcnow()
+    change.reviewed_at = utcnow()
     session.add(change)
     session.commit()
     session.refresh(change)
@@ -269,7 +270,7 @@ def finalize_cover_letter(session: Session, proposal: CoverLetterProposal) -> Co
     if not changes or any(change.status == "pending" for change in changes):
         raise ValueError("Every cover letter paragraph must be reviewed")
     proposal.status = "finalized"
-    proposal.finalized_at = datetime.utcnow()
+    proposal.finalized_at = utcnow()
     session.add(proposal)
     session.commit()
     session.refresh(proposal)
@@ -405,7 +406,7 @@ def expire_artifacts(session: Session, older_than_days: int = ARTIFACT_RETENTION
 
     Returns the number of artifacts removed.
     """
-    cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+    cutoff = utcnow() - timedelta(days=older_than_days)
     storage = get_storage()
     stale = list(
         session.exec(select(DocumentArtifact).where(DocumentArtifact.created_at < cutoff))

@@ -1,10 +1,10 @@
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import CareerProfile, JobMatch, ResumeDocument, User
 from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
@@ -165,7 +165,7 @@ def update_career_profile(
     # clears a field, and complete existing PUT clients remain compatible.
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(profile, key, value)
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = utcnow()
     session.add(profile)
     session.commit()
     session.refresh(profile)

@@ -4,6 +4,7 @@ import re
 from collections import Counter
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import (
     CareerGoal,
     CareerProfile,
@@ -77,7 +78,7 @@ def upsert_opportunity(
                     and canonical_key(current) == key), None)
     source = {"job_id": job.id, "source": job.source, "external_id": job.external_id, "url": job.url}
     if row:
-        row.last_seen_at = datetime.utcnow()
+        row.last_seen_at = utcnow()
         # Keep the first-seen cross-source identity. A title/location edit
         # must not collide with another tracked opportunity's canonical key
         # or merge two independent application histories.
@@ -177,7 +178,7 @@ def advance_schedule(schedule: DiscoverySchedule, now: datetime) -> None:
 
 
 def queue_digest(session: Session, user_id: int, opportunity_ids: list[int]) -> NotificationDelivery:
-    date_key = datetime.utcnow().date().isoformat()
+    date_key = utcnow().date().isoformat()
     delivery = NotificationDelivery(
         user_id=user_id, channel="email", kind="opportunity_digest",
         dedupe_key=f"digest:{user_id}:{date_key}",

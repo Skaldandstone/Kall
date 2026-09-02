@@ -1,12 +1,13 @@
 """Kall-only hosted billing with explicit test/live environment isolation."""
 
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 import stripe
 from fastapi import HTTPException
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.models import Subscription, User
 from kall.models.monitoring import MonitoringLease
@@ -69,14 +70,14 @@ def provider_call(method, *args, **kwargs) -> dict:
 def billing_transaction(session: Session, user_id: int):
     """Serialize customer, Checkout and webhook work, with a fencing write."""
     key = f"billing:{get_settings().stripe_billing_scope}:{user_id}"
-    token = work_claims.acquire(session, key, datetime.utcnow(), user_id=user_id)
+    token = work_claims.acquire(session, key, utcnow(), user_id=user_id)
     if not token:
         raise HTTPException(503, "Billing update is already in progress; please retry")
 
     def commit():
         fenced = session.execute(update(MonitoringLease).where(
             MonitoringLease.key == key, MonitoringLease.token == token,
-            MonitoringLease.expires_at > datetime.utcnow(),
+            MonitoringLease.expires_at > utcnow(),
         ).values(token=token))
         if fenced.rowcount != 1:
             raise HTTPException(503, "Billing update lease expired; please retry")
@@ -134,7 +135,7 @@ def bound_row(session: Session, user_id: int) -> Subscription:
     if not row.billing_binding_key:
         row.billing_scope, row.provider_livemode = scope, livemode
         row.billing_binding_key = uuid4().hex
-        row.billing_binding_created_at = datetime.utcnow()
+        row.billing_binding_created_at = utcnow()
         session.add(row)
     return row
 
@@ -194,7 +195,7 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
         if row.provider_customer_id:
             checked_customer(client, row)
         else:
-            if datetime.utcnow() - row.billing_binding_created_at > timedelta(hours=23):
+            if utcnow() - row.billing_binding_created_at > timedelta(hours=23):
                 raise HTTPException(503, "Unresolved customer creation requires owner reconciliation")
             commit()  # Persist the binding before the external idempotent operation.
             customer = provider_call(client.v1.customers.create, {"metadata": metadata_for(row)},
@@ -228,10 +229,10 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
             row.checkout_expires_at = None
         if not row.checkout_attempt_key:
             row.checkout_attempt_key, row.checkout_plan = uuid4().hex, plan
-            row.checkout_expires_at = datetime.utcnow() + timedelta(hours=1)
+            row.checkout_expires_at = utcnow() + timedelta(hours=1)
             session.add(row)
             commit()
-        if row.checkout_plan != plan or row.checkout_expires_at <= datetime.utcnow():
+        if row.checkout_plan != plan or row.checkout_expires_at <= utcnow():
             raise HTTPException(409, "Unresolved Checkout requires reconciliation before another attempt")
         metadata = {**metadata_for(row), "kall_plan": plan}
         tag = "kall_" + "".join(chr(97 + int(char, 16)) for char in row.checkout_attempt_key[-8:])

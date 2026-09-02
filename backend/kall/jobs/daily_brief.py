@@ -16,10 +16,10 @@ kall-api image.
 
 import argparse
 import logging
-from datetime import datetime
 
 from sqlmodel import Session
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.services.notification_delivery import queue_daily_briefs
 
@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run:
             # queue_daily_briefs always writes; a dry run counts the same
             # way and rolls the transaction back rather than committing.
-            count = queue_daily_briefs(session, now=datetime.utcnow())
+            count = queue_daily_briefs(session, now=utcnow())
             session.rollback()
             logger.info("Would queue %d brief(s).", count)
             return 0

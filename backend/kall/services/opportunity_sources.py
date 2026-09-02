@@ -1,6 +1,6 @@
 """Source identity is stable even when an opportunity changes representative."""
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import CareerProfile, Job, JobMatch, Opportunity
 from kall.services.matching import is_out_of_scope
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
@@ -95,10 +95,10 @@ def refresh_representative(session: Session, row: Opportunity) -> list[tuple[Job
         fingerprint = material_fingerprint(job)
         if (row.job_id, row.match_score, row.material_fingerprint) != (job.id, score, fingerprint):
             row.job_id, row.match_score, row.material_fingerprint = job.id, score, fingerprint
-            row.updated_at = datetime.utcnow()
+            row.updated_at = utcnow()
             session.add(row)
     elif row.match_score:
         row.match_score = 0
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
         session.add(row)
     return candidates

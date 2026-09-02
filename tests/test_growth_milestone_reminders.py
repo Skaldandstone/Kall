@@ -7,6 +7,7 @@ piece.
 
 from datetime import date, datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import GrowthMilestone, NotificationDelivery
 from kall.services.growth_milestone_reminders import queue_growth_milestone_reminders
 from sqlmodel import Session, select
@@ -68,7 +69,7 @@ def test_a_milestone_with_no_target_date_is_never_reminded(client, engine) -> No
         session.add(_milestone(user_id=user_id, target_date=None))
         session.commit()
 
-        assert queue_growth_milestone_reminders(session, now=datetime.utcnow()) == 0
+        assert queue_growth_milestone_reminders(session, now=utcnow()) == 0
 
 
 def test_shifting_a_milestones_target_date_opens_up_a_fresh_reminder(client, engine) -> None:

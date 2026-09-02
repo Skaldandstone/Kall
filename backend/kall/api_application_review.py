@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import Application, ApplicationAnswer, ApplicationReview, ScreeningQuestion, User
 from kall.services.application_review import approve_review, build_review, calculate_readiness
@@ -93,7 +93,7 @@ def decide_answer(application_id: int, answer_id: int, payload: AnswerDecision, 
     answer.value_json = payload.value_json
     answer.status = payload.decision
     answer.source = "user" if payload.decision == "edited" else answer.source
-    answer.reviewed_at = datetime.utcnow()
+    answer.reviewed_at = utcnow()
     session.add(answer)
     session.commit()
     session.refresh(answer)

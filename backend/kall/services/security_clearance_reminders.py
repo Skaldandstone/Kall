@@ -13,6 +13,7 @@ established for GrowthMilestone and WorkAuthorization.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import SecurityClearance
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -34,7 +35,7 @@ def queue_security_clearance_reminders(session: Session, *, now: datetime | None
     expires_on, not just its id -- so a renewal (which moves the date
     forward) naturally opens a fresh reminder for the next cycle.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     clearances = session.exec(
         select(SecurityClearance).where(
             SecurityClearance.status == "active",

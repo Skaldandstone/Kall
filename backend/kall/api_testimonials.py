@@ -1,12 +1,13 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import Application, ApplicationTestimonial, Testimonial, TestimonialRequest, User
 from kall.security import encrypt_sensitive
@@ -58,7 +59,7 @@ def create_request(payload: RequestCreate, user: User = Depends(get_current_user
         request_type=payload.request_type,
         personal_message=payload.personal_message,
         token_hash=token_hash(token),
-        expires_at=datetime.utcnow() + timedelta(days=30),
+        expires_at=utcnow() + timedelta(days=30),
     )
     session.add(request)
     session.commit()
@@ -74,7 +75,7 @@ def revoke_request(request_id: int, user: User = Depends(get_current_user), sess
     if request.status == "completed":
         raise HTTPException(422, "Completed requests cannot be revoked")
     request.status = "revoked"
-    request.revoked_at = datetime.utcnow()
+    request.revoked_at = utcnow()
     session.add(request)
     session.commit()
     return {"status": "revoked"}
@@ -83,7 +84,7 @@ def revoke_request(request_id: int, user: User = Depends(get_current_user), sess
 @router.post("/testimonials/submit", response_model=Testimonial)
 def submit(payload: Submission, session: Session = Depends(get_session)):
     request = session.exec(select(TestimonialRequest).where(TestimonialRequest.token_hash == token_hash(payload.token))).first()
-    if not request or request.status != "pending" or (request.expires_at and request.expires_at < datetime.utcnow()):
+    if not request or request.status != "pending" or (request.expires_at and request.expires_at < utcnow()):
         raise HTTPException(404, "Invitation is invalid or expired")
     testimonial = Testimonial(
         user_id=request.user_id,
@@ -97,7 +98,7 @@ def submit(payload: Submission, session: Session = Depends(get_session)):
         permission_granted=payload.permission_granted,
     )
     request.status = "completed"
-    request.completed_at = datetime.utcnow()
+    request.completed_at = utcnow()
     session.add(testimonial)
     session.add(request)
     session.commit()
@@ -117,7 +118,7 @@ def withdraw(payload: Withdrawal, session: Session = Depends(get_session)):
     testimonial.include_on_profile = False
     testimonial.include_in_applications = False
     testimonial.permission_granted = False
-    testimonial.withdrawn_at = datetime.utcnow()
+    testimonial.withdrawn_at = utcnow()
     testimonial.withdrawal_reason = payload.reason
     session.add(testimonial)
     session.commit()
@@ -164,7 +165,7 @@ def moderate(testimonial_id: int, payload: VisibilityUpdate, user: User = Depend
     item.status = payload.status
     item.include_on_profile = payload.include_on_profile
     item.include_in_applications = payload.include_in_applications
-    item.approved_at = datetime.utcnow() if payload.status == "approved" else None
+    item.approved_at = utcnow() if payload.status == "approved" else None
     session.add(item)
     session.commit()
     session.refresh(item)

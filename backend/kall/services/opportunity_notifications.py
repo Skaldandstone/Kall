@@ -3,6 +3,7 @@
 import time
 from datetime import UTC, datetime
 
+from kall.clock import utcnow
 from kall.models import (
     CareerProfile,
     NotificationDelivery,
@@ -97,7 +98,7 @@ def prepare_deliveries(session: Session, *, now: datetime | None = None,
     The user-level lease is also held while sending so a producer cannot append
     events after a sender has captured the message body.
     """
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     user_ids = list(session.exec(select(OpportunityNotificationEvent.user_id).where(
         OpportunityNotificationEvent.status == "pending",
     ).distinct().limit(limit)))

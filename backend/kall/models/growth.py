@@ -3,6 +3,7 @@ from typing import Any
 
 from sqlmodel import JSON, Column, Field
 
+from kall.clock import utcnow
 from kall.models.core import TimestampMixin
 
 
@@ -34,7 +35,7 @@ class CareerGrowthPlan(TimestampMixin, table=True):
     current_strengths: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     skill_gaps: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     recommended_roles: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utcnow)
 
 
 class GrowthMilestone(TimestampMixin, table=True):
@@ -89,7 +90,7 @@ class GrowthProgressEntry(TimestampMixin, table=True):
     entry_type: str
     note: str
     evidence_url: str | None = None
-    occurred_at: datetime = Field(default_factory=datetime.utcnow)
+    occurred_at: datetime = Field(default_factory=utcnow)
 
 
 class GrowthSkillAssessment(TimestampMixin, table=True):

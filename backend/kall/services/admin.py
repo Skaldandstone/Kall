@@ -8,11 +8,11 @@ this column, or an import that writes it directly -- this check becomes
 worthless, so it is deliberately the only rule and it lives in one place.
 """
 
-from datetime import datetime
 from typing import Any
 
 from fastapi import Depends, HTTPException
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.models.core import AdminAction, User
 from sqlmodel import Session, select
 
@@ -57,7 +57,7 @@ def record_action(
         action=action,
         target_user_id=target_user_id,
         detail=detail or {},
-        occurred_at=datetime.utcnow(),
+        occurred_at=utcnow(),
     )
     session.add(row)
     session.commit()

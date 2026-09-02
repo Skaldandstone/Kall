@@ -1,5 +1,5 @@
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import CareerProfile, SearchRun, SearchSource, User
 from kall.providers.ashby import AshbyProvider
 from kall.providers.greenhouse import GreenhouseProvider
@@ -65,7 +65,7 @@ async def run_discovery(
             skipped += batch["jobs_skipped"]
         except Exception as exc:
             errors.append(f"{source.company_name}/{source.provider}: {exc}")
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     run.jobs_collected = collected
     # Its own field, not an entry in `errors` -- a skip is a deliberate user
     # choice, and putting it there would flip the run's status to

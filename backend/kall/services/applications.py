@@ -1,5 +1,5 @@
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import (
     Application,
     CareerProfile,
@@ -82,7 +82,7 @@ def prepare_application(
         if selection and selection.selected_resume_id != resume.id:
             selection.selected_resume_id = resume.id
             selection.selection_source = "user_override"
-            selection.selected_at = datetime.utcnow()
+            selection.selected_at = utcnow()
             session.add(selection)
             session.commit()
 
@@ -141,7 +141,7 @@ def approve_application(
     if application.unanswered_questions and not confirmed_answers:
         raise ValueError("Application-specific answers require explicit confirmation")
     application.status = ApplicationStatus.APPROVED
-    application.user_approved_at = datetime.utcnow()
+    application.user_approved_at = utcnow()
     session.add(application)
     session.commit()
     session.refresh(application)

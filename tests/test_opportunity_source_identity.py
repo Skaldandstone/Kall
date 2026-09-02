@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from kall.clock import utcnow
 from kall.models import (
     Application,
     CareerProfile,
@@ -205,7 +206,7 @@ def test_changed_event_source_cannot_borrow_other_sources_score_at_send(engine, 
             session.add(profile)
         else:
             lever.description = "Build systems" if change == "below_threshold" else "automation leadership forbidden"
-            lever.updated_at = datetime.utcnow() + timedelta(seconds=1)
+            lever.updated_at = utcnow() + timedelta(seconds=1)
             if change == "excluded":
                 profile.exclude_keywords = ["forbidden"]
                 session.add(profile)
@@ -276,7 +277,7 @@ def test_cross_user_and_profile_matches_cannot_qualify_another_users_source(engi
         other, other_profile, _, _ = setup(session, "other")
         ingest_discovered_jobs(session, user, profile, [posting("greenhouse"), posting("lever", "automation leadership python")])
         profile.exclude_keywords = ["automation"]
-        profile.updated_at = datetime.utcnow() + timedelta(seconds=1)
+        profile.updated_at = utcnow() + timedelta(seconds=1)
         session.add(profile)
         session.commit()
         ingest_discovered_jobs(session, other, other_profile, [posting("greenhouse"), posting("lever", "automation leadership python")])

@@ -1,7 +1,8 @@
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from kall.clock import utcnow
 from kall.models import (
     Application,
     ApplicationReview,
@@ -77,7 +78,7 @@ def validate_submission(session: Session, submission: ApplicationSubmission) -> 
     review = session.exec(select(ApplicationReview).where(ApplicationReview.application_id == application.id)).first()
     if not review or review.status != "approved" or not application.user_approved_at:
         issues.append("Application review approval is required")
-    elif datetime.utcnow() - application.user_approved_at > APPROVAL_MAX_AGE:
+    elif utcnow() - application.user_approved_at > APPROVAL_MAX_AGE:
         issues.append("Application approval is stale")
     preview, current_checksums = build_preview(session, application)
     if checksum(preview) != submission.preview_checksum or current_checksums != submission.document_checksums:
@@ -103,7 +104,7 @@ def confirm_submission(session: Session, submission: ApplicationSubmission) -> A
         submission.failure_detail = "; ".join(issues)
     else:
         submission.status = "confirmed"
-        submission.confirmed_at = datetime.utcnow()
+        submission.confirmed_at = utcnow()
     session.add(submission)
     session.commit()
     session.refresh(submission)
@@ -143,7 +144,7 @@ def mark_application_submitted(session: Session, submission: ApplicationSubmissi
     to Submitted charges the applications quota a second time for one real
     application.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     submission.status = "submitted"
     submission.submitted_at = submission.submitted_at or now
     session.add(submission)

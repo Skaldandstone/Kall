@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+from kall.clock import utcnow
 from kall.models import CareerProfile, DiscoverySchedule, Job, Opportunity, SearchSource, User
 from kall.providers.jobs import DiscoveredJob
 from kall.services.discovery import run_discovery
@@ -41,8 +42,8 @@ def test_dismissal_records_fingerprint() -> None:
 
 
 def test_running_schedule_is_not_due() -> None:
-    schedule = DiscoverySchedule(user_id=1, professional_profile_id=1, next_run_at=datetime.utcnow() - timedelta(hours=1), running_since=datetime.utcnow())
-    assert due_schedule(schedule, datetime.utcnow()) is False
+    schedule = DiscoverySchedule(user_id=1, professional_profile_id=1, next_run_at=utcnow() - timedelta(hours=1), running_since=utcnow())
+    assert due_schedule(schedule, utcnow()) is False
 
 
 class _FakeProvider:

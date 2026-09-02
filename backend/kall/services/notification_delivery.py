@@ -12,6 +12,7 @@ import time
 from datetime import datetime, timedelta
 from html import escape
 
+from kall.clock import utcnow
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference
 from kall.services import work_claims
@@ -242,7 +243,7 @@ def queue(
     the same shape opportunities.queue_digest already used for digests, just
     not hard-coded to that one kind.
     """
-    key = dedupe_key or f"{kind}:{user_id}:{datetime.utcnow().date().isoformat()}"
+    key = dedupe_key or f"{kind}:{user_id}:{utcnow().date().isoformat()}"
     delivery = NotificationDelivery(
         user_id=user_id, channel=channel, kind=kind, dedupe_key=key, payload=payload or {},
     )
@@ -278,7 +279,7 @@ def _digest_sent_today(session: Session, user_id: int, preference: NotificationP
 
 def process_delivery(session: Session, delivery: NotificationDelivery, now: datetime | None = None) -> str:
     """Claim before sending, recheck consent, and never blindly retry an uncertain send."""
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     key = (f"opportunity-user:{delivery.user_id}" if delivery.kind in OPPORTUNITY_KINDS
            else f"delivery:{delivery.user_id}:{delivery.channel}:{delivery.dedupe_key}")
     token = work_claims.acquire(session, key, now, user_id=delivery.user_id)
@@ -420,7 +421,7 @@ def process_delivery(session: Session, delivery: NotificationDelivery, now: date
 
 def drain(session: Session, *, now: datetime | None = None, limit: int = 500,
           deadline: float | None = None) -> dict[str, int]:
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     prepare_deliveries(session, now=now, deadline=deadline, limit=min(limit, 100))
     due = session.exec(select(NotificationDelivery).where(
         NotificationDelivery.status.in_(["queued", "retrying", "sending"]),
@@ -454,7 +455,7 @@ def queue_daily_briefs(session: Session, *, now: datetime | None = None) -> int:
     harmless -- drain()'s own dedupe_key check (see _already_sent) only ever
     lets one of them actually send. Returns the number queued.
     """
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     rows = session.exec(
         select(User, NotificationPreference)
         .join(NotificationPreference, NotificationPreference.user_id == User.id, isouter=True)

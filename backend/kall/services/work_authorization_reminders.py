@@ -14,6 +14,7 @@ need lead time measured in months, not weeks.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import WorkAuthorization
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -33,7 +34,7 @@ def queue_work_authorization_reminders(session: Session, *, now: datetime | None
     fresh reminder for the next cycle, rather than being permanently
     silenced by the first one ever sent.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     authorizations = session.exec(
         select(WorkAuthorization).where(WorkAuthorization.authorized_until.is_not(None))
     ).all()

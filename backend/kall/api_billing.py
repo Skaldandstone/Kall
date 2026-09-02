@@ -1,6 +1,5 @@
 """Authenticated billing entry points and raw-body Stripe webhook verification."""
 
-from datetime import datetime
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,6 +9,7 @@ from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import BillingEvent, Subscription, User
@@ -119,7 +119,7 @@ def _process_webhook_event(session: Session, event: dict):
             record.payload_json = {"id": event_id, "type": event["type"], "livemode": expected_livemode(),
                                    "object_id": event["data"]["object"].get("id"),
                                    "subscription_id": event_subscription_id(event), "applied": bool(applied)}
-            record.status, record.processed_at, record.error = "processed", datetime.utcnow(), None
+            record.status, record.processed_at, record.error = "processed", utcnow(), None
             session.add(record)
     except IntegrityError:
         session.rollback()
