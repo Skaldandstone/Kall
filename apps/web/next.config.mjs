@@ -4,8 +4,9 @@
 // violation, so it is worth stating the reason for each entry.
 //   *.clerk.accounts.dev  -- development instances (and the FAPI they talk to)
 //   *.clerk.com           -- img.clerk.com (avatars) and production FAPI
+//   clerk.kall.skaldandstone.com -- Kall production's Clerk custom domain
 //   challenges.cloudflare.com -- Clerk's bot protection (Turnstile)
-const CLERK_ORIGINS = "https://*.clerk.accounts.dev https://*.clerk.com";
+const CLERK_ORIGINS = "https://*.clerk.accounts.dev https://*.clerk.com https://clerk.kall.skaldandstone.com";
 const TURNSTILE = "https://challenges.cloudflare.com";
 
 // Work-sample embed providers, allowed ONLY on the public career page.
