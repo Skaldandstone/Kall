@@ -221,11 +221,33 @@ The required source work is broader than a single Clerk toggle:
 4. Public signup: source, Clerk, and both tiers' production deploy are done
    (see the 2 September web deploy above). Still needed before flipping
    `EnablePublicSignup=true`: the controlled real registration and safeguard
-   checks in step 8 -- see the new "e2e and contract test coverage" note
-   below first, given how much rewrote underneath this.
-5. Public launch still needs reviewed terms, privacy/operator contact, support
-   contact, subscription/refund policy and account-closure behavior. Do not
-   invent a mailing address, support mailbox, privacy mailbox or refund terms.
+   checks in step 8 -- see the "e2e and contract test coverage" note below
+   first, given how much rewrote underneath this.
+5. Public launch legal surface: **written, supplied, and merged -- but not in
+   the running image.** `/terms`, `/support` and a rewritten contact section on
+   `/privacy-policy` are public in `middleware.ts` and linked from the footer.
+   Every business fact reads from `apps/web/app/lib/legal.ts`, and
+   `unresolvedLegalFacts()` returns an empty array: operator, Washington
+   formation and governing law, the registered agent's Spokane address (change
+   of agent filed with WA SoS), privacy@/support@/security@ (all three
+   delivering, tested from outside the organization, which is the test that
+   counts), a 2-business-day support reply target, no-refunds-cancel-anytime,
+   and an arbitration clause. See `docs/LEGAL.md`.
+
+   **The web image deployed on 2 September was built from `c133f73`, which
+   predates this work, so `/terms` and `/support` still 404 in production.**
+   They need one more image built from current `main`. No visitor sees a broken
+   link in the meantime -- the deployed footer still points only at the older
+   `/privacy-policy`, which returns 200.
+
+   Two caveats carry forward. **No lawyer has read any of it**, section 16
+   (arbitration) most of all, since that is the clause most likely to be
+   litigated before any underlying dispute is. And **section 10 of the Terms
+   describes what account deletion does** -- drawn from
+   `services/account_deletion.py` rather than from a template -- which means the
+   deletion regression in item 7 is now a gap between a published legal
+   commitment and actual behavior, not only a bug. Fixing deletion should come
+   before, or at latest with, the image that makes those Terms public.
 6. Automatic tax remains off until registrations, jurisdictions, tax codes and
    price treatment are reviewed. SES, continuous monitoring and application
    auto-submission remain disabled and require their own acceptance gates.

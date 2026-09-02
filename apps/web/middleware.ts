@@ -12,6 +12,10 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/demo(.*)',
   '/privacy-policy',
+  '/terms',
+  // Someone whose account is broken, or who is deciding whether to sign up at
+  // all, has to be able to find a way to reach a person without signing in.
+  '/support',
   '/testimonial-submit(.*)',
   // A published career page is meant to be opened by someone with no Kall
   // account -- a recruiter, a hiring manager. That is the entire feature.
