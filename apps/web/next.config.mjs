@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
+
 // Clerk serves its JS, frontend API, images and bot-protection challenge from
 // its own origins. Every one of these must be allowed or authentication does
 // not load at all -- the failure is total and silent apart from a console CSP
@@ -8,6 +10,10 @@
 //   challenges.cloudflare.com -- Clerk's bot protection (Turnstile)
 const CLERK_ORIGINS = "https://*.clerk.accounts.dev https://*.clerk.com https://clerk.kall.skaldandstone.com";
 const TURNSTILE = "https://challenges.cloudflare.com";
+// Sentry error reports from the browser SDK. Pinned to the studio's own
+// ingest host (org o4512015786377216) rather than *.sentry.io. Reports carry
+// the exception and stack only - see lib/sentry-shared.ts for the scrubbing.
+const SENTRY_INGEST = "https://o4512015786377216.ingest.us.sentry.io";
 
 // Work-sample embed providers, allowed ONLY on the public career page.
 // Must stay in step with EMBED_FRAME_ORIGINS in backend/kall/services/embeds.py
@@ -51,7 +57,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
       `img-src 'self' data: blob: https://*.google.com https://*.gstatic.com https://*.googleusercontent.com ${CLERK_ORIGINS}`,
       "font-src 'self' data:",
-      `connect-src 'self' https://cse.google.com https://*.google.com https://www.googleapis.com ${CLERK_ORIGINS}`,
+      `connect-src 'self' https://cse.google.com https://*.google.com https://www.googleapis.com ${CLERK_ORIGINS} ${SENTRY_INGEST}`,
       `frame-src https://cse.google.com https://www.google.com ${CLERK_ORIGINS} ${TURNSTILE}`,
       // Clerk runs part of its handshake in a worker created from a blob URL.
       "worker-src 'self' blob:",
@@ -100,4 +106,18 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// withSentryConfig adds the SDK's build-time wiring (server/edge/client
+// instrumentation entry points, tree-shaking of debug code). Source-map
+// upload is disabled: it would need a SENTRY_AUTH_TOKEN inside the
+// fail-closed image build, and the build must stay byte-reproducible from the
+// reviewed snapshot without any credential. Stack traces arrive minified; the
+// exception type, message and route are still intact.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: true },
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: false,
+  },
+});

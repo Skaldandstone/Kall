@@ -50,6 +50,35 @@ Billing is not switched on yet -- checkout returns 503 and the UI says so.
 The complete object allowlist and acceptance sequence are in
 [`STRIPE_SETUP.md`](STRIPE_SETUP.md).
 
+## 3a. Error tracking (Sentry)
+
+Both services report unhandled errors to Sentry, org `skald-and-stone`
+(https://skald-and-stone.sentry.io), projects `kall-api` and `kall-web`. The
+SDKs are inert until a DSN is present, so local development and tests never
+send anything.
+
+- **A DSN is not a secret.** It can only *send* events to one project, and
+  Sentry documents it as public. Both DSNs are therefore plain CloudFormation
+  parameters (`SentryApiDsn`, `SentryWebDsn`) that land as `SENTRY_DSN` on the
+  task definitions - not Secrets Manager entries. The current values are in
+  `deploy/kall-production.env.example` and the Sentry project settings.
+- **No image rebuild to turn it on.** The API reads `SENTRY_DSN` at start. The
+  web app reads it server-side and serves it to the browser through a `<meta>`
+  tag rendered by the root layout at request time, so nothing is inlined at
+  `next build` and the fail-closed CodeBuild job needs no new build argument.
+- **What leaves the process** is the exception, stack, HTTP method and route
+  template. `backend/kall/observability.py` and `apps/web/lib/sentry-shared.ts`
+  strip user identity, headers, cookies, bodies, query strings, full URLs and
+  breadcrumbs, and disable tracing and session replay. Expected 4xx responses
+  are not reported. Kall stores EEO and work-authorization data; keep those
+  scrubbers in place when touching the SDK configuration.
+- **CSP.** The browser SDK posts to
+  `https://o4512015786377216.ingest.us.sentry.io`, allowed in `connect-src`
+  in `apps/web/next.config.mjs`. A different Sentry org means a new host there.
+- **To enable in production:** pass the two DSN parameters in the next
+  reviewed change set. Verify by triggering one deliberate server error and
+  confirming an issue appears under environment `production` in each project.
+
 ## 3b. Confirm the AI model answers
 
 ```bash
