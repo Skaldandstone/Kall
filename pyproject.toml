@@ -48,6 +48,11 @@ where = ["backend"]
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["tests"]
+# Every test here is a plain function. Without this, pytest tries to collect
+# domain models whose names happen to start with "Test" -- Testimonial and
+# TestimonialRequest -- and warns that it cannot, which is noise about code
+# that was never a test.
+python_classes = []
 
 [tool.ruff]
 line-length = 100
