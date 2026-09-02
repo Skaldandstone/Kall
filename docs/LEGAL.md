@@ -72,29 +72,40 @@ Secretary of State record, which is the more exposed of the two.
 If this ever needs replacing, replace it with another business address. **Never
 with a home address, not even as a placeholder.**
 
-One thing to confirm with the agent, not from here: whether mail addressed to
-`Skald and Stone LLC` at that suite, with no `c/o Registered Agents Inc` line,
-is delivered. The pages print the operator name on the line above the street
-address, so that is the form a person will actually write. If the agent needs
-the `c/o`, add it as the first entry in the `mailingAddress` array.
+The change of registered agent was filed with the Washington Secretary of State
+on 2026-09-02, so the state record and the published address now agree.
+
+One thing still to confirm with the agent, not from here: whether mail addressed
+to `Skald and Stone LLC` at that suite, with no `c/o Registered Agents Inc`
+line, is delivered. The pages print the operator name on the line above the
+street address, so that is the form a person will actually write. If the agent
+needs the `c/o`, add it as the first entry in the `mailingAddress` array.
 
 ## The remaining blocker
 
-**The three mailboxes do not exist yet.** `privacy@`, `support@` and `security@`
-are to be Google Workspace groups on skaldandstone.com. Until they are created
-and confirmed deliverable, these pages publish addresses that bounce, which is
-worse than publishing none: a regulator reads an undeliverable privacy mailbox
-as a failure to respond to a request, and a bouncing support address is a
-rejection reason at both Stripe and the app stores.
+The three mailboxes now **exist** - `privacy@`, `support@` and `security@` were
+created as Google Workspace groups on skaldandstone.com on 2026-09-02, each with
+James as owner. What has not happened yet is proving they deliver.
 
-`legal.ts` carries `mailboxesProvisioned: false` for exactly this, and
-`unresolvedLegalFacts()` reports it, so the launch gate stays red until it is
-done. **Flip it to `true` only after a test message to each of the three has
-actually been received.**
+**The default would have broken all three.** A new Google group only accepts
+posts from inside the organization; an outsider emailing it is rejected. A
+published privacy address that bounces the public is worse than publishing none
+- a regulator reads an undeliverable privacy mailbox as a failure to respond to
+a request, and a bouncing support address is a rejection reason at both Stripe
+and the app stores. So "Who can post" was set to include External on all three,
+while "Who can view conversations" was left internal-only (outsiders can send,
+but cannot read the archive) and external membership was left off entirely.
 
-Create them at <https://admin.google.com/ac/groups>. Groups rather than
-mailboxes so the address outlives any one person's account and can gain a second
-reader without changing what is published.
+That toggle is flaky in the admin console - it silently failed to apply on one
+group and needed re-clicking. All three were verified afterwards from their
+detail pages, each reading "Anyone can post content". **Re-check it on any group
+added later.**
+
+`legal.ts` carries `mailboxesProvisioned: false`, and `unresolvedLegalFacts()`
+reports it, so the launch gate stays red until delivery is proven. **Flip it to
+`true` only after a test message sent from outside the organization - a personal
+account, not a Workspace one, since that is the path the default blocked - has
+actually been received at each of the three.**
 
 ## Why a privacy mailbox is still needed
 
