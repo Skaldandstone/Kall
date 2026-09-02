@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import KallMark from '../components/KallMark';
+import { LegalEmail, LegalValue } from '../components/LegalValue';
+import { LEGAL } from '../lib/legal';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -173,12 +175,32 @@ export default function PrivacyPolicyPage() {
         </section>
 
         <section>
-          <h2>15. Contact</h2>
+          <h2>15. Who operates Kall, and how to reach us</h2>
           <p>
-            Privacy questions and requests may be submitted through Kall’s account settings or through the support
-            contact displayed in the service. Before public launch, Kall should add the legal operator name, mailing
-            address, and dedicated privacy-contact email to this section.
+            Kall is operated by{' '}
+            <LegalValue value={LEGAL.operatorLegalName} label="legal operator name" />, which is the
+            controller of the personal information described in this Policy.
           </p>
+          <p>
+            <strong>Deletion is self-service and needs no request.</strong> You can delete your
+            account from account settings at any time; it is immediate and irreversible, and section
+            10 of the <a href="/terms">Terms of Service</a> describes exactly what it removes.
+            Individual profile fields, resumes, and documents can also be removed directly.
+          </p>
+          <p>
+            Other privacy requests, including access to a copy of your information, correction, and
+            questions about how information is used, go to{' '}
+            <LegalEmail value={LEGAL.privacyContactEmail} label="privacy email" />. Use that address
+            too if you cannot sign in to exercise a right yourself. General support goes to{' '}
+            <LegalEmail value={LEGAL.supportContactEmail} label="support email" /> (see the{' '}
+            <a href="/support">support page</a>).
+          </p>
+          <p>By mail:</p>
+          <address style={{ fontStyle: 'normal' }}>
+            <LegalValue value={LEGAL.operatorLegalName} label="legal operator name" />
+            <br />
+            <LegalValue value={LEGAL.mailingAddress} label="mailing address" />
+          </address>
         </section>
       </article>
     </main>
