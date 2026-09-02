@@ -1,10 +1,10 @@
 # Kall Stripe integration
 
 Status: hosted billing is implemented with separate test and live contracts.
-Payments default off. The existing sandbox catalog remains development evidence;
-the live Kall catalog, restricted key, portal configuration, webhook destination,
-and controlled live transaction have not yet been created or accepted. No tax
-registration or automatic-tax readiness is claimed.
+Payments remain off. The live Kall catalog and webhook destination exist, while
+the restricted key and Kall-only portal configuration are still being completed.
+No controlled live transaction has been run. No tax registration or
+automatic-tax readiness is claimed.
 
 ## Existing commercial model
 
@@ -16,6 +16,20 @@ The sandbox now contains Kall Plus at USD 5/month and Premium at USD 15/month:
 - Plus: `price_1UAZVXPo4uRuCWxjmqORD3B1`, product `prod_VAvMNUYFhL2Kit`
 - Premium: `price_1UAZWAPo4uRuCWxjhgrbIixK`, product `prod_VAvMM3BYCN82Ul`
 - Kall portal: `bpc_1UAZuwPo4uRuCWxjhHqUOhyN`
+
+The live Stripe business contains a separate Kall catalog with
+`metadata.app=kall`:
+
+- Plus: `price_1UB0nkLDE8FHWLmdAPU6aofY`, product `prod_VAvMNUYFhL2Kit`
+- Premium: `price_1UB0njLDE8FHWLmdmDCbWyPx`, product `prod_VAvMM3BYCN82Ul`
+
+The live, non-Connect webhook destination is
+`we_1UB7wILDE8FHWLmdhcJGwm8t` at
+`https://kall.skaldandstone.com/api/billing/webhook`. It subscribes only to the
+six Checkout, subscription, invoice-paid and invoice-failed events supported by
+Kall. Its endpoint API version is `2026-06-24.dahlia`; the application client is
+pinned separately to `2026-08-26.dahlia`. Compatibility and delivery remain to
+be proven by the controlled live exercise.
 
 The nonsecret disabled configuration is checked in at
 `deploy/kall-development.env.example`. It does not change the business model.
@@ -131,13 +145,13 @@ Back up and validate on disposable PostgreSQL before production migration.
 2. Test hosted sandbox Checkout, duplicate
    delivery, portal upgrades/cancellation, delayed/out-of-order events, decline,
    72-hour expiry and recovery. Verify Clerk ownership and return routes.
-3. In Stripe live mode, create separate Kall Plus and Premium products and
-   monthly recurring prices using the already approved commercial amounts. Do
-   not copy sandbox IDs into live configuration or invent new prices.
-4. Create a Kall-only live portal configuration and restricted key. Register the
-   live `/api/billing/webhook` destination for the supported subscription and
-   invoice events, using the source-pinned API version. Store only the live
-   signing secret and restricted key in the production vault.
+3. Re-read and verify the existing live Kall Plus and Premium products, monthly
+   prices and `metadata.app=kall` immediately before activation. Do not copy
+   sandbox IDs into live configuration.
+4. Complete the Kall-only live portal configuration and restricted key. The live
+   `/api/billing/webhook` destination is registered for the supported events;
+   verify its precise endpoint version and delivery behavior. Store only the
+   live signing secret and restricted key in the production vault.
 5. Deploy with live IDs and `STRIPE_LIVEMODE=true` while
    `STRIPE_ENABLED=false`. Verify configuration and provider reads, then enable
    billing in a separately reviewed change.

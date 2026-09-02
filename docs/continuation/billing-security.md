@@ -1,6 +1,6 @@
 # Kall billing security evidence
 
-Updated 2026-08-31. Integration owner task
+Updated 2026-09-02. Integration owner task
 `01a0546e-37c4-78a3-8731-d26b2350af10`, working on
 `codex/kall-billing-isolation` in the existing continuation worktree.
 Reused the previously isolated `a241077` patch as `4677100`; the original
@@ -80,13 +80,28 @@ tests also pass in the full suite.
 - Initial visual captures showed disabled controls looking enabled and touching
   action buttons. CSS was corrected and the final capture set replaced them.
 
+## Production continuation evidence
+
+- The production Clerk invitation for `james@skaldandstone.com` is accepted.
+  The authenticated dashboard and billing page loaded against the hosted BFF,
+  creating the local Kall user. Billing remained unavailable while its server
+  gate was disabled.
+- Release commit `83309deeec03a8b22ea2c34a1089e6c9d3823911`
+  passed all five CI jobs. Its production web image digest is
+  `sha256:bc0399a4878bc4ce31373d066121bfbac8f9327f4201f7ddc38ea64846587829`;
+  ECR Basic scanning reported zero findings.
+- Live Plus and Premium products and monthly prices exist with
+  `metadata.app=kall`. The live non-Connect webhook endpoint
+  `we_1UB7wILDE8FHWLmdhcJGwm8t` targets
+  `https://kall.skaldandstone.com/api/billing/webhook` and subscribes only to
+  the six supported event types. No signing secret or key is recorded here.
+
 ## Remaining release gates
 
-Stripe connector reauthentication is an external blocker. No real catalog,
-Customer, Checkout, portal, event destination, card, refund or hosted transaction
-was exercised. `STRIPE_ENABLED=false` remains the default; live keys and live
-mode remain hard-blocked. No secrets were read or written. Tax stays explicitly
-off and no tax registrations/readiness are claimed.
+The restricted live key and Kall-only portal configuration are still pending.
+No real Customer, Checkout, portal session, card, refund or hosted transaction
+was exercised. `STRIPE_ENABLED=false` remains the deployed state. Tax stays
+explicitly off and no tax registrations or readiness are claimed.
 
 The subsequent [isolated PostgreSQL validation](postgres-validation.md) passed
 90 contracts, fresh/legacy migrations and actual eight-connection races. Target

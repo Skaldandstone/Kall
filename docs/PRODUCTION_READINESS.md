@@ -1,6 +1,6 @@
 # Kall production readiness
 
-Updated 1 September 2026. This is the release contract for the first Kall
+Updated 2 September 2026. This is the release contract for the first Kall
 production candidate. It is invitation-only. The source now supports isolated
 live Stripe and Clerk production credentials, but provider activation is still
 disabled until the acceptance gates below pass. Automatic tax, SES sending,
@@ -9,13 +9,22 @@ disabled.
 
 ## Current state
 
-The bounded AWS sandbox proved the hardened API and web images, database-role
-bootstrap, Alembic migration, RDS certificate verification, CloudFront-to-ALB
-TLS, web-to-API proxy, public health route, signed-out protection, ECS target
-health, alarms, and automatic teardown. The final encrypted PostgreSQL 16.15
-snapshot is retained. The runtime stack, RDS instance, CloudFront distribution,
-ALB, and ECS cluster are absent. This evidence proves the reviewed sandbox path;
-it is not a standing production deployment.
+The production stack is standing in AWS project `734702670689`, selected Region
+`us-east-2`, at `https://kall.skaldandstone.com`. The API and web services are
+healthy, the database is PostgreSQL 16.15, and CloudFront-to-ALB plus
+web-to-API TLS paths passed the hosted smoke checks. Live Stripe, automatic tax,
+SES sending, continuous monitoring and public signup remain disabled.
+
+The exact `83309deeec03a8b22ea2c34a1089e6c9d3823911` release commit passed all
+five CI jobs. Its rebuilt web image
+`sha256:bc0399a4878bc4ce31373d066121bfbac8f9327f4201f7ddc38ea64846587829`
+passed ECR Basic scanning with zero findings. The production Clerk custom origin
+is present in the web CSP. An invitation for `james@skaldandstone.com` was
+accepted through Google OAuth, the authenticated Kall dashboard and billing
+screen loaded, and the application created the local Kall user. The billing
+screen correctly remained fail-closed while Stripe was disabled. This proves
+the invited production sign-in and BFF path for that user, not MFA recovery or
+account deletion.
 
 Production startup now fails closed unless all of the following are true:
 
@@ -119,10 +128,10 @@ These are external gates and cannot be marked complete by source tests:
 3. Build API and web images from the exact release commit, record immutable
    digests, inspect final files/config, and pass ECR scanning. Basic scanning is
    insufficient if enhanced scanning is required by the release policy.
-4. The production Clerk instance, custom domain, DNS, Google OAuth under
-   `james@skaldandstone.com`, and production publication are complete. Still
-   verify an invited signed-in BFF request, MFA/session policy, account deletion,
-   and recovery without exposing tokens or cookies.
+4. The production Clerk instance, custom domain, DNS, Google OAuth, accepted
+   invitation and signed-in BFF flow for `james@skaldandstone.com` are complete.
+   Still verify MFA/session policy, account deletion and recovery without
+   exposing tokens or cookies.
 5. The template creates a dedicated retained production S3 bucket with public
    access blocked, versioning, encryption, and TLS enforcement. After creation,
    verify CloudTrail data-event coverage as approved and perform a synthetic
@@ -133,10 +142,11 @@ These are external gates and cannot be marked complete by source tests:
 7. Review privacy policy, terms, support contact, data retention, account
    closure, backup retention, incident response, and subscription/refund policy
    before inviting anyone outside the controlled cohort.
-8. Exercise Stripe sandbox before live mode. Then create Kall-only live products,
-   monthly prices, restricted key, portal configuration, and webhook endpoint.
-   Verify hosted Checkout, webhook deduplication, portal changes, decline,
-   cancellation, grace and recovery, plus a controlled live payment and refund.
+8. The Kall-only live products, monthly prices and webhook endpoint exist.
+   Complete the restricted key, Kall-only portal configuration and production
+   vault record, then enable billing through a reviewed stack update. Verify
+   hosted Checkout, webhook deduplication, portal changes, decline, cancellation,
+   grace and recovery, plus a controlled live payment and refund.
    Exercise SES, monitoring, OpenAI, mobile signing, and the installed extension
    independently. A healthy base runtime enables none of them automatically.
 
