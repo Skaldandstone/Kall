@@ -8,11 +8,11 @@
 // request it was.
 //
 // The DSN itself is public by design (it can only *send* events to one
-// project), which is why it travels as a plain environment variable and, on
-// the client, as a <meta> tag rendered by the root layout at request time.
-// That keeps it out of the image build entirely: no NEXT_PUBLIC_ inlining, no
-// new build argument for the fail-closed CodeBuild job, and a DSN change is a
-// task-definition change rather than an image rebuild.
+// project), which is why it travels as a plain environment variable on the
+// server and as the NEXT_PUBLIC_SENTRY_DSN build argument for the browser.
+// The root layout also renders it as a <meta> tag at request time, which
+// covers dynamically rendered pages but not the prerendered marketing pages -
+// hence the build argument is the primary path.
 import type { ErrorEvent } from '@sentry/nextjs';
 
 export const SENTRY_DSN_META_NAME = 'kall-sentry-dsn';
