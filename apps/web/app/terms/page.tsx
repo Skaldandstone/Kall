@@ -261,19 +261,100 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>16. Governing law</h2>
+          <h2>16. Disputes, arbitration, and class action waiver</h2>
+          <p>
+            <strong>
+              This section affects your legal rights. It requires most disputes to be resolved by an
+              individual arbitration instead of in court, and it gives up your right to a jury and to
+              participate in a class action. You can opt out of it, and keep those rights, by
+              telling us within {LEGAL.arbitrationOptOutDays} days.
+            </strong>
+          </p>
+
+          <h3>16.1 Talk to us first</h3>
+          <p>
+            Before either of us starts an arbitration or a lawsuit, we each agree to try to settle
+            the dispute informally. Send a written description of the problem and what you want to{' '}
+            <LegalEmail value={noticeEmail()} label="legal notice email" />, and we will do the same
+            to the email on your account. If it is not resolved within {LEGAL.disputeNoticeDays}{' '}
+            days, either of us may proceed. This step is a real condition, not a formality; a filing
+            made without it can be paused until it is met. Any deadline for bringing a claim is
+            paused while this is under way.
+          </p>
+
+          <h3>16.2 Individual arbitration</h3>
+          <p>
+            Except for the claims described in 16.3, you and Kall agree that any dispute arising out
+            of or relating to these Terms or the Service will be resolved by binding arbitration
+            administered by {LEGAL.arbitrationAdministrator} under its{' '}
+            {LEGAL.arbitrationRules}, before a single arbitrator. The Federal Arbitration Act
+            governs the interpretation and enforcement of this section. The arbitrator decides
+            questions of arbitrability, except that a court decides whether 16.4 is enforceable. An
+            arbitrator can award the same individual relief a court could, and the award may be
+            entered as a judgment in any court with jurisdiction.
+          </p>
+
+          <h3>16.3 What is not arbitrated</h3>
+          <p>
+            Either of us may bring an individual claim in small claims court if it qualifies. Either
+            of us may also ask a court for an injunction to stop infringement or misuse of
+            intellectual property. Nothing in this section prevents you from reporting a concern to
+            a government agency, or bars relief a law makes non-waivable where you live.
+          </p>
+
+          <h3>16.4 No class actions</h3>
+          <p>
+            Arbitration is on an individual basis only. You and Kall each waive any right to a jury
+            trial and to bring or participate in a class, collective, consolidated, or
+            representative action. The arbitrator may not preside over any form of a representative
+            proceeding, and may award relief only to the individual party seeking it. If this
+            paragraph is found unenforceable as to a particular claim, that claim, and only that
+            claim, must be brought in court, and the rest of this section still applies to
+            everything else.
+          </p>
+
+          <h3>16.5 Costs and where it happens</h3>
+          <p>
+            The administrator&rsquo;s consumer fee schedule governs what each side pays, and Kall
+            pays the portion those rules assign to a business. If arbitration would cost you more
+            than filing the same claim in court, Kall will pay the difference. Unless we agree
+            otherwise, hearings are held by telephone or video, or in the county where you live; you
+            will not be required to travel to us. Each side pays its own legal fees unless a law or
+            the rules provide otherwise.
+          </p>
+
+          <h3>16.6 How to opt out</h3>
+          <p>
+            You can reject this arbitration agreement, and keep your right to sue and to participate
+            in a class action, by emailing{' '}
+            <LegalEmail value={noticeEmail()} label="legal notice email" /> within{' '}
+            {LEGAL.arbitrationOptOutDays} days of first accepting these Terms. Include your name and
+            the email address on your account, and say that you are opting out of arbitration. That
+            is all it takes. Opting out costs you nothing and does not affect your account, your
+            plan, or anything else in these Terms. If we later change this section materially, you
+            get a fresh {LEGAL.arbitrationOptOutDays} days to opt out of the change.
+          </p>
+
+          <h3>16.7 Survival</h3>
+          <p>
+            This section survives the end of your account and of these Terms.
+          </p>
+        </section>
+
+        <section>
+          <h2>17. Governing law</h2>
           <p>
             These Terms are governed by the laws of the State of{' '}
             <LegalValue value={LEGAL.governingLawState} label="governing law state" />, without
-            regard to its conflict-of-laws rules, and the state and federal courts located there
-            have exclusive jurisdiction over any dispute, except that either party may seek relief
-            in small claims court. Nothing here removes a consumer protection you have under the
+            regard to its conflict-of-laws rules. For any dispute that is not subject to arbitration
+            under section 16, the state and federal courts located there have exclusive
+            jurisdiction. Nothing here removes a consumer protection you have under the
             mandatory law of your own country or state.
           </p>
         </section>
 
         <section>
-          <h2>17. General</h2>
+          <h2>18. General</h2>
           <p>
             If a provision of these Terms is unenforceable, the rest stays in force. Our not
             enforcing a provision is not a waiver of it. You may not assign this agreement; we may
@@ -283,7 +364,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>18. Contact</h2>
+          <h2>19. Contact</h2>
           <p>
             Support: <LegalEmail value={LEGAL.supportContactEmail} label="support email" />. See the{' '}
             <a href="/support">support page</a> for what to include and how long a reply takes.

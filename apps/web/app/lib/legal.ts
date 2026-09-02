@@ -100,6 +100,30 @@ export const LEGAL = {
   refundWindowDays: null as Fillable<number>,
 
   /**
+   * The arbitration administrator named in the Terms, and the rule set applied.
+   * AAA's consumer rules cap what a consumer pays to file and are the set most
+   * courts are used to seeing; naming a real administrator and a real rule set
+   * is part of what makes the clause enforceable at all.
+   */
+  arbitrationAdministrator: 'the American Arbitration Association',
+  arbitrationRules: 'Consumer Arbitration Rules',
+
+  /**
+   * Days a user has, after first accepting the Terms, to opt out of arbitration
+   * and keep their right to sue. An opt-out is not legally required, but it is
+   * one of the things courts weigh when deciding whether the clause was
+   * unconscionable, so it is cheap insurance for the clause's own survival.
+   */
+  arbitrationOptOutDays: 30,
+
+  /**
+   * Days each side must try to settle informally before filing. Slows nobody
+   * down in good faith, and is the standard answer to mass-arbitration filings
+   * that arrive as an undifferentiated batch.
+   */
+  disputeNoticeDays: 60,
+
+  /**
    * Whether the three mailboxes above actually exist and are being read.
    *
    * True since 2026-09-02: privacy@, support@ and security@ exist as Google

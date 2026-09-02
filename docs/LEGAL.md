@@ -133,15 +133,52 @@ is the only one Kall automates:
 If a real data export ever ships, revisit this section; the mailbox will still be
 required, but it would stop being the only route to a copy of one's data.
 
-## Known gap this surfaced
+## Known gap this surfaced - decided, not yet built
 
 **Deleting an account does not cancel a Stripe subscription.** `DELETE /me` ->
 `services/account_deletion.py` removes every local row, including the billing
 ones, and deletes the Clerk identity, but nothing calls Stripe to cancel the
 subscription. A paying customer who deletes their account can keep being
-charged, with no account left to cancel from. The Terms currently tell people to
-cancel first (section 9), which is honest but is not a fix. This should be fixed
-before public launch, not documented around.
+charged, with no account left to cancel from. The Terms tell people to cancel
+first (section 9), which is honest but is not a fix.
+
+**Decided 2026-09-02: cancel at period end, so Stripe matches what the Terms
+already say.** Section 9 promises that cancelling stops the next renewal and
+that paid access runs out the period already paid for. So account deletion
+should set `cancel_at_period_end` rather than cancelling immediately, and should
+not prorate or refund. The money outcome is the same either way - Stripe's
+immediate cancel does not refund by default - but period-end is the one that
+matches the published sentence, and the Terms should not have to change to
+accommodate the implementation.
+
+Build it the way the Clerk deletion in that module already works: a best-effort
+provider call, logged and tolerated on failure rather than blocking the
+deletion, plus a test.
+
+## The arbitration clause
+
+Section 16 of `/terms` was added 2026-09-02 at James's direction, replacing the
+earlier deliberate absence. Four things in it are there for the clause's own
+survival rather than for style, and should not be trimmed without advice:
+
+- **A 60-day informal-resolution step** (`disputeNoticeDays`), which is also the
+  standard answer to mass-arbitration filings that arrive as a batch.
+- **A 30-day opt-out** (`arbitrationOptOutDays`) with a fresh window if the
+  section materially changes. Not legally required, but it is one of the things
+  a court weighs on unconscionability.
+- **A fee promise**: Kall pays the business share under the administrator's
+  consumer schedule, and pays the difference if arbitrating costs the user more
+  than filing in court. Cost-shifting onto a consumer is a common reason these
+  clauses get struck.
+- **A blow-up provision in 16.4**: if the class waiver is unenforceable as to a
+  claim, only that claim goes to court and the rest of the section survives.
+
+A named administrator and a real rule set (`arbitrationAdministrator`,
+`arbitrationRules`) matter too - a clause pointing at nothing is a clause a
+court can decline to enforce.
+
+Section 17 no longer claims exclusive court jurisdiction over everything; it
+defers to section 16 for anything arbitrable, so the two do not contradict.
 
 ## Review before launch
 
@@ -149,6 +186,12 @@ These pages are written to be accurate about what Kall actually does, and the
 account-closure section is drawn from the deletion code rather than from a
 template. They have **not** been reviewed by a lawyer. Before public launch, a
 Washington-licensed attorney should read `/terms` and `/privacy-policy`,
-particularly the liability cap, the arbitration position (there is no
-arbitration clause at present, which is deliberate but is a choice), and the
-California and international-transfer language in the Privacy Policy.
+particularly the liability cap, the California and international-transfer
+language in the Privacy Policy, and **above all section 16**.
+
+Section 16 is now the highest-value thing on the page to have reviewed. An
+arbitration clause is the provision most likely to be litigated over before any
+underlying dispute is, and its enforceability turns on drafting details rather
+than on its presence - a clause a court strikes can leave you worse off than
+none, because the attempt itself becomes evidence in the unconscionability
+analysis. It was written to be defensible, but it was not written by a lawyer.
