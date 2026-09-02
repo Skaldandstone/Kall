@@ -141,6 +141,20 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert "prod_VAv" not in template
 
 
+def test_production_migration_receives_complete_fail_closed_settings() -> None:
+    migration = _section(
+        _template(), "  MigrationTaskDefinition:\n", "  WebTaskDefinition:\n"
+    )
+
+    assert "- Name: FRONTEND_URL\n              Value: !Sub https://${PublicDomainName}" in migration
+    assert "- Name: CLERK_AUTHORIZED_PARTIES\n              Value: !Sub https://${PublicDomainName}" in migration
+    assert "- Name: AWS_REGION\n              Value: us-east-2" in migration
+    assert "- Name: AWS_S3_BUCKET\n              Value: !Ref DocumentBucket" in migration
+    assert "- Name: ALPHA_INVITE_ONLY\n              Value: 'true'" in migration
+    assert "- Name: STRIPE_ENABLED\n              Value: 'false'" in migration
+    assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in migration
+
+
 def test_production_routing_tls_identity_and_observability_contracts() -> None:
     template = _template()
     distribution = _section(template, "  Distribution:\n", "  ApiTaskDefinition:\n")

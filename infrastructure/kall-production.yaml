@@ -1076,6 +1076,16 @@ Resources:
               Value: verify-full
             - Name: DATABASE_SSL_ROOT_CERT
               Value: /etc/ssl/certs/aws-rds-us-east-2-bundle.pem
+            - Name: FRONTEND_URL
+              Value: !Sub https://${PublicDomainName}
+            - Name: CLERK_AUTHORIZED_PARTIES
+              Value: !Sub https://${PublicDomainName}
+            - Name: AWS_REGION
+              Value: us-east-2
+            - Name: AWS_S3_BUCKET
+              Value: !Ref DocumentBucket
+            - Name: ALPHA_INVITE_ONLY
+              Value: 'true'
             - Name: STRIPE_ENABLED
               Value: 'false'
             - Name: STRIPE_LIVEMODE
