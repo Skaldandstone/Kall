@@ -1,7 +1,10 @@
 // Browser-side Sentry bootstrap. Next.js loads this before any client code
-// runs. The DSN is read from a <meta> tag the root layout renders from the
-// web service's SENTRY_DSN at request time - see lib/sentry-shared.ts for
-// why it is not inlined at build. Inert when the tag is absent or empty.
+// runs. The DSN comes from NEXT_PUBLIC_SENTRY_DSN, inlined at `next build`
+// through the image build argument, with the root layout's request-time
+// <meta> tag as a fallback for dynamically rendered pages. The build-time
+// value is required because the marketing pages are prerendered: their HTML is
+// frozen at build, so a tag rendered from the running task's environment never
+// reaches them. Inert when neither source provides a DSN.
 import * as Sentry from '@sentry/nextjs';
 import {
   SENTRY_DSN_META_NAME,
@@ -15,12 +18,13 @@ function readMeta(name: string): string | undefined {
   return content ? content : undefined;
 }
 
-const dsn = readMeta(SENTRY_DSN_META_NAME);
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN || readMeta(SENTRY_DSN_META_NAME);
 if (dsn) {
   Sentry.init({
     ...sharedSentryOptions,
     dsn,
-    environment: readMeta(SENTRY_ENVIRONMENT_META_NAME) ?? 'production',
+    environment:
+      process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? readMeta(SENTRY_ENVIRONMENT_META_NAME) ?? 'production',
     // No session replay: it records the screen, and the screen shows the
     // profile fields this app exists to protect.
     integrations: [],

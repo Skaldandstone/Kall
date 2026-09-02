@@ -105,8 +105,9 @@ Parameters:
     Default: ''
     AllowedPattern: '^$|^https://[0-9a-f]{32}@o[0-9]+\.ingest\.(us|de)\.sentry\.io/[0-9]+$'
     Description: >-
-      Sentry DSN for the kall-web project. Served to the browser at request time by the root
-      layout, so no image rebuild or build argument is needed to change it. Blank keeps it inert.
+      Sentry DSN for the kall-web server and edge runtimes, also served as a request-time
+      fallback to the browser on dynamically rendered pages. The browser SDK's primary value is
+      the NEXT_PUBLIC_SENTRY_DSN image build argument. Blank keeps the runtimes inert.
   EnableStripeLive:
     Type: String
     AllowedValues: ['true', 'false']

@@ -72,10 +72,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // The Sentry DSN is public by design, so it is served to the browser here
-  // at request time from the web service's environment rather than inlined at
-  // build. instrumentation-client.ts reads these tags before the app boots.
-  // Absent when SENTRY_DSN is unset, which leaves the browser SDK inert.
+  // Request-time fallback for the browser Sentry DSN (public by design). Only
+  // dynamically rendered pages see this; prerendered pages freeze the layout
+  // at build, which is why NEXT_PUBLIC_SENTRY_DSN is also inlined there.
+  // instrumentation-client.ts reads these tags when the build-time value is
+  // absent. Both empty leaves the browser SDK inert.
   const sentryDsn = process.env.SENTRY_DSN;
   const sentryEnvironment = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV;
   return (

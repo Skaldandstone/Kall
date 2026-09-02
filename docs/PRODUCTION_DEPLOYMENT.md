@@ -62,10 +62,14 @@ send anything.
   parameters (`SentryApiDsn`, `SentryWebDsn`) that land as `SENTRY_DSN` on the
   task definitions - not Secrets Manager entries. The current values are in
   `deploy/kall-production.env.example` and the Sentry project settings.
-- **No image rebuild to turn it on.** The API reads `SENTRY_DSN` at start. The
-  web app reads it server-side and serves it to the browser through a `<meta>`
-  tag rendered by the root layout at request time, so nothing is inlined at
-  `next build` and the fail-closed CodeBuild job needs no new build argument.
+- **Two paths on the web tier.** The server and edge runtimes read `SENTRY_DSN`
+  from the task definition. The browser SDK reads `NEXT_PUBLIC_SENTRY_DSN`,
+  inlined at `next build` through the `apps/web/Dockerfile` build argument -
+  the `kall-web` CodeBuild project passes it from its `NEXT_PUBLIC_SENTRY_DSN`
+  environment variable. The build-time value is necessary because the
+  marketing pages are prerendered, so the root layout's request-time `<meta>`
+  fallback only reaches dynamically rendered pages. Changing the browser DSN
+  therefore means a web image rebuild; the API needs only a parameter change.
 - **What leaves the process** is the exception, stack, HTTP method and route
   template. `backend/kall/observability.py` and `apps/web/lib/sentry-shared.ts`
   strip user identity, headers, cookies, bodies, query strings, full URLs and
