@@ -42,7 +42,8 @@ class FakeStripe:
         self.v1 = SimpleNamespace(
             customers=SimpleNamespace(create=self.create_customer, retrieve=self.retrieve_customer),
             prices=SimpleNamespace(retrieve=lambda key: deepcopy(self.prices[key])),
-            subscriptions=SimpleNamespace(retrieve=self.retrieve_subscription),
+            subscriptions=SimpleNamespace(retrieve=self.retrieve_subscription,
+                                          update=self.update_subscription),
             checkout=SimpleNamespace(sessions=SimpleNamespace(create=self.create_checkout,
                                       retrieve=lambda key: deepcopy(self.checkouts[key]))),
             billing_portal=SimpleNamespace(
@@ -65,6 +66,11 @@ class FakeStripe:
 
     def retrieve_subscription(self, key, params=None):
         self.calls.append(("subscription.retrieve", key, params))
+        return deepcopy(self.subscriptions[key])
+
+    def update_subscription(self, key, params, options=None):
+        self.calls.append(("subscription.update", key, deepcopy(params), options))
+        self.subscriptions[key].update(deepcopy(params))
         return deepcopy(self.subscriptions[key])
 
     def create_checkout(self, params, options):

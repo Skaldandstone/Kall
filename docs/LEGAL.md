@@ -133,27 +133,47 @@ is the only one Kall automates:
 If a real data export ever ships, revisit this section; the mailbox will still be
 required, but it would stop being the only route to a copy of one's data.
 
-## Known gap this surfaced - decided, not yet built
+## The gap this surfaced - decided and built
 
-**Deleting an account does not cancel a Stripe subscription.** `DELETE /me` ->
-`services/account_deletion.py` removes every local row, including the billing
-ones, and deletes the Clerk identity, but nothing calls Stripe to cancel the
-subscription. A paying customer who deletes their account can keep being
-charged, with no account left to cancel from. The Terms tell people to cancel
-first (section 9), which is honest but is not a fix.
+**Deleting an account did not cancel a Stripe subscription.** `DELETE /me` ->
+`services/account_deletion.py` removed every local row, including the billing
+ones, and deleted the Clerk identity, but nothing called Stripe. A paying
+customer who deleted their account could keep being charged, with no account
+left to cancel from, and the webhook that would normally reconcile the state
+had no local row left to write to. The Terms told people to cancel first
+(section 9), which was honest but was not a fix.
 
 **Decided 2026-09-02: cancel at period end, so Stripe matches what the Terms
 already say.** Section 9 promises that cancelling stops the next renewal and
 that paid access runs out the period already paid for. So account deletion
-should set `cancel_at_period_end` rather than cancelling immediately, and should
-not prorate or refund. The money outcome is the same either way - Stripe's
+sets `cancel_at_period_end` rather than cancelling immediately, and does not
+prorate or refund. The money outcome is the same either way - Stripe's
 immediate cancel does not refund by default - but period-end is the one that
 matches the published sentence, and the Terms should not have to change to
 accommodate the implementation.
 
-Build it the way the Clerk deletion in that module already works: a best-effort
-provider call, logged and tolerated on failure rather than blocking the
-deletion, plus a test.
+**Built 2026-09-02.** `stripe_billing.cancel_at_period_end` does the provider
+call; `account_deletion._cancel_billing` calls it from the deletion path,
+before the rows naming the subscription are deleted. Three properties are
+worth knowing, and are covered by tests in `tests/test_account_deletion.py`:
+
+- **Best-effort, like the Clerk deletion beside it.** A Stripe outage is
+  logged and tolerated, never allowed to block a deletion someone asked for.
+  The warning names the subscription id, because once the local rows are gone
+  that log line is the only remaining route to cancelling it by hand.
+- **Ownership is verified first.** The existing `checked_subscription` check
+  (id, customer, scope metadata and livemode all matching) runs before the
+  cancel, and failing it cancels nothing. Cancelling a subscription that is
+  not ours is worse than cancelling none.
+- **The subscription stays `active`.** It is set not to renew, not ended - so
+  the period already paid for still runs out, which is the sentence section 9
+  publishes.
+
+One consequence to expect rather than to fix: the eventual
+`customer.subscription.deleted` webhook arrives after the account is gone, so
+`event_owner` finds no row and the delivery is a no-op. That is correct - there
+is nothing left to reconcile - but it means Stripe, not this database, is the
+only remaining record that the subscription wound down.
 
 ## The arbitration clause
 

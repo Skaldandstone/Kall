@@ -321,3 +321,42 @@ def reconcile_event(session: Session, event: dict) -> bool:
             return False
     apply_subscription_event(session, row.user_id, current, commit=False)
     return True
+
+
+def cancel_at_period_end(session: Session, user_id: int) -> str | None:
+    """Stop `user_id`'s subscription renewing, leaving paid access to run out.
+
+    Period end rather than immediate cancellation, because /terms section 9
+    already promises that cancelling stops the next renewal and that paid
+    access runs out the period already paid for. The money outcome is the
+    same either way -- Stripe's immediate cancel does not refund by default
+    -- but this is the one that matches the published sentence, and the Terms
+    should not have to change to accommodate the implementation. Nothing here
+    prorates or refunds, for the same reason.
+
+    Returns the subscription id it cancelled, or None when there was nothing
+    to cancel: no billing row, no subscription on it, billing switched off, or
+    a subscription already terminal or already set to cancel. Raises rather
+    than guessing if ownership cannot be verified -- cancelling a subscription
+    that is not ours is worse than not cancelling at all.
+    """
+    if not get_settings().stripe_enabled:
+        return None
+    row = session.exec(select(Subscription).where(Subscription.user_id == user_id)).first()
+    if row is None or not row.provider_customer_id or not row.provider_subscription_id:
+        return None
+
+    client = stripe_client()
+    subscription_id = row.provider_subscription_id
+    current = checked_subscription(client, row, subscription_id)
+    if current is None:
+        raise HTTPException(503, "Subscription ownership could not be verified")
+    if current.get("status") in TERMINAL_SUBSCRIPTIONS or current.get("cancel_at_period_end"):
+        return None
+
+    updated = provider_call(client.v1.subscriptions.update, subscription_id,
+                            {"cancel_at_period_end": True},
+                            {"idempotency_key": f"kall-cancel-{row.billing_binding_key}"})
+    if updated.get("id") != subscription_id or not updated.get("cancel_at_period_end"):
+        raise HTTPException(503, "Subscription cancellation could not be confirmed")
+    return subscription_id

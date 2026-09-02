@@ -4,7 +4,7 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-08-28 (evening).
+Last updated 2026-09-02.
 
 ## Needs a decision
 
@@ -284,6 +284,28 @@ browser against a live posting before it can be trusted; I cannot do that
 from here.
 
 ## Worth knowing
+
+**Deleting an account left the card being charged -- fixed (2026-09-02).**
+`DELETE /me` removed every local row including the billing ones, deleted the
+Clerk identity, and never told Stripe. A paying customer who deleted their
+account kept being charged, with no account left to cancel from. Account
+deletion now sets `cancel_at_period_end` on the subscription first.
+
+Period end rather than immediate, and that was the decision worth making
+rather than the code: `/terms` section 9 already promises that cancelling
+stops the next renewal and that paid access runs out the period paid for.
+Immediate cancellation would have contradicted a published sentence, and the
+money outcome is identical anyway -- Stripe's immediate cancel does not refund
+by default. Section 9 also used to warn that deleting an account does *not*
+cancel the subscription; that paragraph was true when written and is now
+false, so it says the opposite, and section 10's list of what deletion does
+gained a line. Say the word if you want immediate cancellation instead, but
+the Terms would have to change with it. Full reasoning in `docs/LEGAL.md`.
+
+The Stripe call is best-effort, like the Clerk deletion beside it: an outage
+is logged and tolerated rather than trapping someone in an account they asked
+to leave. The warning names the subscription id, because once the local rows
+are gone that log line is the only route left to cancelling it by hand.
 
 **The AI features had been dead for about a month.** The configured model,
 `gpt-5.1-mini`, was shut down by OpenAI on 2026-07-23, and three bare

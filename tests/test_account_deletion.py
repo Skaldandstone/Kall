@@ -402,3 +402,134 @@ def test_a_genuinely_new_signup_is_unaffected_by_someone_elses_deletion(engine, 
     with Session(engine) as session:
         created = ensure_local_user(session, "user_brand_new")
         assert created.email == "new-person@example.com"
+
+
+def _subscribed_user(engine, gateway, *, clerk_id, email, status="active", suffix="local"):
+    """A user with a live Stripe subscription bound to them.
+
+    `FakeStripe.bind` deliberately leaves `provider_subscription_id` unset --
+    it models the state right after Checkout, before the webhook lands. The
+    case here is the one after that, where a subscription actually exists to
+    be cancelled, so the test sets it.
+    """
+    from kall.models.billing import Subscription
+
+    with Session(engine) as session:
+        user = User(clerk_user_id=clerk_id, email=email, full_name="Subscriber")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        user_id = user.id
+
+    gateway.bind(engine, user_id, status=status, suffix=suffix)
+
+    with Session(engine) as session:
+        row = session.execute(select(Subscription)).scalars().one()
+        row.provider_subscription_id = f"sub_{suffix}"
+        session.add(row)
+        session.commit()
+    return user_id
+
+
+def _update_calls(gateway):
+    return [call for call in gateway.calls if call[0] == "subscription.update"]
+
+
+def test_deleting_an_account_cancels_the_subscription_at_period_end(engine, stripe_gateway) -> None:
+    """The gap this exists to close: deletion used to leave the card charged.
+
+    Period end rather than immediate, because /terms section 9 promises that
+    cancelling stops the next renewal and that paid access runs out the period
+    already paid for -- so the subscription must still be `active` afterwards,
+    merely set not to renew. Asserting the status is what distinguishes this
+    from an immediate cancel that happens to also stop renewals.
+    """
+    user_id = _subscribed_user(engine, stripe_gateway, clerk_id="user_paid", email="paid@example.com")
+
+    with Session(engine) as session:
+        delete_account(session, user_id)
+
+    assert _update_calls(stripe_gateway) == [
+        ("subscription.update", "sub_local", {"cancel_at_period_end": True},
+         {"idempotency_key": "kall-cancel-binding_local"}),
+    ]
+    remote = stripe_gateway.subscriptions["sub_local"]
+    assert remote["cancel_at_period_end"] is True
+    assert remote["status"] == "active", "the period already paid for must not be cut short"
+
+    with Session(engine) as session:
+        assert session.get(User, user_id) is None
+
+
+def test_a_stripe_outage_does_not_block_the_deletion(engine, stripe_gateway, caplog) -> None:
+    """A provider being down must not trap someone in an account they asked to leave.
+
+    The same bet the Clerk deletion makes. The warning has to name the
+    subscription, because once the local rows are gone that log line is the
+    only remaining route to cancelling it by hand.
+    """
+    import logging
+
+    import stripe
+
+    user_id = _subscribed_user(engine, stripe_gateway, clerk_id="user_outage", email="outage@example.com")
+
+    def unavailable(*args, **kwargs):
+        raise stripe.APIConnectionError("stripe is unreachable")
+
+    stripe_gateway.v1.subscriptions.update = unavailable
+
+    with caplog.at_level(logging.WARNING), Session(engine) as session:
+        delete_account(session, user_id)
+
+    with Session(engine) as session:
+        assert session.get(User, user_id) is None, "the deletion must still have happened"
+    assert "sub_local" in caplog.text
+
+
+def test_a_subscription_that_is_not_ours_is_never_cancelled(engine, stripe_gateway) -> None:
+    """Ownership is verified before cancelling, and failing that cancels nothing.
+
+    Cancelling a stranger's subscription is worse than cancelling none, so the
+    ownership check is allowed to abort the Stripe call -- but not the local
+    deletion, which is still the thing the person asked for.
+    """
+    user_id = _subscribed_user(engine, stripe_gateway, clerk_id="user_other", email="other@example.com")
+    stripe_gateway.subscriptions["sub_local"]["metadata"]["kall_binding"] = "binding_someone_else"
+
+    with Session(engine) as session:
+        delete_account(session, user_id)
+
+    assert _update_calls(stripe_gateway) == []
+    with Session(engine) as session:
+        assert session.get(User, user_id) is None
+
+
+def test_an_already_cancelled_subscription_is_left_alone(engine, stripe_gateway) -> None:
+    """Nothing to do, and re-cancelling would move the period end on Stripe's side."""
+    user_id = _subscribed_user(engine, stripe_gateway, clerk_id="user_done", email="done@example.com",
+                               status="canceled")
+
+    with Session(engine) as session:
+        delete_account(session, user_id)
+
+    assert _update_calls(stripe_gateway) == []
+
+
+def test_deletion_without_billing_configured_touches_no_provider(engine) -> None:
+    """The common case in tests and local dev: billing is off, deletion still works.
+
+    Without the `stripe_enabled` guard this would reach `require_configuration`
+    and raise a 503 that `_cancel_billing` would then swallow and log -- a
+    warning on every deletion in every deployment that has no billing.
+    """
+    with Session(engine) as session:
+        user = User(clerk_user_id="user_nobilling", email="nobilling@example.com", full_name="No Billing")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        user_id = user.id
+        delete_account(session, user_id)
+
+    with Session(engine) as session:
+        assert session.get(User, user_id) is None

@@ -181,9 +181,10 @@ export default function TermsPage() {
             </p>
           ) : null}
           <p>
-            Closing your account and cancelling your subscription are separate actions. Cancel your
-            subscription on the billing page before you delete your account, otherwise the
-            subscription can continue to bill.
+            Deleting your account also cancels a paid subscription, on the same terms as cancelling
+            it yourself: the next renewal is stopped, and the period you have already paid for is
+            not refunded. If you would rather keep using the paid period, cancel on the billing page
+            and delete the account when it ends.
           </p>
         </section>
 
@@ -195,6 +196,7 @@ export default function TermsPage() {
           </p>
           <ul>
             <li>Your profile, resumes, documents, applications, saved opportunities, notifications, billing records, and every other row belonging to you are deleted from our live systems.</li>
+            <li>A paid subscription is set to stop at the end of the period you have already paid for, so it does not renew. That period is not refunded.</li>
             <li>Your sign-in identity at {LEGAL.authProvider} is deleted, and we record that the identity was closed so that an existing browser session cannot recreate the account.</li>
             <li>Our internal record of support actions taken on the account is kept, with your identifying details removed from it, so that a record of what was done and by whom survives.</li>
             <li>Copies may remain in encrypted backups for a limited period before those backups age out.</li>
