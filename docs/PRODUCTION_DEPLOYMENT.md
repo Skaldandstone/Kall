@@ -35,23 +35,22 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 Use the first value for `APP_SECRET_KEY` and the second for `SENSITIVE_DATA_ENCRYPTION_KEY`.
 
-Start with Stripe test credentials and the Kall Plus test price:
+Start with Stripe test credentials and the Kall-only sandbox catalog:
 
 Use the current nonsecret values from
 [`deploy/kall-development.env.example`](../deploy/kall-development.env.example).
 Keep `STRIPE_ENABLED=false` until the verified HTTPS origin, signed webhook and
 sandbox acceptance checks below have passed.
 
-```text
-STRIPE_PRICE_ID=price_1U08lPIjMKrx5dSp2XBsn8to
-```
+The approved commercial model has two paid plans: Plus at USD 5/month and
+Premium at USD 15/month. Use the current nonsecret sandbox Product, Price and
+portal identifiers from [`deploy/kall-development.env.example`](../deploy/kall-development.env.example).
+The Stripe secret key and webhook signing secret must come from the same
+test-mode business and mode as every configured object.
 
-The Stripe secret key and webhook signing secret must come from the same test-mode account as the price.
-
-There are now **two** paid plans, so there are two prices. Billing is not
-switched on yet -- checkout returns 503 and the UI says so -- and everything
-needed to turn it on, including the second price and what to verify first,
-is in [`STRIPE_SETUP.md`](STRIPE_SETUP.md).
+Billing is not switched on yet -- checkout returns 503 and the UI says so.
+The complete object allowlist and acceptance sequence are in
+[`STRIPE_SETUP.md`](STRIPE_SETUP.md).
 
 ## 3b. Confirm the AI model answers
 
@@ -132,13 +131,18 @@ Update `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`, Stripe success/cancel URLs through
 
 ## 8. Live-mode cutover
 
-Live mode needs a separate product/price, secret key, and webhook signing secret. Test-mode IDs cannot be mixed with live-mode credentials.
+Live mode needs separate Kall Plus and Premium products and prices, a restricted
+live key, a Kall-only portal configuration, and a live webhook signing secret.
+Test-mode IDs cannot be mixed with live-mode credentials.
 
 Before cutover:
 
-- create or verify a live `$4/month` Kall Plus price;
-- configure the live Customer Portal;
+- create or verify live Plus at USD 5/month and Premium at USD 15/month;
+- configure the Kall-only live Customer Portal with the same two-plan allowlist;
 - create a live snapshot webhook destination;
-- replace all three Stripe environment variables together;
+- replace the complete live Product, Price, portal, restricted-key and webhook
+  configuration together while `STRIPE_ENABLED=false`;
+- verify live-mode object reads, then enable billing in a separate reviewed
+  runtime change;
 - perform one low-risk real transaction and refund it from the Stripe Dashboard;
 - monitor API logs and webhook deliveries.
