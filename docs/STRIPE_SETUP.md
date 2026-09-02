@@ -1,10 +1,10 @@
 # Kall Stripe integration
 
 Status: hosted billing is implemented with separate test and live contracts.
-Payments remain off. The live Kall catalog and webhook destination exist, while
-the restricted key and Kall-only portal configuration are still being completed.
-No controlled live transaction has been run. No tax registration or
-automatic-tax readiness is claimed.
+Live billing is enabled with a Kall-only catalog, restricted key, portal
+configuration and webhook destination. No controlled live transaction has been
+run, so payment, entitlement, portal, cancellation and refund acceptance remain
+open. No tax registration or automatic-tax readiness is claimed.
 
 ## Existing commercial model
 
@@ -70,7 +70,7 @@ restricted keys alone do not isolate objects within one Stripe business.
 Both tier pairs and the signing secret must exist before the opt-in gate opens:
 
 ```dotenv
-STRIPE_ENABLED=false
+STRIPE_ENABLED=true
 STRIPE_LIVEMODE=true
 STRIPE_BILLING_SCOPE=kall:production
 STRIPE_SECRET_KEY=<restricted-live-key-from-vault>
@@ -89,8 +89,9 @@ and portal-configuration read permissions. Do not reuse another product's key.
 Confirm exact permissions and live-mode identity in Stripe before injection. The
 API alone needs Stripe keys; the browser does not. Supply secrets through the
 existing vault/runtime injection mechanism, never command arguments, source,
-screenshots, reports or chat. Keep `STRIPE_ENABLED=false` until the live objects
-and endpoint have been verified.
+screenshots, reports or chat. The production gate was enabled only after the live
+objects, restricted key, portal configuration, vault record and endpoint were
+verified.
 
 The shared development foundation and `dev/kall/stripe` record already exist in
 AWS project `734702670689`. They do not constitute a Kall runtime. Do not
@@ -152,10 +153,11 @@ Back up and validate on disposable PostgreSQL before production migration.
    `/api/billing/webhook` destination is registered for the supported events;
    verify its precise endpoint version and delivery behavior. Store only the
    live signing secret and restricted key in the production vault.
-5. Deploy with live IDs and `STRIPE_LIVEMODE=true` while
-   `STRIPE_ENABLED=false`. Verify configuration and provider reads, then enable
-   billing in a separately reviewed change.
-6. Complete one controlled live payment with an invited production Clerk user,
+5. The production stack update enabled live billing with the reviewed Kall-only
+   IDs and `STRIPE_LIVEMODE=true`. CloudFormation reached `UPDATE_COMPLETE` and
+   both public health routes remained healthy. Recheck ECS service stability and
+   the authenticated billing page with a fresh AWS/browser session.
+6. Complete one controlled live payment with a production Clerk user,
    verify entitlement and portal ownership, cancel/refund it, and confirm the
    final Free entitlement and durable webhook receipts. This is the point at
    which live payment acceptance can be claimed.
