@@ -1,0 +1,70 @@
+rule services_and_live_billing_default_disabled {
+    Parameters.EnableApplicationServices.Default == 'false'
+    Parameters.EnableStripeLive.Default == 'false'
+}
+
+rule application_activation_requires_database_evidence {
+    Rules.ApplicationActivationRequiresDatabaseEvidence exists
+    Parameters.VerifiedBootstrapRevision.AllowedValues == ['', 'kall-db-roles-v1']
+    Parameters.VerifiedMigrationHead.AllowedValues == ['', '20260831_0029']
+}
+
+rule stateful_resources_are_retained {
+    Resources.AppSecret.DeletionPolicy == 'Retain'
+    Resources.AppSecret.UpdateReplacePolicy == 'Retain'
+    Resources.SensitiveDataSecret.DeletionPolicy == 'Retain'
+    Resources.SensitiveDataSecret.UpdateReplacePolicy == 'Retain'
+    Resources.RuntimeDatabaseSecret.DeletionPolicy == 'Retain'
+    Resources.RuntimeDatabaseSecret.UpdateReplacePolicy == 'Retain'
+    Resources.MigratorDatabaseSecret.DeletionPolicy == 'Retain'
+    Resources.MigratorDatabaseSecret.UpdateReplacePolicy == 'Retain'
+    Resources.DocumentBucket.DeletionPolicy == 'Retain'
+    Resources.DocumentBucket.UpdateReplacePolicy == 'Retain'
+    Resources.ApiLogs.DeletionPolicy == 'Retain'
+    Resources.WebLogs.DeletionPolicy == 'Retain'
+    Resources.DatabaseAdminLogs.DeletionPolicy == 'Retain'
+    Resources.Distribution.DeletionPolicy == 'Retain'
+}
+
+rule production_database_is_private_resilient_and_protected {
+    Resources.Database.Properties.Engine == 'postgres'
+    Resources.Database.Properties.EngineVersion == '16.15'
+    Resources.Database.Properties.StorageType == 'gp3'
+    Resources.Database.Properties.StorageEncrypted == true
+    Resources.Database.Properties.PubliclyAccessible == false
+    Resources.Database.Properties.MultiAZ == true
+    Resources.Database.Properties.BackupRetentionPeriod >= 7
+    Resources.Database.Properties.DeletionProtection == true
+    Resources.Database.Properties.ManageMasterUserPassword == true
+    Resources.Database.DeletionPolicy == 'Snapshot'
+    Resources.Database.UpdateReplacePolicy == 'Snapshot'
+}
+
+rule production_documents_are_private_encrypted_and_versioned {
+    Resources.DocumentBucket.Properties.BucketEncryption.ServerSideEncryptionConfiguration.*.ServerSideEncryptionByDefault.SSEAlgorithm == 'AES256'
+    Resources.DocumentBucket.Properties.OwnershipControls.Rules.*.ObjectOwnership == 'BucketOwnerEnforced'
+    Resources.DocumentBucket.Properties.PublicAccessBlockConfiguration.BlockPublicAcls == true
+    Resources.DocumentBucket.Properties.PublicAccessBlockConfiguration.BlockPublicPolicy == true
+    Resources.DocumentBucket.Properties.PublicAccessBlockConfiguration.IgnorePublicAcls == true
+    Resources.DocumentBucket.Properties.PublicAccessBlockConfiguration.RestrictPublicBuckets == true
+    Resources.DocumentBucket.Properties.VersioningConfiguration.Status == 'Enabled'
+}
+
+rule production_delivery_is_https_only {
+    Resources.HttpsListener.Properties.Protocol == 'HTTPS'
+    Resources.HttpsListener.Properties.Port == 443
+    Resources.Distribution.Properties.DistributionConfig.Origins.*.CustomOriginConfig.OriginProtocolPolicy == 'https-only'
+    Resources.Distribution.Properties.DistributionConfig.Origins.*.CustomOriginConfig.OriginSSLProtocols == ['TLSv1.2']
+    Resources.Distribution.Properties.DistributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy == 'redirect-to-https'
+    Resources.Distribution.Properties.DistributionConfig.ViewerCertificate.MinimumProtocolVersion == 'TLSv1.2_2021'
+}
+
+rule alarms_publish_only_to_the_stack_topic {
+    Resources.OperationsTopic.Properties.KmsMasterKeyId == 'alias/aws/sns'
+    Resources.OperationsTopicPolicy.Properties.PolicyDocument.Statement[ Sid == 'AllowStackCloudWatchAlarms' ] {
+        Action == 'sns:Publish'
+        Resource.Ref == 'OperationsTopic'
+        Condition.StringEquals.'aws:SourceAccount'.Ref == 'AWS::AccountId'
+        Condition.ArnLike.'aws:SourceArn'.'Fn::Sub' == 'arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*'
+    }
+}

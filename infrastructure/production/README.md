@@ -29,6 +29,7 @@ The source gate is:
 ```powershell
 Set-Location -LiteralPath C:\Users\James\Documents\GitHub\Kall
 cfn-lint -i E3691 -- .\infrastructure\kall-production.yaml
+& '<reviewed-cfn-guard-3.2.1-path>\cfn-guard.exe' validate --rules .\infrastructure\production\kall-production.guard --data .\infrastructure\kall-production.yaml
 aws cloudformation validate-template --profile skaldandstone-dev --region us-east-2 --template-body file://infrastructure/kall-production.yaml
 python -m pytest -q tests/test_production_infrastructure.py infrastructure/production/test_cost_model.py
 python .\infrastructure\production\cost_model.py

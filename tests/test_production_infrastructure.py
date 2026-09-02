@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "infrastructure" / "kall-production.yaml"
+GUARD = ROOT / "infrastructure" / "production" / "kall-production.guard"
 
 
 def _template() -> str:
@@ -169,3 +170,18 @@ def test_production_routing_tls_identity_and_observability_contracts() -> None:
     assert "WebTarget5xxAlarm" in template
     assert "DatabaseFreeStorageAlarm" in template
     assert "DatabaseCpuAlarm" in template
+
+
+def test_production_guard_covers_release_critical_invariants() -> None:
+    guard = GUARD.read_text()
+
+    for rule in (
+        "services_and_live_billing_default_disabled",
+        "application_activation_requires_database_evidence",
+        "stateful_resources_are_retained",
+        "production_database_is_private_resilient_and_protected",
+        "production_documents_are_private_encrypted_and_versioned",
+        "production_delivery_is_https_only",
+        "alarms_publish_only_to_the_stack_topic",
+    ):
+        assert f"rule {rule} {{" in guard
