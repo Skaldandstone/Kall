@@ -101,6 +101,16 @@ Parameters:
     AllowedValues: ['true', 'false']
     Default: 'false'
     Description: Keep false until database role bootstrap and migration-head verification succeed.
+  EnablePublicSignup:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      Opens registration to anyone with a Clerk account. Defaults to false, which keeps
+      ALPHA_INVITE_ONLY=true and the invitation gate in place. Setting this to true only
+      relaxes the application gate; self-service sign-up must also be enabled in the
+      production Clerk instance for it to take effect. The allowlist secret is retained
+      either way so rollback is a parameter flip, not a redeploy of removed config.
   VerifiedBootstrapRevision:
     Type: String
     AllowedValues: ['', kall-db-roles-v1]
@@ -140,6 +150,7 @@ Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
+  PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
 
 Resources:
   AppSecret:
@@ -906,7 +917,7 @@ Resources:
             - Name: OPENAI_MODEL
               Value: gpt-5.6-luna
             - Name: ALPHA_INVITE_ONLY
-              Value: 'true'
+              Value: !If [PublicSignupEnabled, 'false', 'true']
             - Name: STRIPE_ENABLED
               Value: !Ref EnableStripeLive
             - Name: STRIPE_LIVEMODE
@@ -1085,7 +1096,7 @@ Resources:
             - Name: AWS_S3_BUCKET
               Value: !Ref DocumentBucket
             - Name: ALPHA_INVITE_ONLY
-              Value: 'true'
+              Value: !If [PublicSignupEnabled, 'false', 'true']
             - Name: STRIPE_ENABLED
               Value: 'false'
             - Name: STRIPE_LIVEMODE
@@ -1142,7 +1153,7 @@ Resources:
             - Name: KALL_API_URL
               Value: !Sub https://${PublicDomainName}
             - Name: ALPHA_INVITE_ONLY
-              Value: 'true'
+              Value: !If [PublicSignupEnabled, 'false', 'true']
           Secrets:
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'

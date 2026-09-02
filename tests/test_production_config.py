@@ -102,7 +102,7 @@ def test_production_accepts_a_complete_configuration(tmp_path) -> None:
         ("auto_create_tables", True, "Alembic"),
         ("aws_s3_bucket", None, "AWS_S3_BUCKET"),
         ("aws_region", "us-east-1", "selected Region"),
-        ("alpha_invite_only", False, "invite-only"),
+        ("alpha_invite_only", False, "ALPHA_ALLOWED_EMAILS"),
         ("sensitive_data_encryption_key", "short", "at least 32"),
         ("sensitive_data_encryption_key", "x" * 32, "must be distinct"),
     ],
@@ -113,6 +113,41 @@ def test_production_rejects_unsafe_release_configuration(
     config = complete_production_config(tmp_path)
     config[setting] = value
     with pytest.raises(ValidationError, match=message):
+        Settings(**config)
+
+
+def test_production_requires_an_explicit_access_decision(tmp_path) -> None:
+    """Omitting the flag must fail rather than inherit the permissive default.
+
+    The field defaults to False so local development is not gated behind
+    invitations. That default is wrong for production, so production refuses to
+    infer it -- registration opens only when someone says so.
+    """
+    config = complete_production_config(tmp_path)
+    del config["alpha_invite_only"]
+    with pytest.raises(ValidationError, match="ALPHA_INVITE_ONLY must be set explicitly"):
+        Settings(**config)
+
+
+def test_production_allows_public_signup_when_allowlist_is_retained(tmp_path) -> None:
+    """Public sign-up is a supported production state, not a rejected one.
+
+    The allowlist stays populated so restoring invite-only is a parameter flip
+    rather than a redeploy -- that is the whole reason the guard survives.
+    """
+    config = complete_production_config(tmp_path)
+    config["alpha_invite_only"] = False
+    config["alpha_allowed_emails"] = "james@skaldandstone.com"
+    settings = Settings(**config)
+    assert settings.alpha_invite_only is False
+    assert settings.alpha_allowed_email_set == {"james@skaldandstone.com"}
+
+
+def test_production_rejects_public_signup_that_drops_the_rollback_allowlist(tmp_path) -> None:
+    config = complete_production_config(tmp_path)
+    config["alpha_invite_only"] = False
+    config["alpha_allowed_emails"] = ""
+    with pytest.raises(ValidationError, match="ALPHA_ALLOWED_EMAILS"):
         Settings(**config)
 
 
