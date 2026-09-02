@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -70,6 +70,7 @@ class AccountDeletionRequest(BaseModel):
 @router.delete("/me", status_code=204)
 def delete_my_account(
     payload: AccountDeletionRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> None:
@@ -84,10 +85,16 @@ def delete_my_account(
     here, and this repository does not hold a password to check. The account
     disappears from Kall immediately; the browser's existing Clerk session
     continues until it expires on its own or is revoked at Clerk directly.
+
+    `background_tasks` defers the Clerk-side cleanup until after this
+    response is sent -- see services/account_deletion.py for why a slow
+    third-party call sitting in front of the response caused this endpoint
+    to appear hung on a real account even though the deletion had already
+    succeeded.
     """
     if payload.confirm_email.strip().lower() != (current_user.email or "").strip().lower():
         raise HTTPException(422, "That does not match the email on this account.")
-    delete_account(session, current_user.id, reason="self_service")
+    delete_account(session, current_user.id, reason="self_service", background_tasks=background_tasks)
 
 
 @router.get("/me/identity", response_model=IdentityProfileResponse)

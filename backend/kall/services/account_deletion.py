@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from clerk_backend_api import Clerk
+from fastapi import BackgroundTasks
 from kall.config import get_settings
 from kall.models.core import AccountDeletionRecord, User
 from sqlalchemy import Column, Table, delete, func, select, update
@@ -149,7 +150,13 @@ def plan_deletion(session: Session, user_id: int) -> DeletionReport:
     return _run(session, user_id, execute=False)
 
 
-def delete_account(session: Session, user_id: int, *, reason: str = "self_service") -> DeletionReport:
+def delete_account(
+    session: Session,
+    user_id: int,
+    *,
+    reason: str = "self_service",
+    background_tasks: BackgroundTasks | None = None,
+) -> DeletionReport:
     """Delete everything belonging to `user_id`, including the account itself.
 
     Runs as one transaction: either the whole account is gone or nothing is.
@@ -172,16 +179,35 @@ def delete_account(session: Session, user_id: int, *, reason: str = "self_servic
     fix. The AccountDeletionRecord is the fallback for when this call fails
     or the deployment has no Clerk key at all (tests, local dev): see the
     tombstone check in auth.ensure_local_user.
+
+    **The Clerk call runs after the local deletion commits, and in the
+    background when `background_tasks` is given.** Confirmed live: on an
+    account with enough rows, the local deletion plus a slow third-party
+    network call to Clerk together took long enough that the connection
+    back to the browser was dropped before the response arrived, even
+    though the deletion itself succeeded -- the caller saw nothing but a
+    hung request while the account was already gone. The local deletion is
+    the part that actually matters and the part this function can make
+    fast and consistent; Clerk's own cleanup is best-effort regardless of
+    when it runs (see `_delete_clerk_user`'s own swallowed-exception
+    handling), so there is nothing to gain and real latency to lose by
+    making the caller wait on it. Without `background_tasks` (direct calls,
+    tests), it still runs synchronously after the commit.
     """
     user = session.get(User, user_id)
     if user is None:
         return _run(session, user_id, execute=True)
 
-    session.add(AccountDeletionRecord(email=user.email, clerk_user_id=user.clerk_user_id or "", reason=reason))
-    _delete_clerk_user(user.clerk_user_id)
-
+    clerk_user_id = user.clerk_user_id
+    session.add(AccountDeletionRecord(email=user.email, clerk_user_id=clerk_user_id or "", reason=reason))
     report = _run(session, user_id, execute=True)
     session.commit()
+
+    if background_tasks is not None:
+        background_tasks.add_task(_delete_clerk_user, clerk_user_id)
+    else:
+        _delete_clerk_user(clerk_user_id)
+
     return report
 
 

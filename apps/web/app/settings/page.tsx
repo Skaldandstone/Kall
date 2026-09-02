@@ -33,21 +33,55 @@ export default function SettingsPage(){
   async function handleDeleteAccount(){
     setDeleting(true);
     setDeleteError('');
-    const response=await fetch(`${API}/me`,{
-      method:'DELETE',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({confirm_email:confirmEmail}),
-    });
-    if(response.status===204){
-      // Nothing left to be signed in as. Clerk's own session still exists
-      // until it expires or the account deletion's best-effort call to
-      // revoke it lands -- signing out here is what makes this browser stop
-      // acting as if the account is still there right now.
-      await signOut({redirectUrl:'/'});
-      return;
+    // The DELETE itself can be slow on an account with a lot of data --
+    // deletion walks every user-scoped table in one transaction -- and a
+    // slow request is more likely to be aborted somewhere in the chain
+    // (browser, proxy, load balancer) before the response ever reaches this
+    // page. Confirmed live: the account was actually gone server-side while
+    // this fetch threw, leaving the button stuck on "Deleting..." forever
+    // with the account already deleted underneath the user. So a thrown
+    // fetch is not treated as a definite failure -- ask the server whether
+    // the account still exists before deciding what to show.
+    try{
+      const response=await fetch(`${API}/me`,{
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({confirm_email:confirmEmail}),
+      });
+      if(response.status===204){
+        await finishDeletion();
+        return;
+      }
+      setDeleting(false);
+      setDeleteError(response.status===422?'That does not match your account email.':'Something went wrong. Please try again.');
+    }catch{
+      if(await accountStillExists()){
+        setDeleting(false);
+        setDeleteError('Something went wrong. Please try again.');
+        return;
+      }
+      // The request never delivered a response to this page, but the
+      // account is confirmed gone -- proceed exactly as the 204 path does
+      // rather than leaving the button stuck with no explanation.
+      await finishDeletion();
     }
-    setDeleting(false);
-    setDeleteError(response.status===422?'That does not match your account email.':'Something went wrong. Please try again.');
+  }
+  async function accountStillExists(){
+    try{
+      const response=await fetch(`${API}/me`);
+      return response.ok;
+    }catch{
+      // Couldn't reach the API to check either -- do not claim the account
+      // is gone on the strength of a second failed request.
+      return true;
+    }
+  }
+  async function finishDeletion(){
+    // Nothing left to be signed in as. Clerk's own session still exists
+    // until it expires or the account deletion's best-effort call to
+    // revoke it lands -- signing out here is what makes this browser stop
+    // acting as if the account is still there right now.
+    await signOut({redirectUrl:'/'});
   }
   return <main className='shell'>
     <AppNav />
