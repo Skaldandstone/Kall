@@ -87,31 +87,46 @@ The extension/mobile moderate findings still require upstream review and do not
 prove installed-extension or physical-device acceptance. Do not use an unsafe
 forced dependency downgrade merely to make the audit count zero.
 
-The alpha template is a validated bounded-runtime input, not a durable
-production stack. Do not remove its expiry controller or rename its resources
-in place. A production change set must use separate names and storage, preserve
-the same role/bootstrap/migration/TLS contracts, and be reviewed before create.
+The alpha template remains a validated bounded-runtime input and must not be
+revived or renamed in place. The separate
+[`infrastructure/kall-production.yaml`](../infrastructure/kall-production.yaml)
+production template now preserves the proven role, bootstrap, migration, TLS,
+and BFF routing contracts while adding production-only retained secrets,
+versioned private document storage, 90-day logs, Multi-AZ PostgreSQL, seven-day
+backups, deletion protection, alarms, and immutable-image constraints. It
+defaults both services and live Stripe to disabled.
+
+The production template passes local CloudFormation lint with only the existing
+PostgreSQL 16.15 schema-lag exception, AWS `validate-template` and
+`get-template-summary`, and focused security/configuration tests. Its official
+price-list model is $73.71 per 730-hour month under the documented low-traffic
+assumptions, before credits, taxes, shared-foundation cost, and variable
+overages. The AWS project has a $100 monthly budget. This is a planning gate,
+not a billing guarantee. See
+[`infrastructure/production/README.md`](../infrastructure/production/README.md).
 
 ## Required production decisions and provider acceptance
 
 These are external gates and cannot be marked complete by source tests:
 
-1. Confirm the AWS project is paid and check the spend limit in AWS Settings >
-   Billing. Approve a monthly production estimate before creating resources.
-2. Choose availability and recovery targets. At minimum decide RDS Multi-AZ,
-   backup retention, point-in-time recovery window, deletion protection, storage
-   autoscaling, and a restore-test schedule. The alpha's one-day, single-AZ
-   database settings are not production defaults.
+1. Confirm credit and spend-limit status in AWS Settings > Billing before the
+   first cost-bearing change set. The AWS API confirms the $100 monthly budget,
+   but the new-experience plan-state endpoint returns no project data.
+2. The initial availability contract is Multi-AZ PostgreSQL 16.15, seven-day
+   point-in-time backups, deletion protection, encrypted gp3 with autoscaling to
+   100 GiB, and snapshot-on-delete/replace. Schedule and prove a restore after
+   the first accepted production backup.
 3. Build API and web images from the exact release commit, record immutable
    digests, inspect final files/config, and pass ECR scanning. Basic scanning is
    insufficient if enhanced scanning is required by the release policy.
-4. Create and verify the production Clerk instance, custom domain, DNS,
-   invitation path, allowed redirects and origins, MFA/session policy, account
-   deletion, and one signed-in BFF request without exposing tokens or cookies.
-5. Create a dedicated production S3 bucket with public access blocked,
-   versioning, encryption, lifecycle rules, access logging or CloudTrail data
-   events as approved, and a synthetic upload/read/delete test from the task
-   role.
+4. The production Clerk instance, custom domain, DNS, Google OAuth under
+   `james@skaldandstone.com`, and production publication are complete. Still
+   verify an invited signed-in BFF request, MFA/session policy, account deletion,
+   and recovery without exposing tokens or cookies.
+5. The template creates a dedicated retained production S3 bucket with public
+   access blocked, versioning, encryption, and TLS enforcement. After creation,
+   verify CloudTrail data-event coverage as approved and perform a synthetic
+   upload/read/delete test from the exact task role.
 6. Review CloudFront, ACM, Cloudflare DNS, ALB ingress, WAF/rate limits, log
    retention, alarms, paging destination, CloudTrail, budgets, and rollback
    access. Do not broaden ALB ingress to solve internal routing.

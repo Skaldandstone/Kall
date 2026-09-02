@@ -26,14 +26,12 @@ Identity is Clerk's, not Kall's. Both services need credentials or the deploy fa
 
 Set every API environment variable listed in `.env.production.example`. Never commit actual keys.
 
-Generate secrets locally:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-Use the first value for `APP_SECRET_KEY` and the second for `SENSITIVE_DATA_ENCRYPTION_KEY`.
+The production CloudFormation template generates and retains separate
+`APP_SECRET_KEY`, `SENSITIVE_DATA_ENCRYPTION_KEY`, `kall_runtime`, and
+`kall_migrator` secrets inside Secrets Manager. It never exposes their values
+through stack parameters or outputs. The Clerk and invitation-access secrets
+are external production vault inputs. Stripe remains a fail-closed sentinel
+until the live provider setup is ready.
 
 Start with Stripe test credentials and the Kall-only sandbox catalog:
 
@@ -68,20 +66,24 @@ looks exactly like the feature being switched off, with nothing raised.
 
 ## 4. Configure service URLs
 
-Before a custom domain is available, use the provider-generated HTTPS URLs:
+The production service uses these exact HTTPS boundaries:
 
 ```text
-FRONTEND_URL=https://<web-service-host>
-NEXT_PUBLIC_API_URL=https://<api-service-host>
+FRONTEND_URL=https://kall.skaldandstone.com
+CLERK_AUTHORIZED_PARTIES=https://kall.skaldandstone.com
+KALL_API_URL=https://kall.skaldandstone.com
 ```
 
-Redeploy the web service after changing `NEXT_PUBLIC_API_URL`, because public Next.js variables can be embedded at build time.
+The web image must be built with the production Clerk publishable key and
+`KALL_CLERK_INSTANCE=production`. The server-side BFF rewrites
+`/api/kall/...` to `/api/...` and uses the public CloudFront host to avoid the
+blocked public-ALB hairpin path.
 
 Verify:
 
 ```text
-GET https://<api-service-host>/health
-GET https://<api-service-host>/ready
+GET https://kall.skaldandstone.com/api/health
+GET https://kall.skaldandstone.com/api/kall/health
 ```
 
 Both endpoints must return HTTP 200 before configuring Stripe.
@@ -91,7 +93,7 @@ Both endpoints must return HTTP 200 before configuring Stripe.
 Create or update a test-mode snapshot webhook destination:
 
 ```text
-https://<api-service-host>/api/billing/webhook
+https://kall.skaldandstone.com/api/billing/webhook
 ```
 
 Enable at least:
@@ -118,16 +120,13 @@ Copy that destination's `whsec_...` value into `STRIPE_WEBHOOK_SECRET`, then res
 
 Do not switch to live credentials until all eight checks pass.
 
-## 7. Custom domain later
+## 7. Verify the production domain
 
-After acquiring a domain, use separate hosts:
-
-```text
-app.<domain>  -> Next.js service
-api.<domain>  -> FastAPI service
-```
-
-Update `FRONTEND_URL`, `NEXT_PUBLIC_API_URL`, Stripe success/cancel URLs through the application configuration, and the Stripe webhook destination. Wait for valid TLS before enabling live event delivery.
+Cloudflare owns `kall.skaldandstone.com`; the AWS stack outputs the ALB DNS name
+for the DNS-only `origin.kall.skaldandstone.com` CNAME. Do not create Route 53
+records or broaden ALB ingress. Verify viewer TLS, CloudFront-to-ALB TLS,
+security headers, public health, signed-out protection, and an invited signed-in
+BFF request before enabling live event delivery.
 
 ## 8. Live-mode cutover
 

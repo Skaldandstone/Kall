@@ -1,0 +1,43 @@
+{
+  "as_of": "2026-09-01",
+  "currency": "USD",
+  "hours_per_month": "730",
+  "source": "AWS Price List API queried read-only for US East (Ohio) and United States CloudFront rates",
+  "rates": {
+    "fargate_vcpu_hour": "0.0404800000",
+    "fargate_gb_hour": "0.0044450000",
+    "rds_multi_az_db_t4g_micro_hour": "0.0320000000",
+    "rds_multi_az_gp3_gb_month": "0.2300000000",
+    "alb_hour": "0.0225000000",
+    "alb_lcu_hour": "0.0080000000",
+    "secrets_manager_secret_month": "0.4000000000",
+    "cloudwatch_standard_alarm_month": "0.1000000000",
+    "cloudwatch_logs_ingested_gb": "0.5000000000",
+    "s3_standard_gb_month": "0.0230000000",
+    "cloudfront_us_data_out_gb": "0.0850000000",
+    "cloudfront_us_https_request": "0.0000010000"
+  },
+  "assumptions": {
+    "fargate_vcpu": "0.5",
+    "fargate_memory_gb": "1",
+    "rds_instances": "1",
+    "rds_storage_gb": "20",
+    "alb_count": "1",
+    "average_alb_lcu": "1",
+    "secrets": "6",
+    "alarms": "6",
+    "logs_ingested_gb": "1",
+    "s3_standard_gb": "5",
+    "cloudfront_data_out_gb": "10",
+    "cloudfront_https_requests": "1000000"
+  },
+  "excluded_or_variable": [
+    "AWS credits and taxes",
+    "shared development foundation costs",
+    "S3 and Secrets Manager request charges",
+    "RDS backup or snapshot storage beyond included allocation",
+    "cross-AZ or internet data transfer outside modeled CloudFront egress",
+    "SES, OpenAI, Stripe fees, monitoring scheduler, and future WAF",
+    "traffic above the listed assumptions"
+  ]
+}
