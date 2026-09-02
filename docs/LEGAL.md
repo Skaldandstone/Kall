@@ -38,7 +38,7 @@ account is broken, both have to be able to read them.
 | Operator | Skald and Stone LLC |
 | Formation state | Washington |
 | Governing law and venue | Washington |
-| Mailing address | 16602 NE 91st Street, Vancouver, WA 98682 |
+| Mailing address | **pending** - PO box or registered-agent address, see below |
 | Privacy contact | privacy@skaldandstone.com |
 | Support contact | support@skaldandstone.com |
 | Security contact | security@skaldandstone.com |
@@ -55,7 +55,26 @@ into `/terms` section 2 directly rather than into `legal.ts`. The Privacy Policy
 separately says Kall is not directed to children under 13, which is the standard
 COPPA line and does not conflict.
 
-## The one blocker left
+## The mailing address is deliberately still null
+
+The address on `/terms` and `/privacy-policy` is permanently public and indexed,
+and a legal page is the one place it cannot be quietly taken back down. So the
+residential address is not going on it. Two options, and they are not equivalent:
+
+- **A commercial registered agent** gives Skald and Stone LLC a Washington street
+  address that can serve as both the Secretary of State registered-agent address
+  and the address published here. Usually the better answer, because Washington
+  requires the registered agent to have a physical in-state street address, and a
+  PO box cannot satisfy that. One address, one annual fee, both jobs done.
+- **A PO box** is fine for the published notice address alone, but it cannot be
+  the registered-agent address, so the residential address stays on the public
+  Secretary of State record either way.
+
+Whichever is chosen, put it in `mailingAddress` as one array entry per line.
+Until then the field stays `null` and both pages render the gap marker.
+**Do not fill it with a home address as a placeholder.**
+
+## The other blocker
 
 **The three mailboxes do not exist yet.** `privacy@`, `support@` and `security@`
 are to be Google Workspace groups on skaldandstone.com. Until they are created

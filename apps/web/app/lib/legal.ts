@@ -47,8 +47,12 @@ export const LEGAL = {
    * Postal address for legal and privacy notices, exactly as it should be
    * printed. A privacy policy that names no address is not a compliant one.
    * Multi-line: one array entry per line.
+   *
+   * Deliberately null: a PO box is being obtained so that a residential address
+   * does not become permanently public on a page that cannot be quietly taken
+   * back down. Do not fill this with a home address in the meantime.
    */
-  mailingAddress: ['16602 NE 91st Street', 'Vancouver, WA 98682'] as Fillable<string[]>,
+  mailingAddress: null as Fillable<string[]>,
 
   /**
    * Where a privacy request, access request, or deletion request goes.
