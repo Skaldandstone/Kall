@@ -218,6 +218,29 @@ def test_production_routing_tls_identity_and_observability_contracts() -> None:
     assert "DatabaseCpuAlarm" in template
 
 
+def test_sentry_dsns_are_optional_plaintext_parameters_not_secrets() -> None:
+    """A Sentry DSN can only send events to one project, so it is public by
+    design and travels as a plain task variable - never through Secrets
+    Manager, and never as a web build argument (the root layout serves it to
+    the browser at request time, so no image rebuild is needed)."""
+    template = _template()
+    parameters = _section(template, "Parameters:\n", "Conditions:\n")
+    api_task = _section(template, "  ApiTaskDefinition:\n", "  BootstrapTaskDefinition:\n")
+    web_task = _section(template, "  WebTaskDefinition:\n", "  ApiService:\n")
+
+    for name in ("SentryApiDsn", "SentryWebDsn"):
+        parameter = _section(parameters, f"  {name}:\n", "    Description:")
+        assert "Default: ''" in parameter, f"{name} must default to inert"
+        assert "ingest" in parameter and "sentry" in parameter, f"{name} must only accept a DSN"
+
+    for task, ref in ((api_task, "SentryApiDsn"), (web_task, "SentryWebDsn")):
+        environment = _section(task, "          Environment:\n", "          Secrets:\n")
+        secrets = _section(task, "          Secrets:\n", "          LogConfiguration:\n")
+        assert f"- Name: SENTRY_DSN\n              Value: !Ref {ref}" in environment
+        assert "- Name: SENTRY_ENVIRONMENT\n              Value: production" in environment
+        assert "SENTRY" not in secrets
+
+
 def test_production_guard_covers_release_critical_invariants() -> None:
     guard = GUARD.read_text()
 
