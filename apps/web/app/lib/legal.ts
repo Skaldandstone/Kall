@@ -102,13 +102,18 @@ export const LEGAL = {
   /**
    * Whether the three mailboxes above actually exist and are being read.
    *
-   * They are decided but not yet created: privacy@, support@ and security@ are
-   * to be Google Workspace groups. Publishing a contact address that bounces is
-   * worse than publishing none -- a regulator reads an undeliverable privacy
-   * mailbox as a failure to respond to a request. Flip this to `true` only once
-   * a test message to each of the three has been received.
+   * True since 2026-09-02: privacy@, support@ and security@ exist as Google
+   * Workspace groups, and a test message to each was sent and received.
+   *
+   * Publishing a contact address that bounces is worse than publishing none --
+   * a regulator reads an undeliverable privacy mailbox as a failure to respond
+   * to a request. The test that matters is one sent from *outside* the
+   * organization: a new Google group rejects external posts by default, so an
+   * internal test passes without exercising the path the public uses. If any of
+   * these addresses is ever changed or recreated, set this back to `false`
+   * until an external test message has landed again.
    */
-  mailboxesProvisioned: false,
+  mailboxesProvisioned: true,
 
   /**
    * Facts below are read out of the running system, not decided here. They are

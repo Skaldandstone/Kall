@@ -81,11 +81,13 @@ line, is delivered. The pages print the operator name on the line above the
 street address, so that is the form a person will actually write. If the agent
 needs the `c/o`, add it as the first entry in the `mailingAddress` array.
 
-## The remaining blocker
+## The mailboxes: done, and the trap that nearly broke them
 
-The three mailboxes now **exist** - `privacy@`, `support@` and `security@` were
-created as Google Workspace groups on skaldandstone.com on 2026-09-02, each with
-James as owner. What has not happened yet is proving they deliver.
+`privacy@`, `support@` and `security@` were created as Google Workspace groups on
+skaldandstone.com on 2026-09-02, each with James as owner, and a test message to
+each was sent and received. `mailboxesProvisioned` is `true` and
+`unresolvedLegalFacts()` now returns an empty array: **the legal facts are
+complete.**
 
 **The default would have broken all three.** A new Google group only accepts
 posts from inside the organization; an outsider emailing it is rejected. A
@@ -101,11 +103,15 @@ group and needed re-clicking. All three were verified afterwards from their
 detail pages, each reading "Anyone can post content". **Re-check it on any group
 added later.**
 
-`legal.ts` carries `mailboxesProvisioned: false`, and `unresolvedLegalFacts()`
-reports it, so the launch gate stays red until delivery is proven. **Flip it to
-`true` only after a test message sent from outside the organization - a personal
-account, not a Workspace one, since that is the path the default blocked - has
-actually been received at each of the three.**
+The test that mattered was sent from **outside** the organization. That
+qualifier is the whole point: an internal test would have passed without ever
+exercising the path the public uses. **If any of these addresses is ever changed
+or recreated, set `mailboxesProvisioned` back to `false` until an external test
+message has landed again.**
+
+Anything still `null` in `legal.ts`, and this flag being `false`, are what
+`unresolvedLegalFacts()` reports. A launch check should assert it returns an
+empty array; today it does.
 
 ## Why a privacy mailbox is still needed
 
