@@ -48,6 +48,15 @@ those assumptions. The existing AWS project budget is $100/month, so review
 project-wide usage and credits in AWS Settings > Billing before executing the
 production change set.
 
+Public signup is a parameter, not a code change. `EnablePublicSignup` defaults to
+`false`, which keeps `ALPHA_INVITE_ONLY=true` in all three task definitions (API,
+migration, web). Setting it to `true` only relaxes Kall's own gate; self-service
+sign-up must also be enabled in the production Clerk instance before anyone can
+actually register. The invitation allowlist secret stays wired in either way, so
+restoring invite-only is a parameter flip rather than a redeploy of configuration
+that had been deleted. The backend refuses to start in production if
+`ALPHA_INVITE_ONLY` is unset, or if it is false while the allowlist is empty.
+
 Creating a CloudFormation change set performs validation and does not provision
 resources. Executing it creates cost-bearing resources. Always inspect the
 complete change-set actions and validation events before execution. Keep public

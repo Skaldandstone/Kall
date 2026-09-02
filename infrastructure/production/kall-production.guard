@@ -3,6 +3,12 @@ rule services_and_live_billing_default_disabled {
     Parameters.EnableStripeLive.Default == 'false'
 }
 
+rule public_signup_defaults_closed {
+    Parameters.EnablePublicSignup.AllowedValues == ['true', 'false']
+    Parameters.EnablePublicSignup.Default == 'false'
+    Conditions.PublicSignupEnabled exists
+}
+
 rule application_activation_requires_database_evidence {
     Rules.ApplicationActivationRequiresDatabaseEvidence exists
     Parameters.VerifiedBootstrapRevision.AllowedValues == ['', 'kall-db-roles-v1']

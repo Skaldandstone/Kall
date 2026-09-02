@@ -98,10 +98,17 @@ tests also pass in the full suite.
 
 ## Remaining release gates
 
-The restricted live key and Kall-only portal configuration are still pending.
+The Kall-only restricted live key, portal configuration and production vault
+record are complete. The reviewed production stack update reached
+`UPDATE_COMPLETE` with `STRIPE_ENABLED=true`; both public health routes returned
+the exact Kall healthy response after the update. The follow-up ECS describe call
+was not completed because the local AWS session expired, and the authenticated
+billing page has not been rechecked since activation.
+
 No real Customer, Checkout, portal session, card, refund or hosted transaction
-was exercised. `STRIPE_ENABLED=false` remains the deployed state. Tax stays
-explicitly off and no tax registrations or readiness are claimed.
+was exercised. A controlled live payment and refund still requires immediate
+financial-action approval. Tax stays explicitly off and no tax registrations or
+readiness are claimed.
 
 The subsequent [isolated PostgreSQL validation](postgres-validation.md) passed
 90 contracts, fresh/legacy migrations and actual eight-connection races. Target

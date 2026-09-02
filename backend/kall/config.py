@@ -190,8 +190,23 @@ class Settings(BaseSettings):
                 raise ValueError("AWS_S3_BUCKET is required for durable production document storage")
             if self.aws_region != "us-east-2":
                 raise ValueError("AWS_REGION must match the selected Region us-east-2")
-            if not self.alpha_invite_only:
-                raise ValueError("Production launch remains invite-only until public sign-up is approved")
+            # Public sign-up is now a supported production state, but it has to be
+            # chosen. The field default is permissive so local development is not
+            # gated, which means an unset variable in production would silently open
+            # registration -- the one failure mode the old blanket rejection did
+            # prevent. Requiring it explicitly keeps production failing closed.
+            if "alpha_invite_only" not in self.model_fields_set:
+                raise ValueError(
+                    "ALPHA_INVITE_ONLY must be set explicitly in production; "
+                    "omitting it would open registration by default"
+                )
+            if not self.alpha_invite_only and not self.alpha_allowed_email_set:
+                # The allowlist is what makes closing registration again a config
+                # flip rather than a redeploy. Losing it strands the rollback path.
+                raise ValueError(
+                    "ALPHA_ALLOWED_EMAILS must stay populated when public sign-up is enabled, "
+                    "so invite-only can be restored without a code change"
+                )
             if self.stripe_enabled:
                 required_billing = {
                     "STRIPE_SECRET_KEY": self.stripe_secret_key,

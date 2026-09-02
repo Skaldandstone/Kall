@@ -150,9 +150,41 @@ def test_production_migration_receives_complete_fail_closed_settings() -> None:
     assert "- Name: CLERK_AUTHORIZED_PARTIES\n              Value: !Sub https://${PublicDomainName}" in migration
     assert "- Name: AWS_REGION\n              Value: us-east-2" in migration
     assert "- Name: AWS_S3_BUCKET\n              Value: !Ref DocumentBucket" in migration
-    assert "- Name: ALPHA_INVITE_ONLY\n              Value: 'true'" in migration
+    assert (
+        "- Name: ALPHA_INVITE_ONLY\n"
+        "              Value: !If [PublicSignupEnabled, 'false', 'true']"
+    ) in migration
     assert "- Name: STRIPE_ENABLED\n              Value: 'false'" in migration
     assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in migration
+
+
+def test_public_signup_is_parameterised_and_fails_closed() -> None:
+    """Opening registration must be a deliberate parameter flip, never a default.
+
+    All three task definitions have to agree: a template where the API opened up
+    but the web tier still advertised invite-only copy would be worse than either
+    state on its own.
+    """
+    template = _template()
+
+    assert "  EnablePublicSignup:\n" in template
+    signup_param = _section(
+        template, "  EnablePublicSignup:\n", "  VerifiedBootstrapRevision:\n"
+    )
+    assert "AllowedValues: ['true', 'false']" in signup_param
+    assert "Default: 'false'" in signup_param
+
+    assert "PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']" in template
+    assert (
+        template.count(
+            "- Name: ALPHA_INVITE_ONLY\n"
+            "              Value: !If [PublicSignupEnabled, 'false', 'true']"
+        )
+        == 3
+    )
+    # The allowlist secret stays wired in regardless, so invite-only can be
+    # restored without redeploying configuration that was deleted.
+    assert "ProductionAccessSecretArn" in template
 
 
 def test_production_routing_tls_identity_and_observability_contracts() -> None:
@@ -191,6 +223,7 @@ def test_production_guard_covers_release_critical_invariants() -> None:
 
     for rule in (
         "services_and_live_billing_default_disabled",
+        "public_signup_defaults_closed",
         "application_activation_requires_database_evidence",
         "stateful_resources_are_retained",
         "production_database_is_private_resilient_and_protected",
@@ -199,3 +232,8 @@ def test_production_guard_covers_release_critical_invariants() -> None:
         "alarms_publish_only_to_the_stack_topic",
     ):
         assert f"rule {rule} {{" in guard
+
+    # Rule names alone prove nothing; the fail-closed defaults are the point.
+    assert "Parameters.EnablePublicSignup.Default == 'false'" in guard
+    assert "Parameters.EnableStripeLive.Default == 'false'" in guard
+    assert "Parameters.EnableApplicationServices.Default == 'false'" in guard

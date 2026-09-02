@@ -1,19 +1,21 @@
 # Kall production readiness
 
 Updated 2 September 2026. This is the release contract for the first Kall
-production candidate. It is invitation-only. The source now supports isolated
-live Stripe and Clerk production credentials, but provider activation is still
-disabled until the acceptance gates below pass. Automatic tax, SES sending,
-continuous monitoring, public signup, and application auto-submission remain
-disabled.
+production candidate. It is still invitation-only. Live Stripe billing and
+production Clerk authentication are configured, while automatic tax, SES
+sending, continuous monitoring, public signup, and application auto-submission
+remain disabled.
 
 ## Current state
 
 The production stack is standing in AWS project `734702670689`, selected Region
 `us-east-2`, at `https://kall.skaldandstone.com`. The API and web services are
 healthy, the database is PostgreSQL 16.15, and CloudFront-to-ALB plus
-web-to-API TLS paths passed the hosted smoke checks. Live Stripe, automatic tax,
-SES sending, continuous monitoring and public signup remain disabled.
+web-to-API TLS paths passed the hosted smoke checks. Live Stripe billing is
+enabled with a Kall-only catalog, restricted key, portal configuration and
+webhook destination. Automatic tax, SES sending, continuous monitoring and
+public signup remain disabled. No controlled live charge or refund has been
+performed.
 
 The exact `83309deeec03a8b22ea2c34a1089e6c9d3823911` release commit passed all
 five CI jobs. Its rebuilt web image
