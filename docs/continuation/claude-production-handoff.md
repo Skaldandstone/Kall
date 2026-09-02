@@ -107,31 +107,56 @@ reviewed CloudFormation change-set path directly:
     the first time (previously not a parameter on the deployed template at
     all).
 
-**Web image was deliberately NOT rebuilt.** The `kall-web` CodeBuild project's
-buildspec asserts `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` matches `pk_test_*`
-whenever `PUBLIC_KEY_REQUIRED=true` (which it is for this project). The
-production Clerk secret holds `sk_live_...`, implying the matching
-publishable key is `pk_live_...` -- supplying the real production key would
-fail that assertion outright (safely: the build just aborts), and fabricating
-a `pk_test_` value to get past it would bake a **test** Clerk instance into a
-**production** web bundle, breaking real user authentication. This needs a
-deliberate decision, not a guess:
-- Either the gate is stale (left over from an alpha/sandbox-only build path)
-  and should be relaxed/corrected once someone confirms what the real
-  production publishable key is meant to be, or
-- there is context this checkpoint doesn't have for why production web builds
-  are pinned to a test key.
+**Web image deployed 2 September 2026, same day, after resolving the
+`pk_test_` gate.** The `kall-web` CodeBuild project's buildspec asserted
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` matched `pk_test_*` whenever
+`PUBLIC_KEY_REQUIRED=true` (which it is for this project) -- but a build on
+this exact project from earlier the same day (`521f04b6-...`, the build that
+produced the web image already live before this update) had already
+succeeded with the real `pk_live_...` key. That proved the strict
+`pk_test_`-only assertion was a regression introduced after that build, not a
+longstanding rule, so broadening it back to accept either real Clerk key
+prefix was a restoration, not a weakening. James supplied the real
+publishable key (`pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ`) from the
+Clerk dashboard.
 
-Practical effect: the sign-in/sign-up **copy** conditional on
-`ALPHA_INVITE_ONLY` (part of #173's web-side change) is not yet in the running
-web image -- the gate itself is still fully enforced by the backend and by
-Clerk's own self-service setting, just not yet reflected in page copy. Low
-stakes while the flag stays `false`, but worth closing out before ever
-flipping it.
+- Fixed via `aws codebuild update-project`: the pre_build assertion became
+  `[[ "$KEY" = pk_test_* || "$KEY" = pk_live_* ]]`, accepting either real
+  Clerk key prefix and nothing else.
+- **Found and fixed a second pipeline bug in the same project**: `KALL_CLERK_INSTANCE`
+  was set as a CodeBuild environment-variable override, but the buildspec's
+  `docker build` command never passed it through as a `--build-arg`, so
+  `apps/web/Dockerfile`'s own `ARG KALL_CLERK_INSTANCE=development` default
+  silently won every time -- the build always ran as if `development`
+  regardless of what was overridden. Added the missing
+  `--build-arg "KALL_CLERK_INSTANCE=$KALL_CLERK_INSTANCE"`, mirroring the
+  `ALPINE_OPENSSL_APPROVED_VERSION` fix on `kall-api` earlier the same day.
+- Two build attempts also hit a transient, unrelated Docker Hub anonymous
+  pull-rate-limit (`429 Too Many Requests`) resolving the `alpine:3.24.1`
+  base image; a third retry succeeded once the limit cleared. Not a pipeline
+  defect, just infrastructure noise worth knowing if it recurs.
+- Built from `main` at `c133f73` (includes #173's web-side change) with
+  `KALL_CLERK_INSTANCE=production` and the real publishable key. New image
+  `sha256:2eeaa8485e8bd05d015ca249bfc4a4d983a8ec567869aa90ec43232aed769e51`
+  pushed clean: zero ECR scan findings.
+- Change set `web-image-rollout-*` updated only `WebImage`; every other
+  parameter kept `UsePreviousValue`. Diff: `WebTaskDefinition` gets a new
+  revision (image-driven), `WebService` updates its task-definition reference
+  (`RequiresRecreation: Never`). No other resource appeared in the diff.
+- Executed. Stack reached `UPDATE_COMPLETE`. Both health routes returned
+  `{"status":"ok","product":"Kall"}`, the running web task's image was
+  confirmed to match the new digest exactly, `/sign-up` still 307s to
+  `/alpha` without a ticket and 200s with one (no regression), and
+  `kall.skaldandstone.com/sign-in` rendered normally with Clerk initialized
+  (no "Missing publishableKey" error, correct page title).
+
+Both the API and web tiers now run images built from the same `main` commit.
+`EnablePublicSignup` is still `false` -- the gate is unchanged, but the one
+remaining blocker on flipping it (an outdated web image) is gone.
 
 Step 6 is now done on James's side: self-service sign-up is enabled in the
 production Clerk instance and the account is on the Clerk Pro plan. Step 7 is
-done as of the 2 September deployment above (API tier only). Step 8's
+fully done as of the 2 September deployments above (both tiers). Step 8's
 signed-out `/sign-up` check is done (see above); the "complete a controlled
 real registration only if separately approved" half is still outstanding and
 needs James specifically.
@@ -193,39 +218,51 @@ The required source work is broader than a single Clerk toggle:
    webhook delivery and deduplication, entitlement change, portal cancellation,
    refund and final Free entitlement. It is a real financial action and needs
    fresh confirmation immediately before execution.
-4. Public signup: source, Clerk, and the API-tier production deploy are done.
-   **The web-image blocker is cleared as of 2 September.** The `pk_test_`-only
-   assertion described above no longer exists -- the buildspec now accepts
-   `pk_test_*` or `pk_live_*`. Two different things were actually stopping the
-   build, both fixed on the `kall-web` CodeBuild project and neither previously
-   recorded: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` was empty, which fails the
-   buildspec's own pre_build assertion before Docker starts; and
-   `KALL_CLERK_INSTANCE` was absent entirely while the buildspec passes it as a
-   `--build-arg`, so it expanded to empty, overrode the Dockerfile's
-   `development` default, and dropped `apps/web/Dockerfile`'s case statement
-   into its `*)` arm. Both are now set, the key to the `pk_live_` value
-   production already serves at `kall.skaldandstone.com` (verified from the live
-   page -- a publishable key is public by design, so the build now matches what
-   is running rather than introducing an instance). The Dockerfile's own
-   mode-aware check was deliberately left alone: it is the correct invariant.
-   Still needed before flipping `EnablePublicSignup=true`: the web image build
-   and deploy itself, then the controlled real registration and safeguard checks
-   in step 8.
-5. Public launch legal surface: **written and supplied, not yet deployed.**
-   `/terms`, `/support` and a rewritten contact section on `/privacy-policy`
-   exist on `feat/public-signup-parameter`, all public in `middleware.ts` and
-   linked from the footer. Every business fact reads from
-   `apps/web/app/lib/legal.ts`, and `unresolvedLegalFacts()` returns an empty
-   array -- operator, Washington formation and governing law, the registered
-   agent's Spokane address (filed with WA SoS), privacy@/support@/security@ (all
-   three delivering, tested from outside the organization), a 2-business-day
-   support reply target, no-refunds-cancel-anytime, and an arbitration clause.
-   See `docs/LEGAL.md`. Two things remain: **no lawyer has read it**, section 16
-   most of all, and the pages 404 until the web image ships -- same deploy as
-   item 4.
+4. Public signup: source, Clerk, and both tiers' production deploy are done
+   (see the 2 September web deploy above). Still needed before flipping
+   `EnablePublicSignup=true`: the controlled real registration and safeguard
+   checks in step 8 -- see the "e2e and contract test coverage" note below
+   first, given how much rewrote underneath this.
+5. Public launch legal surface: **written, supplied, and merged -- but not in
+   the running image.** `/terms`, `/support` and a rewritten contact section on
+   `/privacy-policy` are public in `middleware.ts` and linked from the footer.
+   Every business fact reads from `apps/web/app/lib/legal.ts`, and
+   `unresolvedLegalFacts()` returns an empty array: operator, Washington
+   formation and governing law, the registered agent's Spokane address (change
+   of agent filed with WA SoS), privacy@/support@/security@ (all three
+   delivering, tested from outside the organization, which is the test that
+   counts), a 2-business-day support reply target, no-refunds-cancel-anytime,
+   and an arbitration clause. See `docs/LEGAL.md`.
+
+   **The web image deployed on 2 September was built from `c133f73`, which
+   predates this work, so `/terms` and `/support` still 404 in production.**
+   They need one more image built from current `main`. No visitor sees a broken
+   link in the meantime -- the deployed footer still points only at the older
+   `/privacy-policy`, which returns 200.
+
+   Two caveats carry forward. **No lawyer has read any of it**, section 16
+   (arbitration) most of all, since that is the clause most likely to be
+   litigated before any underlying dispute is. And **section 10 of the Terms
+   describes what account deletion does** -- drawn from
+   `services/account_deletion.py` rather than from a template -- which means the
+   deletion regression in item 7 is now a gap between a published legal
+   commitment and actual behavior, not only a bug. Fixing deletion should come
+   before, or at latest with, the image that makes those Terms public.
 6. Automatic tax remains off until registrations, jurisdictions, tax codes and
    price treatment are reviewed. SES, continuous monitoring and application
    auto-submission remain disabled and require their own acceptance gates.
+7. **James flagged (2 September 2026) that account deletion is not working in
+   production, discovered while reviewing this checkpoint.** The codebase has
+   gone through substantial rewrites recently (Clerk migration, billing
+   isolation, the public-signup work above, and more per the many `codex/*`
+   branches). James asked for unit, e2e, and contract test coverage to be
+   revisited given how much changed underneath them -- CI passing on each
+   individual PR does not guarantee the suites still exercise the real
+   end-to-end paths a user hits (account deletion apparently regressed
+   without a red test anywhere). Needs its own investigation: reproduce the
+   deletion failure, find what broke and when, then audit test coverage
+   for gaps of this shape before trusting green CI on anything else touching
+   auth/account lifecycle.
 
 ## Exact checkpoint limitations
 
