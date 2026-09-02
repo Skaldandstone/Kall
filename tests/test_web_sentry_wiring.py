@@ -48,6 +48,7 @@ def test_browser_sdk_is_privacy_narrowed() -> None:
 
 
 def test_csp_allows_only_the_studio_ingest_host() -> None:
+    assert f'const SENTRY_INGEST = "{INGEST_HOST}";' in NEXT_CONFIG
     connect_src = [line for line in NEXT_CONFIG.splitlines() if "connect-src" in line][0]
-    assert INGEST_HOST in connect_src
+    assert "${SENTRY_INGEST}" in connect_src
     assert "*.sentry.io" not in connect_src
