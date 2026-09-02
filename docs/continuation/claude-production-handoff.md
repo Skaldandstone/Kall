@@ -57,10 +57,26 @@ checkpoint paused before changing source, Clerk or production runtime settings.
 `feat/public-signup-parameter`; step 4's "rendered template evidence" turned out
 not to exist for the production stack, and the Guard policy did not pin
 `ALPHA_INVITE_ONLY` (a `public_signup_defaults_closed` rule was added instead).
-Nothing is deployed: `EnablePublicSignup` defaults to `false`. Step 6, the Clerk
-instance change, and step 8, post-deployment verification, remain outstanding and
-are James's manual steps. The mobile registration hold is independent of
-`ALPHA_INVITE_ONLY` and was deliberately left in place.
+Nothing is deployed: `EnablePublicSignup` defaults to `false`. The mobile
+registration hold is independent of `ALPHA_INVITE_ONLY` and was deliberately left
+in place.
+
+Step 6 is now done on James's side: self-service sign-up is enabled in the
+production Clerk instance and the account is on the Clerk Pro plan. Step 8,
+post-deployment verification, remains outstanding.
+
+Kall's app-side gate is therefore now the only thing keeping registration closed,
+and it is holding. Verified after the Clerk change:
+`https://kall.skaldandstone.com/sign-up` returns 307 to `/alpha`, and returns 200
+only with a `__clerk_ticket`. The deployed `ALPHA_INVITE_ONLY` is still `'true'`,
+so both the middleware redirect and the `_assert_alpha_access` 403 are intact.
+There is no half-open state.
+
+One temporary consequence: because Clerk now permits self-service sign-up, a
+person can create a Clerk account through Clerk's own hosted pages and then be
+dead-ended by Kall's gate until this work deploys. That is a UX dead end rather
+than an exposure - the account gets no Kall access - but it argues for deploying
+the application side reasonably promptly.
 
 The required source work is broader than a single Clerk toggle:
 
