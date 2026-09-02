@@ -20,8 +20,10 @@ export default function SiteFooter() {
         }}
       >
         <span>© 2026 Skald and Stone LLC</span>
-        <nav aria-label="Legal">
+        <nav aria-label="Legal" style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+          <a href="/terms">Terms of Service</a>
           <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/support">Support</a>
         </nav>
       </div>
     </footer>
