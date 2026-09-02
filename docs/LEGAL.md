@@ -38,7 +38,7 @@ account is broken, both have to be able to read them.
 | Operator | Skald and Stone LLC |
 | Formation state | Washington |
 | Governing law and venue | Washington |
-| Mailing address | **pending** - PO box or registered-agent address, see below |
+| Mailing address | Registered Agents Inc, 100 N Howard St Ste R, Spokane, WA 99201 |
 | Privacy contact | privacy@skaldandstone.com |
 | Support contact | support@skaldandstone.com |
 | Security contact | security@skaldandstone.com |
@@ -55,26 +55,30 @@ into `/terms` section 2 directly rather than into `legal.ts`. The Privacy Policy
 separately says Kall is not directed to children under 13, which is the standard
 COPPA line and does not conflict.
 
-## The mailing address is deliberately still null
+## The mailing address is a registered agent, on purpose
 
-The address on `/terms` and `/privacy-policy` is permanently public and indexed,
-and a legal page is the one place it cannot be quietly taken back down. So the
-residential address is not going on it. Two options, and they are not equivalent:
+`/terms` and `/privacy-policy` publish
+`100 N Howard St Ste R, Spokane, WA 99201` - the Washington address of
+Registered Agents Inc, the commercial registered agent for Skald and Stone LLC.
 
-- **A commercial registered agent** gives Skald and Stone LLC a Washington street
-  address that can serve as both the Secretary of State registered-agent address
-  and the address published here. Usually the better answer, because Washington
-  requires the registered agent to have a physical in-state street address, and a
-  PO box cannot satisfy that. One address, one annual fee, both jobs done.
-- **A PO box** is fine for the published notice address alone, but it cannot be
-  the registered-agent address, so the residential address stays on the public
-  Secretary of State record either way.
+It is not a residential address, and it must never become one. What goes on a
+legal page is permanently public and indexed, and cannot be quietly taken back
+down. A commercial agent was chosen over a PO box because Washington requires
+the registered agent to have a physical in-state street address and bars PO
+boxes and private mailboxes from that role (RCW 23.95.400-.460) - so a PO box
+would have covered the website while leaving a home address on the public
+Secretary of State record, which is the more exposed of the two.
 
-Whichever is chosen, put it in `mailingAddress` as one array entry per line.
-Until then the field stays `null` and both pages render the gap marker.
-**Do not fill it with a home address as a placeholder.**
+If this ever needs replacing, replace it with another business address. **Never
+with a home address, not even as a placeholder.**
 
-## The other blocker
+One thing to confirm with the agent, not from here: whether mail addressed to
+`Skald and Stone LLC` at that suite, with no `c/o Registered Agents Inc` line,
+is delivered. The pages print the operator name on the line above the street
+address, so that is the form a person will actually write. If the agent needs
+the `c/o`, add it as the first entry in the `mailingAddress` array.
+
+## The remaining blocker
 
 **The three mailboxes do not exist yet.** `privacy@`, `support@` and `security@`
 are to be Google Workspace groups on skaldandstone.com. Until they are created
