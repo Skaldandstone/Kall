@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import CareerProfile, DiscoverySchedule, Job, User
 from kall.services import work_claims
 from kall.services.discovery import run_discovery
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def run_due_schedules(session: Session, *, now: datetime | None = None) -> dict[str, int]:
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     due = [row for row in session.exec(select(DiscoverySchedule).where(DiscoverySchedule.enabled))
            if due_schedule(row, now)]
     ran = errors = 0

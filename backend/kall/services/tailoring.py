@@ -1,6 +1,6 @@
 import re
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import (
     Achievement,
     Job,
@@ -122,7 +122,7 @@ def review_change(session: Session, change: TailoringChange, status: str, edited
         raise ValueError("Dates, percentages, compensation, and metrics from the source must be preserved")
     change.status = status
     change.edited_text = edited_text if status == "edited" else None
-    change.reviewed_at = datetime.utcnow()
+    change.reviewed_at = utcnow()
     session.add(change)
     session.add(TailoringAudit(proposal_id=change.proposal_id, event="change_reviewed", details={"change_id": change.id, "status": status}))
     session.commit()
@@ -135,7 +135,7 @@ def finalize_proposal(session: Session, proposal: TailoringProposal) -> Tailorin
     if not changes or any(change.status == "pending" for change in changes):
         raise ValueError("Every tailoring change must be reviewed before finalization")
     proposal.status = "finalized"
-    proposal.finalized_at = datetime.utcnow()
+    proposal.finalized_at = utcnow()
     session.add(proposal)
     session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_finalized"))
     session.commit()

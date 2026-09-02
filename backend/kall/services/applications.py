@@ -1,5 +1,5 @@
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import Application, CareerProfile, Job, ResumeDocument, User
 from kall.models.enums import ApplicationStatus
 from kall.services.autofill import autofill_payload_sections
@@ -106,7 +106,7 @@ def approve_application(
     if application.unanswered_questions and not confirmed_answers:
         raise ValueError("Application-specific answers require explicit confirmation")
     application.status = ApplicationStatus.APPROVED
-    application.user_approved_at = datetime.utcnow()
+    application.user_approved_at = utcnow()
     session.add(application)
     session.commit()
     session.refresh(application)

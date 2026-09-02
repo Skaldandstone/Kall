@@ -34,7 +34,7 @@ def local_hour(timezone_name: str, now: datetime) -> int:
     """The hour, 0-23, it currently is in `timezone_name`.
 
     `now` is treated as UTC if it carries no timezone of its own -- every
-    caller in this codebase passes a naive `datetime.utcnow()`-shaped value.
+    caller in this codebase passes a naive `utcnow()`-shaped value.
     """
     return _as_local(timezone_name, now).hour
 

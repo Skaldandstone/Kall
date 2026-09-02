@@ -2,6 +2,7 @@ from datetime import datetime, time
 
 from sqlmodel import JSON, Column, Field
 
+from kall.clock import utcnow
 from kall.models.core import TimestampMixin
 
 
@@ -34,8 +35,8 @@ class Opportunity(TimestampMixin, table=True):
     notes: str | None = None
     source_records: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
     material_fingerprint: str
-    first_seen_at: datetime = Field(default_factory=datetime.utcnow)
-    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    first_seen_at: datetime = Field(default_factory=utcnow)
+    last_seen_at: datetime = Field(default_factory=utcnow)
     dismissed_fingerprint: str | None = None
 
 
@@ -59,7 +60,7 @@ class DeviceRegistration(TimestampMixin, table=True):
     token_hash: str = Field(index=True, unique=True)
     encrypted_token: str
     enabled: bool = True
-    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    last_seen_at: datetime = Field(default_factory=utcnow)
 
 
 class NotificationDelivery(TimestampMixin, table=True):
@@ -87,4 +88,4 @@ class GrowthMarketSignal(TimestampMixin, table=True):
     recurring_skills: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
     recurring_requirements: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
     portfolio_signals: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=utcnow)

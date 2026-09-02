@@ -7,7 +7,6 @@ application, so every protected endpoint migrates by virtue of this one
 function, with no per-endpoint change.
 """
 
-from datetime import datetime
 
 from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import TokenVerificationError, VerifyTokenOptions
@@ -19,10 +18,6 @@ from sqlmodel import Session, select
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import AccountDeletionRecord, CandidateProfile, User
-
-
-def utcnow() -> datetime:
-    return datetime.utcnow()
 
 
 def bearer_token(authorization: str | None) -> str:

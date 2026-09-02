@@ -22,6 +22,7 @@ exclude an already-lapsed/inactive row.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import Reference
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -35,7 +36,7 @@ def eligible_references(session: Session, *, now: datetime | None = None) -> lis
     This performs no writes. Both the queue producer and the CLI dry run use
     this eligibility check, so a dry run never calls the committing outbox.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     with session.no_autoflush:
         references = session.exec(
             select(Reference).where(

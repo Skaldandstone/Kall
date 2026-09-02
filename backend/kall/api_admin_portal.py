@@ -25,12 +25,12 @@ Worker forwards, as `actor_email` on an actor-less AdminAction row.
 """
 
 import hmac
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models.core import AdminAction, Application, Job, JobMatch, User
@@ -55,7 +55,7 @@ def _log(session: Session, staff_actor: str | None, *, action: str, target_user_
             action=action,
             target_user_id=target_user_id,
             detail=detail,
-            occurred_at=datetime.utcnow(),
+            occurred_at=utcnow(),
         )
     )
     session.commit()

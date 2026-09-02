@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlmodel import Field
 
+from kall.clock import utcnow
 from kall.models.core import TimestampMixin
 
 
@@ -45,4 +46,4 @@ class ApplicationTestimonial(TimestampMixin, table=True):
     application_id: int = Field(index=True, foreign_key="application.id")
     testimonial_id: int = Field(index=True, foreign_key="testimonial.id")
     user_id: int = Field(index=True, foreign_key="user.id")
-    included_at: datetime = Field(default_factory=datetime.utcnow)
+    included_at: datetime = Field(default_factory=utcnow)

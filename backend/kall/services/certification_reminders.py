@@ -9,6 +9,7 @@ notification_delivery.py drains.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import Certification
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -23,7 +24,7 @@ def queue_certification_reminders(session: Session, *, now: datetime | None = No
     a fresh reminder for the next cycle, rather than being permanently
     silenced by the first one ever sent.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     certifications = session.exec(
         select(Certification).where(
             Certification.renewal_required.is_(True),

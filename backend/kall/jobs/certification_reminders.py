@@ -18,10 +18,10 @@ kall-api image.
 
 import argparse
 import logging
-from datetime import datetime
 
 from sqlmodel import Session
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.services.certification_reminders import queue_certification_reminders
 
@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            count = queue_certification_reminders(session, now=datetime.utcnow())
+            count = queue_certification_reminders(session, now=utcnow())
             session.rollback()
             logger.info("Would queue %d reminder(s).", count)
             return 0

@@ -24,7 +24,7 @@ class JobBoardProvider(Protocol):
 def parse_iso_datetime(value: str | None) -> datetime | None:
     """Parse an ATS-supplied ISO 8601 timestamp (Greenhouse's `updated_at`,
     Ashby's `publishedAt`) into a naive UTC datetime, matching the rest of
-    this codebase's convention of naive `datetime.utcnow()` values.
+    this codebase's convention of naive `utcnow()` values.
 
     Returns None on anything malformed rather than raising -- one job with
     an unparsable date should not fail the whole board's import.

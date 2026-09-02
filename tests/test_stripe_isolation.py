@@ -2,12 +2,13 @@
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import stripe
 from billing_fakes import SCOPE, FakeStripe, delivery
 from fastapi import HTTPException
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.models import BillingEvent, Subscription, User
 from kall.models.monitoring import MonitoringLease
@@ -193,7 +194,7 @@ def test_expired_lease_cannot_commit_entitlements(engine, client):
             user.plan = "premium"
             session.add(user)
             lease = session.exec(select(MonitoringLease)).one()
-            lease.expires_at = datetime.utcnow() - timedelta(seconds=1)
+            lease.expires_at = utcnow() - timedelta(seconds=1)
             session.add(lease)
         session.expire_all()
         assert session.get(User, client.user_id).plan == "free"

@@ -3,12 +3,13 @@ from typing import Any
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from kall.clock import utcnow
 from kall.models.enums import ApplicationStatus, PrivacyScope, SubscriptionPlan, WorkType
 
 
 class TimestampMixin(SQLModel):
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class User(TimestampMixin, table=True):
@@ -217,7 +218,7 @@ class AdminAction(TimestampMixin, table=True):
     #: itself erased by the person it concerns leaving.
     target_user_id: int | None = Field(default=None, index=True, foreign_key="user.id")
     detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    occurred_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    occurred_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 class AccountDeletionRecord(TimestampMixin, table=True):
@@ -243,4 +244,4 @@ class AccountDeletionRecord(TimestampMixin, table=True):
     clerk_user_id: str = Field(index=True)
     #: "self_service" or "admin"; who requested the deletion.
     reason: str
-    deleted_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    deleted_at: datetime = Field(default_factory=utcnow, index=True)

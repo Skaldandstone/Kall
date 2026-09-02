@@ -1,7 +1,8 @@
 """Shared, network-free ingestion and matching for discovery and cached feeds."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from kall.clock import utcnow
 from kall.models import CareerProfile, Job, JobMatch, Opportunity, User
 from kall.providers.jobs import DiscoveredJob
 from kall.services.matching import deterministic_match, is_out_of_scope
@@ -38,7 +39,7 @@ def refresh_discovered_job_match(
     match.strengths = strengths
     match.gaps = gaps
     match.recommendation = "pass" if reason else "apply" if score >= 75 else "review" if score >= 55 else "pass"
-    match.updated_at = datetime.utcnow()
+    match.updated_at = utcnow()
     session.add(match)
     for opportunity in session.exec(select(Opportunity).where(
         Opportunity.user_id == user.id,
@@ -68,7 +69,7 @@ def ingest_discovered_jobs(
         raise ValueError("The profile must belong to the current user")
     result = {"jobs_collected": len(jobs), "jobs_created": 0, "matches_created": 0,
               "jobs_skipped": 0, "opportunity_ids": []}
-    cutoff = datetime.utcnow() - timedelta(days=max_posting_age_days) if max_posting_age_days else None
+    cutoff = utcnow() - timedelta(days=max_posting_age_days) if max_posting_age_days else None
     blocked = suppressed_urls(session, user.id, reasons=DISCOVERY_BLOCKING_REASONS)
     # A profile edit must also refresh previously stored matches when a board
     # is empty, unavailable, or no longer returns a particular posting.
@@ -97,7 +98,7 @@ def ingest_discovered_jobs(
                     setattr(job, key, value)
                     changed = True
             if changed:
-                job.updated_at = datetime.utcnow()
+                job.updated_at = utcnow()
                 session.add(job)
                 session.flush()
         existed = session.exec(select(JobMatch.id).where(

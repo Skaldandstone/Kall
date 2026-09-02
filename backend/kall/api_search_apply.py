@@ -1,4 +1,3 @@
-from datetime import datetime
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +5,7 @@ from pydantic import BaseModel, HttpUrl
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import (
     Application,
@@ -157,7 +157,7 @@ def track_external_application(
         if newly_submitted:
             quota.check(session, current_user, "applications")
         existing.status = ApplicationStatus.SUBMITTED
-        existing.submitted_at = existing.submitted_at or datetime.utcnow()
+        existing.submitted_at = existing.submitted_at or utcnow()
         existing.prepared_payload = {**existing.prepared_payload, "tracked_externally": True}
         session.add(existing)
         session.commit()
@@ -171,7 +171,7 @@ def track_external_application(
         job_id=job.id,
         career_profile_id=profile.id,
         status=ApplicationStatus.SUBMITTED,
-        submitted_at=datetime.utcnow(),
+        submitted_at=utcnow(),
         prepared_payload={"tracked_externally": True, "source": payload.source},
     )
     quota.check(session, current_user, "applications")
@@ -246,7 +246,7 @@ def suppress_result(
         # turn out to be dead, and that is the reason worth keeping.
         row.reason = payload.reason
         row.title = payload.title or row.title
-        row.suppressed_at = datetime.utcnow()
+        row.suppressed_at = utcnow()
     else:
         row = SuppressedResult(
             user_id=current_user.id, url=url, reason=payload.reason, title=payload.title

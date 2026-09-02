@@ -5,6 +5,7 @@ for Certification.expires_on and WorkAuthorization.authorized_until.
 
 from datetime import date, datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import NotificationDelivery, SecurityClearance
 from kall.services.security_clearance_reminders import queue_security_clearance_reminders
 from sqlmodel import Session, select
@@ -57,7 +58,7 @@ def test_a_clearance_with_no_expiry_is_never_reminded(client, engine) -> None:
         session.add(_clearance(user_id=user_id, expires_on=None))
         session.commit()
 
-        assert queue_security_clearance_reminders(session, now=datetime.utcnow()) == 0
+        assert queue_security_clearance_reminders(session, now=utcnow()) == 0
 
 
 def test_renewing_a_clearance_opens_up_a_fresh_reminder_for_the_next_cycle(client, engine) -> None:

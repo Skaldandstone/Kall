@@ -3,6 +3,7 @@ from typing import Any
 
 from sqlmodel import JSON, Column, Field
 
+from kall.clock import utcnow
 from kall.models.core import TimestampMixin
 
 
@@ -53,7 +54,7 @@ class SubmissionReceipt(TimestampMixin, table=True):
     confirmation_number: str | None = None
     submitted_payload_checksum: str
     receipt_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=utcnow)
 
 
 class SubmissionAudit(TimestampMixin, table=True):

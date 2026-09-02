@@ -1,5 +1,5 @@
-from datetime import datetime
 
+from kall.clock import utcnow
 from kall.models import (
     Application,
     ApplicationAnswer,
@@ -71,7 +71,7 @@ def calculate_readiness(session: Session, application: Application, review: Appl
         issues.append("Confirm application attestations")
     review.readiness_issues = issues
     review.status = "ready" if not issues else "review_required"
-    review.ready_at = datetime.utcnow() if not issues else None
+    review.ready_at = utcnow() if not issues else None
     session.add(review)
     session.commit()
     session.refresh(review)
@@ -82,7 +82,7 @@ def approve_review(session: Session, application: Application, review: Applicati
     if calculate_readiness(session, application, review):
         raise ValueError("Application review is incomplete")
     review.status = "approved"
-    review.approved_at = datetime.utcnow()
+    review.approved_at = utcnow()
     application.user_approved_at = review.approved_at
     # The pipeline's stage is derived from Application.status (see api_applications._stage),
     # so approval must advance it here -- otherwise an approved application stays stuck

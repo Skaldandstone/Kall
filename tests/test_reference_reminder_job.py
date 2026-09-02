@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime
-from types import SimpleNamespace
 
 from kall.jobs import reference_reminders as job
 from kall.models import NotificationDelivery, Reference, User
@@ -47,7 +46,7 @@ def test_dry_run_reports_eligibility_and_persists_no_database_changes(tmp_path, 
 
     before = _snapshot(engine)
     monkeypatch.setattr(job, "engine", engine)
-    monkeypatch.setattr(job, "datetime", SimpleNamespace(utcnow=lambda: now))
+    monkeypatch.setattr(job, "utcnow", lambda: now)
     with caplog.at_level(logging.INFO, logger=job.__name__):
         assert job.main(["--dry-run"]) == 0
     assert "Would queue 1 reminder(s)." in caplog.text

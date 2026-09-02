@@ -7,6 +7,7 @@ today's date to see if a reference had gone stale.
 from datetime import date, datetime, timedelta
 
 import pytest
+from kall.clock import utcnow
 from kall.models import NotificationDelivery, Reference
 from kall.services.notification_delivery import _reference_reminder_email
 from kall.services.reference_reminders import queue_reference_reminders
@@ -92,7 +93,7 @@ def test_a_never_confirmed_reference_falls_back_to_its_created_date(client, engi
         session.add(reference)
         session.commit()
         session.refresh(reference)
-        reference.created_at = datetime.utcnow() - timedelta(days=400)
+        reference.created_at = utcnow() - timedelta(days=400)
         session.add(reference)
         session.commit()
 

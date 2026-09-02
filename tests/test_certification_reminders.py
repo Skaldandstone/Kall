@@ -6,6 +6,7 @@ missing piece.
 
 from datetime import date, datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import Certification, NotificationDelivery
 from kall.services.certification_reminders import queue_certification_reminders
 from sqlmodel import Session, select
@@ -65,7 +66,7 @@ def test_a_certification_with_no_expiry_is_never_reminded(client, engine) -> Non
         session.add(_cert(user_id=user_id, expires_on=None))
         session.commit()
 
-        assert queue_certification_reminders(session, now=datetime.utcnow()) == 0
+        assert queue_certification_reminders(session, now=utcnow()) == 0
 
 
 def test_renewing_a_certification_opens_up_a_fresh_reminder_for_the_next_cycle(client, engine) -> None:

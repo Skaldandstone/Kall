@@ -6,12 +6,13 @@ import hmac
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import timedelta
 from threading import Barrier
 
 from billing_fakes import SECRET
 from fastapi import HTTPException
 from kall.api_billing import webhook
+from kall.clock import utcnow
 from kall.models import BillingEvent, User
 from kall.services import work_claims
 from sqlmodel import Session, select
@@ -19,7 +20,7 @@ from starlette.requests import Request
 
 
 def test_eight_connections_claim_once_and_old_owner_cannot_release(engine):
-    now = datetime.utcnow()
+    now = utcnow()
     barrier = Barrier(8)
 
     def claim(_):

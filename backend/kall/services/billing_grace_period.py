@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
 from kall.services.billing import PAYMENT_GRACE_PERIOD_HOURS
@@ -46,7 +47,7 @@ def overdue_subscriptions(session: Session, now: datetime) -> list[Subscription]
 
 
 def downgrade_overdue_subscriptions(session: Session, *, now: datetime | None = None) -> GracePeriodReport:
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     downgraded: list[int] = []
     for subscription in overdue_subscriptions(session, now):
         # Recheck after acquiring the row's write lock. A recovered invoice may

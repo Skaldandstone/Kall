@@ -16,10 +16,10 @@ schedules this yet either -- see docs/NEEDS_DECISION.md.
 import argparse
 import asyncio
 import logging
-from datetime import datetime
 
 from sqlmodel import Session, select
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.models import DiscoverySchedule
 from kall.services.opportunities import due_schedule
@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            now = datetime.utcnow()
+            now = utcnow()
             due = [
                 schedule.id
                 for schedule in session.exec(select(DiscoverySchedule).where(DiscoverySchedule.enabled))

@@ -22,6 +22,7 @@ import logging
 
 from sqlmodel import Session
 
+from kall.clock import utcnow
 from kall.db import engine
 from kall.services.billing_grace_period import (
     downgrade_overdue_subscriptions,
@@ -39,9 +40,8 @@ def main(argv: list[str] | None = None) -> int:
 
     with Session(engine) as session:
         if args.dry_run:
-            from datetime import datetime
 
-            overdue = overdue_subscriptions(session, datetime.utcnow())
+            overdue = overdue_subscriptions(session, utcnow())
             logger.info("Would downgrade %d account(s): user_id %s", len(overdue), [s.user_id for s in overdue])
             return 0
 

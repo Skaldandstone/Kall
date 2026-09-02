@@ -16,6 +16,7 @@ because that now exists.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import GrowthMilestone
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -35,7 +36,7 @@ def queue_growth_milestone_reminders(session: Session, *, now: datetime | None =
     editing one directly naturally opens a fresh reminder rather than being
     permanently silenced by the first one ever sent for that id.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     milestones = session.exec(
         select(GrowthMilestone).where(
             GrowthMilestone.status != "completed",

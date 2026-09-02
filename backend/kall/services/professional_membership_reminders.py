@@ -13,6 +13,7 @@ GrowthMilestone, WorkAuthorization, and SecurityClearance.
 
 from datetime import datetime, timedelta
 
+from kall.clock import utcnow
 from kall.models import ProfessionalMembership
 from kall.services.notification_delivery import queue
 from sqlmodel import Session, select
@@ -30,7 +31,7 @@ def queue_professional_membership_reminders(session: Session, *, now: datetime |
     expires_on, not just its id -- so a renewal (which moves the date
     forward) naturally opens a fresh reminder for the next cycle.
     """
-    today = (now or datetime.utcnow()).date()
+    today = (now or utcnow()).date()
     memberships = session.exec(
         select(ProfessionalMembership).where(
             ProfessionalMembership.status == "active",

@@ -1,5 +1,4 @@
 import contextlib
-from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +6,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
@@ -250,7 +250,7 @@ def delete_resume(resume_id: int, current_user: User = Depends(get_current_user)
     profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.default_resume_id == resume.id)))
     for profile in profiles:
         profile.default_resume_id = None
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = utcnow()
         session.add(profile)
     matches = list(session.exec(select(JobMatch).where(JobMatch.user_id == current_user.id, JobMatch.selected_resume_id == resume.id)))
     for match in matches:

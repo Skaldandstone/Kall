@@ -5,9 +5,9 @@ import hmac
 import json
 import time
 from copy import deepcopy
-from datetime import datetime
 from types import SimpleNamespace
 
+from kall.clock import utcnow
 from kall.models import Subscription
 from sqlmodel import Session
 
@@ -96,7 +96,7 @@ class FakeStripe:
         with Session(engine) as session:
             session.add(Subscription(user_id=user_id, provider_customer_id=customer_id,
                                      billing_scope=SCOPE, provider_livemode=self.livemode,
-                                     billing_binding_key=f"binding_{suffix}", billing_binding_created_at=datetime.utcnow()))
+                                     billing_binding_key=f"binding_{suffix}", billing_binding_created_at=utcnow()))
             session.commit()
         return self.event(subscription_id)
 

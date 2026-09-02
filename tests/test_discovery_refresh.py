@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
+from kall.clock import utcnow
 from kall.models import CareerProfile, Job, JobMatch, Opportunity, User
 from kall.providers.jobs import DiscoveredJob
 from kall.services.discovery_matching import ingest_discovered_jobs
@@ -57,7 +58,7 @@ def test_profile_changes_refresh_stored_matches_even_with_an_empty_feed(engine):
         profile.target_titles = ["Product Manager"]
         profile.include_keywords = []
         profile.industries = []
-        profile.updated_at = datetime.utcnow() + timedelta(seconds=1)
+        profile.updated_at = utcnow() + timedelta(seconds=1)
         session.add(profile)
         session.commit()
         ingest_discovered_jobs(session, user, profile, [])

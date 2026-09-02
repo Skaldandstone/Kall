@@ -1,7 +1,7 @@
-from datetime import datetime
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from kall.clock import utcnow
 from kall.models import (
     Application,
     ApplicationReview,
@@ -53,7 +53,7 @@ def _seed_confirmed_submission(client: TestClient, engine) -> int:
     with Session(engine) as session:
         job = Job(
             source="manual", company="Acme", title="Engineer", description="Build things.",
-            url=f"https://example.com/{datetime.utcnow().timestamp()}",
+            url=f"https://example.com/{utcnow().timestamp()}",
         )
         session.add(job)
         profile = CareerProfile(user_id=user_id, name="Default")
@@ -63,7 +63,7 @@ def _seed_confirmed_submission(client: TestClient, engine) -> int:
         session.refresh(profile)
         application = Application(
             user_id=user_id, job_id=job.id, career_profile_id=profile.id,
-            status=ApplicationStatus.APPROVED, ats_provider="greenhouse", user_approved_at=datetime.utcnow(),
+            status=ApplicationStatus.APPROVED, ats_provider="greenhouse", user_approved_at=utcnow(),
         )
         session.add(application)
         session.commit()
@@ -71,7 +71,7 @@ def _seed_confirmed_submission(client: TestClient, engine) -> int:
         session.add(ApplicationReview(
             application_id=application.id, user_id=user_id, status="approved",
             documents_confirmed=True, answers_confirmed=True, attestations_confirmed=True,
-            approved_at=datetime.utcnow(),
+            approved_at=utcnow(),
         ))
         session.commit()
         application_id = application.id
@@ -194,7 +194,7 @@ def test_a_resume_changed_after_approval_is_caught_before_submission(client: Tes
     with Session(engine) as session:
         job = Job(
             source="manual", company="Acme", title="Engineer", description="Build things.",
-            url=f"https://example.com/{datetime.utcnow().timestamp()}",
+            url=f"https://example.com/{utcnow().timestamp()}",
         )
         session.add(job)
         profile = CareerProfile(user_id=user_id, name="Default")
@@ -204,7 +204,7 @@ def test_a_resume_changed_after_approval_is_caught_before_submission(client: Tes
         session.refresh(profile)
         application = Application(
             user_id=user_id, job_id=job.id, career_profile_id=profile.id,
-            status=ApplicationStatus.APPROVED, ats_provider="greenhouse", user_approved_at=datetime.utcnow(),
+            status=ApplicationStatus.APPROVED, ats_provider="greenhouse", user_approved_at=utcnow(),
         )
         session.add(application)
         session.commit()
@@ -212,7 +212,7 @@ def test_a_resume_changed_after_approval_is_caught_before_submission(client: Tes
         session.add(ApplicationReview(
             application_id=application.id, user_id=user_id, status="approved",
             documents_confirmed=True, answers_confirmed=True, attestations_confirmed=True,
-            approved_at=datetime.utcnow(),
+            approved_at=utcnow(),
         ))
         document = GeneratedDocument(
             user_id=user_id, job_id=job.id, document_type="resume",

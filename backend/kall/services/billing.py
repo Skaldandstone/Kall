@@ -1,5 +1,5 @@
-from datetime import datetime
 
+from kall.clock import utcfromtimestamp, utcnow
 from kall.config import get_settings
 from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
@@ -85,7 +85,7 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict, *, c
         # Retain an existing paid allowance for the original 72-hour policy;
         # do not regrant a paid plan after the grace job has already expired it.
         if item.payment_failed_at is None and item.plan != SubscriptionPlan.FREE:
-            item.payment_failed_at = datetime.utcnow()
+            item.payment_failed_at = utcnow()
     else:
         item.plan = SubscriptionPlan.FREE
         item.payment_failed_at = None
@@ -93,7 +93,7 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict, *, c
     price = sub_item.get("price") or {}
     item.price_id = object_id(price)
     period_end = sub_item.get("current_period_end", payload.get("current_period_end"))
-    item.current_period_end = datetime.utcfromtimestamp(int(period_end)) if period_end else None
+    item.current_period_end = utcfromtimestamp(int(period_end)) if period_end else None
     item.cancel_at_period_end = bool(payload.get("cancel_at_period_end", False))
     session.add(item)
     user = session.get(User, user_id)
@@ -115,7 +115,7 @@ def find_subscription_by_customer(session: Session, customer_id: str) -> Subscri
 def apply_payment_failed(session: Session, subscription: Subscription, *, commit: bool = True) -> bool:
     if subscription.payment_failed_at is not None:
         return False
-    subscription.payment_failed_at = datetime.utcnow()
+    subscription.payment_failed_at = utcnow()
     session.add(subscription)
     if commit:
         session.commit()

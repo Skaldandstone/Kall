@@ -1,8 +1,9 @@
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from kall.clock import utcnow
 from kall.models import GeneratedDocument, Job, TailoringChange, TailoringProposal, User
 from kall.services.documents import (
     ARTIFACT_RETENTION_DAYS,
@@ -155,7 +156,7 @@ def test_an_expired_artifact_comes_back_identical(tmp_path: Path, monkeypatch: p
         original_bytes = Path(original.file_path).read_bytes()
 
         # Age it past the window and run the retention job.
-        original.created_at = datetime.utcnow() - timedelta(days=ARTIFACT_RETENTION_DAYS + 1)
+        original.created_at = utcnow() - timedelta(days=ARTIFACT_RETENTION_DAYS + 1)
         session.add(original)
         session.commit()
         assert expire_artifacts(session) == 1

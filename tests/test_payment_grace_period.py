@@ -6,8 +6,9 @@ not reset the clock, recovery must clear it, and the downgrade must actually
 change the account's real limits, not just a billing record nobody reads.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
+from kall.clock import utcfromtimestamp, utcnow
 from kall.models import Subscription, User
 from kall.models.enums import SubscriptionPlan
 from kall.services.billing import (
@@ -94,7 +95,7 @@ def test_lookup_by_stripe_customer_id(engine) -> None:
 def test_within_the_window_nothing_is_downgraded(engine) -> None:
     with Session(engine) as session:
         user, subscription = _paid_user(session)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS - 1)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS - 1)
         session.add(subscription)
         session.commit()
 
@@ -115,7 +116,7 @@ def test_past_the_window_the_account_is_downgraded_on_both_records(engine) -> No
     failure: an account that looks downgraded but keeps its paid limits."""
     with Session(engine) as session:
         user, subscription = _paid_user(session)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
         session.add(subscription)
         session.commit()
 
@@ -131,7 +132,7 @@ def test_past_the_window_the_account_is_downgraded_on_both_records(engine) -> No
 def test_downgrading_clears_the_clock_so_it_is_not_downgraded_again(engine) -> None:
     with Session(engine) as session:
         user, subscription = _paid_user(session)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
         session.add(subscription)
         session.commit()
 
@@ -146,7 +147,7 @@ def test_downgrading_queues_a_notification(engine) -> None:
 
     with Session(engine) as session:
         user, subscription = _paid_user(session)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
         session.add(subscription)
         session.commit()
 
@@ -164,11 +165,11 @@ def test_a_free_account_with_a_stale_failure_flag_is_left_alone(engine) -> None:
     so a Free account can never be 'downgraded' to the plan it is already on."""
     with Session(engine) as session:
         user, subscription = _paid_user(session, plan=SubscriptionPlan.FREE)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=PAYMENT_GRACE_PERIOD_HOURS + 1)
         session.add(subscription)
         session.commit()
 
-        assert overdue_subscriptions(session, datetime.utcnow()) == []
+        assert overdue_subscriptions(session, utcnow()) == []
 
 
 def test_webhook_preserves_first_failure_expires_and_recovers(client, engine, stripe_gateway):
@@ -204,7 +205,7 @@ def test_webhook_preserves_first_failure_expires_and_recovers(client, engine, st
         assert session.get(User, client.user_id).plan == "plus"
         row = session.exec(select(Subscription)).one()
         assert row.payment_failed_at is None
-        assert row.current_period_end == datetime.utcfromtimestamp(1900000000)
+        assert row.current_period_end == utcfromtimestamp(1900000000)
 
 
 def test_stale_grace_job_read_cannot_undo_payment_recovery(engine, monkeypatch):
@@ -212,10 +213,10 @@ def test_stale_grace_job_read_cannot_undo_payment_recovery(engine, monkeypatch):
 
     with Session(engine) as session:
         user, subscription = _paid_user(session)
-        subscription.payment_failed_at = datetime.utcnow() - timedelta(hours=73)
+        subscription.payment_failed_at = utcnow() - timedelta(hours=73)
         session.add(subscription)
         session.commit()
-        candidates = overdue_subscriptions(session, datetime.utcnow())
+        candidates = overdue_subscriptions(session, utcnow())
         apply_payment_recovered(session, subscription)
         monkeypatch.setattr(billing_grace_period, "overdue_subscriptions", lambda *_: candidates)
         assert downgrade_overdue_subscriptions(session).downgraded == []

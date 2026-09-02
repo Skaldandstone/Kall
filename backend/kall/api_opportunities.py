@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
+from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import (
@@ -140,7 +141,7 @@ def _schedule_view(row: DiscoverySchedule, session: Session) -> ScheduleView:
         status = ("worker_disabled" if not settings.monitoring_enabled else
                   "delayed" if row.last_error else
                   "awaiting_baseline" if not row.last_success_at else
-                  "delayed" if row.last_success_at < datetime.utcnow() - timedelta(minutes=10) else "monitoring")
+                  "delayed" if row.last_success_at < utcnow() - timedelta(minutes=10) else "monitoring")
     sources = []
     if row.cadence == "continuous" and row.enabled and not sources_for(session, row.user_id):
         status = "unconfigured"
@@ -160,7 +161,7 @@ def _schedule_view(row: DiscoverySchedule, session: Session) -> ScheduleView:
 @router.post("/discovery/schedules", response_model=ScheduleView)
 def create_schedule(payload: ScheduleInput, current: User = Depends(get_current_user), session: Session = Depends(get_session)):
     _owned_profile(payload.professional_profile_id, current.id, session)
-    token = work_claims.acquire(session, "monitoring-admission", datetime.utcnow(), seconds=10)
+    token = work_claims.acquire(session, "monitoring-admission", utcnow(), seconds=10)
     if not token:
         raise HTTPException(409, "Another schedule is being saved. Please retry.")
     try:
