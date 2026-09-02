@@ -24,7 +24,14 @@ INGEST_HOST = "https://o4512015786377216.ingest.us.sentry.io"
 def test_web_image_inlines_the_browser_dsn_at_build() -> None:
     builder = DOCKERFILE.split("FROM base AS builder", 1)[1].split("FROM base AS runtime", 1)[0]
     assert "ARG NEXT_PUBLIC_SENTRY_DSN=" in builder, "empty default keeps the SDK inert"
-    assert "NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN" in builder
+    assert "ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN\n" in builder
+    # A literal backslash-n (an editing artefact, not a line continuation) is a
+    # Dockerfile syntax error that no local check here can run docker to catch.
+    assert "\\n" not in DOCKERFILE
+    for line in DOCKERFILE.splitlines():
+        if line.startswith("ENV "):
+            for pair in line[4:].rstrip("\\").split():
+                assert "=" in pair, f"malformed ENV entry: {line!r}"
     # The build arg is exported before `npm run build`, where Next inlines it.
     assert builder.index("NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN") < builder.index("npm run build")
 
