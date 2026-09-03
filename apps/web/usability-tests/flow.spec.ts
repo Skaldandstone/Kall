@@ -15,6 +15,17 @@ test('query rebuild preserves exclusions, quoted phrases and single sites', () =
   expect(buildQuery(parseQuery('site:jobs.lever.co "Quality Engineering" -intern'))).toBe('site:jobs.lever.co "Quality Engineering" -"intern"');
 });
 
+test('an intitle: title group displays as a clean term but rebuilds with the operator intact', () => {
+  // build_search_intent restricts the title clause to intitle: so results are
+  // real postings, not a company's aggregate jobs-index page (see #188) --
+  // that operator must never appear in a term a person sees on screen.
+  const query = '(intitle:"QA Director" OR intitle:"Quality Engineering") "Software"';
+  const groups = parseQuery(query);
+  const titles = groups.find((group) => group.label === 'Job titles');
+  expect(titles?.terms).toEqual(['QA Director', 'Quality Engineering']);
+  expect(buildQuery(groups)).toBe(query);
+});
+
 test('all navigation destinations fit and both entry paths remain available', async ({ page }) => {
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation', { name: 'Primary navigation' });
