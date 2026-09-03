@@ -505,6 +505,21 @@ label .muted,
   color: var(--text) !important;
 }
 
+.google-job-search-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.google-job-search-pager span {
+  text-align: center;
+  flex: 1;
+}
+
 @media (max-width: 860px) {
   .grid {
     grid-template-columns: 1fr 1fr;

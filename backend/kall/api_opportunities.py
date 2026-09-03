@@ -21,7 +21,7 @@ from kall.models import (
 from kall.models.monitoring import PublicBoardFeed, ScheduleBoardState
 from kall.providers.board_feed import feed_key
 from kall.services import work_claims
-from kall.services.ats_web_search import build_ats_queries
+from kall.services.ats_web_search import build_ats_queries, build_search_intent
 from kall.services.matching import is_out_of_scope
 from kall.services.monitoring import continuous_schedules, sources_for, validate_capacity
 from kall.services.opportunities import mark_state
@@ -126,6 +126,10 @@ def ats_search_plan(profile_id: int, current: User = Depends(get_current_user), 
     return {
         "professional_profile_id": profile.id,
         "profile_name": profile.name,
+        # The one boolean shared by every per-site query below -- lets the
+        # workspace show and let someone edit it without parsing a site:
+        # clause back out of 39 near-identical query strings.
+        "intent": build_search_intent(profile),
         "queries": build_ats_queries(profile),
     }
 
