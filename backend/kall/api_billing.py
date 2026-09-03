@@ -61,8 +61,12 @@ def checkout(payload: CheckoutRequest | None = None, user: User = Depends(get_cu
 
 
 @router.post("/billing/portal")
-def portal(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    return {"url": create_portal_url(session, user)}
+def portal(payload: CheckoutRequest | None = None, user: User = Depends(get_current_user),
+           session: Session = Depends(get_session)):
+    target_plan = payload.plan if payload is not None else None
+    if target_plan is not None and target_plan not in {SubscriptionPlan.PLUS, SubscriptionPlan.PREMIUM}:
+        raise HTTPException(422, "That plan cannot be selected")
+    return {"url": create_portal_url(session, user, target_plan)}
 
 
 @router.post("/billing/webhook")
