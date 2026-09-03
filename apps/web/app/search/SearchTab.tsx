@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
 import GoogleJobSearchResults, { soloQuery, type SiteQuery } from '../components/GoogleJobSearchResults';
+import AggregatedJobResults, { type JobResult } from '../components/AggregatedJobResults';
 import { deadLinkCount, hiddenSearchResultCount, loadSuppressedResults, restoreHiddenSearchResults } from '../lib/searchResultState';
 import { showToast } from '../components/ToastHost';
 import { buildQuery, parseQuery, type SearchGroup } from '../lib/searchQuery';
@@ -40,12 +41,41 @@ async function fetchProfilePlan(selectedProfile: string): Promise<{ intent: stri
   return { intent: (data.intent as string) || '', domains };
 }
 
+/** True on success (aggregatedResults/-Meta are set); false means the caller
+ * should fall back to GoogleJobSearchResults' per-site widget pager -- either
+ * no Google Custom Search key is configured, or the request itself failed. */
+async function runAggregatedSearch(
+  selectedProfile: string,
+  intent: string,
+  setResults: (results: JobResult[]) => void,
+  setMeta: (meta: { sitesSearched: number; sitesFailed: number }) => void,
+): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/kall/discovery/search-results/${selectedProfile}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intent }),
+    });
+    if (response.status === 401) { window.location.replace('/sign-in'); return true; }
+    if (!response.ok) return false;
+    const data = await response.json();
+    if (!data.enabled) return false;
+    setResults((data.results as JobResult[]) || []);
+    setMeta({ sitesSearched: data.sites_searched || 0, sitesFailed: data.sites_failed || 0 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function SearchTab() {
   const [profileId, setProfileId] = useState('');
   const [queryInput, setQueryInput] = useState('');
   const [groups, setGroups] = useState<SearchGroup[]>([]);
   const [siteDomains, setSiteDomains] = useState<SiteDomain[]>([]);
   const [siteQueries, setSiteQueries] = useState<SiteQuery[]>([]);
+  const [aggregatedResults, setAggregatedResults] = useState<JobResult[] | null>(null);
+  const [aggregatedMeta, setAggregatedMeta] = useState({ sitesSearched: 0, sitesFailed: 0 });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [hiddenCount, setHiddenCount] = useState(0);
@@ -106,14 +136,24 @@ export default function SearchTab() {
       if (!finalQuery) { setMessage('Enter a job title or select a professional profile.'); showToast('Enter a job title or select a professional profile.', 'error'); return; }
       setGroups(nextGroups);
       setQueryInput('');
-      setSiteQueries(siteQueriesFor(domains, finalQuery));
       const url = new URL(window.location.href);
       url.searchParams.set('q', finalQuery);
       if (profileId) url.searchParams.set('profile', profileId); else url.searchParams.delete('profile');
       window.history.replaceState({}, '', url);
-      setMessage(domains.length
-        ? `Queued ${domains.length} site searches — use Previous/Next site in the results column to browse them.`
-        : 'Showing Google job results in the results column.');
+
+      const aggregated = profileId && domains.length
+        ? await runAggregatedSearch(profileId, finalQuery, setAggregatedResults, setAggregatedMeta)
+        : false;
+      if (aggregated) {
+        setSiteQueries([]);
+        setMessage('Search complete.');
+      } else {
+        setAggregatedResults(null);
+        setSiteQueries(siteQueriesFor(domains, finalQuery));
+        setMessage(domains.length
+          ? `Queued ${domains.length} site searches — use Previous/Next site in the results column to browse them.`
+          : 'Showing Google job results in the results column.');
+      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Unable to start the job search.';
       setMessage(detail);
@@ -121,18 +161,31 @@ export default function SearchTab() {
     } finally { setLoading(false); }
   }
 
-  function removeTerm(groupId: string, term: string) {
+  async function removeTerm(groupId: string, term: string) {
     const next = groups.map((group) => group.id === groupId ? { ...group, terms: group.terms.filter((item) => item !== term) } : group).filter((group) => group.terms.length);
     setGroups(next);
     const regenerated = buildQuery(next);
-    setSiteQueries(siteQueriesFor(siteDomains, regenerated));
     const url = new URL(window.location.href);
     if (regenerated) url.searchParams.set('q', regenerated); else url.searchParams.delete('q');
     window.history.replaceState({}, '', url);
+
+    // Editing terms after an aggregated search re-runs it rather than
+    // silently dropping back to the per-site pager -- staying in whichever
+    // mode the last full search used.
+    const wasAggregated = aggregatedResults !== null;
+    const aggregated = wasAggregated && profileId && regenerated
+      ? await runAggregatedSearch(profileId, regenerated, setAggregatedResults, setAggregatedMeta)
+      : false;
+    if (aggregated) {
+      setSiteQueries([]);
+    } else {
+      setAggregatedResults(null);
+      setSiteQueries(siteQueriesFor(siteDomains, regenerated));
+    }
   }
 
   function clearResults() {
-    setGroups([]); setQueryInput(''); setSiteQueries([]);
+    setGroups([]); setQueryInput(''); setSiteQueries([]); setAggregatedResults(null);
     const url = new URL(window.location.href); url.searchParams.delete('q'); window.history.replaceState({}, '', url);
     setMessage('Search results cleared.');
   }
@@ -143,6 +196,9 @@ export default function SearchTab() {
     setHiddenCount(0);
     setDeadCount(0);
     showToast('Hidden results restored, including flagged dead links.', 'success');
+    // Aggregated results already re-filter themselves on this same event
+    // (see AggregatedJobResults); only the widget queue needs the
+    // clear-then-restore nudge to force Google's own re-render.
     if (currentSiteQueries.length) {
       setSiteQueries([]);
       window.setTimeout(() => setSiteQueries(currentSiteQueries), 0);
@@ -169,7 +225,7 @@ export default function SearchTab() {
             value={profileId}
             onChange={(value) => {
               setProfileId(value);
-              setGroups([]); setSiteDomains([]); setSiteQueries([]);
+              setGroups([]); setSiteDomains([]); setSiteQueries([]); setAggregatedResults(null);
               const url = new URL(window.location.href);
               if (value) url.searchParams.set('profile', value); else url.searchParams.delete('profile');
               url.searchParams.delete('q');
@@ -178,7 +234,7 @@ export default function SearchTab() {
             required={false}
           />
           <label><span className="muted">Job title or search terms</span><input className="input" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder={termCount ? 'Add more titles, keywords, or sites…' : 'Director of Quality Engineering remote'} /></label>
-          <div className="search-page-actions"><button className="button" type="submit" disabled={loading}>{loading ? 'Preparing search…' : 'Search jobs'}</button>{siteQueries.length > 0 && <button className="button ghost" type="button" onClick={clearResults}>Clear results</button>}</div>
+          <div className="search-page-actions"><button className="button" type="submit" disabled={loading}>{loading ? 'Preparing search…' : 'Search jobs'}</button>{(siteQueries.length > 0 || aggregatedResults !== null) && <button className="button ghost" type="button" onClick={clearResults}>Clear results</button>}</div>
         </form>
         {!!visibleGroups.length && <section className="active-search-terms" aria-label="Active search terms"><div className="active-search-heading"><h3>Active search terms</h3><span>{termCount}</span></div>{visibleGroups.map((group) => <div className="search-term-group" key={group.id}><p>{group.label}</p><div className="search-term-chips">{group.terms.map((term) => <button type="button" className="search-term-chip" key={term} onClick={() => removeTerm(group.id, term)}><span>{term}</span><b aria-hidden="true">×</b><span className="sr-only">Remove {term}</span></button>)}</div></div>)}</section>}
         {siteGroup && (
@@ -202,7 +258,18 @@ export default function SearchTab() {
       </article>
       <article className="card search-page-results-column">
         <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Open roles</span><h2 style={{ marginTop: 14 }}>Results for these criteria</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
-        {siteQueries.length ? <GoogleJobSearchResults queries={siteQueries} profileId={profileId || undefined} /> : <div className="search-empty-state"><h2>No search has run yet</h2><p>Select a career direction or enter a title, then choose Search jobs.</p></div>}
+        {aggregatedResults !== null ? (
+          <AggregatedJobResults
+            results={aggregatedResults}
+            profileId={profileId || undefined}
+            sitesSearched={aggregatedMeta.sitesSearched}
+            sitesFailed={aggregatedMeta.sitesFailed}
+          />
+        ) : siteQueries.length ? (
+          <GoogleJobSearchResults queries={siteQueries} profileId={profileId || undefined} />
+        ) : (
+          <div className="search-empty-state"><h2>No search has run yet</h2><p>Select a career direction or enter a title, then choose Search jobs.</p></div>
+        )}
       </article>
     </section>
   );

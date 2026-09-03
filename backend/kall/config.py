@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     #: error and fell back, which looked exactly like "the AI is switched
     #: off". See services/openai_json.py, which now logs the reason.
     openai_model: str = "gpt-5.6-luna"
+    #: Both unset by design (see services/job_search_aggregation.py) rather
+    #: than required: the hidden-market search's per-site Google Programmable
+    #: Search widget already works with neither of these, so this is a
+    #: genuine upgrade, not a hard dependency.
+    google_custom_search_api_key: str | None = None
+    google_custom_search_engine_id: str | None = None
     # Private alpha access is enforced twice: the web app only exposes Clerk's
     # sign-up form for invitation tickets, and the API only creates a local
     # user when Clerk invitation metadata or this owner allowlist permits it.
