@@ -27,7 +27,7 @@ def test_one_query_per_domain_not_one_merged_query() -> None:
     # whole budget for the boolean that matters.
     queries = build_ats_queries(_profile())
     assert len(queries) == len(ALL_SEARCH_DOMAINS)
-    for (provider, domain), result in zip(ALL_SEARCH_DOMAINS, queries):
+    for (provider, domain), result in zip(ALL_SEARCH_DOMAINS, queries, strict=True):
         assert result["provider"] == provider
         assert result["domain"] == domain
         assert result["query"].startswith(f"site:{domain} ")
