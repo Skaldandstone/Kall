@@ -60,10 +60,26 @@ def test_suggest_career_strategy_parses_a_canned_response(monkeypatch: pytest.Mo
     assert result["work_types"] == ["remote"]
 
 
-def test_suggest_strategy_endpoint_without_api_key_returns_no_suggestion(client: TestClient) -> None:
+def test_suggest_strategy_endpoint_without_api_key_falls_back_to_a_deterministic_guess(client: TestClient) -> None:
     upload = client.post(
         "/api/me/resumes",
-        files={"file": ("resume.txt", b"Director of Quality Engineering. Ten years leading automation.", "text/plain")},
+        files={"file": ("resume.txt", b"Director of Quality Engineering\n2018 - Present\nLed test automation.", "text/plain")},
+    )
+    resume_id = upload.json()["id"]
+
+    response = client.post(f"/api/me/resumes/{resume_id}/suggest-strategy")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ai_enabled"] is False
+    assert body["suggestion"] is not None
+    assert "Director of Quality Engineering" in body["suggestion"]["target_titles"]
+    assert "quality engineering" in body["suggestion"]["keywords"]
+
+
+def test_suggest_strategy_endpoint_without_api_key_or_signal_returns_no_suggestion(client: TestClient) -> None:
+    upload = client.post(
+        "/api/me/resumes",
+        files={"file": ("resume.txt", b"A short document with no known skills or dated roles in it.", "text/plain")},
     )
     resume_id = upload.json()["id"]
 
