@@ -34,10 +34,10 @@ def test_ci_is_the_single_complete_automatic_source_gate() -> None:
     body = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "push:\n    branches: [main]" in body
     assert "pull_request:" in body
-    for job in ("backend", "web", "e2e", "extension", "mobile-e2e"):
+    for job in ("backend", "web", "e2e", "accessibility", "extension", "mobile-e2e"):
         assert f"\n  {job}:\n" in body
-    assert body.count("npm ci") == 4
-    assert body.count('node-version: "24.18.1"') == 4
+    assert body.count("npm ci") == 5
+    assert body.count('node-version: "24.18.1"') == 5
 
 
 def test_manual_workflow_remains_explicitly_build_only() -> None:
