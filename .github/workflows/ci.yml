@@ -124,6 +124,44 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 14
 
+  accessibility:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ci-accessibility-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.18.1"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+        working-directory: apps/web
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        working-directory: apps/web
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+      # Runs against usability-fixture, a self-contained set of static mockups
+      # rather than the real app -- so axe results are deterministic and need
+      # no Clerk credentials, unlike the e2e job above.
+      - run: npx playwright test --config=playwright.usability.config.ts
+        working-directory: apps/web
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: usability-playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
   extension:
     runs-on: ubuntu-latest
     concurrency:
