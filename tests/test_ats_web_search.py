@@ -75,9 +75,11 @@ def test_no_industry_specified_does_not_add_an_empty_clause() -> None:
     assert "()" not in intent
 
 
-def test_titles_are_or_grouped_and_quoted() -> None:
+def test_titles_are_or_grouped_quoted_and_restricted_to_the_page_title() -> None:
+    # intitle: keeps a match to the page's own title, not a company's
+    # aggregate jobs-index page that happens to mention every title on it.
     intent = build_search_intent(_profile(target_titles=["Staff Engineer", "Principal Engineer"]))
-    assert '"Staff Engineer" OR "Principal Engineer"' in intent
+    assert 'intitle:"Staff Engineer" OR intitle:"Principal Engineer"' in intent
 
 
 def test_exclusions_are_negated_not_or_grouped() -> None:
@@ -133,7 +135,10 @@ def test_functional_areas_broaden_the_same_title_group_and_retain_constraints() 
         target_titles=["QA Director"], functional_areas=["Quality Engineering"], industries=["SaaS"],
         include_keywords=["leadership"], exclude_keywords=["unpaid"], countries=["Canada"],
     ))
-    role_group = '("QA Director" OR "Quality Engineering" OR "quality assurance" OR "test automation" OR "software test engineer" OR "SDET")'
+    role_group = (
+        '(intitle:"QA Director" OR intitle:"Quality Engineering" OR intitle:"quality assurance" OR '
+        'intitle:"test automation" OR intitle:"software test engineer" OR intitle:"SDET")'
+    )
     assert role_group in intent
     for constraint in ['("SaaS")', '("leadership")', '("Canada")', '-"unpaid"']:
         assert constraint in intent
