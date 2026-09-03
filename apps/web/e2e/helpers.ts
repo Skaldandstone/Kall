@@ -136,9 +136,11 @@ export async function signInAsNewUser(
     if (result?.createdSessionId) await clerkClient.setActive({ session: result.createdSessionId });
   });
 
-  // Activating the session redirects "/" to /dashboard, which tears down any
-  // in-flight evaluate; let that settle before touching the page again.
-  await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+  // Activating the session redirects "/" onward -- to /onboarding for a
+  // brand-new account (this is one), to /dashboard once onboarding is
+  // already complete -- which tears down any in-flight evaluate; let that
+  // settle before touching the page again.
+  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 20_000 });
 
   // The local User and CandidateProfile rows are created lazily on the first
   // authenticated request (kall.auth.ensure_local_user), so make one before

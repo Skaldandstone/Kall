@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { test, expect, signInAsNewUser, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end
@@ -93,10 +93,17 @@ test('sign-up through application review and approval', async ({ page }) => {
  * browser to a bookmarked/typed root URL is the common way this happens) saw
  * the "Log in / Create account" marketing page with no sign they were still
  * signed in, since "/" never checked for an existing session. It should
- * recognize a valid stored token and send them straight to the dashboard.
+ * recognize a valid stored token and send them onward instead -- to
+ * onboarding while it is still incomplete, to the dashboard once it is done.
  */
-test('a signed-in user landing on the marketing homepage is sent to their dashboard', async ({ page }) => {
+test('a signed-in user landing on the marketing homepage is sent onward, not shown the marketing page', async ({ page }) => {
   await signInAsNewUser(page, 'Home Redirect Test');
+
+  // A brand-new account has never completed onboarding.
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/onboarding/);
+
+  await completeOnboarding(page);
 
   await page.goto('/');
   await expect(page).toHaveURL(/\/dashboard/);

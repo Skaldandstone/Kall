@@ -3,6 +3,9 @@
 import { useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import KallMark from './components/KallMark';
+import { getKall } from './lib/api';
+
+type OnboardingProgress = { is_complete: boolean };
 
 const modules = [
   {
@@ -45,7 +48,21 @@ export default function Home() {
   const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) window.location.replace('/dashboard');
+    if (!isLoaded || !isSignedIn) return;
+    let cancelled = false;
+    // A brand-new user has never seen /onboarding, and a returning user who
+    // bailed out mid-wizard should pick back up there rather than land on an
+    // empty dashboard. Default to sending them onward on any API hiccup --
+    // a stuck redirect is worse than an unnecessary trip through onboarding.
+    getKall<OnboardingProgress>('/profile/onboarding')
+      .catch(() => null)
+      .then((progress) => {
+        if (cancelled) return;
+        window.location.replace(progress && !progress.is_complete ? '/onboarding' : '/dashboard');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isLoaded, isSignedIn]);
 
   // Only blank the page while a confirmed sign-in is being redirected. This
