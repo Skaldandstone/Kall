@@ -63,8 +63,13 @@ export default function PlanPicker() {
     if (busy) return;
     setBusy(true);
     setMessage('');
+    // Someone already on a paid plan who picks another plan is changing price on
+    // their live subscription, not starting a new one -- only the portal prorates
+    // that. Checkout is for a first subscription, where there is nothing to prorate.
+    const changingPlan = plan && current !== 'free';
+    const usesPortal = !plan || changingPlan;
     try {
-      const response = await fetchKall(plan ? '/billing/checkout' : '/billing/portal', {
+      const response = await fetchKall(usesPortal ? '/billing/portal' : '/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         ...(plan ? { body: JSON.stringify({ plan }) } : {}),
@@ -72,7 +77,7 @@ export default function PlanPicker() {
       if (response.ok) {
         const { url } = await response.json();
         const target = new URL(url);
-        if (target.protocol !== 'https:' || target.hostname !== (plan ? 'checkout.stripe.com' : 'billing.stripe.com')) {
+        if (target.protocol !== 'https:' || target.hostname !== (usesPortal ? 'billing.stripe.com' : 'checkout.stripe.com')) {
           throw new Error('Unexpected billing redirect');
         }
         window.location.href = target.href;

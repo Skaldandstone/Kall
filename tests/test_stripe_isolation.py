@@ -166,6 +166,43 @@ def test_portal_uses_only_owned_customer_and_scoped_configuration(client, engine
     assert client.post("/api/billing/portal").status_code == 503
 
 
+def test_portal_upgrade_requests_a_prorated_price_change_on_the_live_subscription(client, engine, stripe_gateway):
+    event = stripe_gateway.bind(engine, client.user_id, plan="plus")
+    assert delivery(client, event).status_code == 200
+    response = client.post("/api/billing/portal", json={"plan": "premium"})
+    assert response.status_code == 200
+    assert stripe_gateway.calls[-1] == ("portal.create", {
+        "customer": "cus_local", "return_url": "http://localhost:3000/billing", "configuration": "bpc_kall",
+        "flow_data": {"type": "subscription_update_confirm", "subscription_update_confirm": {
+            "subscription": "sub_local", "items": [{"id": "si_local", "price": "price_premium", "quantity": 1}],
+        }},
+    })
+
+
+def test_portal_upgrade_rejects_the_plan_already_held(client, engine, stripe_gateway):
+    event = stripe_gateway.bind(engine, client.user_id, plan="premium")
+    assert delivery(client, event).status_code == 200
+    response = client.post("/api/billing/portal", json={"plan": "premium"})
+    assert response.status_code == 409
+    assert not any(call[0] == "portal.create" for call in stripe_gateway.calls)
+
+
+def test_portal_upgrade_rejects_a_subscription_that_is_not_active(client, engine, stripe_gateway):
+    event = stripe_gateway.bind(engine, client.user_id, plan="plus", status="canceled")
+    assert delivery(client, event).status_code == 200
+    response = client.post("/api/billing/portal", json={"plan": "premium"})
+    assert response.status_code == 409
+    assert not any(call[0] == "portal.create" for call in stripe_gateway.calls)
+
+
+def test_portal_upgrade_rejects_a_plan_outside_the_catalog(client, engine, stripe_gateway):
+    event = stripe_gateway.bind(engine, client.user_id, plan="plus")
+    assert delivery(client, event).status_code == 200
+    response = client.post("/api/billing/portal", json={"plan": "free"})
+    assert response.status_code == 422
+    assert not any(call[0] == "portal.create" for call in stripe_gateway.calls)
+
+
 def test_portal_rejects_foreign_catalog_and_legacy_unbound_customers(client, engine, stripe_gateway):
     stripe_gateway.bind(engine, client.user_id)
     stripe_gateway.configuration["features"]["subscription_update"]["products"][0]["prices"] = ["price_other_product"]
