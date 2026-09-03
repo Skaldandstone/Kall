@@ -10,6 +10,7 @@ const primaryRoutes = [
   '/profiles',
   '/settings/notifications',
   '/billing',
+  '/onboarding',
 ];
 
 const tabRoutes = [
