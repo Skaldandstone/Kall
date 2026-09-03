@@ -40,14 +40,13 @@ module.exports = ({ config }) => {
       // The Clerk publishable key identifies an instance and is public by
       // design. Secret keys never belong in an Expo or Android build.
       clerkPublishableKey,
-      // A release can never enable account creation. Non-release fixtures may
-      // explicitly disable it so CI can exercise the invite-only screen while
-      // ordinary local development retains app.json's registration setting.
-      allowRegistration: isRelease
-        ? false
-        : registrationOverride === undefined
-          ? config.extra.allowRegistration
-          : registrationOverride === '1',
+      // Kall is a public product now (the web app dropped its invite-only
+      // gate the same way) -- a release build follows app.json's setting
+      // like any other build. An explicit override still lets a fixture or
+      // e2e run force either state regardless of build type.
+      allowRegistration: registrationOverride === undefined
+        ? config.extra.allowRegistration
+        : registrationOverride === '1',
     },
   };
 };
