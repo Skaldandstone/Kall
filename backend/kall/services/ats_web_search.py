@@ -56,9 +56,9 @@ JOB_BOARD_DOMAINS = [
 ALL_SEARCH_DOMAINS = ATS_DOMAINS + JOB_BOARD_DOMAINS
 
 
-def _quoted_or(values: list[str], limit: int = 8) -> str:
+def _quoted_or(values: list[str], limit: int = 8, prefix: str = "") -> str:
     cleaned = [value.strip() for value in values if value and value.strip()]
-    return " OR ".join(f'"{value}"' for value in cleaned[:limit])
+    return " OR ".join(f'{prefix}"{value}"' for value in cleaned[:limit])
 
 
 def build_search_intent(profile: CareerProfile) -> str:
@@ -71,7 +71,17 @@ def build_search_intent(profile: CareerProfile) -> str:
     """
     # Areas broaden the title group. An AND clause would instead exclude
     # related roles that use a different title, which defeats the feature.
-    titles = _quoted_or([*profile.target_titles[:8], *functional_area_terms(profile.functional_areas)], limit=8)
+    # intitle: (repeated per Google's own syntax for grouping it with OR)
+    # keeps this matching an individual posting's own page title rather than
+    # a company's aggregate "{Company} - Jobs" listing page -- that page
+    # contains nearly every OR'd term somewhere in its body text (it lists
+    # every open role) and out-ranks any single posting for a broad query,
+    # which is why every site search result page was one of those instead of
+    # an actual open role.
+    titles = _quoted_or(
+        [*profile.target_titles[:8], *functional_area_terms(profile.functional_areas)],
+        limit=8, prefix="intitle:",
+    )
     industries = _quoted_or(profile.industries, limit=5)
     keywords = _quoted_or(profile.include_keywords, limit=5)
     locations = _quoted_or([*profile.states_regions, *profile.countries], limit=5)
