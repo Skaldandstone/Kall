@@ -40,8 +40,8 @@ for (const [profileName, simulator] of [
   assert.equal(profile.env?.API_BASE_URL, expectedApiBase, `${profileName} has the wrong API base.`);
   assert.match(
     profile.env?.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
-    /^pk_test_\S+$/,
-    `${profileName} must use the alpha Clerk publishable key.`,
+    /^pk_live_\S+$/,
+    `${profileName} must use the production Clerk publishable key -- the same instance the web app signs into.`,
   );
 }
 
@@ -61,7 +61,7 @@ try {
   }
 }
 assert.equal(resolvedReleaseConfig.extra?.apiBaseUrl, expectedApiBase, 'Resolved release API base is wrong.');
-assert.equal(resolvedReleaseConfig.extra?.allowRegistration, false, 'Release registration must remain invite-only.');
+assert.equal(resolvedReleaseConfig.extra?.allowRegistration, true, 'Release registration must be open, matching the web app.');
 assert.equal(
   resolvedReleaseConfig.ios?.bundleIdentifier,
   expectedBundleIdentifier,
@@ -78,4 +78,4 @@ console.log('iOS alpha configuration passed.');
 console.log(`bundleIdentifier=${app.ios.bundleIdentifier}`);
 console.log(`buildNumber=${app.ios.buildNumber}`);
 console.log(`apiBaseUrl=${expectedApiBase}`);
-console.log('registration=invite-only release safeguard');
+console.log('registration=open, production Clerk instance');

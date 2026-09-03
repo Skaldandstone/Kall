@@ -49,8 +49,13 @@ def test_manual_workflow_remains_explicitly_build_only() -> None:
     assert "cloud credentials or deployment controls" in body
 
 
-def test_mobile_browser_gate_exercises_invite_only_release_ui() -> None:
+def test_mobile_registration_is_open_like_web_but_the_invite_only_ui_stays_testable() -> None:
     app_config = (ROOT / "apps" / "mobile" / "app.config.js").read_text()
     playwright_config = (ROOT / "apps" / "mobile" / "playwright.config.ts").read_text()
-    assert "isRelease\n        ? false" in app_config
+    # A release build no longer hard-codes invite-only -- it follows app.json
+    # like any other build, the same way the web app's own gate now does.
+    assert "isRelease\n        ? false" not in app_config
+    # The override that lets a test force either state regardless of build
+    # type still exists, so the invite-only screen stays exercisable.
+    assert "KALL_MOBILE_ALLOW_REGISTRATION" in app_config
     assert "KALL_MOBILE_ALLOW_REGISTRATION: '0'" in playwright_config
