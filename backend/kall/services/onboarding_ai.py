@@ -1,5 +1,6 @@
 
 from kall.config import get_settings
+from kall.services.intelligence import parse_resume
 from kall.services.openai_json import ask_for_json
 
 _STRATEGY_SCHEMA = {
@@ -46,3 +47,31 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         schema=_STRATEGY_SCHEMA,
         purpose="career strategy suggestion",
     )
+
+
+def deterministic_career_strategy(resume_text: str) -> dict | None:
+    """A zero-dependency fallback for when no OpenAI key is configured (or a
+    call fails) -- reuses the rules-based resume parser's title/skill
+    extraction instead of leaving the onboarding form blank.
+
+    Narrower than the AI version on purpose: only role titles the parser
+    found paired with an actual date range make it into target_titles, and
+    industries/work_types/summary are left for the person to fill in rather
+    than guessed from weaker signal. Returns None when the resume gave the
+    parser nothing to work with, the same as the AI path with no key.
+    """
+    text = (resume_text or "").strip()
+    if not text:
+        return None
+    parsed, _ = parse_resume(text)
+    role_titles = parsed.get("role_titles") or []
+    skills = parsed.get("skills") or []
+    if not role_titles and not skills:
+        return None
+    return {
+        "summary": "",
+        "target_titles": role_titles[:5],
+        "industries": [],
+        "keywords": skills[:8],
+        "work_types": [],
+    }

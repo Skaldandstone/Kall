@@ -11,7 +11,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
 from kall.services import quota
-from kall.services.onboarding_ai import suggest_career_strategy
+from kall.services.onboarding_ai import deterministic_career_strategy, suggest_career_strategy
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume_proofreading import proofreading_gaps
@@ -195,15 +195,24 @@ def generate_recommendations(resume_id: int, current_user: User = Depends(get_cu
 @router.post("/me/resumes/{resume_id}/suggest-strategy")
 def suggest_strategy(resume_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resume = _owned_resume(resume_id, current_user.id, session)
-    assert_ai_allowed(session, current_user)
-    suggestion = suggest_career_strategy(resume.extracted_text or "")
-    # Only charge when the model actually answered. This falls back to None
-    # when no key is configured or the call fails, and nobody should spend an
-    # allowance on a request that produced nothing.
-    if suggestion:
-        record_ai_action(session, current_user)
+    text = resume.extracted_text or ""
+    ai_enabled = bool(get_settings().openai_api_key)
+    suggestion = None
+    if ai_enabled:
+        # The allowance guards real model calls, not this endpoint -- a
+        # deterministic fallback still runs for an account with none left,
+        # since it costs nothing and there is otherwise no path to it.
+        assert_ai_allowed(session, current_user)
+        suggestion = suggest_career_strategy(text)
+        # Only charge when the model actually answered. This falls back to
+        # None when the call fails, and nobody should spend an allowance on
+        # a request that produced nothing.
+        if suggestion:
+            record_ai_action(session, current_user)
+    if not suggestion:
+        suggestion = deterministic_career_strategy(text)
     return {
-        "ai_enabled": bool(get_settings().openai_api_key),
+        "ai_enabled": ai_enabled,
         "suggestion": suggestion,
     }
 
