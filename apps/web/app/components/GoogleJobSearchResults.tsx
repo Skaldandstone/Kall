@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { clearPendingPosting, getPendingPosting, hideSearchResult, isSearchResultHidden, loadSuppressedResults, setPendingPosting } from '../lib/searchResultState';
-import { loadGoogleCse } from '../lib/googleCse';
+import { loadGoogleCse, type SearchElement } from '../lib/googleCse';
 import { showToast } from './ToastHost';
 
 const GOOGLE_CSE_ID = '551e53ca5b28b4060';
@@ -111,16 +111,31 @@ function decorateResults(container: HTMLElement, profileId?: string) {
   });
 }
 
-export default function GoogleJobSearchResults({ query, profileId }: { query: string; profileId?: string }) {
+export type SiteQuery = { provider: string; domain: string; query: string };
+
+/** A single query, wrapped as the one-item queue GoogleJobSearchResults expects. */
+export function soloQuery(query: string): SiteQuery[] {
+  return query ? [{ provider: '', domain: '', query }] : [];
+}
+
+export default function GoogleJobSearchResults({ queries, profileId }: { queries: SiteQuery[]; profileId?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const reactId = useId().replace(/:/g, '');
   const elementName = `kall-job-results-${reactId}`;
   const [error, setError] = useState('');
+  const [pageIndex, setPageIndex] = useState(0);
+  // One CSE widget, re-executed per page -- 39 sites means 39 mounts would be
+  // wasteful and, worse, would each re-run loadGoogleCse's global script load.
+  const elementRef = useRef<SearchElement | null>(null);
+
+  // A brand-new search (not just paging through the current one) starts over.
+  useEffect(() => { setPageIndex(0); }, [queries]);
 
   useEffect(() => {
     let cancelled = false;
     let observer: MutationObserver | null = null;
-    if (!query || !containerRef.current) return;
+    const current = queries[pageIndex];
+    if (!current || !containerRef.current) return;
 
     const refreshDecorations = () => { if (containerRef.current) decorateResults(containerRef.current, profileId); };
     const onFocus = () => refreshDecorations();
@@ -132,15 +147,19 @@ export default function GoogleJobSearchResults({ query, profileId }: { query: st
       try {
         await Promise.all([loadGoogleCse(GOOGLE_CSE_ID), loadSuppressedResults()]);
         if (cancelled || !containerRef.current) return;
-        containerRef.current.replaceChildren();
-        const api = window.google?.search?.cse?.element;
-        if (!api) throw new Error('Google job search is unavailable.');
-        api.render({ div: containerRef.current, tag: 'searchresults-only', gname: elementName, attributes: { autoSearchOnLoad: false, linkTarget: '_blank', enableImageSearch: false } });
-        observer = new MutationObserver(refreshDecorations);
-        observer.observe(containerRef.current, { childList: true, subtree: true });
-        const element = api.getElement(elementName);
+        let element = elementRef.current;
+        if (!element) {
+          containerRef.current.replaceChildren();
+          const api = window.google?.search?.cse?.element;
+          if (!api) throw new Error('Google job search is unavailable.');
+          api.render({ div: containerRef.current, tag: 'searchresults-only', gname: elementName, attributes: { autoSearchOnLoad: false, linkTarget: '_blank', enableImageSearch: false } });
+          observer = new MutationObserver(refreshDecorations);
+          observer.observe(containerRef.current, { childList: true, subtree: true });
+          element = api.getElement(elementName);
+          elementRef.current = element;
+        }
         if (!element) throw new Error('Google job results could not be initialized.');
-        element.execute(query);
+        element.execute(current.query);
         setError('');
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : 'Unable to display job results.');
@@ -153,7 +172,38 @@ export default function GoogleJobSearchResults({ query, profileId }: { query: st
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('kall:search-results-changed', onChanged);
     };
-  }, [elementName, profileId, query]);
+  }, [elementName, profileId, queries, pageIndex]);
 
-  return <div className="google-job-search" aria-live="polite">{error && <p className="notice" role="alert">{error}</p>}<div ref={containerRef} className="google-job-search-results" /></div>;
+  const current = queries[pageIndex];
+
+  return (
+    <div className="google-job-search" aria-live="polite">
+      {queries.length > 1 && current && (
+        <div className="google-job-search-pager">
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setPageIndex((index) => Math.max(0, index - 1))}
+            disabled={pageIndex === 0}
+          >
+            Previous site
+          </button>
+          <span className="muted">
+            {current.provider ? `${current.provider} (${current.domain}) — ` : ''}
+            site {pageIndex + 1} of {queries.length}
+          </span>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setPageIndex((index) => Math.min(queries.length - 1, index + 1))}
+            disabled={pageIndex === queries.length - 1}
+          >
+            Next site
+          </button>
+        </div>
+      )}
+      {error && <p className="notice" role="alert">{error}</p>}
+      <div ref={containerRef} className="google-job-search-results" />
+    </div>
+  );
 }

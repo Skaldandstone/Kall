@@ -130,9 +130,13 @@ async def test_run_discovery_records_the_actual_query_it_searched_for(monkeypatc
 
         run = await run_discovery(session, user, profile)
 
+        # No single site: clause to assert on any more -- run_discovery
+        # records the shared intent boolean, since every site now gets its
+        # own independently runnable query rather than one merged string
+        # (see ats_web_search.build_ats_queries).
         assert run.ats_search_query
         assert "Environment Artist" in run.ats_search_query
-        assert "site:boards.greenhouse.io" in run.ats_search_query
+        assert "site:" not in run.ats_search_query
 
 
 def test_a_schedule_is_not_due_outside_its_chosen_hour() -> None:

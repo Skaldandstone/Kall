@@ -4,7 +4,7 @@ from kall.models import CareerProfile, SearchRun, SearchSource, User
 from kall.providers.ashby import AshbyProvider
 from kall.providers.greenhouse import GreenhouseProvider
 from kall.providers.lever import LeverProvider
-from kall.services.ats_web_search import build_ats_queries
+from kall.services.ats_web_search import build_search_intent
 from kall.services.discovery_matching import ingest_discovered_jobs
 from sqlmodel import Session, select
 
@@ -25,12 +25,13 @@ async def run_discovery(
     rejected for missing data, the same rule matching.location_out_of_scope
     already follows."""
     sources = list(session.exec(select(SearchSource).where(SearchSource.user_id == user.id, SearchSource.enabled)))
-    # Build the same unified ATS query used by the web workspace for every
-    # immediate or scheduled run. Structured providers continue importing jobs;
-    # ATS Search records the broader hidden-market query on the run itself, so
-    # run history shows what was actually searched for at the time, even
-    # after the profile's own criteria change.
-    ats_query = build_ats_queries(profile)[0]["query"]
+    # The same intent boolean run against every site in the web workspace's
+    # hidden-market search -- there is no longer one merged query to point
+    # to (see build_ats_queries), so this is the shared part of all of them.
+    # Structured providers continue importing jobs; this is recorded on the
+    # run itself so history shows what was actually searched for at the
+    # time, even after the profile's own criteria change.
+    ats_query = build_search_intent(profile)
     requested_providers = {s.provider for s in sources}
     requested_providers.add("ats_search")
     run=SearchRun(
