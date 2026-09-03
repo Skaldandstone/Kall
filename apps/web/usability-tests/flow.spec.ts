@@ -65,6 +65,25 @@ test('optional profile does not silently replace a saved search', async ({ page 
   expect(new URL(page.url()).searchParams.get('q')).toContain('-"intern"');
 });
 
+test('a profile search with results populates every site at once, not one page at a time', async ({ page }) => {
+  await page.goto('/search');
+  await page.getByLabel('Professional profile (optional)').selectOption('1');
+  await page.getByRole('button', { name: 'Search jobs', exact: true }).click();
+  await expect(page.getByText('2 results across 2 sites')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Director of Quality Engineering' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'QA Director' })).toBeVisible();
+  // No per-site pager -- results from every site already appear together.
+  await expect(page.getByRole('button', { name: 'Next site' })).toHaveCount(0);
+});
+
+test('a search falls back to the per-site widget when aggregation is unavailable', async ({ page }) => {
+  await page.route('**/api/kall/discovery/search-results/*', (route) => route.fulfill({ json: { enabled: false, results: [], sites_searched: 0, sites_failed: 0 } }));
+  await page.goto('/search');
+  await page.getByLabel('Professional profile (optional)').selectOption('1');
+  await page.getByRole('button', { name: 'Search jobs', exact: true }).click();
+  await expect(page.getByText(/Queued \d+ site searches/)).toBeVisible();
+});
+
 test('profile search failure keeps entered terms and provides inline feedback', async ({ page }) => {
   await page.route('**/api/kall/discovery/ats-search/*', (route) => route.fulfill({ status: 503, json: { detail: 'Profile search is temporarily unavailable.' } }));
   await page.goto('/search');
