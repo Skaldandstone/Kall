@@ -250,11 +250,12 @@ function jobPostingLinkedData() {
 
 function textOf(value) {
   if (typeof value !== 'string') return '';
-  // JobPosting descriptions are usually raw HTML; strip tags for a plain
-  // description Kall can store and later show in the opportunity inbox.
-  const scratch = document.createElement('div');
-  scratch.innerHTML = value;
-  return (scratch.textContent || '').trim();
+  // JobPosting descriptions are usually raw HTML and come straight from
+  // whatever page we're scraping, so treat them as untrusted: parse with
+  // DOMParser (which never executes scripts, even if a node is later
+  // attached) rather than assigning to innerHTML.
+  const doc = new DOMParser().parseFromString(value, 'text/html');
+  return (doc.body.textContent || '').trim();
 }
 
 function locationOf(posting) {
