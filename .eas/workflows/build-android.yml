@@ -7,7 +7,10 @@ on:
 
 jobs:
   build_android:
-    type: build
-    params:
-      platform: android
-      profile: android-production
+    defaults:
+      run:
+        working_directory: apps/mobile
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: eas build --platform android --profile android-production --non-interactive --no-wait
