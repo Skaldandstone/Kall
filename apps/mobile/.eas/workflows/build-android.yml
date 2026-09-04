@@ -1,0 +1,13 @@
+name: Build Android (production)
+
+on:
+  push:
+    branches: ['main']
+    paths: ['apps/mobile/**']
+
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: android-production

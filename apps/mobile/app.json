@@ -2,6 +2,7 @@
   "expo": {
     "name": "Kall",
     "slug": "kall",
+    "owner": "skald-and-stone",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -35,7 +36,10 @@
     "extra": {
       "apiBaseUrl": "http://10.0.2.2:8000/api",
       "clerkPublishableKey": "pk_test_Y2hhcm1pbmctbW9jY2FzaW4tODc0OC5jbGVyay5hY2NvdW50cy5kZXYk",
-      "allowRegistration": true
+      "allowRegistration": true,
+      "eas": {
+        "projectId": "fc23feb0-611d-40d5-bb41-a02b69ba24cb"
+      }
     }
   }
 }
