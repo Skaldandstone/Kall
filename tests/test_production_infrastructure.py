@@ -128,7 +128,7 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert parameters.count("    Default: 'false'") >= 2
     assert "ApplicationActivationRequiresDatabaseEvidence" in rules
     assert "kall-db-roles-v1" in rules
-    assert "20260831_0029" in rules
+    assert "20260904_0030" in rules
     assert "StripeActivationRequiresLiveCatalog" in rules
     assert "stripe-disabled" in rules
     assert services.count("DesiredCount: !If [ApplicationServicesEnabled, 1, 0]") == 2
