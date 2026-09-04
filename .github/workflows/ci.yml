@@ -15,6 +15,9 @@ on:
   # Manual runs validate the current source without cloud credentials.
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   # All 6 jobs below used to run in full on every push/PR regardless of what
   # changed, which burned the org's monthly Actions minutes fast (a single
