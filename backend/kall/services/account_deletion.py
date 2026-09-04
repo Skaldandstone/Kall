@@ -39,7 +39,9 @@ from typing import Any
 from clerk_backend_api import Clerk
 from fastapi import BackgroundTasks
 from kall.config import get_settings
+from kall.models.billing import Subscription
 from kall.models.core import AccountDeletionRecord, User
+from kall.services.stripe_billing import cancel_at_period_end
 from sqlalchemy import Column, Table, delete, func, select, update
 from sqlmodel import Session, SQLModel
 
@@ -180,6 +182,12 @@ def delete_account(
     or the deployment has no Clerk key at all (tests, local dev): see the
     tombstone check in auth.ensure_local_user.
 
+    Also sets any Stripe subscription to cancel at the end of the period
+    already paid for, before the local rows naming it are deleted. Both
+    provider calls are best-effort for the same reason: neither Clerk nor
+    Stripe being reachable is a condition someone's deletion request should
+    depend on.
+
     **The Clerk call runs after the local deletion commits, and in the
     background when `background_tasks` is given.** Confirmed live: on an
     account with enough rows, the local deletion plus a slow third-party
@@ -200,6 +208,8 @@ def delete_account(
 
     clerk_user_id = user.clerk_user_id
     session.add(AccountDeletionRecord(email=user.email, clerk_user_id=clerk_user_id or "", reason=reason))
+    _cancel_billing(session, user_id)
+
     report = _run(session, user_id, execute=True)
     session.commit()
 
@@ -226,6 +236,45 @@ def _delete_clerk_user(clerk_user_id: str | None) -> None:
         # ensure_local_user() from resurrecting the account even if this call
         # did not go through.
         logger.warning("Could not delete Clerk user %s during account deletion", clerk_user_id, exc_info=True)
+
+
+def _cancel_billing(session: Session, user_id: int) -> None:
+    """Stop the subscription renewing, before the row that names it is deleted.
+
+    Deleting the account removes the local billing rows, so after this point
+    nothing here knows the subscription exists -- and the webhook that would
+    normally reconcile it has no row to write to either. Stripe keeps charging
+    a card for an account that no longer exists, and the person has no account
+    left to cancel from. This is the call that prevents that.
+
+    Cancellation is at period end, not immediate: see
+    stripe_billing.cancel_at_period_end for why, and docs/LEGAL.md for the
+    decision behind it.
+
+    Best-effort, exactly like the Clerk deletion above: a billing provider
+    that is down must not block a deletion someone asked for. The failure is
+    logged with the subscription id precisely because nothing local will
+    remember it afterwards -- that log line is the only remaining route to
+    cancelling it by hand.
+    """
+    # Read before the attempt, not in the failure handler: whatever went wrong
+    # may be the reason a second query would fail too, and this id is the one
+    # thing the log line has to carry.
+    subscription_id = session.execute(
+        select(Subscription.provider_subscription_id).where(Subscription.user_id == user_id)
+    ).scalars().first()
+    try:
+        cancelled = cancel_at_period_end(session, user_id)
+    except Exception:
+        logger.warning(
+            "Could not cancel Stripe subscription %s for user %s during account deletion; "
+            "it may keep billing until cancelled by hand",
+            subscription_id, user_id, exc_info=True,
+        )
+    else:
+        if cancelled:
+            logger.info("Set Stripe subscription %s to cancel at period end for deleted user %s",
+                        cancelled, user_id)
 
 
 def _run(session: Session, user_id: int, *, execute: bool) -> DeletionReport:
