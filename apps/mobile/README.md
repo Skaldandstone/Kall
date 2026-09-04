@@ -113,6 +113,38 @@ profile:
 These profiles do not submit anything to TestFlight or the App Store. Store
 submission remains a separate provider action after device testing and review.
 
+### Building for Google Play
+
+The `android-production` EAS profile is a separate path from the local
+sideloaded alpha APK above: it produces an `.aab` (Android App Bundle, what
+Play requires for new app submissions) and lets EAS manage its own Android
+upload keystore rather than reusing the local one under
+`$env:USERPROFILE\.kall\android`. It deliberately does **not** set
+`KALL_MOBILE_LOCAL_ANDROID_SIGNING` -- see `app.config.js` -- so the
+`with-release-signing` config plugin (which expects Gradle properties only
+`build-alpha-apk.ps1` sets) never applies to this build.
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
+npx eas-cli@23.2.0 login
+npx eas-cli@23.2.0 build --platform android --profile android-production
+```
+
+If no Android credentials exist yet for this project, EAS prompts to generate
+a new upload keystore (or lets you supply your own) on first run -- accept the
+generated one unless there's a specific reason to bring an existing key. That
+upload key is what gets enrolled in Google Play App Signing the first time the
+resulting `.aab` is uploaded to Play Console; Google then holds the actual
+app-signing key and re-signs what it distributes, per the Play App Signing
+Terms of Service accepted when the app was created in Play Console.
+
+This produces a build ready to upload manually to any Play Console track
+(Internal testing, Closed, Open, or Production) -- which track to use is a
+Play Console choice made at upload time, not something in this repo. `eas
+submit` automation (uploading directly from this command instead of via the
+Play Console UI) needs a separate Google Cloud service account key and isn't
+configured yet.
+
 ## Structure
 
 ```

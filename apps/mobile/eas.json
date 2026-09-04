@@ -27,6 +27,17 @@
         "simulator": false,
         "buildConfiguration": "Release"
       }
+    },
+    "android-production": {
+      "distribution": "store",
+      "env": {
+        "KALL_MOBILE_RELEASE": "1",
+        "API_BASE_URL": "https://kall.skaldandstone.com/api",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   }
 }
