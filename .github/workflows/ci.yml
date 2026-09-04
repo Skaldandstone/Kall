@@ -16,7 +16,47 @@ on:
   workflow_dispatch:
 
 jobs:
+  # All 6 jobs below used to run in full on every push/PR regardless of what
+  # changed, which burned the org's monthly Actions minutes fast (a single
+  # apps/extension tweak still paid for backend pytest, web e2e, and mobile
+  # e2e). This scopes each job to the paths it actually covers. workflow_dispatch
+  # (manual validation runs) and any edit to this file itself always run
+  # everything, so the filtering can't silently hide a real failure.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      extension: ${{ steps.filter.outputs.extension }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'migrations/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'alembic.ini'
+              - 'pyproject.toml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/**'
+              - 'tests/clerk-test-safety.test.mjs'
+              - '.github/workflows/ci.yml'
+            extension:
+              - 'apps/extension/**'
+              - '.github/workflows/ci.yml'
+            mobile:
+              - 'apps/mobile/**'
+              - '.github/workflows/ci.yml'
+
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # A fast burst of pushes to the same branch (very much a recurring
     # pattern here) used to queue up every one of these test jobs in full
@@ -51,6 +91,8 @@ jobs:
           retention-days: 30
 
   web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-web-${{ github.ref }}
@@ -73,6 +115,10 @@ jobs:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
 
   e2e:
+    needs: changes
+    # Full-stack: exercises the backend through the web UI, so either side
+    # changing can break it.
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-e2e-${{ github.ref }}
@@ -125,6 +171,8 @@ jobs:
           retention-days: 14
 
   accessibility:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-accessibility-${{ github.ref }}
@@ -163,6 +211,8 @@ jobs:
           retention-days: 14
 
   extension:
+    needs: changes
+    if: needs.changes.outputs.extension == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-extension-${{ github.ref }}
@@ -202,7 +252,11 @@ jobs:
       # nothing ever submits the form.
       - run: npm test
         working-directory: apps/extension
+
   mobile-e2e:
+    needs: changes
+    # Runs against the local backend, so backend changes can break it too.
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mobile == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-mobile-e2e-${{ github.ref }}
