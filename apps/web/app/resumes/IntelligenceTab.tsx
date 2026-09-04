@@ -5,9 +5,39 @@ import { showToast } from '../components/ToastHost';
 
 const API = '/api/kall';
 
-type Recommendation = { id: string; section: string; title: string; reason: string; current_text: string; proposed_text: string; confidence: number };
+type Recommendation = { id: string; section: string; title: string; reason: string; current_text: string; proposed_text: string; confidence: number; target_titles?: string[]; industries?: string[]; tags?: string[] };
 type ResumeInsight = { id: number; name: string; version: number; is_default: boolean; tags: string[]; industries: string[]; target_titles: string[]; readiness_score: number; strengths: string[]; gaps: string[]; aligned_profile_titles: string[]; text_character_count: number };
 type Dashboard = { summary: { resume_count: number; profile_count: number; best_resume_id?: number | null; best_score?: number | null; default_resume_id?: number | null }; resumes: ResumeInsight[]; profile_titles: string[] };
+type Preview = {
+  current_text: string; revised_text: string; current_score: number; projected_score: number;
+  projected_strengths: string[]; projected_gaps: string[]; tags: string[]; industries: string[]; target_titles: string[];
+  applied_recommendation_ids: string[];
+};
+type DiffLine = { type: 'same' | 'add' | 'remove'; text: string };
+
+function diffLines(oldText: string, newText: string): DiffLine[] {
+  const a = oldText.split('\n');
+  const b = newText.split('\n');
+  const n = a.length;
+  const m = b.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = m - 1; j >= 0; j -= 1) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const result: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { result.push({ type: 'same', text: a[i] }); i += 1; j += 1; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { result.push({ type: 'remove', text: a[i] }); i += 1; }
+    else { result.push({ type: 'add', text: b[j] }); j += 1; }
+  }
+  while (i < n) { result.push({ type: 'remove', text: a[i] }); i += 1; }
+  while (j < m) { result.push({ type: 'add', text: b[j] }); j += 1; }
+  return result;
+}
 
 async function api(path: string, options: RequestInit = {}) {
   const response = await fetch(`${API}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
@@ -23,6 +53,8 @@ export default function IntelligenceTab() {
   const [removeId, setRemoveId] = useState<number | null>(null);
   const [recommendations, setRecommendations] = useState<Record<number, Recommendation[]>>({});
   const [selected, setSelected] = useState<Record<number, string[]>>({});
+  const [preview, setPreview] = useState<Record<number, Preview>>({});
+  const [customDraft, setCustomDraft] = useState<Record<number, { section: string; text: string }>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -57,17 +89,36 @@ export default function IntelligenceTab() {
     finally { setBusyId(null); }
   }
 
-  async function applySelected(resume: ResumeInsight) {
+  function selectedPayload(resumeId: number) {
+    const chosen = selected[resumeId] || [];
+    return { recommendation_ids: chosen, recommendations: recommendations[resumeId] || [] };
+  }
+
+  async function previewChanges(resume: ResumeInsight) {
     const chosen = selected[resume.id] || [];
     if (!chosen.length) { showToast('Select at least one recommendation.', 'error'); return; }
     setBusyId(resume.id);
     try {
-      const result = await api(`/me/resumes/${resume.id}/apply-recommendations`, { method: 'POST', body: JSON.stringify({ recommendation_ids: chosen, recommendations: recommendations[resume.id] || [] }) });
+      const result = await api(`/me/resumes/${resume.id}/preview-recommendations`, { method: 'POST', body: JSON.stringify(selectedPayload(resume.id)) });
+      setPreview(current => ({ ...current, [resume.id]: result as Preview }));
+    } catch (error) { showToast((error as Error).message, 'error'); }
+    finally { setBusyId(null); }
+  }
+
+  async function confirmApply(resume: ResumeInsight) {
+    setBusyId(resume.id);
+    try {
+      const result = await api(`/me/resumes/${resume.id}/apply-recommendations`, { method: 'POST', body: JSON.stringify(selectedPayload(resume.id)) });
       showToast(`Created version ${result.version} as a new resume.`, 'success');
       setRecommendations(current => { const next = { ...current }; delete next[resume.id]; return next; });
+      setPreview(current => { const next = { ...current }; delete next[resume.id]; return next; });
       await load();
     } catch (error) { showToast((error as Error).message, 'error'); }
     finally { setBusyId(null); }
+  }
+
+  function cancelPreview(resumeId: number) {
+    setPreview(current => { const next = { ...current }; delete next[resumeId]; return next; });
   }
 
   function toggle(resumeId: number, id: string) {
@@ -75,6 +126,25 @@ export default function IntelligenceTab() {
       const values = current[resumeId] || [];
       return { ...current, [resumeId]: values.includes(id) ? values.filter(value => value !== id) : [...values, id] };
     });
+  }
+
+  function addCustomChange(resumeId: number) {
+    const draft = customDraft[resumeId];
+    const text = (draft?.text || '').trim();
+    if (!text) { showToast('Describe the change you want to add.', 'error'); return; }
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const item: Recommendation = {
+      id, section: draft?.section?.trim() || 'Your addition', title: 'Your own addition',
+      reason: 'Added by you, not generated.', current_text: '', proposed_text: text, confidence: 100,
+    };
+    setRecommendations(current => ({ ...current, [resumeId]: [...(current[resumeId] || []), item] }));
+    setSelected(current => ({ ...current, [resumeId]: [...(current[resumeId] || []), id] }));
+    setCustomDraft(current => ({ ...current, [resumeId]: { section: '', text: '' } }));
+  }
+
+  function removeRecommendation(resumeId: number, id: string) {
+    setRecommendations(current => ({ ...current, [resumeId]: (current[resumeId] || []).filter(item => item.id !== id) }));
+    setSelected(current => ({ ...current, [resumeId]: (current[resumeId] || []).filter(value => value !== id) }));
   }
 
   return <>
@@ -94,9 +164,41 @@ export default function IntelligenceTab() {
           <p>{resume.text_character_count.toLocaleString()} readable characters · {resume.aligned_profile_titles.length} aligned target role{resume.aligned_profile_titles.length === 1 ? '' : 's'}</p>
           <div className="two" style={{ marginTop: 22 }}><div><h3>Strengths</h3><ul>{resume.strengths.map(item => <li key={item}>{item}</li>)}</ul></div><div><h3>Next improvements</h3><ul>{resume.gaps.length ? resume.gaps.map(item => <li key={item}>{item}</li>) : <li>No immediate gaps detected.</li>}</ul></div></div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}><button className="button" type="button" disabled={busyId === resume.id} onClick={() => void analyze(resume.id)}>{busyId === resume.id ? 'Working…' : recommendations[resume.id] ? 'Regenerate recommendations' : 'Generate AI recommendations'}</button><a className="button secondary" href="/resumes">Edit resume details</a></div>
-          {recommendations[resume.id] && <section style={{ marginTop: 26 }}><div className="section-heading"><div><span className="eyebrow">Actionable recommendations</span><h3 style={{ marginTop: 10 }}>Review proposed changes</h3></div><p>Selected changes create a new version.</p></div><div className="stack">
-            {recommendations[resume.id].map(item => <article className="card" key={item.id} style={{ padding: 20 }}><label style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}><input type="checkbox" checked={(selected[resume.id] || []).includes(item.id)} onChange={() => toggle(resume.id, item.id)} /><span><strong>{item.title}</strong><span className="pill" style={{ marginLeft: 10 }}>{item.confidence}% confidence</span></span></label><p className="muted">{item.section} · {item.reason}</p><div className="two" style={{ marginTop: 16 }}><div><h4>Current</h4><p style={{ whiteSpace: 'pre-wrap' }}>{item.current_text || 'No matching text identified.'}</p></div><div><h4>Recommended</h4><p style={{ whiteSpace: 'pre-wrap' }}>{item.proposed_text}</p></div></div></article>)}
-          </div><button className="button" type="button" style={{ marginTop: 18 }} disabled={busyId === resume.id} onClick={() => void applySelected(resume)}>Apply selected as new version</button></section>}
+          {!preview[resume.id] && <section style={{ marginTop: 26 }}><div className="section-heading"><div><span className="eyebrow">Actionable recommendations</span><h3 style={{ marginTop: 10 }}>Review proposed changes</h3></div><p>Selected changes create a new version.</p></div><div className="stack">
+            {(recommendations[resume.id] || []).map(item => <article className="card" key={item.id} style={{ padding: 20 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><label style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}><input type="checkbox" checked={(selected[resume.id] || []).includes(item.id)} onChange={() => toggle(resume.id, item.id)} /><span><strong>{item.title}</strong><span className="pill" style={{ marginLeft: 10 }}>{item.id.startsWith('custom-') ? 'your addition' : `${item.confidence}% confidence`}</span></span></label><button className="button ghost" type="button" aria-label={`Remove ${item.title}`} onClick={() => removeRecommendation(resume.id, item.id)}>Remove</button></div><p className="muted">{item.section} · {item.reason}</p><div className="two" style={{ marginTop: 16 }}><div><h4>Current</h4><p style={{ whiteSpace: 'pre-wrap' }}>{item.current_text || 'No matching text identified.'}</p></div><div><h4>Recommended</h4><p style={{ whiteSpace: 'pre-wrap' }}>{item.proposed_text}</p></div></div></article>)}
+          </div>
+          <div className="card" style={{ padding: 20, marginTop: 18 }}>
+            <h4>Add your own change</h4>
+            <p className="muted">Describe something you want added or changed — it joins the list above as its own recommendation you can preview before it's applied.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              <input className="input" placeholder="Section (optional, e.g. Skills)" value={customDraft[resume.id]?.section || ''} onChange={(event) => setCustomDraft(current => ({ ...current, [resume.id]: { section: event.target.value, text: current[resume.id]?.text || '' } }))} />
+              <textarea className="input" rows={3} placeholder="e.g. Add a bullet about leading the Q3 platform migration, which cut downtime 40%." value={customDraft[resume.id]?.text || ''} onChange={(event) => setCustomDraft(current => ({ ...current, [resume.id]: { section: current[resume.id]?.section || '', text: event.target.value } }))} />
+              <button className="button secondary" type="button" style={{ alignSelf: 'flex-start' }} onClick={() => addCustomChange(resume.id)}>Add to recommendations</button>
+            </div>
+          </div>
+          {(recommendations[resume.id] || []).length > 0 && <button className="button" type="button" style={{ marginTop: 18 }} disabled={busyId === resume.id} onClick={() => void previewChanges(resume)}>{busyId === resume.id ? 'Working…' : 'Preview changes'}</button>}
+          </section>}
+          {preview[resume.id] && <section style={{ marginTop: 26 }}>
+            <div className="section-heading"><div><span className="eyebrow">Preview before creating a new version</span><h3 style={{ marginTop: 10 }}>Full resume diff</h3></div><p>Nothing is saved until you confirm.</p></div>
+            <div className="card" style={{ padding: 16 }}>
+              <p><strong>Readiness score:</strong> {preview[resume.id].current_score}% → <strong>{preview[resume.id].projected_score}%</strong>{preview[resume.id].projected_score > preview[resume.id].current_score ? ' ▲' : preview[resume.id].projected_score < preview[resume.id].current_score ? ' ▼' : ''}</p>
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 14, maxHeight: 420, overflowY: 'auto', marginTop: 12 }}>
+                {diffLines(preview[resume.id].current_text, preview[resume.id].revised_text).map((line, index) => (
+                  <div key={index} style={{
+                    background: line.type === 'add' ? 'rgba(34,197,94,.15)' : line.type === 'remove' ? 'rgba(239,68,68,.15)' : 'transparent',
+                    color: line.type === 'add' ? '#16a34a' : line.type === 'remove' ? '#dc2626' : 'inherit',
+                    textDecoration: line.type === 'remove' ? 'line-through' : 'none',
+                  }}>
+                    {line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  '}{line.text || ' '}
+                  </div>
+                ))}
+              </pre>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+              <button className="button" type="button" disabled={busyId === resume.id} onClick={() => void confirmApply(resume)}>{busyId === resume.id ? 'Working…' : 'Confirm and create new version'}</button>
+              <button className="button ghost" type="button" disabled={busyId === resume.id} onClick={() => cancelPreview(resume.id)}>Cancel</button>
+            </div>
+          </section>}
         </article>)}
       </div></section>}
     </>}

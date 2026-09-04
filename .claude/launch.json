@@ -26,6 +26,12 @@
       "port": 8010
     },
     {
+      "name": "kall-usability-fixture",
+      "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
+      "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && cd apps\\web && node node_modules/next/dist/bin/next dev usability-fixture --hostname 127.0.0.1 --port 3310"],
+      "port": 3310
+    },
+    {
       "name": "kall-mobile",
       "runtimeExecutable": "C:\\Windows\\System32\\cmd.exe",
       "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && cd apps\\mobile && npx expo start --web --port 8099 --clear"],

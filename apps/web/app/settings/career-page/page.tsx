@@ -6,7 +6,7 @@ import CareerPageEditor from './CareerPageEditor';
 export default function CareerPageSettings() {
   return (
     <main className="shell">
-      <AppNav />
+      <AppNav current="portfolio" />
       <section className="hero" style={{ paddingTop: 32, paddingBottom: 36 }}>
         <span className="eyebrow">
           <a href="/settings">Account settings</a> / Career page

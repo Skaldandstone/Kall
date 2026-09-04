@@ -235,6 +235,43 @@
   padding: 18px 20px;
 }
 
+/* A timeline section (career history, by default) reads as a vertical line
+   of dated entries rather than a flat list -- the dot marks each one against
+   the rule running down the left edge. */
+.timeline {
+  position: relative;
+  padding-left: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--cp-rule);
+}
+
+.timeline > .entry {
+  position: relative;
+}
+
+.timeline > .entry::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cp-bg);
+  border: 2px solid var(--cp-signal);
+}
+
 .entry {
   display: flex;
   flex-direction: column;
@@ -363,8 +400,18 @@
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+.sample {
+  background: var(--cp-panel);
+  border: 1px solid var(--cp-rule);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(28, 25, 18, 0.06);
+}
+
 .sample h3 {
-  font-size: 1.05rem;
+  font-family: var(--cp-display);
+  font-size: 1.15rem;
+  font-weight: 600;
   margin: 0 0 12px;
 }
 
@@ -393,27 +440,23 @@
   border: 0;
 }
 
-/* A work sample we do not embed. Styled as a card so it reads as a
-   deliberate link rather than as an embed that failed to load. */
+/* A work sample we do not embed. Styled as a deliberate link rather than as
+   an embed that failed to load; the surrounding .sample card already
+   supplies the border, so this only needs to react on hover. */
 .sampleLink {
   align-items: flex-start;
-  border: 1px solid var(--cp-rule);
-  border-radius: 6px;
   color: inherit;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 120px;
+  min-height: 90px;
   justify-content: center;
-  padding: 24px;
   text-decoration: none;
-  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.sampleLink:hover,
-.sampleLink:focus-visible {
-  background: var(--cp-panel);
-  border-color: var(--cp-accent);
+.sampleLink:hover .sampleLinkTitle,
+.sampleLink:focus-visible .sampleLinkTitle {
+  color: var(--cp-accent);
 }
 
 .sampleLinkTitle {
