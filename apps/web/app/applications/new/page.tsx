@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import flow from '../../components/CurrentFlow.module.css';
 import { hideSearchResult } from '../../lib/searchResultState';
@@ -32,6 +32,7 @@ export default function NewApplicationPage() {
 
 function NewApplicationForm() {
   const params = useSearchParams();
+  const router = useRouter();
   const existingJobId = params.get('job') || '';
   const externalUrl = params.get('external_url') || '';
   const externalTitle = params.get('title') || 'Selected opportunity';
@@ -126,12 +127,20 @@ function NewApplicationForm() {
       });
       if (!response.ok) throw new Error(await errorMessage(response, 'Unable to prepare this application.'));
       const prepared = await response.json() as Application;
-      setApplication(prepared);
-      if (prepared.status === 'submitted' && externalUrl) {
-        hideSearchResult(externalUrl, externalTitle, 'applied_kall');
-        showToast('Application submitted and removed from future search results.', 'success');
+      if (prepared.status === 'submitted') {
+        if (externalUrl) {
+          hideSearchResult(externalUrl, externalTitle, 'applied_kall');
+          showToast('Application submitted and removed from future search results.', 'success');
+        }
+        setApplication(prepared);
+        setMessage('Application submitted successfully.');
+        return;
       }
-      setMessage(prepared.status === 'submitted' ? 'Application submitted successfully.' : 'Application prepared. Review and explicit approval are required before submission.');
+      // The next required step is reviewing the actual tailored content --
+      // go straight there instead of stopping at a passive summary card the
+      // person would otherwise have to notice and click through themselves.
+      showToast('Application prepared. Review the tailored content before it can be approved.', 'success');
+      router.push(`/applications/${prepared.id}`);
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Unable to prepare this application.';
       setMessage(text); showToast(text, 'error');

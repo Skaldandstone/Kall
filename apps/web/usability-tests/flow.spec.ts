@@ -105,7 +105,7 @@ test('profile search failure keeps entered terms and provides inline feedback', 
   await expect(page.locator('.search-page-controls-column .notice')).toHaveText('Profile search is temporarily unavailable.');
 });
 
-test('preparation keeps a manual resume selection without refetching options', async ({ page }) => {
+test('preparation keeps a manual resume selection, then goes straight to the tailoring review', async ({ page }) => {
   let profileRequests = 0;
   page.on('request', (request) => { if (request.url().endsWith('/me/professional-profiles')) profileRequests += 1; });
   await page.goto('/applications/new?job=17&profile=1');
@@ -115,11 +115,11 @@ test('preparation keeps a manual resume selection without refetching options', a
   await page.getByLabel('Resume', { exact: true }).selectOption('1');
   await page.getByRole('checkbox', { name: 'Generate a role-specific cover letter draft' }).uncheck();
   await page.getByRole('button', { name: 'Prepare application', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible();
-  await expect(page.getByLabel('Resume', { exact: true })).toHaveValue('1');
+  // The next required step is reviewing the actual tailored content, so
+  // preparing navigates straight to it instead of stopping at a summary
+  // card the person would have to notice and click through themselves.
+  await expect(page).toHaveURL(/\/applications\/41$/);
   expect(profileRequests).toBe(1);
-  await page.getByLabel('Resume', { exact: true }).selectOption('2');
-  await expect(page.getByRole('link', { name: 'Continue to application review' })).toHaveCount(0);
 });
 
 test('preparation options failure can be retried without becoming an empty profile list', async ({ page }) => {
