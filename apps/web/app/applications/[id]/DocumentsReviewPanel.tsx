@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { showToast } from '../../components/ToastHost';
 
 const API = '/api/kall';
@@ -57,38 +57,63 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const [payload, setPayload] = useState<PreparedPayload | null>(null);
   const [tailoringStatus, setTailoringStatus] = useState('');
   const [tailoringChanges, setTailoringChanges] = useState<TailoringChange[]>([]);
+  // tailoringChanges starts empty, same as "everything is already accepted"
+  // to `.some(status === 'pending')` -- so before the fetch below resolves,
+  // "Finalize resume tailoring" reads as safe to click when it is really
+  // just not loaded yet. A CI run caught exactly this: the button was
+  // clicked before its own pending change had arrived, and the server
+  // correctly 422'd. This flag closes that window.
+  const [tailoringChangesLoaded, setTailoringChangesLoaded] = useState(false);
   const [coverLetterStatus, setCoverLetterStatus] = useState('');
   const [coverLetterChanges, setCoverLetterChanges] = useState<CoverLetterChange[]>([]);
   const [document_, setDocument_] = useState<GeneratedDocument | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
+  // React 18 Strict Mode (development only) double-invokes this effect on
+  // mount, firing two overlapping load() calls. Without a sequence guard,
+  // whichever of the two happens to resolve last wins -- including a stale
+  // first call resolving after a real user action (accepting a tailoring
+  // change, say) has already moved local state past it, silently reverting
+  // that action's effect. loadSeq makes only the most recently *started*
+  // load() actually allowed to commit state, however its requests interleave.
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;
+
     const response = await fetch(`${API}/applications/${applicationId}`);
-    if (!response.ok) return;
+    if (!response.ok || stale()) return;
     const application = await response.json();
     const prepared: PreparedPayload = application.prepared_payload || {};
+    if (stale()) return;
     setPayload(prepared);
 
     if (prepared.tailoring_proposal_id) {
       const proposalResponse = await fetch(`${API}/tailoring/proposals/${prepared.tailoring_proposal_id}`);
       if (proposalResponse.ok) {
         const data = await proposalResponse.json();
-        setTailoringChanges(data.changes);
-        setTailoringStatus(data.proposal.status);
+        if (!stale()) {
+          setTailoringChanges(data.changes);
+          setTailoringStatus(data.proposal.status);
+        }
       }
+      if (!stale()) setTailoringChangesLoaded(true);
     }
     if (prepared.cover_letter_proposal_id) {
       const letterResponse = await fetch(`${API}/cover-letters/${prepared.cover_letter_proposal_id}`);
       if (letterResponse.ok) {
         const data = await letterResponse.json();
-        setCoverLetterChanges(data.changes);
-        setCoverLetterStatus(data.proposal.status);
+        if (!stale()) {
+          setCoverLetterChanges(data.changes);
+          setCoverLetterStatus(data.proposal.status);
+        }
       }
     }
     if (prepared.generated_document_id) {
       const documentResponse = await fetch(`${API}/documents/${prepared.generated_document_id}`);
-      if (documentResponse.ok) setDocument_(await documentResponse.json());
+      if (documentResponse.ok && !stale()) setDocument_(await documentResponse.json());
     }
   }, [applicationId]);
 
@@ -234,8 +259,9 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
                 <p className="notice">Status: {change.status}</p>
               </article>
             ))}
-            <button className="button" disabled={busy || tailoringChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeTailoring()}>Finalize resume tailoring</button>
-            {tailoringChanges.some((change) => change.status === 'pending') && <p className="notice">Every change above must be accepted, edited, or rejected first.</p>}
+            <button className="button" disabled={busy || !tailoringChangesLoaded || tailoringChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeTailoring()}>Finalize resume tailoring</button>
+            {!tailoringChangesLoaded && <p className="notice">Loading the proposed changes…</p>}
+            {tailoringChangesLoaded && tailoringChanges.some((change) => change.status === 'pending') && <p className="notice">Every change above must be accepted, edited, or rejected first.</p>}
           </div>
         )}
       </section>

@@ -8,6 +8,7 @@ from kall.models import (
     ScreeningQuestion,
 )
 from kall.models.enums import ApplicationStatus
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 SENSITIVE_CATEGORIES = {"eeo", "work_authorization", "disability", "veteran", "demographic"}
@@ -48,7 +49,24 @@ def build_review(session: Session, application: Application) -> ApplicationRevie
     review = ApplicationReview(application_id=application.id, user_id=application.user_id)
     session.add(review)
     session.add(ApplicationReviewAudit(application_id=application.id, user_id=application.user_id, event="review_created", details={"question_count": len(detected)}))
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Lost a race to create this application's one-and-only review row --
+        # two nearly-simultaneous calls (e.g. the review page's effect firing
+        # twice under React Strict Mode in development, or a retried request)
+        # both passed the existence check above before either had committed.
+        # The other call's row is the real one; roll back this attempt's
+        # half-built rows (including any duplicate ScreeningQuestion/Answer
+        # rows) and return what actually exists instead of a 500 for
+        # something that isn't a real conflict from the caller's side.
+        session.rollback()
+        existing = session.exec(
+            select(ApplicationReview).where(ApplicationReview.application_id == application.id)
+        ).first()
+        if existing:
+            return existing
+        raise
     session.refresh(review)
     return review
 

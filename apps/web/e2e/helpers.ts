@@ -180,6 +180,67 @@ export async function firstProfileId(page: Page): Promise<number> {
 }
 
 /**
+ * Walks the application review page's DocumentsReviewPanel to completion:
+ * accepts every proposed resume-tailoring change and finalizes it, drafts
+ * and accepts the cover letter when one was requested, and generates the
+ * final documents. "Confirm review items" stays disabled until all of this
+ * is done (see DocumentsReviewPanel.tsx's `onReady`), so any spec that
+ * reaches the review stage with the default customize-resume/generate-cover-
+ * letter options needs this before it can approve an application.
+ *
+ * A no-op when the application requested no AI customization at all -- the
+ * panel then renders "Using your original resume as-is." and there is
+ * nothing to review.
+ */
+export async function completeDocumentsReview(page: Page) {
+  if (await page.getByText('Using your original resume as-is.').isVisible().catch(() => false)) return;
+
+  async function acceptAllPending(pendingText: string | RegExp) {
+    // Accept buttons never disappear on their own -- only the "Status: ..."
+    // text next to them changes -- so pending count, not button count, is
+    // what actually converges to zero here.
+    while (true) {
+      const pending = page.locator('article').filter({ hasText: pendingText });
+      const count = await pending.count();
+      if (count === 0) break;
+      await pending.first().getByRole('button', { name: 'Accept' }).click();
+      await expect(pending).toHaveCount(count - 1, { timeout: 10_000 });
+    }
+  }
+
+  const finalizeTailoring = page.getByRole('button', { name: 'Finalize resume tailoring' });
+  await expect(finalizeTailoring).toBeVisible({ timeout: 15_000 });
+  // The proposed changes arrive via a second fetch, after the one that
+  // reveals this section at all -- querying pending count before that
+  // settles reads as "nothing to accept" rather than "not loaded yet".
+  await expect(page.getByText('Loading the proposed changes…')).toHaveCount(0, { timeout: 15_000 });
+  await acceptAllPending('Status: pending');
+  await expect(finalizeTailoring).toBeEnabled();
+  await finalizeTailoring.click();
+  await expect(page.getByText('Resume tailoring finalized.')).toBeVisible({ timeout: 15_000 });
+
+  const draftCoverLetter = page.getByRole('button', { name: 'Draft cover letter' });
+  if (await draftCoverLetter.isVisible().catch(() => false)) {
+    await draftCoverLetter.click();
+    const finalizeCoverLetter = page.getByRole('button', { name: 'Finalize cover letter' });
+    await expect(finalizeCoverLetter).toBeVisible({ timeout: 15_000 });
+    // The \u00B7 escape (a middle dot) is deliberate, not decorative: the
+    // literal character here was observed being silently dropped from this
+    // regex somewhere in CI's TypeScript transform pipeline, which made the
+    // filter match zero elements and left acceptAllPending() a silent no-op.
+    await acceptAllPending(/\u00B7\s*pending/);
+    await expect(finalizeCoverLetter).toBeEnabled();
+    await finalizeCoverLetter.click();
+    await expect(page.getByText('Cover letter finalized.')).toBeVisible({ timeout: 15_000 });
+  }
+
+  const generateDocuments = page.getByRole('button', { name: 'Generate final documents' });
+  await expect(generateDocuments).toBeVisible({ timeout: 15_000 });
+  await generateDocuments.click();
+  await expect(page.getByRole('heading', { name: 'Read exactly what will be sent.' })).toBeVisible({ timeout: 15_000 });
+}
+
+/**
  * Seeds an importable job through the same endpoint the real "Apply with
  * Kall" flow uses for an external search result.
  *
