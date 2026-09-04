@@ -24,6 +24,13 @@ jobs:
   # everything, so the filtering can't silently hide a real failure.
   changes:
     runs-on: ubuntu-latest
+    # dorny/paths-filter calls the GitHub API to list a PR's changed files,
+    # which needs pull-requests: read -- the default GITHUB_TOKEN here
+    # doesn't have it, so this job failed outright on every PR run without
+    # this grant.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
