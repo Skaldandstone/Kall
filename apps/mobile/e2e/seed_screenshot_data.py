@@ -10,6 +10,7 @@ pipeline tests -- there is no seeding endpoint in the API for this.
 """
 
 import argparse
+import time
 from datetime import datetime, timedelta
 
 from kall.db import engine
@@ -35,12 +36,16 @@ def main() -> None:
         session.commit()
         session.refresh(profile)
 
+        # Job.url is globally unique. A Playwright retry re-runs this script
+        # against the same still-running backend/DB with a fresh Clerk user,
+        # so a fixed URL would collide with the previous attempt's row.
+        unique = int(time.time() * 1000)
         review_job = Job(
             source="manual",
             company="Anchor Robotics",
             title="Senior Backend Engineer",
             description="Own the services powering our fulfillment network.",
-            url="https://boards.example.com/jobs/anchor-robotics-backend",
+            url=f"https://boards.example.com/jobs/anchor-robotics-backend-{unique}",
             location="Remote (US)",
         )
         interview_job = Job(
@@ -48,7 +53,7 @@ def main() -> None:
             company="Northwind Analytics",
             title="Staff Data Engineer",
             description="Lead the data platform team.",
-            url="https://boards.example.com/jobs/northwind-staff-data",
+            url=f"https://boards.example.com/jobs/northwind-staff-data-{unique}",
             location="Austin, TX",
         )
         session.add(review_job)

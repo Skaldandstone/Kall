@@ -125,8 +125,12 @@ test('capture Play Store screenshots as John Kall', async ({ page }) => {
     await page.getByText('Senior Backend Engineer').click();
     await expect(page.getByText('Readiness')).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '3-application-review.png') });
-    await page.goBack();
-    await expect(page.getByText('Applications', { exact: true }).first()).toBeVisible();
+    // The tab bar stays visible under a pushed detail screen (ApplicationDetail
+    // lives inside ApplicationsStackParamList, nested in the Applications tab),
+    // so re-pressing the tab pops the stack -- browser history's back button
+    // does not reliably map onto React Navigation's own stack state here.
+    await page.getByText('Applications', { exact: true }).first().click();
+    await expect(page.getByText('Review and approve what Kall has prepared.')).toBeVisible();
 
     await page.getByText('Brief', { exact: true }).click();
     await expect(page.getByText(/Good morning|Morning Brief/).first()).toBeVisible({ timeout: 20_000 });
