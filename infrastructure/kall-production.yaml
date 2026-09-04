@@ -72,10 +72,10 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/openai-[A-Za-z0-9]+$'
-  GoogleCustomSearchSecretArn:
+  SerperSecretArn:
     Type: String
     Default: ''
-    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/google-custom-search-[A-Za-z0-9]+$'
+    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/serper-[A-Za-z0-9]+$'
   StripePlusPriceId:
     Type: String
     Default: ''
@@ -168,7 +168,7 @@ Rules:
 
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
-  HasGoogleCustomSearchSecret: !Not [!Equals [!Ref GoogleCustomSearchSecretArn, '']]
+  HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, '']]
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
   PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
@@ -301,10 +301,10 @@ Resources:
                   Resource: !Ref OpenAISecretArn
                 - !Ref AWS::NoValue
               - !If
-                - HasGoogleCustomSearchSecret
+                - HasSerperSecret
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
-                  Resource: !Ref GoogleCustomSearchSecretArn
+                  Resource: !Ref SerperSecretArn
                 - !Ref AWS::NoValue
 
   BootstrapExecutionRole:
@@ -996,14 +996,9 @@ Resources:
                 ValueFrom: !Sub '${OpenAISecretArn}:OPENAI_API_KEY::'
               - !Ref AWS::NoValue
             - !If
-              - HasGoogleCustomSearchSecret
-              - Name: GOOGLE_CUSTOM_SEARCH_API_KEY
-                ValueFrom: !Sub '${GoogleCustomSearchSecretArn}:GOOGLE_CUSTOM_SEARCH_API_KEY::'
-              - !Ref AWS::NoValue
-            - !If
-              - HasGoogleCustomSearchSecret
-              - Name: GOOGLE_CUSTOM_SEARCH_ENGINE_ID
-                ValueFrom: !Sub '${GoogleCustomSearchSecretArn}:GOOGLE_CUSTOM_SEARCH_ENGINE_ID::'
+              - HasSerperSecret
+              - Name: SERPER_API_KEY
+                ValueFrom: !Sub '${SerperSecretArn}:SERPER_API_KEY::'
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
