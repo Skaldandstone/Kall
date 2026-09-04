@@ -6,6 +6,7 @@ import AppNav from '../../components/AppNav';
 import flow from '../../components/CurrentFlow.module.css';
 import { showToast } from '../../components/ToastHost';
 import AutofillPanel from './AutofillPanel';
+import DocumentsReviewPanel from './DocumentsReviewPanel';
 import InterviewPrepPanel from './InterviewPrepPanel';
 
 const API = '/api/kall';
@@ -40,6 +41,7 @@ export default function ApplicationDetailPage() {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [message, setMessage] = useState('');
   const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [documentsReady, setDocumentsReady] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const loadItem = useCallback(async () => {
@@ -169,6 +171,7 @@ export default function ApplicationDetailPage() {
 
     {item.stage === 'review' && <div className="stack">
       <section className="card" aria-busy={reviewState === 'loading'}><span className="eyebrow">Readiness</span><div className="metric"><strong>{reviewState === 'ready' ? review?.review.status : reviewState === 'error' ? 'Review unavailable' : 'Loading review…'}</strong></div><p role={reviewState === 'error' ? 'alert' : 'status'}>{reviewState === 'ready' ? review?.review.readiness_issues?.join(' · ') || 'All required review items are complete.' : reviewState === 'error' ? message : 'Checking the required documents and answers before approval.'}</p>{reviewState === 'error' && <button className="button secondary" onClick={() => void loadReview()}>Retry review</button>}</section>
+      <DocumentsReviewPanel applicationId={applicationId} onReady={setDocumentsReady} />
       {review?.questions.map((question) => {
         const answer = review.answers.find((row) => row.question_id === question.id);
         return answer ? (
@@ -187,9 +190,10 @@ export default function ApplicationDetailPage() {
       <section className="card">
         <h2>Final confirmation</h2>
         <p>Confirm the final documents, all answers, sensitive fields, and legal attestations before approving.</p>
+        {!documentsReady && <p className="notice">Finish reviewing the resume and cover letter content above before confirming.</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-          <button className="button secondary" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(confirmAll)}>Confirm review items</button>
-          <button className="button" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(approve)}>Approve application package</button>
+          <button className="button secondary" disabled={busy || reviewState !== 'ready' || !documentsReady} onClick={() => void runAction(confirmAll)}>Confirm review items</button>
+          <button className="button" disabled={busy || reviewState !== 'ready' || !documentsReady} onClick={() => void runAction(approve)}>Approve application package</button>
         </div>
       </section>
     </div>}

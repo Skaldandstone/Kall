@@ -26,10 +26,43 @@ class ReviewConfirmation(BaseModel):
     attestations_confirmed: bool = False
 
 
+class GeneratedDocumentLinks(BaseModel):
+    cover_letter_proposal_id: int | None = None
+    generated_document_id: int | None = None
+
+
 def owned_application(session: Session, user: User, application_id: int) -> Application:
     application = session.get(Application, application_id)
     if not application or application.user_id != user.id:
         raise HTTPException(404, "Application not found")
+    return application
+
+
+@router.get("/applications/{application_id}", response_model=Application)
+def get_application(application_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> Application:
+    return owned_application(session, user, application_id)
+
+
+@router.patch("/applications/{application_id}/generated-documents", response_model=Application)
+def link_generated_documents(
+    application_id: int,
+    payload: GeneratedDocumentLinks,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Application:
+    """Records the cover letter proposal / rendered document created for this
+    application through the generic /tailoring and /documents endpoints, so
+    the review UI can find them again after a reload -- those endpoints have
+    no notion of "application" themselves.
+    """
+    application = owned_application(session, user, application_id)
+    application.prepared_payload = {
+        **application.prepared_payload,
+        **payload.model_dump(exclude_unset=True),
+    }
+    session.add(application)
+    session.commit()
+    session.refresh(application)
     return application
 
 

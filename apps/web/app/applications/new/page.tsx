@@ -13,11 +13,9 @@ type Profile = { id: number; name: string; default_resume_id?: number | null };
 type Application = {
   id: number;
   status: string;
-  customized_resume_path?: string | null;
-  cover_letter_path?: string | null;
   unanswered_questions: string[];
   sensitive_fields_present: boolean;
-  prepared_payload?: Record<string, unknown>;
+  prepared_payload?: { customize_resume?: boolean; generate_cover_letter?: boolean; tailoring_proposal_id?: number | null };
 };
 
 async function errorMessage(response: Response, fallback: string) {
@@ -158,6 +156,6 @@ function NewApplicationForm() {
         <p className="notice" aria-live="polite">{message}</p>
       </section>
     </div>
-    {application && <section className="card" style={{ marginTop: 24 }}><span className="pill">{application.status}</span><h2 style={{ marginTop: 16 }}>Review checklist</h2><div className="grid"><article className="card"><h3>Resume</h3><p>{application.customized_resume_path || 'Original selected resume'}</p></article><article className="card"><h3>Cover letter</h3><p>{application.cover_letter_path || 'Not requested'}</p></article><article className="card"><h3>Submission</h3><p>Explicit review and approval are required before Kall submits or assists with submission.</p></article></div><p style={{ marginTop: 18 }}><strong>Open questions:</strong> {application.unanswered_questions.join(' · ') || 'None'}</p><p style={{ marginTop: 10 }}><strong>Sensitive fields:</strong> {application.sensitive_fields_present ? 'Confirmation required' : 'None'}</p><a className="button" href={`/applications/${application.id}`} style={{ marginTop: 20 }}>Continue to application review</a></section>}
+    {application && <section className="card" style={{ marginTop: 24 }}><span className="pill">{application.status}</span><h2 style={{ marginTop: 16 }}>Review checklist</h2><div className="grid"><article className="card"><h3>Resume</h3><p>{application.prepared_payload?.tailoring_proposal_id ? 'Tailored draft ready for paragraph-by-paragraph review' : 'Original selected resume, unchanged'}</p></article><article className="card"><h3>Cover letter</h3><p>{application.prepared_payload?.generate_cover_letter ? 'Draft ready for review after resume tailoring is finalized' : 'Not requested'}</p></article><article className="card"><h3>Submission</h3><p>Explicit review and approval are required before Kall submits or assists with submission.</p></article></div><p style={{ marginTop: 18 }}><strong>Open questions:</strong> {application.unanswered_questions.join(' · ') || 'None'}</p><p style={{ marginTop: 10 }}><strong>Sensitive fields:</strong> {application.sensitive_fields_present ? 'Confirmation required' : 'None'}</p><a className="button" href={`/applications/${application.id}`} style={{ marginTop: 20 }}>Continue to application review</a></section>}
   </main>;
 }
