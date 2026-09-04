@@ -131,13 +131,13 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
     }
   }
 
-  if (!prep) return <section className="card" style={{ marginTop: 24 }}><p className="notice">{message}</p></section>;
+  if (!prep) return <p className="notice">{message}</p>;
 
   if (quizQuestions) {
     const submitted = quizResults !== null || !quizGraded;
     const average = quizResults ? Math.round(quizResults.reduce((sum, r) => sum + r.score_percent, 0) / quizResults.length) : null;
     return (
-      <section className="card" style={{ marginTop: 24 }}>
+      <div>
         <span className="eyebrow">Practice quiz</span>
         {average !== null && <h2 style={{ marginTop: 8 }}>{average}% average</h2>}
         {!submitted && <p className="notice" style={{ marginTop: 8 }}>Answer in your own words -- guidance is only shown after you submit.</p>}
@@ -190,12 +190,12 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
           <button className="button ghost" type="button" onClick={exitQuiz}>Back to prep</button>
         </div>
         <p className="notice" aria-live="polite">{message}</p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="card" style={{ marginTop: 24 }}>
+    <div>
       <span className="eyebrow">Interview prep</span>
       {interviewStage && <p className="notice" style={{ marginTop: 8 }}>This application is in the Interview stage -- here's what Kall put together to help you get ready.</p>}
 
@@ -266,6 +266,6 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
         <button className="button secondary" type="button" onClick={() => void saveNotes()} disabled={saving}>Save notes</button>
       </div>
       <p className="notice" aria-live="polite">{message}</p>
-    </section>
+    </div>
   );
 }

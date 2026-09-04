@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import flow from '../../components/CurrentFlow.module.css';
+import Modal from '../../components/Modal';
 import { showToast } from '../../components/ToastHost';
 import AutofillPanel from './AutofillPanel';
 import DocumentsReviewPanel from './DocumentsReviewPanel';
@@ -43,6 +44,7 @@ export default function ApplicationDetailPage() {
   const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [documentsReady, setDocumentsReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [prepOpen, setPrepOpen] = useState(false);
 
   const loadItem = useCallback(async () => {
     try {
@@ -201,7 +203,19 @@ export default function ApplicationDetailPage() {
     {(item.stage === 'approved' || item.stage === 'submitted' || item.stage === 'interview') && <div className="stack">
       <AutofillPanel applicationId={applicationId} />
       {(item.stage === 'submitted' || item.stage === 'interview') && (
-        <InterviewPrepPanel applicationId={applicationId} interviewStage={item.stage === 'interview'} />
+        <section className="card">
+          <span className="eyebrow">Interview prep</span>
+          <h2 style={{ marginTop: 12 }}>
+            {item.stage === 'interview' ? "You're in the Interview stage." : 'Get ahead of it before an interview is scheduled.'}
+          </h2>
+          <p>Company context, a scored practice quiz, and good questions to ask back -- all in one place.</p>
+          <button className="button" type="button" onClick={() => setPrepOpen(true)}>Help prepare</button>
+        </section>
+      )}
+      {prepOpen && (
+        <Modal title="Interview prep" onClose={() => setPrepOpen(false)}>
+          <InterviewPrepPanel applicationId={applicationId} interviewStage={item.stage === 'interview'} />
+        </Modal>
       )}
       {!submission && <section className="card"><p>No submission preview exists yet for this application.</p><button className="button" onClick={() => void prepareSubmission()}>Prepare immutable preview</button><p className="notice" aria-live="polite">{message}</p></section>}
       {submission && <section className="card">
