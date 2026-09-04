@@ -18,6 +18,11 @@ import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsRev
  * rather than forcing an artificial fully-automated path.
  */
 test('an approved application from an unsupported connector lands on manual completion', async ({ page }) => {
+  // Preparing an application now runs a real tailoring pipeline (job
+  // requirement analysis, resume ranking, per-paragraph tailoring, cover
+  // letter drafting, document generation) instead of writing placeholder
+  // text -- the default 60s budget was sized for the old instant version.
+  test.setTimeout(120_000);
   const unique = Date.now();
   await signInAsNewUser(page);
   await completeOnboarding(page);

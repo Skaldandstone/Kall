@@ -12,6 +12,11 @@ import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsRev
  * until a privacy rule grants them.
  */
 test('the autofill panel fills consented fields and withholds the rest', async ({ page }) => {
+  // Preparing an application now runs a real tailoring pipeline (job
+  // requirement analysis, resume ranking, per-paragraph tailoring, cover
+  // letter drafting, document generation) instead of writing placeholder
+  // text -- the default 60s budget was sized for the old instant version.
+  test.setTimeout(120_000);
   const unique = Date.now();
   await signInAsNewUser(page, 'Ada Lovelace');
   await completeOnboarding(page);
