@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 const API = '/api/kall';
+const QUIZ_SIZE = 5;
 
 type CompanyContext = { likely_product: string; likely_tech_stack: string[]; summary: string };
 type QuestionBankItem = { question: string; category: string; answer_prompt: string; resources: string[] };
@@ -14,6 +15,7 @@ type Prep = {
   questions_to_ask: QuestionToAsk[];
   notes: string;
 };
+type GradeResult = { score_percent: number; feedback: string; missed_points: string[]; additional_resources: string[] };
 
 function groupByStage(items: QuestionToAsk[]): [string, QuestionToAsk[]][] {
   const groups = new Map<string, QuestionToAsk[]>();
@@ -25,6 +27,18 @@ function groupByStage(items: QuestionToAsk[]): [string, QuestionToAsk[]][] {
   return Array.from(groups.entries());
 }
 
+// Retaking the quiz should feel different each time -- sample a fresh
+// combination from the (deliberately larger) question bank instead of
+// always asking the same fixed set in the same order.
+function sampleQuestions(pool: QuestionBankItem[], count: number): QuestionBankItem[] {
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, count);
+}
+
 export default function InterviewPrepPanel({ applicationId, interviewStage }: { applicationId: string; interviewStage: boolean }) {
   const [prep, setPrep] = useState<Prep | null>(null);
   const [notes, setNotes] = useState('');
@@ -32,9 +46,12 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [practiceIndex, setPracticeIndex] = useState<number | null>(null);
-  const [practiceAnswer, setPracticeAnswer] = useState('');
-  const [practiceRevealed, setPracticeRevealed] = useState(false);
+
+  const [quizQuestions, setQuizQuestions] = useState<QuestionBankItem[] | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<string[]>([]);
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const [quizResults, setQuizResults] = useState<GradeResult[] | null>(null);
+  const [quizGraded, setQuizGraded] = useState(true);
 
   function load() {
     setMessage('Loading interview prep…');
@@ -75,58 +92,104 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
     setMessage('Prep refreshed.');
   }
 
-  function startPractice() {
-    setPracticeIndex(0);
-    setPracticeAnswer('');
-    setPracticeRevealed(false);
+  function startQuiz() {
+    if (!prep) return;
+    setQuizQuestions(sampleQuestions(prep.question_bank, Math.min(QUIZ_SIZE, prep.question_bank.length)));
+    setQuizAnswers(new Array(Math.min(QUIZ_SIZE, prep.question_bank.length)).fill(''));
+    setQuizResults(null);
+    setQuizGraded(true);
   }
 
-  function nextPractice(direction: 1 | -1) {
-    if (practiceIndex === null || !prep) return;
-    const next = practiceIndex + direction;
-    if (next < 0 || next >= prep.question_bank.length) { setPracticeIndex(null); return; }
-    setPracticeIndex(next);
-    setPracticeAnswer('');
-    setPracticeRevealed(false);
+  function exitQuiz() {
+    setQuizQuestions(null);
+    setQuizAnswers([]);
+    setQuizResults(null);
+  }
+
+  async function submitQuiz() {
+    if (!quizQuestions) return;
+    setQuizSubmitting(true);
+    setMessage('Grading your answers…');
+    try {
+      const response = await fetch(`${API}/me/applications/${applicationId}/interview-prep/quiz/grade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: quizQuestions.map((item, index) => ({
+            question: item.question, category: item.category, answer_prompt: item.answer_prompt,
+            candidate_answer: quizAnswers[index] || '',
+          })),
+        }),
+      });
+      if (!response.ok) { setMessage('Unable to grade this attempt.'); return; }
+      const body: { enabled: boolean; results: GradeResult[] } = await response.json();
+      setQuizGraded(body.enabled);
+      setQuizResults(body.enabled ? body.results : null);
+      setMessage(body.enabled ? '' : 'AI grading is not available -- compare your answers against the guidance below instead.');
+    } finally {
+      setQuizSubmitting(false);
+    }
   }
 
   if (!prep) return <section className="card" style={{ marginTop: 24 }}><p className="notice">{message}</p></section>;
 
-  if (practiceIndex !== null) {
-    const current = prep.question_bank[practiceIndex];
+  if (quizQuestions) {
+    const submitted = quizResults !== null || !quizGraded;
+    const average = quizResults ? Math.round(quizResults.reduce((sum, r) => sum + r.score_percent, 0) / quizResults.length) : null;
     return (
       <section className="card" style={{ marginTop: 24 }}>
-        <span className="eyebrow">Practice session</span>
-        <p className="notice" style={{ marginTop: 8 }}>Question {practiceIndex + 1} of {prep.question_bank.length}</p>
-        <h2 style={{ marginTop: 8 }}>{current.question}</h2>
-        <span className="pill" style={{ marginTop: 8 }}>{current.category}</span>
-        <textarea
-          className="input"
-          rows={5}
-          style={{ marginTop: 16 }}
-          value={practiceAnswer}
-          onChange={(event) => setPracticeAnswer(event.target.value)}
-          placeholder="Say or type your answer here, then reveal the prep guidance to self-check."
-        />
-        {!practiceRevealed ? (
-          <button className="button secondary" type="button" style={{ marginTop: 12 }} onClick={() => setPracticeRevealed(true)}>
-            Reveal guidance
-          </button>
-        ) : (
-          <div style={{ marginTop: 12 }}>
-            <p><strong>How to structure this:</strong> {current.answer_prompt}</p>
-            {current.resources.length > 0 && (
-              <p style={{ marginTop: 8 }}><strong>Worth reviewing:</strong> {current.resources.join(' · ')}</p>
-            )}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-          <button className="button secondary" type="button" onClick={() => nextPractice(-1)} disabled={practiceIndex === 0}>Previous</button>
-          <button className="button" type="button" onClick={() => nextPractice(1)}>
-            {practiceIndex === prep.question_bank.length - 1 ? 'Finish practice' : 'Next question'}
-          </button>
-          <button className="button ghost" type="button" onClick={() => setPracticeIndex(null)}>Exit practice</button>
+        <span className="eyebrow">Practice quiz</span>
+        {average !== null && <h2 style={{ marginTop: 8 }}>{average}% average</h2>}
+        {!submitted && <p className="notice" style={{ marginTop: 8 }}>Answer in your own words -- guidance is only shown after you submit.</p>}
+        <div className="stack" style={{ marginTop: 16 }}>
+          {quizQuestions.map((item, index) => {
+            const result = quizResults?.[index];
+            return (
+              <article className="card" key={index}>
+                <span className="pill">{item.category}</span>
+                {result && <span className="pill" style={{ marginLeft: 8 }}>{result.score_percent}%</span>}
+                <p style={{ marginTop: 10, fontWeight: 600 }}>{item.question}</p>
+                <textarea
+                  className="input"
+                  rows={4}
+                  style={{ marginTop: 10 }}
+                  value={quizAnswers[index] || ''}
+                  onChange={(event) => setQuizAnswers((current) => current.map((value, i) => (i === index ? event.target.value : value)))}
+                  disabled={submitted}
+                  placeholder="Type your answer here."
+                />
+                {result && (
+                  <div style={{ marginTop: 10 }}>
+                    <p>{result.feedback}</p>
+                    {result.missed_points.length > 0 && (
+                      <p style={{ marginTop: 6 }}><strong>What was missing:</strong> {result.missed_points.join(' · ')}</p>
+                    )}
+                    {result.additional_resources.length > 0 && (
+                      <p style={{ marginTop: 6 }}><strong>Worth reviewing:</strong> {result.additional_resources.join(' · ')}</p>
+                    )}
+                  </div>
+                )}
+                {submitted && !quizGraded && (
+                  <div style={{ marginTop: 10 }}>
+                    <p><strong>How to structure this:</strong> {item.answer_prompt}</p>
+                    {item.resources.length > 0 && <p style={{ marginTop: 6 }}><strong>Worth reviewing:</strong> {item.resources.join(' · ')}</p>}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+          {!submitted ? (
+            <button className="button" type="button" onClick={() => void submitQuiz()} disabled={quizSubmitting}>
+              {quizSubmitting ? 'Grading…' : 'Submit quiz'}
+            </button>
+          ) : (
+            <button className="button" type="button" onClick={startQuiz}>Retake quiz</button>
+          )}
+          <button className="button ghost" type="button" onClick={exitQuiz}>Back to prep</button>
+        </div>
+        <p className="notice" aria-live="polite">{message}</p>
       </section>
     );
   }
@@ -148,15 +211,22 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24 }}>
-        <h2 style={{ margin: 0 }}>Likely questions</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, flexWrap: 'wrap', gap: 10 }}>
+        <h2 style={{ margin: 0 }}>Practice quiz</h2>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="button secondary" type="button" onClick={startPractice}>Start practice session</button>
+          <button className="button" type="button" onClick={startQuiz}>Take the practice quiz</button>
           <button className="button ghost" type="button" onClick={() => void regenerate()} disabled={regenerating}>
             {regenerating ? 'Regenerating…' : 'Refresh prep'}
           </button>
         </div>
       </div>
+      <p className="notice" style={{ marginTop: 8 }}>
+        Answer {Math.min(QUIZ_SIZE, prep.question_bank.length)} questions in your own words and get scored feedback. Retake as many
+        times as you like -- each attempt draws a different combination from the {prep.question_bank.length}-question bank.
+      </p>
+
+      <h2 style={{ marginTop: 24 }}>Study the question bank</h2>
+      <p className="notice">Guidance stays hidden until you ask for it -- try recalling an answer yourself first.</p>
       <div className="stack" style={{ marginTop: 12 }}>
         {prep.question_bank.map((item, index) => (
           <article className="card" key={index}>

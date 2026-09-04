@@ -10,7 +10,7 @@ from kall.db import get_session
 from kall.models import Application, InterviewPrep, Job, JobMatch, JobRequirementAnalysis, User
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
-from kall.services.interview_prep import generate_interview_prep
+from kall.services.interview_prep import generate_interview_prep, grade_quiz_answers
 
 router = APIRouter()
 
@@ -72,6 +72,17 @@ def _owned_application(application_id: int, current_user: User, session: Session
 
 class InterviewPrepNotesUpdate(BaseModel):
     notes: str
+
+
+class QuizAnswer(BaseModel):
+    question: str
+    category: str
+    answer_prompt: str
+    candidate_answer: str
+
+
+class QuizGradeRequest(BaseModel):
+    answers: list[QuizAnswer]
 
 
 def _build_prep(application: Application, current_user: User, session: Session) -> InterviewPrep:
@@ -152,6 +163,36 @@ def regenerate_interview_prep(
     session.commit()
     session.refresh(prep)
     return prep
+
+
+@router.post("/me/applications/{application_id}/interview-prep/quiz/grade")
+def grade_interview_quiz(
+    application_id: int,
+    payload: QuizGradeRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Grades a completed practice-quiz attempt in one batched AI call.
+
+    There is no honest deterministic score for a free-text answer, so this
+    returns enabled=False (not a fabricated score) when AI is unavailable --
+    the client falls back to an ungraded self-check against answer_prompt
+    the same way the rest of this feature degrades without a key.
+    """
+    application = _owned_application(application_id, current_user, session)
+    job = session.get(Job, application.job_id)
+    if not job or not payload.answers:
+        return {"enabled": False, "results": []}
+
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
+    ).first()
+    quota.assert_ai_allowed(session, current_user)
+    results = grade_quiz_answers(job, analysis, [answer.model_dump() for answer in payload.answers])
+    if results is None:
+        return {"enabled": False, "results": []}
+    quota.record_ai_action(session, current_user)
+    return {"enabled": True, "results": results}
 
 
 @router.put("/me/applications/{application_id}/interview-prep/notes", response_model=InterviewPrep)

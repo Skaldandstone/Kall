@@ -154,6 +154,80 @@ def test_a_free_fallback_never_consumes_the_ai_actions_quota(client, engine) -> 
         assert snapshot(session, user)["meters"]["ai_actions"]["used"] == 0
 
 
+def test_grading_reports_disabled_without_an_openai_key(client, engine) -> None:
+    """There is no honest deterministic score for a free-text answer -- the
+    endpoint must say grading is unavailable rather than fabricate one."""
+    application_id = _application(engine, client.user_id)
+    response = client.post(f"{API}/{application_id}/interview-prep/quiz/grade", json={
+        "answers": [{"question": "Why this role?", "category": "general", "answer_prompt": "Be specific.", "candidate_answer": "Because I like it."}],
+    })
+    assert response.status_code == 200, response.text
+    assert response.json() == {"enabled": False, "results": []}
+
+
+def test_grading_with_no_answers_is_disabled(client, engine) -> None:
+    application_id = _application(engine, client.user_id)
+    response = client.post(f"{API}/{application_id}/interview-prep/quiz/grade", json={"answers": []})
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False, "results": []}
+
+
+def test_a_real_grading_call_returns_results_and_consumes_the_ai_actions_quota(client, engine, monkeypatch) -> None:
+    import json
+
+    import httpx
+    from kall.config import get_settings
+    from kall.models import User
+    from kall.services.quota import snapshot
+
+    grading = {"results": [{"score_percent": 40, "feedback": "Too vague.", "missed_points": ["No concrete example"], "additional_resources": ["STAR method"]}]}
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"output_text": json.dumps(grading)}
+
+    monkeypatch.setattr(httpx, "post", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    try:
+        application_id = _application(engine, client.user_id)
+        response = client.post(f"{API}/{application_id}/interview-prep/quiz/grade", json={
+            "answers": [{"question": "Why this role?", "category": "general", "answer_prompt": "Be specific.", "candidate_answer": "Because I like it."}],
+        })
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["enabled"] is True
+        assert body["results"] == grading["results"]
+
+        with Session(engine) as session:
+            user = session.get(User, client.user_id)
+            assert snapshot(session, user)["meters"]["ai_actions"]["used"] == 1
+    finally:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        get_settings.cache_clear()
+
+
+def test_grading_is_scoped_to_the_owning_account(client, engine) -> None:
+    from kall.models import User
+
+    with Session(engine) as session:
+        other = User(clerk_user_id="user_other_grading", email="other-grading@example.com", full_name="Other")
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+    application_id = _application(engine, other.id)
+
+    response = client.post(f"{API}/{application_id}/interview-prep/quiz/grade", json={
+        "answers": [{"question": "Why this role?", "category": "general", "answer_prompt": "Be specific.", "candidate_answer": "x"}],
+    })
+    assert response.status_code == 404
+
+
 def test_interview_prep_is_scoped_to_the_owning_account(client, engine) -> None:
     from kall.models import User
 

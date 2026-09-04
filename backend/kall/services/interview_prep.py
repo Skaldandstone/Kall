@@ -8,16 +8,27 @@ real company research (no web search, no scraping) -- see the module
 docstring on models.application_review.InterviewPrep for why the UI must
 label it as an estimate. Falls back to a fixed, generic bank when no AI key
 is configured, the same "silence is not an option" rule services/
-openai_json.py exists to enforce elsewhere. Mock-interview practice is
-handled client-side (self-paced, no grading call) rather than here.
+openai_json.py exists to enforce elsewhere.
+
+The practice quiz samples a subset of the (deliberately larger) generated
+question_bank client-side for "retake with variance" without a fresh AI
+call every time, then grades submitted long-form answers in one batched
+call (grade_quiz_answers) against each question's own answer_prompt as the
+rubric. Grading has no deterministic fallback -- there is no honest way to
+score an answer without a model -- so the caller must degrade to an
+ungraded self-check when AI is unavailable, not invent a score.
 """
 
 from kall.config import get_settings
 from kall.models import Job, JobRequirementAnalysis
 from kall.services.openai_json import ask_for_json
 
-_MAX_QUESTIONS = 10
+#: A deeper pool than any one quiz attempt uses (see api_applications.py's
+#: quiz sampling), so retaking the quiz draws a different combination of
+#: questions each time without needing a fresh AI call per retake.
+_MAX_QUESTIONS = 15
 _MAX_QUESTIONS_TO_ASK = 9
+_MAX_GRADED_ANSWERS = 8
 
 _FALLBACK_PREP = {
     "company_context": {
@@ -153,3 +164,72 @@ def generate_interview_prep(job: Job, analysis: JobRequirementAnalysis | None) -
         "question_bank": question_bank[:_MAX_QUESTIONS],
         "questions_to_ask": questions_to_ask[:_MAX_QUESTIONS_TO_ASK],
     }, True
+
+
+_GRADE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "results": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "score_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+                    "feedback": {"type": "string"},
+                    "missed_points": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
+                    "additional_resources": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
+                },
+                "required": ["score_percent", "feedback", "missed_points", "additional_resources"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["results"],
+    "additionalProperties": False,
+}
+
+
+def grade_quiz_answers(
+    job: Job,
+    analysis: JobRequirementAnalysis | None,
+    submissions: list[dict],
+) -> list[dict] | None:
+    """Grades free-text quiz answers against each question's own
+    answer_prompt as the rubric. Returns one result per submission, in the
+    same order, or None if AI is not configured or the call fails -- there
+    is no meaningful deterministic fallback for grading, unlike the
+    generation path, so the caller must degrade to an ungraded self-check
+    instead of inventing a score.
+
+    `submissions` is [{question, category, answer_prompt, candidate_answer}, ...].
+    """
+    settings = get_settings()
+    if not settings.openai_api_key or not submissions:
+        return None
+
+    items = submissions[:_MAX_GRADED_ANSWERS]
+    transcript = "\n\n".join(
+        f"Q{i + 1} ({item['category']}): {item['question']}\n"
+        f"What a strong answer covers: {item['answer_prompt']}\n"
+        f"Candidate's answer: {item['candidate_answer'] or '(left blank)'}"
+        for i, item in enumerate(items)
+    )
+    prompt = (
+        "Grade each candidate answer below against what a strong answer for that question should cover. "
+        "Score honestly on a 0-100 scale -- a blank or off-topic answer scores near 0, a solid but "
+        "incomplete answer scores 50-75, only a genuinely thorough answer scores above 85. In feedback, "
+        "be specific and constructive, not just encouraging. missed_points lists concrete things the "
+        "answer should have addressed but didn't. additional_resources names concrete topics worth "
+        "reviewing given what was missed -- not links, and not a repeat of what the candidate already got "
+        "right. Return exactly one result per question, in the same order.\n\n"
+        f"ROLE:\n{_company_prompt_context(job, analysis)}\n\n"
+        f"ANSWERS TO GRADE:\n{transcript}"
+    )
+    parsed = ask_for_json(prompt, schema_name="interview_quiz_grading", schema=_GRADE_SCHEMA, purpose="interview quiz grading")
+    if parsed is None:
+        return None
+
+    results = parsed.get("results")
+    if not isinstance(results, list) or len(results) != len(items):
+        return None
+    return results
