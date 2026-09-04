@@ -66,6 +66,9 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const [tailoringChangesLoaded, setTailoringChangesLoaded] = useState(false);
   const [coverLetterStatus, setCoverLetterStatus] = useState('');
   const [coverLetterChanges, setCoverLetterChanges] = useState<CoverLetterChange[]>([]);
+  // Same reasoning as tailoringChangesLoaded above, for the cover letter's
+  // own fetch.
+  const [coverLetterChangesLoaded, setCoverLetterChangesLoaded] = useState(false);
   const [document_, setDocument_] = useState<GeneratedDocument | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
           setCoverLetterStatus(data.proposal.status);
         }
       }
+      if (!stale()) setCoverLetterChangesLoaded(true);
     }
     if (prepared.generated_document_id) {
       const documentResponse = await fetch(`${API}/documents/${prepared.generated_document_id}`);
@@ -285,8 +289,9 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
                 </div>
               </article>
             ))}
-            <button className="button" disabled={busy || coverLetterChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeCoverLetter()}>Finalize cover letter</button>
-            {coverLetterChanges.some((change) => change.status === 'pending') && <p className="notice">Every paragraph above must be accepted or rejected first.</p>}
+            <button className="button" disabled={busy || !coverLetterChangesLoaded || coverLetterChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeCoverLetter()}>Finalize cover letter</button>
+            {!coverLetterChangesLoaded && <p className="notice">Loading the cover letter…</p>}
+            {coverLetterChangesLoaded && coverLetterChanges.some((change) => change.status === 'pending') && <p className="notice">Every paragraph above must be accepted or rejected first.</p>}
           </div>
         )}
       </section>
