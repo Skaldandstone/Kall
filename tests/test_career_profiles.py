@@ -124,3 +124,61 @@ def test_functional_area_catalog_exposes_the_matching_vocabulary(client):
     assert response.status_code == 200
     area = next(area for area in response.json()["areas"] if area["name"] == "Quality Engineering")
     assert "SDET" in area["related_roles"]
+
+
+def test_suggest_fields_reports_disabled_without_an_openai_key(client, monkeypatch) -> None:
+    import kall.api_career_profiles as api_career_profiles
+
+    monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", lambda *a, **k: None)
+    profile_id = _create_profile(client)
+    response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
+    assert response.status_code == 200
+    assert response.json() == {"enabled": False, "suggestions": {}, "rationale": None}
+
+
+def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, monkeypatch) -> None:
+    import kall.api_career_profiles as api_career_profiles
+
+    captured: dict = {}
+
+    def fake_suggest(profile, empty_fields, resume_text):
+        captured["empty_fields"] = empty_fields
+        return {field: (["Backend Engineer"] if field == "target_titles" else 150000) for field in empty_fields} | {
+            "rationale": "Estimated from role and location.",
+        }
+
+    monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", fake_suggest)
+    profile_id = client.post("/api/me/professional-profiles", json={
+        "name": "Test Profile", "target_titles": ["Already set"],
+    }).json()["id"]
+
+    response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["enabled"] is True
+    assert "target_titles" not in captured["empty_fields"]
+    assert "target_base" in captured["empty_fields"]
+    assert "target_titles" not in body["suggestions"]
+    assert body["suggestions"]["target_base"] == 150000
+    assert body["rationale"] == "Estimated from role and location."
+
+
+def test_suggest_fields_short_circuits_when_profile_is_already_complete(client, monkeypatch) -> None:
+    import kall.api_career_profiles as api_career_profiles
+
+    def fail_if_called(*a, **k):
+        raise AssertionError("should not call the AI when nothing is empty")
+
+    monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", fail_if_called)
+    profile_id = client.post("/api/me/professional-profiles", json={
+        "name": "Test Profile",
+        "target_titles": ["Backend Engineer"], "industries": ["Software"], "functional_areas": ["Engineering"],
+        "work_types": ["remote"], "countries": ["US"],
+        "minimum_base": 100000, "target_base": 130000, "stretch_base": 150000,
+        "minimum_total_comp": 120000, "target_total_comp": 160000,
+    }).json()["id"]
+    client.put(f"/api/me/career-profiles/{profile_id}", json={"name": "Test Profile", "target_bonus_percent": 10})
+
+    response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
+    assert response.status_code == 200
+    assert response.json()["suggestions"] == {}
