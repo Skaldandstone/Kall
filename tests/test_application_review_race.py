@@ -9,6 +9,7 @@ database connection, and confirms both callers get back the same row
 instead of one of them raising an unhandled IntegrityError.
 """
 
+import contextlib
 import tempfile
 import threading
 from pathlib import Path
@@ -106,9 +107,7 @@ def test_build_review_survives_two_concurrent_calls_for_the_same_application() -
         assert len(rows) == 1
 
     engine.dispose()
-    try:
+    # Best-effort: some platforms keep a brief file-handle lock after
+    # engine.dispose(). The OS temp-file reaper cleans this up either way.
+    with contextlib.suppress(OSError):
         db_path.unlink(missing_ok=True)
-    except OSError:
-        # Best-effort: some platforms keep a brief file-handle lock after
-        # engine.dispose(). The OS temp-file reaper cleans this up either way.
-        pass
