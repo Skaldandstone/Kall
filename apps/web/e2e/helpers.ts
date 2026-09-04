@@ -191,8 +191,31 @@ export async function firstProfileId(page: Page): Promise<number> {
  * A no-op when the application requested no AI customization at all -- the
  * panel then renders "Using your original resume as-is." and there is
  * nothing to review.
+ *
+ * Preparing an application now client-side router.push()es straight into
+ * this page. Under `next dev` (what apps/web/e2e runs against), the first
+ * hit on a route that hasn't been compiled yet can force a Fast Refresh
+ * full reload a moment after it renders or mid-interaction -- observed in
+ * CI as "Finalize resume tailoring" going from enabled back to disabled
+ * with no user action, or a click landing right as the reload wipes it
+ * out. Whatever was already accepted or finalized before that persisted
+ * server-side, so retrying the same steps from scratch just resumes from
+ * wherever the reload left off, rather than needing to detect or wait out
+ * the reload itself.
  */
 export async function completeDocumentsReview(page: Page) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
+    try {
+      await attemptDocumentsReview(page);
+      return;
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+  }
+}
+
+async function attemptDocumentsReview(page: Page) {
   if (await page.getByText('Using your original resume as-is.').isVisible().catch(() => false)) return;
 
   async function acceptAllPending(pendingText: string | RegExp) {
