@@ -7,6 +7,14 @@ module.exports = ({ config }) => {
   const clerkPublishableKey =
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
   const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
+  // Only the local, sideloaded alpha-APK flow (build-alpha-apk.ps1) needs the
+  // with-release-signing plugin -- it patches the generated Gradle build to
+  // sign with a keystore only that script knows about. An EAS cloud build
+  // (the Play Store profile) has no access to that keystore or its Gradle
+  // properties and manages its own signing credentials instead; including
+  // the plugin there would fail the build with "signing properties are
+  // required" for a keystore that will never exist in that environment.
+  const useLocalAndroidSigning = process.env.KALL_MOBILE_LOCAL_ANDROID_SIGNING === '1';
   const registrationOverride = process.env.KALL_MOBILE_ALLOW_REGISTRATION;
 
   // A review APK must be tied to an explicitly selected HTTPS runtime and
@@ -32,7 +40,7 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       '@clerk/expo',
       'expo-web-browser',
-      ...(isRelease ? ['./plugins/with-release-signing'] : []),
+      ...(useLocalAndroidSigning ? ['./plugins/with-release-signing'] : []),
     ],
     extra: {
       ...config.extra,

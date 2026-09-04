@@ -34,7 +34,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test:e2e": "playwright test",
-    "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs"
+    "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs",
+    "validate:android-play": "node scripts/validate-android-play.mjs"
   },
   "private": true
 }
