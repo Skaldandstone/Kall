@@ -199,6 +199,7 @@ def applications_pipeline(
             "role": job.title if job else "Unknown role",
             "location": job.location if job else None,
             "job_url": job.url if job else None,
+            "is_still_posted": job.is_still_posted if job else True,
             "match_score": match.score if match else None,
             "updated_at": _iso(application.updated_at),
             "submitted_at": _iso(application.submitted_at),

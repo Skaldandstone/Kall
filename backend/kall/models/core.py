@@ -119,6 +119,11 @@ class Job(TimestampMixin, table=True):
     currency: str = "USD"
     posted_at: datetime | None = None
     metadata_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    #: Whether the posting at `url` still appeared live the last time the
+    #: daily liveness check ran (see jobs/job_liveness.py). Defaults to True
+    #: -- a newly discovered job is assumed live until checked otherwise.
+    is_still_posted: bool = True
+    liveness_checked_at: datetime | None = None
 
 
 class JobMatch(TimestampMixin, table=True):
