@@ -210,6 +210,10 @@ export async function completeDocumentsReview(page: Page) {
 
   const finalizeTailoring = page.getByRole('button', { name: 'Finalize resume tailoring' });
   await expect(finalizeTailoring).toBeVisible({ timeout: 15_000 });
+  // The proposed changes arrive via a second fetch, after the one that
+  // reveals this section at all -- querying pending count before that
+  // settles reads as "nothing to accept" rather than "not loaded yet".
+  await expect(page.getByText('Loading the proposed changes…')).toHaveCount(0, { timeout: 15_000 });
   await acceptAllPending('Status: pending');
   await expect(finalizeTailoring).toBeEnabled();
   await finalizeTailoring.click();
