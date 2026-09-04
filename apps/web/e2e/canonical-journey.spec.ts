@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { test, expect, signInAsNewUser, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end
@@ -13,6 +13,11 @@ import { test, expect, signInAsNewUser, firstProfileId } from './helpers';
  * those require real provider credentials this test environment doesn't have.
  */
 test('sign-up through application review and approval', async ({ page }) => {
+  // Preparing an application now runs a real tailoring pipeline (job
+  // requirement analysis, resume ranking, per-paragraph tailoring, cover
+  // letter drafting, document generation) instead of writing placeholder
+  // text -- the default 60s budget was sized for the old instant version.
+  test.setTimeout(120_000);
   const unique = Date.now();
   await signInAsNewUser(page, 'Jordan Smoke Test');
   await page.goto('/onboarding');
@@ -67,16 +72,16 @@ test('sign-up through application review and approval', async ({ page }) => {
     await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);
     await expect(page.locator('select').first()).toHaveValue(String(profileId));
     await page.getByRole('button', { name: 'Prepare application' }).click();
-    await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Application prepared. Review and explicit approval are required before submission.')).toBeVisible();
-    const href = await page.getByRole('link', { name: 'Continue to application review' }).getAttribute('href');
-    applicationId = href!.split('/').pop()!;
+    // Preparing now navigates straight into the tailoring review instead of
+    // stopping at a summary card with a link to click through.
+    await expect(page).toHaveURL(/\/applications\/\d+$/, { timeout: 15_000 });
+    applicationId = page.url().split('/').pop()!;
     expect(Number(applicationId)).toBeGreaterThan(0);
   });
 
   await test.step('review and approve the application', async () => {
-    await page.goto(`/applications/${applicationId}`);
     await expect(page.getByText('Stage: review')).toBeVisible();
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();
@@ -93,10 +98,17 @@ test('sign-up through application review and approval', async ({ page }) => {
  * browser to a bookmarked/typed root URL is the common way this happens) saw
  * the "Log in / Create account" marketing page with no sign they were still
  * signed in, since "/" never checked for an existing session. It should
- * recognize a valid stored token and send them straight to the dashboard.
+ * recognize a valid stored token and send them onward instead -- to
+ * onboarding while it is still incomplete, to the dashboard once it is done.
  */
-test('a signed-in user landing on the marketing homepage is sent to their dashboard', async ({ page }) => {
+test('a signed-in user landing on the marketing homepage is sent onward, not shown the marketing page', async ({ page }) => {
   await signInAsNewUser(page, 'Home Redirect Test');
+
+  // A brand-new account has never completed onboarding.
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/onboarding/);
+
+  await completeOnboarding(page);
 
   await page.goto('/');
   await expect(page).toHaveURL(/\/dashboard/);

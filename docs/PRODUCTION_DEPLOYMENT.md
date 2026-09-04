@@ -50,6 +50,39 @@ Billing is not switched on yet -- checkout returns 503 and the UI says so.
 The complete object allowlist and acceptance sequence are in
 [`STRIPE_SETUP.md`](STRIPE_SETUP.md).
 
+## 3a. Error tracking (Sentry)
+
+Both services report unhandled errors to Sentry, org `skald-and-stone`
+(https://skald-and-stone.sentry.io), projects `kall-api` and `kall-web`. The
+SDKs are inert until a DSN is present, so local development and tests never
+send anything.
+
+- **A DSN is not a secret.** It can only *send* events to one project, and
+  Sentry documents it as public. Both DSNs are therefore plain CloudFormation
+  parameters (`SentryApiDsn`, `SentryWebDsn`) that land as `SENTRY_DSN` on the
+  task definitions - not Secrets Manager entries. The current values are in
+  `deploy/kall-production.env.example` and the Sentry project settings.
+- **Two paths on the web tier.** The server and edge runtimes read `SENTRY_DSN`
+  from the task definition. The browser SDK reads `NEXT_PUBLIC_SENTRY_DSN`,
+  inlined at `next build` through the `apps/web/Dockerfile` build argument -
+  the `kall-web` CodeBuild project passes it from its `NEXT_PUBLIC_SENTRY_DSN`
+  environment variable. The build-time value is necessary because the
+  marketing pages are prerendered, so the root layout's request-time `<meta>`
+  fallback only reaches dynamically rendered pages. Changing the browser DSN
+  therefore means a web image rebuild; the API needs only a parameter change.
+- **What leaves the process** is the exception, stack, HTTP method and route
+  template. `backend/kall/observability.py` and `apps/web/lib/sentry-shared.ts`
+  strip user identity, headers, cookies, bodies, query strings, full URLs and
+  breadcrumbs, and disable tracing and session replay. Expected 4xx responses
+  are not reported. Kall stores EEO and work-authorization data; keep those
+  scrubbers in place when touching the SDK configuration.
+- **CSP.** The browser SDK posts to
+  `https://o4512015786377216.ingest.us.sentry.io`, allowed in `connect-src`
+  in `apps/web/next.config.mjs`. A different Sentry org means a new host there.
+- **To enable in production:** pass the two DSN parameters in the next
+  reviewed change set. Verify by triggering one deliberate server error and
+  confirming an issue appears under environment `production` in each project.
+
 ## 3b. Confirm the AI model answers
 
 ```bash

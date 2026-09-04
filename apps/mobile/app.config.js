@@ -7,6 +7,14 @@ module.exports = ({ config }) => {
   const clerkPublishableKey =
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
   const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
+  // Only the local, sideloaded alpha-APK flow (build-alpha-apk.ps1) needs the
+  // with-release-signing plugin -- it patches the generated Gradle build to
+  // sign with a keystore only that script knows about. An EAS cloud build
+  // (the Play Store profile) has no access to that keystore or its Gradle
+  // properties and manages its own signing credentials instead; including
+  // the plugin there would fail the build with "signing properties are
+  // required" for a keystore that will never exist in that environment.
+  const useLocalAndroidSigning = process.env.KALL_MOBILE_LOCAL_ANDROID_SIGNING === '1';
   const registrationOverride = process.env.KALL_MOBILE_ALLOW_REGISTRATION;
 
   // A review APK must be tied to an explicitly selected HTTPS runtime and
@@ -32,7 +40,7 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       '@clerk/expo',
       'expo-web-browser',
-      ...(isRelease ? ['./plugins/with-release-signing'] : []),
+      ...(useLocalAndroidSigning ? ['./plugins/with-release-signing'] : []),
     ],
     extra: {
       ...config.extra,
@@ -40,14 +48,13 @@ module.exports = ({ config }) => {
       // The Clerk publishable key identifies an instance and is public by
       // design. Secret keys never belong in an Expo or Android build.
       clerkPublishableKey,
-      // A release can never enable account creation. Non-release fixtures may
-      // explicitly disable it so CI can exercise the invite-only screen while
-      // ordinary local development retains app.json's registration setting.
-      allowRegistration: isRelease
-        ? false
-        : registrationOverride === undefined
-          ? config.extra.allowRegistration
-          : registrationOverride === '1',
+      // Kall is a public product now (the web app dropped its invite-only
+      // gate the same way) -- a release build follows app.json's setting
+      // like any other build. An explicit override still lets a fixture or
+      // e2e run force either state regardless of build type.
+      allowRegistration: registrationOverride === undefined
+        ? config.extra.allowRegistration
+        : registrationOverride === '1',
     },
   };
 };

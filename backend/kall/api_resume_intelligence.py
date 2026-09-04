@@ -11,10 +11,10 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
 from kall.services import quota
-from kall.services.onboarding_ai import suggest_career_strategy
+from kall.services.onboarding_ai import deterministic_career_strategy, suggest_career_strategy
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
-from kall.services.resume_proofreading import proofreading_gaps
+from kall.services.resume_proofreading import find_repeated_lines, proofreading_gaps
 from kall.services.storage import get_storage
 
 router = APIRouter()
@@ -33,6 +33,13 @@ class ResumeRecommendation(BaseModel):
     current_text: str
     proposed_text: str
     confidence: int
+    #: Metadata a recommendation can add on top of the text edit. Populated
+    #: when the recommendation is specifically about filling in a scoring
+    #: field (target roles, industries, skill tags) rather than rewriting
+    #: prose -- empty for ordinary text recommendations.
+    target_titles: list[str] = Field(default_factory=list)
+    industries: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 def _resume_score(resume: ResumeDocument) -> tuple[int, list[str], list[str]]:
@@ -83,7 +90,26 @@ def _owned_resume(resume_id: int, user_id: int, session: Session) -> ResumeDocum
     return resume
 
 
-def _fallback_recommendations(resume: ResumeDocument) -> list[dict]:
+def _dedupe_repeated_lines(text: str) -> str | None:
+    """Drop later occurrences of any line find_repeated_lines flags. Returns
+    None when there is nothing repeated to fix.
+    """
+    repeats = set(find_repeated_lines(text))
+    if not repeats:
+        return None
+    seen: set[str] = set()
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped in repeats:
+            if stripped in seen:
+                continue
+            seen.add(stripped)
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def _fallback_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> list[dict]:
     text = (resume.extracted_text or "").strip()
     recommendations: list[dict] = []
     if resume.target_titles:
@@ -97,15 +123,42 @@ def _fallback_recommendations(resume: ResumeDocument) -> list[dict]:
             "proposed_text": f"{target} leader with a record of building reliable delivery systems, developing high-performing teams, and translating quality strategy into measurable business outcomes.",
             "confidence": 82,
         })
+    elif profile_titles:
+        # A real signal already on file (the user's active career profiles),
+        # not a guess -- filling this in is what actually moves the
+        # "Target roles are defined" points in _resume_score.
+        recommendations.append({
+            "id": "target-titles",
+            "section": "Target roles",
+            "title": "Set target roles from your career profile",
+            "reason": "No target titles are stored on this resume, so role alignment cannot be evaluated.",
+            "current_text": "No target titles are currently stored.",
+            "proposed_text": ", ".join(profile_titles[:3]),
+            "confidence": 80,
+            "target_titles": profile_titles[:3],
+        })
     if not resume.tags:
+        tags = ["quality engineering strategy", "test automation", "release governance", "risk management", "ci/cd", "metrics", "cross-functional leadership"]
         recommendations.append({
             "id": "skills-metadata",
             "section": "Skills",
             "title": "Add searchable specialization language",
             "reason": "Specific skills improve matching and make the resume easier to tailor.",
             "current_text": "No resume skill tags are currently stored.",
-            "proposed_text": "Quality engineering strategy, test automation, release governance, risk management, CI/CD, metrics, and cross-functional leadership.",
+            "proposed_text": ", ".join(tags).capitalize() + ".",
             "confidence": 88,
+            "tags": tags,
+        })
+    deduped = _dedupe_repeated_lines(text)
+    if deduped is not None:
+        recommendations.append({
+            "id": "proofreading-dedupe",
+            "section": "Formatting",
+            "title": "Remove the duplicated line",
+            "reason": "A line appears more than once, which reads as a copy-paste error and can confuse an ATS parser.",
+            "current_text": text,
+            "proposed_text": deduped,
+            "confidence": 70,
         })
     return recommendations
 
@@ -113,10 +166,10 @@ def _fallback_recommendations(resume: ResumeDocument) -> list[dict]:
 def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> list[dict]:
     settings = get_settings()
     if not settings.openai_api_key:
-        return _fallback_recommendations(resume)
+        return _fallback_recommendations(resume, profile_titles)
     resume_text = (resume.extracted_text or "").strip()
     if not resume_text:
-        return _fallback_recommendations(resume)
+        return _fallback_recommendations(resume, profile_titles)
     schema = {
         "type": "object",
         "properties": {
@@ -133,8 +186,14 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
                         "current_text": {"type": "string"},
                         "proposed_text": {"type": "string"},
                         "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+                        "target_titles": {"type": "array", "items": {"type": "string"}},
+                        "industries": {"type": "array", "items": {"type": "string"}},
+                        "tags": {"type": "array", "items": {"type": "string"}},
                     },
-                    "required": ["id", "section", "title", "reason", "current_text", "proposed_text", "confidence"],
+                    "required": [
+                        "id", "section", "title", "reason", "current_text", "proposed_text",
+                        "confidence", "target_titles", "industries", "tags",
+                    ],
                     "additionalProperties": False,
                 },
             }
@@ -142,10 +201,25 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
         "required": ["recommendations"],
         "additionalProperties": False,
     }
+    gaps = proofreading_gaps(resume_text)
+    rubric = (
+        "Readiness is scored from: resume text length, whether target_titles/industries/tags are set, "
+        "whether this is the default resume, version history, and a proofreading penalty of 8 points per "
+        "issue below. Every recommendation you propose should move one of these factors, not just reword text.\n"
+        f"Missing metadata: target_titles={'set' if resume.target_titles else 'MISSING'}, "
+        f"industries={'set' if resume.industries else 'MISSING'}, tags={'set' if resume.tags else 'MISSING'}.\n"
+        f"Proofreading issues found on this resume: {'; '.join(gaps) if gaps else 'none'}.\n"
+        "When metadata is missing and you have real evidence for it (target roles from the resume or the "
+        "profile list below, industries actually implied by the experience described, skills actually named "
+        "in the resume), populate target_titles/industries/tags on the relevant recommendation -- never invent "
+        "roles, industries, or skills the resume does not support. When a proofreading issue is listed above, "
+        "include a recommendation whose proposed_text fixes it (deduplicate the repeated line, add a placeholder "
+        "verified metric, or trim toward one to two pages)."
+    )
     prompt = (
         "Analyze this resume and return only evidence-preserving improvements. Never invent employers, dates, titles, metrics, skills, or achievements. "
         "Proposed text may improve clarity and positioning, but use placeholders such as [add verified metric] when evidence is missing. "
-        f"Target roles: {', '.join(profile_titles or resume.target_titles) or 'not specified'}.\n\nRESUME:\n{resume_text[:30000]}"
+        f"Target roles from active career profiles: {', '.join(profile_titles) or 'not specified'}.\n\n{rubric}\n\nRESUME:\n{resume_text[:30000]}"
     )
     parsed = ask_for_json(
         prompt,
@@ -154,7 +228,7 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
         purpose="resume recommendations",
     )
     if parsed is None:
-        return _fallback_recommendations(resume)
+        return _fallback_recommendations(resume, profile_titles)
     try:
         return [
             ResumeRecommendation.model_validate(item).model_dump()
@@ -162,7 +236,7 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
         ]
     except ValidationError:
         # Well-formed JSON that is not the shape we asked for.
-        return _fallback_recommendations(resume)
+        return _fallback_recommendations(resume, profile_titles)
 
 
 @router.get("/me/resume-intelligence")
@@ -195,53 +269,124 @@ def generate_recommendations(resume_id: int, current_user: User = Depends(get_cu
 @router.post("/me/resumes/{resume_id}/suggest-strategy")
 def suggest_strategy(resume_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resume = _owned_resume(resume_id, current_user.id, session)
-    assert_ai_allowed(session, current_user)
-    suggestion = suggest_career_strategy(resume.extracted_text or "")
-    # Only charge when the model actually answered. This falls back to None
-    # when no key is configured or the call fails, and nobody should spend an
-    # allowance on a request that produced nothing.
-    if suggestion:
-        record_ai_action(session, current_user)
+    text = resume.extracted_text or ""
+    ai_enabled = bool(get_settings().openai_api_key)
+    suggestion = None
+    if ai_enabled:
+        # The allowance guards real model calls, not this endpoint -- a
+        # deterministic fallback still runs for an account with none left,
+        # since it costs nothing and there is otherwise no path to it.
+        assert_ai_allowed(session, current_user)
+        suggestion = suggest_career_strategy(text)
+        # Only charge when the model actually answered. This falls back to
+        # None when the call fails, and nobody should spend an allowance on
+        # a request that produced nothing.
+        if suggestion:
+            record_ai_action(session, current_user)
+    if not suggestion:
+        suggestion = deterministic_career_strategy(text)
     return {
-        "ai_enabled": bool(get_settings().openai_api_key),
+        "ai_enabled": ai_enabled,
         "suggestion": suggestion,
+    }
+
+
+def _build_revision(resume: ResumeDocument, payload: ApplyRecommendationsRequest) -> dict:
+    """Compute the text and metadata a revision would produce, without
+    touching the database or storage -- shared by the preview and apply
+    endpoints so what you preview is exactly what gets saved.
+    """
+    selected = [item for item in payload.recommendations if item.get("id") in payload.recommendation_ids]
+    if not selected:
+        raise HTTPException(400, "Select at least one recommendation")
+    revised_text = (resume.extracted_text or "").strip()
+    tags = list(resume.tags)
+    industries = list(resume.industries)
+    target_titles = list(resume.target_titles)
+    applied: list[str] = []
+    for item in selected:
+        current_text = str(item.get("current_text") or "").strip()
+        proposed_text = str(item.get("proposed_text") or "").strip()
+        applied_this_item = False
+        if proposed_text:
+            if current_text and current_text in revised_text:
+                revised_text = revised_text.replace(current_text, proposed_text, 1)
+            else:
+                revised_text = f"{revised_text}\n\n{item.get('section', 'Improvement')}\n{proposed_text}".strip()
+            applied_this_item = True
+        for value in item.get("target_titles") or []:
+            if value not in target_titles:
+                target_titles.append(value)
+                applied_this_item = True
+        for value in item.get("industries") or []:
+            if value not in industries:
+                industries.append(value)
+                applied_this_item = True
+        for value in item.get("tags") or []:
+            if value not in tags:
+                tags.append(value)
+                applied_this_item = True
+        if applied_this_item:
+            applied.append(str(item.get("id")))
+    if not applied:
+        raise HTTPException(400, "The selected recommendations did not contain applicable changes")
+    return {
+        "revised_text": revised_text, "tags": tags, "industries": industries,
+        "target_titles": target_titles, "applied": applied,
+    }
+
+
+@router.post("/me/resumes/{resume_id}/preview-recommendations")
+def preview_recommendations(resume_id: int, payload: ApplyRecommendationsRequest, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
+    resume = _owned_resume(resume_id, current_user.id, session)
+    revision = _build_revision(resume, payload)
+    current_score, _, _ = _resume_score(resume)
+    projected = ResumeDocument(
+        user_id=resume.user_id, name=resume.name, file_path=resume.file_path, mime_type=resume.mime_type,
+        byte_size=len(revision["revised_text"].encode("utf-8")), tags=revision["tags"], industries=revision["industries"],
+        target_titles=revision["target_titles"], extracted_text=revision["revised_text"],
+        is_default=resume.is_default, version=resume.version + 1,
+    )
+    projected_score, projected_strengths, projected_gaps = _resume_score(projected)
+    return {
+        "resume_id": resume.id,
+        "current_text": resume.extracted_text or "",
+        "revised_text": revision["revised_text"],
+        "current_score": current_score,
+        "projected_score": projected_score,
+        "projected_strengths": projected_strengths,
+        "projected_gaps": projected_gaps,
+        "tags": revision["tags"], "industries": revision["industries"], "target_titles": revision["target_titles"],
+        "applied_recommendation_ids": revision["applied"],
     }
 
 
 @router.post("/me/resumes/{resume_id}/apply-recommendations")
 def apply_recommendations(resume_id: int, payload: ApplyRecommendationsRequest, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resume = _owned_resume(resume_id, current_user.id, session)
-    selected = [item for item in payload.recommendations if item.get("id") in payload.recommendation_ids]
-    if not selected:
-        raise HTTPException(400, "Select at least one recommendation")
-    revised_text = (resume.extracted_text or "").strip()
-    applied: list[str] = []
-    for item in selected:
-        current_text = str(item.get("current_text") or "").strip()
-        proposed_text = str(item.get("proposed_text") or "").strip()
-        if not proposed_text:
-            continue
-        if current_text and current_text in revised_text:
-            revised_text = revised_text.replace(current_text, proposed_text, 1)
-        else:
-            revised_text = f"{revised_text}\n\n{item.get('section', 'Improvement')}\n{proposed_text}".strip()
-        applied.append(str(item.get("id")))
-    if not applied:
-        raise HTTPException(400, "The selected recommendations did not contain applicable text")
+    revision = _build_revision(resume, payload)
+    revised_text = revision["revised_text"]
     key = f"data/generated-resumes/resume-{current_user.id}-{uuid4().hex}.txt"
     body = revised_text.encode("utf-8")
     quota.check(session, current_user, "storage_bytes", amount=len(body))
     get_storage().save(key, body)
+    # A revision of the default resume supersedes it as the default --
+    # otherwise the new version silently loses the 10 default-resume points
+    # while the stale source keeps carrying them.
+    was_default = resume.is_default
+    if was_default:
+        resume.is_default = False
+        session.add(resume)
     new_resume = ResumeDocument(
         user_id=current_user.id, name=f"{resume.name} — AI revision", file_path=key, mime_type="text/plain",
         byte_size=len(body),
-        tags=list(resume.tags), industries=list(resume.industries), target_titles=list(resume.target_titles), extracted_text=revised_text,
-        is_default=False, version=resume.version + 1,
+        tags=revision["tags"], industries=revision["industries"], target_titles=revision["target_titles"],
+        extracted_text=revised_text, is_default=was_default, version=resume.version + 1,
     )
     session.add(new_resume)
     session.commit()
     session.refresh(new_resume)
-    return {"resume_id": new_resume.id, "source_resume_id": resume.id, "version": new_resume.version, "applied_recommendation_ids": applied}
+    return {"resume_id": new_resume.id, "source_resume_id": resume.id, "version": new_resume.version, "applied_recommendation_ids": revision["applied"]}
 
 
 @router.delete("/me/resumes/{resume_id}")

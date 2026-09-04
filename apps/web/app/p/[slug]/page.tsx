@@ -328,7 +328,15 @@ export default async function CareerPage({ params }: { params: Promise<{ slug: s
               </div>
             ) : null}
             {section.items.length > 0 ? (
-              <div className={section.layout === 'grid' ? styles.grid : styles.stack}>
+              <div
+                className={
+                  section.layout === 'grid'
+                    ? styles.grid
+                    : section.layout === 'timeline'
+                      ? styles.timeline
+                      : styles.stack
+                }
+              >
                 {section.items.map((item, index) => (
                   <ItemBlock key={`${section.kind}-${item.id ?? index}`} kind={section.kind} item={item} />
                 ))}

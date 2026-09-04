@@ -46,7 +46,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # from the service environment instead.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG KALL_CLERK_INSTANCE=development
+# Sentry DSN for the browser SDK. Public by design (it can only send events to
+# one project), so a build arg is safe here for the same reason the Clerk
+# publishable key is. Inlined because marketing pages are prerendered at build
+# time, where a request-time <meta> tag cannot reach them. Empty keeps the
+# browser SDK inert.
+ARG NEXT_PUBLIC_SENTRY_DSN=
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .

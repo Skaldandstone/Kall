@@ -10,6 +10,7 @@ from kall.services.ats_web_search import (
     ATS_DOMAINS,
     JOB_BOARD_DOMAINS,
     build_ats_queries,
+    build_search_intent,
 )
 
 
@@ -19,16 +20,32 @@ def _profile(**overrides) -> CareerProfile:
     return CareerProfile(**defaults)
 
 
-def test_every_ats_domain_is_represented_in_the_site_clause() -> None:
-    query = build_ats_queries(_profile())[0]["query"]
+def test_one_query_per_domain_not_one_merged_query() -> None:
+    # Google stops processing a query after ~32 words -- OR-ing every site
+    # into one query used up that budget before the actual title/location/
+    # keyword boolean was ever read. One site: term per query leaves the
+    # whole budget for the boolean that matters.
+    queries = build_ats_queries(_profile())
+    assert len(queries) == len(ALL_SEARCH_DOMAINS)
+    for (provider, domain), result in zip(ALL_SEARCH_DOMAINS, queries, strict=True):
+        assert result["provider"] == provider
+        assert result["domain"] == domain
+        assert result["query"].startswith(f"site:{domain} ")
+        assert result["query"].count("site:") == 1
+
+
+def test_every_ats_domain_gets_its_own_query() -> None:
+    queries = build_ats_queries(_profile())
+    domains = {result["domain"] for result in queries}
     for _, domain in ATS_DOMAINS:
-        assert f"site:{domain}" in query
+        assert domain in domains
 
 
-def test_every_job_board_domain_is_represented_in_the_site_clause() -> None:
-    query = build_ats_queries(_profile())[0]["query"]
+def test_every_job_board_domain_gets_its_own_query() -> None:
+    queries = build_ats_queries(_profile())
+    domains = {result["domain"] for result in queries}
     for _, domain in JOB_BOARD_DOMAINS:
-        assert f"site:{domain}" in query
+        assert domain in domains
 
 
 def test_domains_list_has_no_duplicates() -> None:
@@ -36,53 +53,62 @@ def test_domains_list_has_no_duplicates() -> None:
     assert len(domains) == len(set(domains))
 
 
+def test_every_per_site_query_carries_the_same_intent() -> None:
+    intent = build_search_intent(_profile(target_titles=["Staff Engineer"]))
+    queries = build_ats_queries(_profile(target_titles=["Staff Engineer"]))
+    for result in queries:
+        assert result["query"] == f"site:{result['domain']} {intent}"
+
+
 def test_industries_narrow_the_query() -> None:
     """A title like "Quality Assurance Director" alone pulls in every
     industry that title exists in -- specifying an industry should actually
     narrow the search, not just score matches after the fact."""
-    query = build_ats_queries(_profile(
+    intent = build_search_intent(_profile(
         target_titles=["Quality Assurance Director"], industries=["Pharmaceuticals", "Food Safety"],
-    ))[0]["query"]
-    assert '"Pharmaceuticals" OR "Food Safety"' in query
+    ))
+    assert '"Pharmaceuticals" OR "Food Safety"' in intent
 
 
 def test_no_industry_specified_does_not_add_an_empty_clause() -> None:
-    query = build_ats_queries(_profile(target_titles=["Engineer"], industries=[]))[0]["query"]
-    assert "()" not in query
+    intent = build_search_intent(_profile(target_titles=["Engineer"], industries=[]))
+    assert "()" not in intent
 
 
-def test_titles_are_or_grouped_and_quoted() -> None:
-    query = build_ats_queries(_profile(target_titles=["Staff Engineer", "Principal Engineer"]))[0]["query"]
-    assert '"Staff Engineer" OR "Principal Engineer"' in query
+def test_titles_are_or_grouped_quoted_and_restricted_to_the_page_title() -> None:
+    # intitle: keeps a match to the page's own title, not a company's
+    # aggregate jobs-index page that happens to mention every title on it.
+    intent = build_search_intent(_profile(target_titles=["Staff Engineer", "Principal Engineer"]))
+    assert 'intitle:"Staff Engineer" OR intitle:"Principal Engineer"' in intent
 
 
 def test_exclusions_are_negated_not_or_grouped() -> None:
-    query = build_ats_queries(_profile(target_titles=["Engineer"], exclude_keywords=["Contract", "Internship"]))[0]["query"]
-    assert '-"Contract"' in query
-    assert '-"Internship"' in query
-    assert 'OR -"Contract"' not in query
+    intent = build_search_intent(_profile(target_titles=["Engineer"], exclude_keywords=["Contract", "Internship"]))
+    assert '-"Contract"' in intent
+    assert '-"Internship"' in intent
+    assert 'OR -"Contract"' not in intent
 
 
 def test_remote_work_type_adds_the_remote_clause() -> None:
-    query = build_ats_queries(_profile(work_types=["remote"]))[0]["query"]
-    assert 'remote OR "work from home"' in query
+    intent = build_search_intent(_profile(work_types=["remote"]))
+    assert 'remote OR "work from home"' in intent
 
 
 def test_onsite_only_does_not_add_the_remote_clause() -> None:
-    query = build_ats_queries(_profile(work_types=["on_site"]))[0]["query"]
-    assert "work from home" not in query
+    intent = build_search_intent(_profile(work_types=["on_site"]))
+    assert "work from home" not in intent
 
 
 def test_locations_combine_states_and_countries() -> None:
-    query = build_ats_queries(_profile(states_regions=["Texas"], countries=["Canada"]))[0]["query"]
-    assert '"Texas" OR "Canada"' in query
+    intent = build_search_intent(_profile(states_regions=["Texas"], countries=["Canada"]))
+    assert '"Texas" OR "Canada"' in intent
 
 
 def test_an_empty_profile_falls_back_to_searching_its_own_name() -> None:
     # work_types defaults to ["remote"] on the model itself, so an otherwise
     # empty profile still needs it cleared to exercise the true fallback path.
-    query = build_ats_queries(_profile(name="Game Art Track", work_types=[]))[0]["query"]
-    assert '"Game Art Track"' in query
+    intent = build_search_intent(_profile(name="Game Art Track", work_types=[]))
+    assert '"Game Art Track"' in intent
 
 
 def test_the_search_urls_are_valid_and_url_encode_the_query() -> None:
@@ -96,38 +122,41 @@ def test_the_search_urls_are_valid_and_url_encode_the_query() -> None:
 
 
 def test_keyword_and_exclusion_limits_are_respected() -> None:
-    query = build_ats_queries(_profile(
+    intent = build_search_intent(_profile(
         include_keywords=[f"kw{i}" for i in range(10)],
         exclude_keywords=[f"ex{i}" for i in range(10)],
-    ))[0]["query"]
-    assert "kw4" in query and "kw5" not in query  # keywords capped at 5
-    assert "ex4" in query and "ex5" not in query  # exclusions capped at 5
+    ))
+    assert "kw4" in intent and "kw5" not in intent  # keywords capped at 5
+    assert "ex4" in intent and "ex5" not in intent  # exclusions capped at 5
 
 
 def test_functional_areas_broaden_the_same_title_group_and_retain_constraints() -> None:
-    query = build_ats_queries(_profile(
+    intent = build_search_intent(_profile(
         target_titles=["QA Director"], functional_areas=["Quality Engineering"], industries=["SaaS"],
         include_keywords=["leadership"], exclude_keywords=["unpaid"], countries=["Canada"],
-    ))[0]["query"]
-    role_group = '("QA Director" OR "Quality Engineering" OR "quality assurance" OR "test automation" OR "software test engineer" OR "SDET")'
-    assert role_group in query
+    ))
+    role_group = (
+        '(intitle:"QA Director" OR intitle:"Quality Engineering" OR intitle:"quality assurance" OR '
+        'intitle:"test automation" OR intitle:"software test engineer" OR intitle:"SDET")'
+    )
+    assert role_group in intent
     for constraint in ['("SaaS")', '("leadership")', '("Canada")', '-"unpaid"']:
-        assert constraint in query
+        assert constraint in intent
 
 
 def test_custom_areas_and_aliases_are_supported_without_duplicate_expansion() -> None:
-    query = build_ats_queries(_profile(functional_areas=["quality assurance", "Quality Engineering", "Technical Writing"]))[0]["query"]
-    assert query.count('"SDET"') == 1
-    assert '"Technical Writing"' in query
+    intent = build_search_intent(_profile(functional_areas=["quality assurance", "Quality Engineering", "Technical Writing"]))
+    assert intent.count('"SDET"') == 1
+    assert '"Technical Writing"' in intent
 
 
 def test_empty_functional_areas_do_not_change_the_existing_title_query() -> None:
     ordinary = _profile(target_titles=["Engineer"], industries=["SaaS"], include_keywords=["Python"])
     empty = _profile(target_titles=["Engineer"], industries=["SaaS"], include_keywords=["Python"], functional_areas=[])
-    assert build_ats_queries(ordinary) == build_ats_queries(empty)
+    assert build_search_intent(ordinary) == build_search_intent(empty)
 
 
 def test_functional_area_query_expansion_is_bounded() -> None:
-    query = build_ats_queries(_profile(functional_areas=[f"Custom Area {i}" for i in range(6)]))[0]["query"]
-    assert '"Custom Area 4"' in query
-    assert '"Custom Area 5"' not in query
+    intent = build_search_intent(_profile(functional_areas=[f"Custom Area {i}" for i in range(6)]))
+    assert '"Custom Area 4"' in intent
+    assert '"Custom Area 5"' not in intent

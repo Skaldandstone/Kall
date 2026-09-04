@@ -15,6 +15,17 @@ test('query rebuild preserves exclusions, quoted phrases and single sites', () =
   expect(buildQuery(parseQuery('site:jobs.lever.co "Quality Engineering" -intern'))).toBe('site:jobs.lever.co "Quality Engineering" -"intern"');
 });
 
+test('an intitle: title group displays as a clean term but rebuilds with the operator intact', () => {
+  // build_search_intent restricts the title clause to intitle: so results are
+  // real postings, not a company's aggregate jobs-index page (see #188) --
+  // that operator must never appear in a term a person sees on screen.
+  const query = '(intitle:"QA Director" OR intitle:"Quality Engineering") "Software"';
+  const groups = parseQuery(query);
+  const titles = groups.find((group) => group.label === 'Job titles');
+  expect(titles?.terms).toEqual(['QA Director', 'Quality Engineering']);
+  expect(buildQuery(groups)).toBe(query);
+});
+
 test('all navigation destinations fit and both entry paths remain available', async ({ page }) => {
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation', { name: 'Primary navigation' });
@@ -65,6 +76,25 @@ test('optional profile does not silently replace a saved search', async ({ page 
   expect(new URL(page.url()).searchParams.get('q')).toContain('-"intern"');
 });
 
+test('a profile search with results populates every site at once, not one page at a time', async ({ page }) => {
+  await page.goto('/search');
+  await page.getByLabel('Professional profile (optional)').selectOption('1');
+  await page.getByRole('button', { name: 'Search jobs', exact: true }).click();
+  await expect(page.getByText('2 results across 2 sites')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Director of Quality Engineering' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'QA Director' })).toBeVisible();
+  // No per-site pager -- results from every site already appear together.
+  await expect(page.getByRole('button', { name: 'Next site' })).toHaveCount(0);
+});
+
+test('a search falls back to the per-site widget when aggregation is unavailable', async ({ page }) => {
+  await page.route('**/api/kall/discovery/search-results/*', (route) => route.fulfill({ json: { enabled: false, results: [], sites_searched: 0, sites_failed: 0 } }));
+  await page.goto('/search');
+  await page.getByLabel('Professional profile (optional)').selectOption('1');
+  await page.getByRole('button', { name: 'Search jobs', exact: true }).click();
+  await expect(page.getByText(/Queued \d+ site searches/)).toBeVisible();
+});
+
 test('profile search failure keeps entered terms and provides inline feedback', async ({ page }) => {
   await page.route('**/api/kall/discovery/ats-search/*', (route) => route.fulfill({ status: 503, json: { detail: 'Profile search is temporarily unavailable.' } }));
   await page.goto('/search');
@@ -75,7 +105,7 @@ test('profile search failure keeps entered terms and provides inline feedback', 
   await expect(page.locator('.search-page-controls-column .notice')).toHaveText('Profile search is temporarily unavailable.');
 });
 
-test('preparation keeps a manual resume selection without refetching options', async ({ page }) => {
+test('preparation keeps a manual resume selection, then goes straight to the tailoring review', async ({ page }) => {
   let profileRequests = 0;
   page.on('request', (request) => { if (request.url().endsWith('/me/professional-profiles')) profileRequests += 1; });
   await page.goto('/applications/new?job=17&profile=1');
@@ -85,11 +115,11 @@ test('preparation keeps a manual resume selection without refetching options', a
   await page.getByLabel('Resume', { exact: true }).selectOption('1');
   await page.getByRole('checkbox', { name: 'Generate a role-specific cover letter draft' }).uncheck();
   await page.getByRole('button', { name: 'Prepare application', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible();
-  await expect(page.getByLabel('Resume', { exact: true })).toHaveValue('1');
+  // The next required step is reviewing the actual tailored content, so
+  // preparing navigates straight to it instead of stopping at a summary
+  // card the person would have to notice and click through themselves.
+  await expect(page).toHaveURL(/\/applications\/41$/);
   expect(profileRequests).toBe(1);
-  await page.getByLabel('Resume', { exact: true }).selectOption('2');
-  await expect(page.getByRole('link', { name: 'Continue to application review' })).toHaveCount(0);
 });
 
 test('preparation options failure can be retried without becoming an empty profile list', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, seedJob, firstProfileId } from './helpers';
 
 /**
  * One-click apply: Kall pre-fills the employer's form, the user submits it
@@ -12,6 +12,11 @@ import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfil
  * until a privacy rule grants them.
  */
 test('the autofill panel fills consented fields and withholds the rest', async ({ page }) => {
+  // Preparing an application now runs a real tailoring pipeline (job
+  // requirement analysis, resume ranking, per-paragraph tailoring, cover
+  // letter drafting, document generation) instead of writing placeholder
+  // text -- the default 60s budget was sized for the old instant version.
+  test.setTimeout(120_000);
   const unique = Date.now();
   await signInAsNewUser(page, 'Ada Lovelace');
   await completeOnboarding(page);
@@ -56,8 +61,10 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     await expect(page.getByRole('button', { name: 'Prepare application' })).toBeEnabled();
     await expect(page.locator('select').nth(1)).not.toHaveValue('');
     await page.getByRole('button', { name: 'Prepare application' }).click();
-    await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('link', { name: 'Continue to application review' }).click();
+    // Preparing now navigates straight into the tailoring review instead of
+    // stopping at a summary card with a link to click through.
+    await expect(page).toHaveURL(/\/applications\/\d+$/, { timeout: 15_000 });
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();

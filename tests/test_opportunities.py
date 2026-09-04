@@ -130,9 +130,13 @@ async def test_run_discovery_records_the_actual_query_it_searched_for(monkeypatc
 
         run = await run_discovery(session, user, profile)
 
+        # No single site: clause to assert on any more -- run_discovery
+        # records the shared intent boolean, since every site now gets its
+        # own independently runnable query rather than one merged string
+        # (see ats_web_search.build_ats_queries).
         assert run.ats_search_query
         assert "Environment Artist" in run.ats_search_query
-        assert "site:boards.greenhouse.io" in run.ats_search_query
+        assert "site:" not in run.ats_search_query
 
 
 def test_a_schedule_is_not_due_outside_its_chosen_hour() -> None:
@@ -225,3 +229,65 @@ def test_advance_schedule_clears_the_lock_and_estimates_a_sensible_next_run() ->
     assert schedule.running_since is None
     assert schedule.last_run_at == now
     assert schedule.next_run_at == datetime(2026, 8, 28, 8, 0)
+
+
+def test_search_results_endpoint_passes_every_site_query_and_returns_the_aggregation(client, engine, monkeypatch) -> None:
+    with Session(engine) as session:
+        profile = CareerProfile(user_id=client.user_id, name="Aggregation Test", target_titles=["Engineer"])
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+
+    captured = {}
+
+    async def fake_aggregate(queries):
+        captured["queries"] = queries
+        return {"enabled": True, "results": [{"title": "Role", "url": "https://x.example/1", "snippet": "", "provider": "P", "domain": "x.example"}], "sites_searched": len(queries), "sites_failed": 0}
+
+    monkeypatch.setattr("kall.api_opportunities.aggregate_job_search", fake_aggregate)
+
+    response = client.post(f"/api/discovery/search-results/{profile_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["enabled"] is True
+    assert body["results"][0]["url"] == "https://x.example/1"
+    assert len(captured["queries"]) > 1
+    assert all(item["query"].count("site:") == 1 for item in captured["queries"])
+
+
+def test_search_results_endpoint_honors_an_intent_override(client, engine, monkeypatch) -> None:
+    with Session(engine) as session:
+        profile = CareerProfile(user_id=client.user_id, name="Aggregation Override", target_titles=["Engineer"])
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+
+    captured = {}
+
+    async def fake_aggregate(queries):
+        captured["queries"] = queries
+        return {"enabled": True, "results": [], "sites_searched": len(queries), "sites_failed": 0}
+
+    monkeypatch.setattr("kall.api_opportunities.aggregate_job_search", fake_aggregate)
+
+    response = client.post(f"/api/discovery/search-results/{profile_id}", json={"intent": '"Custom Title"'})
+    assert response.status_code == 200
+    assert all('"Custom Title"' in item["query"] for item in captured["queries"])
+
+
+def test_search_results_endpoint_rejects_other_users_profile(client, engine) -> None:
+    with Session(engine) as session:
+        other = User(clerk_user_id="user_other_search_results", email="other-search-results@example.com", full_name="Other User")
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+        theirs = CareerProfile(user_id=other.id, name="Not yours", target_titles=["Engineer"])
+        session.add(theirs)
+        session.commit()
+        session.refresh(theirs)
+        theirs_id = theirs.id
+
+    response = client.post(f"/api/discovery/search-results/{theirs_id}")
+    assert response.status_code == 404

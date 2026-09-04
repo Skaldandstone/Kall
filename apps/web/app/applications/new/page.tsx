@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import flow from '../../components/CurrentFlow.module.css';
 import { hideSearchResult } from '../../lib/searchResultState';
@@ -13,11 +13,9 @@ type Profile = { id: number; name: string; default_resume_id?: number | null };
 type Application = {
   id: number;
   status: string;
-  customized_resume_path?: string | null;
-  cover_letter_path?: string | null;
   unanswered_questions: string[];
   sensitive_fields_present: boolean;
-  prepared_payload?: Record<string, unknown>;
+  prepared_payload?: { customize_resume?: boolean; generate_cover_letter?: boolean; tailoring_proposal_id?: number | null };
 };
 
 async function errorMessage(response: Response, fallback: string) {
@@ -34,6 +32,7 @@ export default function NewApplicationPage() {
 
 function NewApplicationForm() {
   const params = useSearchParams();
+  const router = useRouter();
   const existingJobId = params.get('job') || '';
   const externalUrl = params.get('external_url') || '';
   const externalTitle = params.get('title') || 'Selected opportunity';
@@ -128,12 +127,20 @@ function NewApplicationForm() {
       });
       if (!response.ok) throw new Error(await errorMessage(response, 'Unable to prepare this application.'));
       const prepared = await response.json() as Application;
-      setApplication(prepared);
-      if (prepared.status === 'submitted' && externalUrl) {
-        hideSearchResult(externalUrl, externalTitle, 'applied_kall');
-        showToast('Application submitted and removed from future search results.', 'success');
+      if (prepared.status === 'submitted') {
+        if (externalUrl) {
+          hideSearchResult(externalUrl, externalTitle, 'applied_kall');
+          showToast('Application submitted and removed from future search results.', 'success');
+        }
+        setApplication(prepared);
+        setMessage('Application submitted successfully.');
+        return;
       }
-      setMessage(prepared.status === 'submitted' ? 'Application submitted successfully.' : 'Application prepared. Review and explicit approval are required before submission.');
+      // The next required step is reviewing the actual tailored content --
+      // go straight there instead of stopping at a passive summary card the
+      // person would otherwise have to notice and click through themselves.
+      showToast('Application prepared. Review the tailored content before it can be approved.', 'success');
+      router.push(`/applications/${prepared.id}`);
     } catch (error) {
       const text = error instanceof Error ? error.message : 'Unable to prepare this application.';
       setMessage(text); showToast(text, 'error');
@@ -158,6 +165,6 @@ function NewApplicationForm() {
         <p className="notice" aria-live="polite">{message}</p>
       </section>
     </div>
-    {application && <section className="card" style={{ marginTop: 24 }}><span className="pill">{application.status}</span><h2 style={{ marginTop: 16 }}>Review checklist</h2><div className="grid"><article className="card"><h3>Resume</h3><p>{application.customized_resume_path || 'Original selected resume'}</p></article><article className="card"><h3>Cover letter</h3><p>{application.cover_letter_path || 'Not requested'}</p></article><article className="card"><h3>Submission</h3><p>Explicit review and approval are required before Kall submits or assists with submission.</p></article></div><p style={{ marginTop: 18 }}><strong>Open questions:</strong> {application.unanswered_questions.join(' · ') || 'None'}</p><p style={{ marginTop: 10 }}><strong>Sensitive fields:</strong> {application.sensitive_fields_present ? 'Confirmation required' : 'None'}</p><a className="button" href={`/applications/${application.id}`} style={{ marginTop: 20 }}>Continue to application review</a></section>}
+    {application && <section className="card" style={{ marginTop: 24 }}><span className="pill">{application.status}</span><h2 style={{ marginTop: 16 }}>Review checklist</h2><div className="grid"><article className="card"><h3>Resume</h3><p>{application.prepared_payload?.tailoring_proposal_id ? 'Tailored draft ready for paragraph-by-paragraph review' : 'Original selected resume, unchanged'}</p></article><article className="card"><h3>Cover letter</h3><p>{application.prepared_payload?.generate_cover_letter ? 'Draft ready for review after resume tailoring is finalized' : 'Not requested'}</p></article><article className="card"><h3>Submission</h3><p>Explicit review and approval are required before Kall submits or assists with submission.</p></article></div><p style={{ marginTop: 18 }}><strong>Open questions:</strong> {application.unanswered_questions.join(' · ') || 'None'}</p><p style={{ marginTop: 10 }}><strong>Sensitive fields:</strong> {application.sensitive_fields_present ? 'Confirmation required' : 'None'}</p><a className="button" href={`/applications/${application.id}`} style={{ marginTop: 20 }}>Continue to application review</a></section>}
   </main>;
 }

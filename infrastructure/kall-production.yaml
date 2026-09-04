@@ -72,6 +72,10 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/openai-[A-Za-z0-9]+$'
+  SerperSecretArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/serper-[A-Za-z0-9]+$'
   StripePlusPriceId:
     Type: String
     Default: ''
@@ -92,6 +96,22 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: '^$|^bpc_[A-Za-z0-9]+$'
+  SentryApiDsn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^https://[0-9a-f]{32}@o[0-9]+\.ingest\.(us|de)\.sentry\.io/[0-9]+$'
+    Description: >-
+      Sentry DSN for the kall-api project (org skald-and-stone). Public by design - a DSN can
+      only send events to one project - so it is a plaintext task variable, not a secret.
+      Blank keeps the SDK inert.
+  SentryWebDsn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^https://[0-9a-f]{32}@o[0-9]+\.ingest\.(us|de)\.sentry\.io/[0-9]+$'
+    Description: >-
+      Sentry DSN for the kall-web server and edge runtimes, also served as a request-time
+      fallback to the browser on dynamically rendered pages. The browser SDK's primary value is
+      the NEXT_PUBLIC_SENTRY_DSN image build argument. Blank keeps the runtimes inert.
   EnableStripeLive:
     Type: String
     AllowedValues: ['true', 'false']
@@ -117,7 +137,7 @@ Parameters:
     Default: ''
   VerifiedMigrationHead:
     Type: String
-    AllowedValues: ['', '20260831_0029']
+    AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031']
     Default: ''
 
 Rules:
@@ -126,8 +146,8 @@ Rules:
     Assertions:
       - Assert: !Equals [!Ref VerifiedBootstrapRevision, kall-db-roles-v1]
         AssertDescription: Run and verify the kall-db-roles-v1 bootstrap before enabling services.
-      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260831_0029']
-        AssertDescription: Verify the database is at Alembic head 20260831_0029 before enabling services.
+      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260904_0031']
+        AssertDescription: Verify the database is at Alembic head 20260904_0031 before enabling services.
   StripeActivationRequiresLiveCatalog:
     RuleCondition: !Equals [!Ref EnableStripeLive, 'true']
     Assertions:
@@ -148,6 +168,7 @@ Rules:
 
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
+  HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, '']]
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
   PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
@@ -279,6 +300,12 @@ Resources:
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref OpenAISecretArn
                 - !Ref AWS::NoValue
+              - !If
+                - HasSerperSecret
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref SerperSecretArn
+                - !Ref AWS::NoValue
 
   BootstrapExecutionRole:
     Type: AWS::IAM::Role
@@ -338,6 +365,7 @@ Resources:
                   - !Ref SensitiveDataSecret
                   - !Ref ClerkSecretArn
                   - !Ref MigratorDatabaseSecret
+                  - !Ref ProductionAccessSecretArn
 
   WebExecutionRole:
     Type: AWS::IAM::Role
@@ -936,6 +964,10 @@ Resources:
               Value: !Ref StripePortalConfigurationId
             - Name: MONITORING_ENABLED
               Value: 'false'
+            - Name: SENTRY_DSN
+              Value: !Ref SentryApiDsn
+            - Name: SENTRY_ENVIRONMENT
+              Value: production
           Secrets:
             - Name: APP_SECRET_KEY
               ValueFrom: !Ref AppSecret
@@ -963,6 +995,11 @@ Resources:
               - HasOpenAISecret
               - Name: OPENAI_API_KEY
                 ValueFrom: !Sub '${OpenAISecretArn}:OPENAI_API_KEY::'
+              - !Ref AWS::NoValue
+            - !If
+              - HasSerperSecret
+              - Name: SERPER_API_KEY
+                ValueFrom: !Sub '${SerperSecretArn}:SERPER_API_KEY::'
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs
@@ -1114,6 +1151,8 @@ Resources:
               ValueFrom: !Sub '${MigratorDatabaseSecret}:password::'
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
+            - Name: ALPHA_ALLOWED_EMAILS
+              ValueFrom: !Sub '${ProductionAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -1128,7 +1167,7 @@ Resources:
     Metadata:
       com.aws.cloudformation.Context:
         why: Production Next.js frontend and authenticated BFF built with the production Clerk publishable key.
-        must: [Immutable digest, Clerk secret only, KALL_API_URL uses the public CloudFront hostname]
+        must: [Immutable digest, Clerk secret only, KALL_API_URL uses the public CloudFront hostname, Sentry DSN is a plaintext parameter not a secret]
         mutable: change-with-constraints
     Properties:
       Cpu: '256'
@@ -1154,6 +1193,10 @@ Resources:
               Value: !Sub https://${PublicDomainName}
             - Name: ALPHA_INVITE_ONLY
               Value: !If [PublicSignupEnabled, 'false', 'true']
+            - Name: SENTRY_DSN
+              Value: !Ref SentryWebDsn
+            - Name: SENTRY_ENVIRONMENT
+              Value: production
           Secrets:
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'

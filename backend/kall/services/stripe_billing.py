@@ -12,11 +12,13 @@ from kall.models import Subscription, User
 from kall.models.monitoring import MonitoringLease
 from kall.services import work_claims
 from kall.services.billing import (
+    ACTIVE_STATUSES,
     apply_subscription_event,
     catalog,
     get_subscription,
     object_id,
     price_for,
+    subscription_item,
 )
 from sqlalchemy import update
 from sqlmodel import Session, select
@@ -251,7 +253,17 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
         return safe_url(checkout.get("url"), "checkout.stripe.com")
 
 
-def create_portal_url(session: Session, user: User) -> str:
+def create_portal_url(session: Session, user: User, target_plan: str | None = None) -> str:
+    """Open the Stripe customer portal, optionally straight into a prorated plan change.
+
+    Changing a live subscription's price (rather than starting a new one) is
+    the only way Stripe prorates the switch, and the portal configuration
+    already has `proration_behavior: create_prorations` set for exactly this.
+    Deep-linking into `subscription_update_confirm` with the target price
+    puts that prorated amount in front of the user in one step, instead of
+    dropping them on the portal's home screen to find the plan switch
+    themselves.
+    """
     require_configuration()
     if not user.is_active:
         raise HTTPException(403, "This account is not active")
@@ -264,10 +276,37 @@ def create_portal_url(session: Session, user: User) -> str:
         row = bound_row(session, user.id)
         checked_customer(client, row)
         configuration_id = checked_portal_configuration(client)
-        portal = provider_call(client.v1.billing_portal.sessions.create,
-                               {"customer": row.provider_customer_id, "return_url": f"{base}/billing",
-                                "configuration": configuration_id})
+        params = {"customer": row.provider_customer_id, "return_url": f"{base}/billing",
+                  "configuration": configuration_id}
+        if target_plan is not None:
+            params["flow_data"] = _upgrade_flow_data(client, row, target_plan)
+        portal = provider_call(client.v1.billing_portal.sessions.create, params)
         return safe_url(portal.get("url"), "billing.stripe.com")
+
+
+def _upgrade_flow_data(client, row: Subscription, target_plan: str) -> dict:
+    target_price = price_for(target_plan)
+    if target_price not in catalog():
+        raise HTTPException(503, f"Stripe is not configured for the {target_plan} plan")
+    if not row.provider_subscription_id:
+        raise HTTPException(422, "There is no active subscription to change")
+    current = checked_subscription(client, row, row.provider_subscription_id)
+    if current is None:
+        raise HTTPException(503, "Existing subscription ownership could not be verified")
+    if current.get("status") not in ACTIVE_STATUSES:
+        raise HTTPException(409, "Use Manage billing for the existing subscription")
+    item = subscription_item(current)
+    if item is None:
+        raise HTTPException(503, "Kall subscription item configuration could not be verified")
+    if object_id(item.get("price")) == target_price:
+        raise HTTPException(409, "That is already the current plan")
+    return {
+        "type": "subscription_update_confirm",
+        "subscription_update_confirm": {
+            "subscription": current["id"],
+            "items": [{"id": item["id"], "price": target_price, "quantity": 1}],
+        },
+    }
 
 
 def invoice_subscription_id(invoice: dict) -> str | None:

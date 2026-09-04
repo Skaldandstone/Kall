@@ -3,7 +3,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -21,7 +21,8 @@ from kall.models import (
 from kall.models.monitoring import PublicBoardFeed, ScheduleBoardState
 from kall.providers.board_feed import feed_key
 from kall.services import work_claims
-from kall.services.ats_web_search import build_ats_queries
+from kall.services.ats_web_search import build_ats_queries, build_search_intent
+from kall.services.job_search_aggregation import aggregate_job_search
 from kall.services.matching import is_out_of_scope
 from kall.services.monitoring import continuous_schedules, sources_for, validate_capacity
 from kall.services.opportunities import mark_state
@@ -126,8 +127,41 @@ def ats_search_plan(profile_id: int, current: User = Depends(get_current_user), 
     return {
         "professional_profile_id": profile.id,
         "profile_name": profile.name,
+        # The one boolean shared by every per-site query below -- lets the
+        # workspace show and let someone edit it without parsing a site:
+        # clause back out of 39 near-identical query strings.
+        "intent": build_search_intent(profile),
         "queries": build_ats_queries(profile),
     }
+
+
+class SearchResultsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: Overrides the profile's own boolean, e.g. terms the person added in
+    #: the search workspace's text box after the profile-derived suggestion
+    #: loaded. None reuses the profile as stored.
+    intent: str | None = None
+
+
+@router.post("/discovery/search-results/{profile_id}")
+async def search_results(
+    profile_id: int,
+    payload: SearchResultsRequest | None = None,
+    current: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """One aggregated result list across every configured site, instead of
+    the free client-side widget's one-site-at-a-time paging. Returns
+    enabled=False (empty results) when no Google Custom Search key is
+    configured, so the workspace can fall back to that widget rather than
+    show an empty page.
+    """
+    profile = _owned_profile(profile_id, current.id, session)
+    queries = build_ats_queries(profile)
+    intent = payload.intent if payload else None
+    if intent:
+        queries = [{**item, "query": f"site:{item['domain']} {intent}".strip()} for item in queries]
+    return await aggregate_job_search(queries)
 
 
 def _schedule_view(row: DiscoverySchedule, session: Session) -> ScheduleView:

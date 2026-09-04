@@ -3,6 +3,9 @@
 import { useEffect } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import KallMark from './components/KallMark';
+import { getKall } from './lib/api';
+
+type OnboardingProgress = { is_complete: boolean };
 
 const modules = [
   {
@@ -45,7 +48,21 @@ export default function Home() {
   const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) window.location.replace('/dashboard');
+    if (!isLoaded || !isSignedIn) return;
+    let cancelled = false;
+    // A brand-new user has never seen /onboarding, and a returning user who
+    // bailed out mid-wizard should pick back up there rather than land on an
+    // empty dashboard. Default to sending them onward on any API hiccup --
+    // a stuck redirect is worse than an unnecessary trip through onboarding.
+    getKall<OnboardingProgress>('/profile/onboarding')
+      .catch(() => null)
+      .then((progress) => {
+        if (cancelled) return;
+        window.location.replace(progress && !progress.is_complete ? '/onboarding' : '/dashboard');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isLoaded, isSignedIn]);
 
   // Only blank the page while a confirmed sign-in is being redirected. This
@@ -63,8 +80,8 @@ export default function Home() {
         <nav aria-label="Primary navigation" className="marketing-nav">
           <a href="#product-demos">See how it works</a>
           <a href="/sign-in">Log in</a>
-          <a className="button" href="/alpha">
-            Private alpha
+          <a className="button" href="/sign-up">
+            Sign up
           </a>
         </nav>
       </header>
@@ -77,8 +94,8 @@ export default function Home() {
           a role, and prepares the documents and questions you need to review before applying.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <a className="button" href="/alpha">
-            Learn about the private alpha
+          <a className="button" href="/sign-up">
+            Create your free account
           </a>
           <a className="button secondary" href="/demo/opportunity-intelligence">
             See a role comparison

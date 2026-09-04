@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AppNav from '../../components/AppNav';
 import flow from '../../components/CurrentFlow.module.css';
+import Modal from '../../components/Modal';
 import { showToast } from '../../components/ToastHost';
 import AutofillPanel from './AutofillPanel';
+import DocumentsReviewPanel from './DocumentsReviewPanel';
 import InterviewPrepPanel from './InterviewPrepPanel';
 
 const API = '/api/kall';
@@ -40,7 +42,9 @@ export default function ApplicationDetailPage() {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [message, setMessage] = useState('');
   const [reviewState, setReviewState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [documentsReady, setDocumentsReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [prepOpen, setPrepOpen] = useState(false);
 
   const loadItem = useCallback(async () => {
     try {
@@ -169,6 +173,7 @@ export default function ApplicationDetailPage() {
 
     {item.stage === 'review' && <div className="stack">
       <section className="card" aria-busy={reviewState === 'loading'}><span className="eyebrow">Readiness</span><div className="metric"><strong>{reviewState === 'ready' ? review?.review.status : reviewState === 'error' ? 'Review unavailable' : 'Loading review…'}</strong></div><p role={reviewState === 'error' ? 'alert' : 'status'}>{reviewState === 'ready' ? review?.review.readiness_issues?.join(' · ') || 'All required review items are complete.' : reviewState === 'error' ? message : 'Checking the required documents and answers before approval.'}</p>{reviewState === 'error' && <button className="button secondary" onClick={() => void loadReview()}>Retry review</button>}</section>
+      <DocumentsReviewPanel applicationId={applicationId} onReady={setDocumentsReady} />
       {review?.questions.map((question) => {
         const answer = review.answers.find((row) => row.question_id === question.id);
         return answer ? (
@@ -187,16 +192,31 @@ export default function ApplicationDetailPage() {
       <section className="card">
         <h2>Final confirmation</h2>
         <p>Confirm the final documents, all answers, sensitive fields, and legal attestations before approving.</p>
+        {!documentsReady && <p className="notice">Finish reviewing the resume and cover letter content above before confirming.</p>}
         <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-          <button className="button secondary" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(confirmAll)}>Confirm review items</button>
-          <button className="button" disabled={busy || reviewState !== 'ready'} onClick={() => void runAction(approve)}>Approve application package</button>
+          <button className="button secondary" disabled={busy || reviewState !== 'ready' || !documentsReady} onClick={() => void runAction(confirmAll)}>Confirm review items</button>
+          <button className="button" disabled={busy || reviewState !== 'ready' || !documentsReady} onClick={() => void runAction(approve)}>Approve application package</button>
         </div>
       </section>
     </div>}
 
-    {(item.stage === 'approved' || item.stage === 'submitted') && <div className="stack">
+    {(item.stage === 'approved' || item.stage === 'submitted' || item.stage === 'interview') && <div className="stack">
       <AutofillPanel applicationId={applicationId} />
-      {item.stage === 'submitted' && <InterviewPrepPanel applicationId={applicationId} />}
+      {(item.stage === 'submitted' || item.stage === 'interview') && (
+        <section className="card">
+          <span className="eyebrow">Interview prep</span>
+          <h2 style={{ marginTop: 12 }}>
+            {item.stage === 'interview' ? "You're in the Interview stage." : 'Get ahead of it before an interview is scheduled.'}
+          </h2>
+          <p>Company context, a scored practice quiz, and good questions to ask back -- all in one place.</p>
+          <button className="button" type="button" onClick={() => setPrepOpen(true)}>Help prepare</button>
+        </section>
+      )}
+      {prepOpen && (
+        <Modal title="Interview prep" onClose={() => setPrepOpen(false)}>
+          <InterviewPrepPanel applicationId={applicationId} interviewStage={item.stage === 'interview'} />
+        </Modal>
+      )}
       {!submission && <section className="card"><p>No submission preview exists yet for this application.</p><button className="button" onClick={() => void prepareSubmission()}>Prepare immutable preview</button><p className="notice" aria-live="polite">{message}</p></section>}
       {submission && <section className="card">
         <span className="pill">{submission.provider}</span>

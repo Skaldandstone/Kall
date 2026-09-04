@@ -53,7 +53,7 @@ export default function ApplicationsScreen({ navigation }: Props) {
         renderItem={({ item }) => (
           <Pressable
             style={styles.card}
-            onPress={() => navigation.navigate('ApplicationDetail', { applicationId: item.id, company: item.company, role: item.role })}
+            onPress={() => navigation.navigate('ApplicationDetail', { applicationId: item.id, company: item.company, role: item.role, stage: item.stage })}
           >
             <View style={styles.cardHeader}>
               <Text style={styles.company}>{item.company}</Text>

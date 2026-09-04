@@ -9,8 +9,9 @@ import type { ApplicationsStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<ApplicationsStackParamList, 'ApplicationDetail'>;
 
-export default function ApplicationDetailScreen({ route }: Props) {
-  const { applicationId, company, role } = route.params;
+export default function ApplicationDetailScreen({ route, navigation }: Props) {
+  const { applicationId, company, role, stage } = route.params;
+  const showInterviewPrep = stage === 'submitted' || stage === 'interview';
   const [review, setReview] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -89,6 +90,24 @@ export default function ApplicationDetailScreen({ route }: Props) {
           Finish reviewing documents, answers, sensitive fields, and attestations in the web app before approving here.
         </Text>
       ) : null}
+
+      {showInterviewPrep && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Interview prep</Text>
+          <Text style={styles.readiness}>
+            {stage === 'interview' ? "You're in the Interview stage." : 'Get ahead of it before an interview is scheduled.'}
+          </Text>
+          <Text style={styles.issue}>Company context, a scored practice quiz, and good questions to ask back.</Text>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('InterviewPrep', { applicationId, company, role })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryButtonText}>Help prepare</Text>
+          </Pressable>
+        </View>
+      )}
+
       {message ? <Text style={styles.message} accessibilityLiveRegion="polite">{message}</Text> : null}
 
       <Pressable
@@ -127,4 +146,6 @@ const styles = StyleSheet.create({
   button: { backgroundColor: theme.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { color: theme.background, fontWeight: '700', fontSize: 16 },
+  secondaryButton: { borderColor: theme.border, borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', marginTop: 10 },
+  secondaryButtonText: { color: theme.text, fontWeight: '600', fontSize: 13 },
 });

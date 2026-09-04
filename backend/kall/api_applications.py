@@ -3,14 +3,30 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Application, InterviewPrep, Job, JobMatch, JobRequirementAnalysis, User
+from kall.models import (
+    Application,
+    ApplicationAnswer,
+    ApplicationReview,
+    ApplicationReviewAudit,
+    ApplicationSubmission,
+    ApplicationTestimonial,
+    InterviewPrep,
+    Job,
+    JobMatch,
+    JobRequirementAnalysis,
+    ScreeningQuestion,
+    SubmissionAttempt,
+    SubmissionAudit,
+    SubmissionReceipt,
+    User,
+)
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
-from kall.services.interview_prep import generate_questions
+from kall.services.interview_prep import generate_interview_prep, grade_quiz_answers
 
 router = APIRouter()
 
@@ -19,6 +35,7 @@ _STAGE_LABELS = {
     "review": "Needs review",
     "approved": "Approved",
     "submitted": "Submitted",
+    "interview": "Interview",
     "closed": "Closed",
     "rejected": "Rejected",
 }
@@ -28,6 +45,11 @@ _STAGE_STATUS = {
     "review": ApplicationStatus.REVIEW_REQUIRED,
     "approved": ApplicationStatus.APPROVED,
     "submitted": ApplicationStatus.SUBMITTED,
+    # No distinct ApplicationStatus exists for "interviewing" -- an interview
+    # can happen any time after submission, so this stays SUBMITTED and
+    # Application.interview_scheduled_at is what actually distinguishes it
+    # (see move_application and _stage below).
+    "interview": ApplicationStatus.SUBMITTED,
     "closed": ApplicationStatus.WITHDRAWN,
     "rejected": ApplicationStatus.FAILED,
 }
@@ -38,6 +60,8 @@ def _stage(application: Application) -> str:
         return "rejected"
     if application.status in {ApplicationStatus.FAILED, ApplicationStatus.WITHDRAWN}:
         return "closed"
+    if application.status == ApplicationStatus.SUBMITTED and application.interview_scheduled_at:
+        return "interview"
     return {
         ApplicationStatus.DISCOVERED: "preparing",
         ApplicationStatus.PREPARING: "preparing",
@@ -66,45 +90,125 @@ class InterviewPrepNotesUpdate(BaseModel):
     notes: str
 
 
+class QuizAnswer(BaseModel):
+    question: str
+    category: str
+    answer_prompt: str
+    candidate_answer: str
+
+
+class QuizGradeRequest(BaseModel):
+    answers: list[QuizAnswer]
+
+
+def _build_prep(application: Application, current_user: User, session: Session) -> InterviewPrep:
+    job = session.get(Job, application.job_id)
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
+    ).first()
+    company_context: dict = {}
+    question_bank: list[dict] = []
+    questions_to_ask: list[dict] = []
+    if job:
+        # Only the AI path costs anything or needs gating -- generate_interview_prep
+        # falls back to a fixed bank for free when no key is configured or the
+        # call fails, same shape as api_growth.py's generate_plan.
+        quota.assert_ai_allowed(session, current_user)
+        prep_content, used_ai = generate_interview_prep(job, analysis)
+        company_context = prep_content["company_context"]
+        question_bank = prep_content["question_bank"]
+        questions_to_ask = prep_content["questions_to_ask"]
+        if used_ai:
+            quota.record_ai_action(session, current_user)
+    return InterviewPrep(
+        user_id=current_user.id,
+        application_id=application.id,
+        questions=[item["question"] for item in question_bank],
+        company_context=company_context,
+        question_bank=question_bank,
+        questions_to_ask=questions_to_ask,
+    )
+
+
 @router.get("/me/applications/{application_id}/interview-prep", response_model=InterviewPrep)
 def get_interview_prep(
     application_id: int,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> InterviewPrep:
-    """The question bank for this application, generating it on first view.
+    """Company context, question bank, and questions to ask for this
+    application, generating it on first view.
 
     Generated once and stored rather than rebuilt every request -- the
-    questions should stay stable while someone is actually preparing with
-    them, not shuffle on every page load.
+    content should stay stable while someone is actually preparing with
+    it, not shuffle on every page load. See /regenerate to refresh it.
     """
     application = _owned_application(application_id, current_user, session)
     prep = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
     if prep:
         return prep
 
-    job = session.get(Job, application.job_id)
-    analysis = session.exec(
-        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
-    ).first()
-    questions: list[str] = []
-    if job:
-        # Only the AI path costs anything or needs gating -- generate_questions
-        # falls back to a fixed list for free when no key is configured or the
-        # call fails, same shape as api_growth.py's generate_plan.
-        quota.assert_ai_allowed(session, current_user)
-        questions, used_ai = generate_questions(job, analysis)
-        if used_ai:
-            quota.record_ai_action(session, current_user)
-    prep = InterviewPrep(
-        user_id=current_user.id,
-        application_id=application.id,
-        questions=questions,
-    )
+    prep = _build_prep(application, current_user, session)
     session.add(prep)
     session.commit()
     session.refresh(prep)
     return prep
+
+
+@router.post("/me/applications/{application_id}/interview-prep/regenerate", response_model=InterviewPrep)
+def regenerate_interview_prep(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> InterviewPrep:
+    """Replaces the company context, question bank, and questions to ask
+    with a fresh AI generation. Notes are preserved -- only the generated
+    content is regenerated."""
+    application = _owned_application(application_id, current_user, session)
+    existing = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
+    fresh = _build_prep(application, current_user, session)
+    if existing:
+        existing.company_context = fresh.company_context
+        existing.question_bank = fresh.question_bank
+        existing.questions_to_ask = fresh.questions_to_ask
+        existing.questions = fresh.questions
+        prep = existing
+    else:
+        prep = fresh
+    session.add(prep)
+    session.commit()
+    session.refresh(prep)
+    return prep
+
+
+@router.post("/me/applications/{application_id}/interview-prep/quiz/grade")
+def grade_interview_quiz(
+    application_id: int,
+    payload: QuizGradeRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Grades a completed practice-quiz attempt in one batched AI call.
+
+    There is no honest deterministic score for a free-text answer, so this
+    returns enabled=False (not a fabricated score) when AI is unavailable --
+    the client falls back to an ungraded self-check against answer_prompt
+    the same way the rest of this feature degrades without a key.
+    """
+    application = _owned_application(application_id, current_user, session)
+    job = session.get(Job, application.job_id)
+    if not job or not payload.answers:
+        return {"enabled": False, "results": []}
+
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
+    ).first()
+    quota.assert_ai_allowed(session, current_user)
+    results = grade_quiz_answers(job, analysis, [answer.model_dump() for answer in payload.answers])
+    if results is None:
+        return {"enabled": False, "results": []}
+    quota.record_ai_action(session, current_user)
+    return {"enabled": True, "results": results}
 
 
 @router.put("/me/applications/{application_id}/interview-prep/notes", response_model=InterviewPrep)
@@ -138,16 +242,22 @@ def move_application(
     # A completed application is one that reaches SUBMITTED, which is what the
     # plan actually meters. Guarded on the previous status so dragging a card
     # back and forth cannot charge someone repeatedly for one application.
+    # Moving straight to "interview" (skipping a separate submitted drag)
+    # still counts -- it implies the application was submitted.
     becoming_submitted = (
-        stage == "submitted" and application.status != ApplicationStatus.SUBMITTED
+        stage in {"submitted", "interview"} and application.status != ApplicationStatus.SUBMITTED
     )
     if becoming_submitted:
         quota.check(session, current_user, "applications")
     application.status = _STAGE_STATUS[stage]
     application.updated_at = datetime.now(UTC).replace(tzinfo=None)
     application.failure_reason = "Rejected by employer" if stage == "rejected" else None
-    if stage == "submitted" and not application.submitted_at:
+    if stage in {"submitted", "interview"} and not application.submitted_at:
         application.submitted_at = datetime.now(UTC).replace(tzinfo=None)
+    if stage == "interview":
+        application.interview_scheduled_at = application.interview_scheduled_at or datetime.now(UTC).replace(tzinfo=None)
+    elif stage == "submitted":
+        application.interview_scheduled_at = None
     session.add(application)
     session.commit()
     if becoming_submitted:
@@ -164,6 +274,26 @@ def remove_application(
 ) -> dict:
     application = _owned_application(application_id, current_user, session)
     job = session.get(Job, application.job_id)
+
+    # No cascading foreign keys exist at the DB level, so every table that
+    # references application.id has to be cleared here first, in dependency
+    # order, or Postgres rejects the delete with a ForeignKeyViolation --
+    # exactly the error a user hit deleting an application that already had
+    # an ApplicationReview row (created just by opening the review screen).
+    submission_ids = list(
+        session.exec(select(ApplicationSubmission.id).where(ApplicationSubmission.application_id == application_id))
+    )
+    if submission_ids:
+        session.exec(delete(SubmissionAttempt).where(SubmissionAttempt.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionReceipt).where(SubmissionReceipt.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionAudit).where(SubmissionAudit.submission_id.in_(submission_ids)))
+    session.exec(delete(ApplicationSubmission).where(ApplicationSubmission.application_id == application_id))
+    session.exec(delete(ApplicationTestimonial).where(ApplicationTestimonial.application_id == application_id))
+    session.exec(delete(ApplicationReviewAudit).where(ApplicationReviewAudit.application_id == application_id))
+    session.exec(delete(ApplicationReview).where(ApplicationReview.application_id == application_id))
+    session.exec(delete(InterviewPrep).where(InterviewPrep.application_id == application_id))
+    session.exec(delete(ApplicationAnswer).where(ApplicationAnswer.application_id == application_id))
+    session.exec(delete(ScreeningQuestion).where(ScreeningQuestion.application_id == application_id))
     session.delete(application)
     session.commit()
     return {"removed": True, "job_url": job.url if job else None}
@@ -199,6 +329,7 @@ def applications_pipeline(
             "role": job.title if job else "Unknown role",
             "location": job.location if job else None,
             "job_url": job.url if job else None,
+            "is_still_posted": job.is_still_posted if job else True,
             "match_score": match.score if match else None,
             "updated_at": _iso(application.updated_at),
             "submitted_at": _iso(application.submitted_at),

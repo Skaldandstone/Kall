@@ -12,13 +12,14 @@ const STAGES = [
   ['review', 'Needs review'],
   ['approved', 'Approved'],
   ['submitted', 'Submitted'],
+  ['interview', 'Interview'],
   ['closed', 'Closed'],
   ['rejected', 'Rejected'],
 ] as const;
 
 type PipelineItem = {
   id: number; status: string; stage: string; company: string; role: string;
-  location?: string | null; job_url?: string | null; match_score?: number | null;
+  location?: string | null; job_url?: string | null; is_still_posted?: boolean; match_score?: number | null;
   updated_at?: string | null; submitted_at?: string | null; requires_review: boolean;
   unanswered_question_count: number; sensitive_fields_present: boolean; failure_reason?: string | null;
 };
@@ -44,6 +45,7 @@ function detail(item: PipelineItem) {
   if (item.stage === 'rejected') return 'Rejected by employer';
   if (item.failure_reason) return item.failure_reason;
   if (item.requires_review) return 'Review required before approval';
+  if (item.stage === 'interview') return 'Interview -- open for prep';
   if (item.submitted_at) return `Submitted ${new Date(item.submitted_at).toLocaleDateString()}`;
   return relativeTime(item.updated_at);
 }
@@ -125,6 +127,7 @@ export default function ApplicationsClient() {
           <button className={styles.remove} type='button' onClick={() => void removeApplication(item)} disabled={busyId === item.id} aria-label={`Remove ${item.role} at ${item.company}`} title='Remove application'>×</button>
           <span className={`${styles.dot} ${item.requires_review ? styles.accent : item.stage === 'submitted' ? styles.success : ''}`} aria-hidden='true'/>
           <p>{item.company}{item.location ? ` · ${item.location}` : ''}</p><h3>{item.role}</h3><span>{detail(item)}{item.match_score == null ? '' : ` · ${item.match_score}% match`}</span>
+          {item.is_still_posted === false && <span className={styles.stale} role='status'>This posting may no longer be live</span>}
           <label style={{ display: 'grid', gap: 6, marginTop: 14 }}><span className='muted'>Move to</span><select className='input' value={item.stage} disabled={busyId === item.id} onChange={event => void moveApplication(item, event.target.value)}>{STAGES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <a href={`/applications/${item.id}`}>Open application</a>
         </article>) : <div className={styles.empty}>No applications in this stage.</div>}</div>

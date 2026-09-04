@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import FunctionalAreasInput from '../components/FunctionalAreasInput';
 import { optionalProfileNumber } from '../lib/profileForm';
 import styles from './page.module.css';
@@ -55,8 +55,10 @@ export default function StrategyTab() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [uploadingProfileId, setUploadingProfileId] = useState<number | null>(null);
+  const [suggestingId, setSuggestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const formRefs = useRef<Record<number, HTMLFormElement | null>>({});
 
   async function load() {
     setLoading(true);
@@ -121,6 +123,42 @@ export default function StrategyTab() {
     if (response.ok) {
       setEditingId(null);
       await load();
+    }
+  }
+
+  async function suggestFields(profile: Profile) {
+    const form = formRefs.current[profile.id];
+    if (!form) return;
+    setSuggestingId(profile.id);
+    setMessage('Asking Kall for suggestions…');
+    try {
+      const response = await fetch(`${API}/me/career-profiles/${profile.id}/suggest-fields`, { method: 'POST' });
+      if (response.status === 401) {
+        window.location.replace('/sign-in');
+        return;
+      }
+      if (!response.ok) throw new Error('Unable to get suggestions right now.');
+      const data = await response.json() as { enabled: boolean; suggestions: Record<string, unknown>; rationale: string | null };
+      if (!data.enabled) {
+        setMessage('AI suggestions need an OpenAI key configured -- fill these in manually for now.');
+        return;
+      }
+      const suggested: string[] = [];
+      for (const [field, value] of Object.entries(data.suggestions)) {
+        const input = form.elements.namedItem(field) as HTMLInputElement | null;
+        if (!input || input.value) continue; // never overwrite something already entered
+        input.value = Array.isArray(value) ? value.join(', ') : String(value);
+        suggested.push(field);
+      }
+      setMessage(
+        suggested.length
+          ? `Filled in: ${suggested.join(', ')}.${data.rationale ? ` ${data.rationale}` : ''} Review before saving.`
+          : data.rationale || 'This profile already has every suggestible field filled in.',
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to get suggestions right now.');
+    } finally {
+      setSuggestingId(null);
     }
   }
 
@@ -219,7 +257,21 @@ export default function StrategyTab() {
             <div className={styles.profileRow} key={profile.id}>
               <article className={styles.card}>
                 {editingId === profile.id ? (
-                  <form className={styles.form} onSubmit={(event) => save(event, profile)}>
+                  <form
+                    className={styles.form}
+                    ref={(node) => { formRefs.current[profile.id] = node; }}
+                    onSubmit={(event) => save(event, profile)}
+                  >
+                    <div className={styles.actions} style={{ marginTop: 0 }}>
+                      <button
+                        className="button secondary"
+                        type="button"
+                        disabled={suggestingId === profile.id}
+                        onClick={() => void suggestFields(profile)}
+                      >
+                        {suggestingId === profile.id ? 'Asking Kall…' : 'Suggest empty fields'}
+                      </button>
+                    </div>
                     <label>Name<input name="name" defaultValue={profile.name} /></label>
                     <label>Target titles<input name="target_titles" defaultValue={profile.target_titles.join(', ')} /></label>
                     <label>Industries<input name="industries" defaultValue={profile.industries.join(', ')} /></label>

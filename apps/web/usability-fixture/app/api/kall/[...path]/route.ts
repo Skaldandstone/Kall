@@ -23,7 +23,13 @@ export async function GET(request: NextRequest) {
   if (path === '/search/suppressed' || path === '/submissions') return NextResponse.json([]);
   if (path === '/me/applications') return NextResponse.json({ stages: [{ items: [{ id: 41, stage: 'review', company: 'Northstar Robotics', role: 'Director of Quality Engineering', location: 'Remote', match_score: 86 }] }] });
   if (path === '/applications/41/review') return NextResponse.json({ review: { status: 'needs_review', readiness_issues: ['Confirm your documents and answers.'] }, questions: [{ id: 7, prompt: 'Describe your quality leadership experience.', category: 'Experience', sensitive: false, required: true }], answers: [{ id: 9, question_id: 7, value: 'I lead quality engineering teams and build reliable release practices.', status: 'suggested' }] });
-  if (path.startsWith('/discovery/ats-search/')) return NextResponse.json({ queries: [{ query: '(site:jobs.lever.co OR site:boards.greenhouse.io) ("Quality Engineering" OR "QA Director") ("Software") -"intern"' }] });
+  if (path.startsWith('/discovery/ats-search/')) return NextResponse.json({
+    intent: '("Quality Engineering" OR "QA Director") ("Software") -"intern"',
+    queries: [
+      { provider: 'Lever', domain: 'jobs.lever.co', query: 'site:jobs.lever.co ("Quality Engineering" OR "QA Director") ("Software") -"intern"' },
+      { provider: 'Greenhouse', domain: 'boards.greenhouse.io', query: 'site:boards.greenhouse.io ("Quality Engineering" OR "QA Director") ("Software") -"intern"' },
+    ],
+  });
   if (path === '/me/morning-brief') return NextResponse.json({
     generated_at: '2026-08-30T15:00:00Z', user: { preferred_name: 'Jordan' },
     focus: { kind: 'opportunity', title: 'Review your strongest match', detail: 'Northstar Robotics is looking for experience you have already documented.', href: '/applications/new?job=17&profile=1&title=Director%20of%20Quality%20Engineering' },
@@ -39,5 +45,12 @@ export async function POST(request: NextRequest) {
   const path = request.nextUrl.pathname.replace('/api/kall', '');
   if (path === '/applications/prepare-options') return NextResponse.json({ id: 41, status: 'review', unanswered_questions: ['Review your leadership examples'], sensitive_fields_present: true });
   if (path === '/applications/41/review') return NextResponse.json({ status: 'needs_review' });
+  if (path.startsWith('/discovery/search-results/')) return NextResponse.json({
+    enabled: true, sites_searched: 2, sites_failed: 0,
+    results: [
+      { title: 'Director of Quality Engineering', url: 'https://jobs.lever.co/northstar/1', snippet: 'Lead quality strategy across the org.', provider: 'Lever', domain: 'jobs.lever.co' },
+      { title: 'QA Director', url: 'https://boards.greenhouse.io/acme/2', snippet: 'Own release quality end to end.', provider: 'Greenhouse', domain: 'boards.greenhouse.io' },
+    ],
+  });
   return NextResponse.json({ detail: 'This mutation is not implemented by the local fixture.' }, { status: 501 });
 }

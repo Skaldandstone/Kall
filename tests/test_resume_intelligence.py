@@ -38,6 +38,41 @@ def test_parser_does_not_invent_metrics() -> None:
     assert parsed["achievements"] == []
 
 
+def test_parser_extracts_a_role_title_paired_with_a_date_range() -> None:
+    parsed, _ = parse_resume(
+        """PROFESSIONAL EXPERIENCE
+Director of Quality Engineering
+Acme Corp | 2018 - Present
+Led a global team of 40 engineers.
+
+QA Manager
+Beta Inc | Jan 2014 - Dec 2017
+Built the first automation suite.
+"""
+    )
+    assert "Director of Quality Engineering" in parsed["role_titles"]
+    assert "QA Manager" in parsed["role_titles"]
+    # 2014 (earliest start) through the current year (an open "Present" role).
+    from datetime import datetime
+    assert parsed["years_of_experience"] == datetime.utcnow().year - 2014
+
+
+def test_parser_never_surfaces_a_title_without_a_nearby_date() -> None:
+    # "Engineer" appears, but nothing dates it -- surfacing it anyway would be
+    # a guess the resume never actually supported.
+    parsed, _ = parse_resume("I am an engineer who cares about quality and craftsmanship.")
+    assert parsed["role_titles"] == []
+    assert parsed["years_of_experience"] is None
+
+
+def test_parser_ignores_a_four_digit_number_that_is_not_a_real_year_range() -> None:
+    parsed, _ = parse_resume("Reduced ticket volume by 2019 - 2020 percentage points across two dashboards.")
+    # No genuine employment date range exists here even though the regex
+    # shape matches -- both years are absurd as a career span on their own,
+    # but the real guard is that no title-like line sits beside them.
+    assert parsed["role_titles"] == []
+
+
 def test_parse_endpoint_response_survives_the_achievement_insert_commit(client: TestClient) -> None:
     """Regression: parse_resume_endpoint commits once to save the ResumeParse
     row, then commits again after inserting Achievement rows. That second

@@ -1,12 +1,34 @@
 from datetime import datetime
 
-from kall.models import Application, CareerProfile, Job, ResumeDocument, User
+from kall.models import (
+    Application,
+    CareerProfile,
+    Job,
+    JobRequirementAnalysis,
+    ResumeDocument,
+    ResumeSelection,
+    User,
+)
 from kall.models.enums import ApplicationStatus
 from kall.services.autofill import autofill_payload_sections
+from kall.services.intelligence import analyze_job
+from kall.services.match_intelligence import rank_resumes
 from kall.services.quota import assert_application_allowed
-from kall.services.resume import extract_resume_text
-from kall.services.storage import get_storage
-from sqlmodel import Session
+from kall.services.tailoring import create_tailoring_proposal
+from sqlmodel import Session, select
+
+
+def _ensure_requirement_analysis(session: Session, job: Job) -> JobRequirementAnalysis:
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == job.id)
+    ).first()
+    if analysis:
+        return analysis
+    analysis = JobRequirementAnalysis(job_id=job.id, **analyze_job(f"{job.title}\n{job.description}"))
+    session.add(analysis)
+    session.commit()
+    session.refresh(analysis)
+    return analysis
 
 
 def prepare_application(
@@ -20,53 +42,66 @@ def prepare_application(
     generate_cover_letter: bool = True,
     application_mode: str = "assisted",
 ) -> Application:
+    """Starts a real, evidence-grounded tailoring proposal for this job
+    instead of writing placeholder text -- see services/tailoring.py and
+    services/documents.py for the paragraph-by-paragraph review, cover
+    letter drafting, and ATS-formatted PDF/DOCX rendering this now reuses.
+    The application stays in REVIEW_REQUIRED until that review is done and
+    documents are generated through the existing /tailoring and /documents
+    endpoints; this only kicks the proposal off.
+
+    Idempotent per (user, job): re-preparing the same posting -- a
+    double-click, or revisiting /applications/new for a job already in the
+    pipeline -- returns the existing application instead of creating a
+    second row for the same role, the same "existing wins" rule
+    track_external_application already applies for the external-tracking path.
+    """
+    existing = session.exec(
+        select(Application).where(Application.user_id == user.id, Application.job_id == job.id)
+    ).first()
+    if existing:
+        return existing
+
     assert_application_allowed(session, user)
-    storage = get_storage()
-    generated_prefix = f"generated/{user.id}/{job.company}-{job.id}"
 
-    base_text = ""
-    if resume:
-        base_text = resume.extracted_text or extract_resume_text(storage.read(resume.file_path), resume.mime_type)
+    tailoring_proposal_id: int | None = None
+    if resume and (customize_resume or generate_cover_letter):
+        analysis = _ensure_requirement_analysis(session, job)
+        rank_resumes(session, user.id, job, career_profile, analysis)
 
-    tailored_key: str | None = None
-    if customize_resume:
-        tailored_key = f"{generated_prefix}/tailored_resume.txt"
-        storage.save(
-            tailored_key,
-            (
-                f"TARGET ROLE\n{job.title} at {job.company}\n\n"
-                f"BASE RESUME\n{base_text}\n\n"
-                "TAILORING NOTE\nPreserve factual accuracy. Emphasize requirements present in the posting."
-            ).encode(),
-        )
+        # rank_resumes recommends a resume; honor the one actually chosen on
+        # the apply form instead, the same way the manual override endpoint
+        # (PUT /jobs/{id}/intelligence/{profile}/selection) does.
+        selection = session.exec(
+            select(ResumeSelection).where(
+                ResumeSelection.user_id == user.id,
+                ResumeSelection.job_id == job.id,
+                ResumeSelection.professional_profile_id == career_profile.id,
+            )
+        ).first()
+        if selection and selection.selected_resume_id != resume.id:
+            selection.selected_resume_id = resume.id
+            selection.selection_source = "user_override"
+            selection.selected_at = datetime.utcnow()
+            session.add(selection)
+            session.commit()
 
-    cover_letter_key: str | None = None
-    if generate_cover_letter:
-        cover_letter_key = f"{generated_prefix}/cover_letter.txt"
-        storage.save(
-            cover_letter_key,
-            (
-                f"Dear Hiring Team,\n\n"
-                f"I am applying for the {job.title} role at {job.company}. "
-                "This draft must be reviewed for factual accuracy and personalized before submission.\n\n"
-                "Sincerely,\nCandidate"
-            ).encode(),
-        )
+        proposal = create_tailoring_proposal(session, user.id, job, career_profile.id)
+        tailoring_proposal_id = proposal.id
 
     application = Application(
         user_id=user.id,
         job_id=job.id,
         career_profile_id=career_profile.id,
         base_resume_id=resume.id if resume else None,
-        customized_resume_path=tailored_key,
-        cover_letter_path=cover_letter_key,
         status=ApplicationStatus.REVIEW_REQUIRED,
         prepared_payload={
             "company": job.company,
             "title": job.title,
             "job_url": job.url,
-            "resume_path": tailored_key or (resume.file_path if resume else None),
-            "cover_letter_path": cover_letter_key,
+            "tailoring_proposal_id": tailoring_proposal_id,
+            "cover_letter_proposal_id": None,
+            "generated_document_id": None,
             "customize_resume": customize_resume,
             "generate_cover_letter": generate_cover_letter,
             "application_mode": application_mode,

@@ -24,8 +24,38 @@ def preserves_immutable_facts(original: str, proposed: str) -> bool:
     return set(immutable_tokens(original)).issubset(set(immutable_tokens(proposed)))
 
 
+#: PDF text extraction (pypdf) routinely splits a header block -- name,
+#: phone, email, address, each on its own visual line -- into several
+#: blank-line-separated "paragraphs" before the real summary paragraph,
+#: especially for multi-column resume headers. Naively taking the first
+#: paragraph as "the summary" was picking up "James\n\nShattuck\n\n
+#: 360-809-2664" instead, which is not a summary and cannot be meaningfully
+#: improved. A short paragraph, or one containing an email/phone, is header
+#: noise to skip past rather than the summary itself.
+_EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+_PHONE_PATTERN = re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b")
+_MIN_SUMMARY_WORDS = 5
+
+
+def _looks_like_header_noise(paragraph: str) -> bool:
+    if len(paragraph.split()) < _MIN_SUMMARY_WORDS:
+        return True
+    return bool(_EMAIL_PATTERN.search(paragraph) or _PHONE_PATTERN.search(paragraph))
+
+
+def _find_summary_paragraph(text: str) -> str:
+    paragraphs = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
+    for paragraph in paragraphs:
+        if not _looks_like_header_noise(paragraph):
+            return paragraph[:800]
+    # Every paragraph looked like header noise (e.g. a resume with no
+    # distinct summary section) -- fall back to whatever came first rather
+    # than proposing a change against empty text.
+    return (paragraphs[0] if paragraphs else "")[:800]
+
+
 def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
-    original = (resume.extracted_text or "").strip().split("\n\n")[0][:800]
+    original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
     proposed = f"{original}\n\nRole focus: {job.title} at {job.company}, emphasizing {focus}.".strip()
     return TailoringChange(

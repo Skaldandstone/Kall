@@ -51,20 +51,38 @@ JOB_BOARD_DOMAINS = [
     ("4 Day Week", "4dayweek.io"),
     ("Turing", "turing.com"),
     ("ASGC", "jobs.asgc.gg"),
+    ("Speedrun Talent Network", "speedrun-talent-network.com"),
 ]
 
 ALL_SEARCH_DOMAINS = ATS_DOMAINS + JOB_BOARD_DOMAINS
 
 
-def _quoted_or(values: list[str], limit: int = 8) -> str:
+def _quoted_or(values: list[str], limit: int = 8, prefix: str = "") -> str:
     cleaned = [value.strip() for value in values if value and value.strip()]
-    return " OR ".join(f'"{value}"' for value in cleaned[:limit])
+    return " OR ".join(f'{prefix}"{value}"' for value in cleaned[:limit])
 
 
-def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
+def build_search_intent(profile: CareerProfile) -> str:
+    """The title/industry/keyword/location boolean, with no site: clause.
+
+    Kept separate from build_ats_queries below because it is the one thing
+    every per-site query shares -- discovery.py records this on SearchRun as
+    what a run actually searched for, since there is no longer one merged
+    query to point to.
+    """
     # Areas broaden the title group. An AND clause would instead exclude
     # related roles that use a different title, which defeats the feature.
-    titles = _quoted_or([*profile.target_titles[:8], *functional_area_terms(profile.functional_areas)], limit=33)
+    # intitle: (repeated per Google's own syntax for grouping it with OR)
+    # keeps this matching an individual posting's own page title rather than
+    # a company's aggregate "{Company} - Jobs" listing page -- that page
+    # contains nearly every OR'd term somewhere in its body text (it lists
+    # every open role) and out-ranks any single posting for a broad query,
+    # which is why every site search result page was one of those instead of
+    # an actual open role.
+    titles = _quoted_or(
+        [*profile.target_titles[:8], *functional_area_terms(profile.functional_areas)],
+        limit=8, prefix="intitle:",
+    )
     industries = _quoted_or(profile.industries, limit=5)
     keywords = _quoted_or(profile.include_keywords, limit=5)
     locations = _quoted_or([*profile.states_regions, *profile.countries], limit=5)
@@ -89,18 +107,31 @@ def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
     if exclusions:
         intent_parts.append(exclusions)
 
-    intent = " ".join(intent_parts).strip() or f'"{profile.name}"'
-    site_clause = " OR ".join(f"site:{domain}" for _, domain in ALL_SEARCH_DOMAINS)
-    query = f"({site_clause}) {intent}".strip()
+    return " ".join(intent_parts).strip() or f'"{profile.name}"'
 
-    return [
-        {
-            "provider": "ATS Search",
-            "domain": f"{len(ATS_DOMAINS)} ATS platforms and {len(JOB_BOARD_DOMAINS)} job boards",
-            "domains": [domain for _, domain in ALL_SEARCH_DOMAINS],
-            "providers": [provider for provider, _ in ALL_SEARCH_DOMAINS],
+
+def build_ats_queries(profile: CareerProfile) -> list[dict[str, object]]:
+    """One real, independently runnable search per site -- not all sites
+    OR'd into a single query.
+
+    Google (both classic search and the Programmable Search Engine widget
+    the search workspace embeds) stops processing a query after roughly 32
+    words. OR-ing all ~39 site: domains together alone used up that entire
+    budget, so the actual title/location/keyword boolean after it was
+    silently dropped -- the search behaved as if only the site: clause had
+    been sent, which is indistinguishable from browsing each board's
+    homepage. One site: term per query leaves the whole budget for the
+    boolean that actually matters.
+    """
+    intent = build_search_intent(profile)
+    queries = []
+    for provider, domain in ALL_SEARCH_DOMAINS:
+        query = f"site:{domain} {intent}".strip()
+        queries.append({
+            "provider": provider,
+            "domain": domain,
             "query": query,
             "google_url": f"https://www.google.com/search?q={quote_plus(query)}",
             "bing_url": f"https://www.bing.com/search?q={quote_plus(query)}",
-        }
-    ]
+        })
+    return queries

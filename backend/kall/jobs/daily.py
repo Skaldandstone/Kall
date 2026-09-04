@@ -11,6 +11,7 @@ import sys
 from kall.jobs import (
     certification_reminders,
     growth_milestone_reminders,
+    job_liveness,
     professional_membership_reminders,
     reference_reminders,
     retention,
@@ -21,6 +22,7 @@ from kall.jobs._suite import run_suite
 
 JOBS = {
     "retention": retention.main,
+    "job_liveness": job_liveness.main,
     "certification_reminders": certification_reminders.main,
     "growth_milestone_reminders": growth_milestone_reminders.main,
     "work_authorization_reminders": work_authorization_reminders.main,

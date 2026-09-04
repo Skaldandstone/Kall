@@ -382,6 +382,41 @@ def test_a_deleted_clerk_identity_is_not_silently_resurrected(engine, monkeypatc
         assert excinfo.value.status_code == 401
 
 
+def test_clerk_cleanup_is_deferred_when_background_tasks_is_given(engine, monkeypatch) -> None:
+    """Confirmed live: on an account with enough rows, the local deletion
+    plus a blocking call to Clerk's API together took long enough that the
+    connection back to the browser was dropped before the response arrived
+    -- even though the deletion had already succeeded. Passing
+    `background_tasks` must schedule the Clerk call for after the response
+    rather than run it inline and risk the same thing."""
+    from fastapi import BackgroundTasks
+
+    calls: list[str | None] = []
+    monkeypatch.setattr(
+        "kall.services.account_deletion._delete_clerk_user",
+        lambda clerk_user_id: calls.append(clerk_user_id),
+    )
+
+    with Session(engine) as session:
+        user = User(clerk_user_id="user_bg", email="bg@example.com", full_name="BG")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        user_id = user.id
+
+        background_tasks = BackgroundTasks()
+        delete_account(session, user_id, background_tasks=background_tasks)
+
+        # Not called inline -- the local deletion is what this response
+        # confirms, and it must not wait on Clerk.
+        assert calls == []
+        assert len(background_tasks.tasks) == 1
+
+    task = background_tasks.tasks[0]
+    task.func(*task.args, **task.kwargs)
+    assert calls == ["user_bg"]
+
+
 def test_a_genuinely_new_signup_is_unaffected_by_someone_elses_deletion(engine, monkeypatch) -> None:
     """The tombstone is keyed by the specific Clerk id, not by email or by
     "someone was deleted recently" -- a different, brand-new Clerk identity

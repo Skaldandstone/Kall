@@ -160,6 +160,12 @@ export default function MorningBriefClient() {
           <p>Track the gaps, milestones, and learning resources behind a career change or promotion.</p>
           <span className="text-link">Review your career plan</span>
         </a>
+        <a href="/settings/career-page" className={styles.overviewCard}>
+          <span className="eyebrow">Public portfolio</span>
+          <h2>Send one link instead of a resume.</h2>
+          <p>Publish a career page built from your record, work samples, and skills, at an address you control.</p>
+          <span className="text-link">Open your career page</span>
+        </a>
       </section>
 
       <section className={styles.grid}>

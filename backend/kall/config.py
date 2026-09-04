@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     #: error and fell back, which looked exactly like "the AI is switched
     #: off". See services/openai_json.py, which now logs the reason.
     openai_model: str = "gpt-5.6-luna"
+    #: Unset by design (see services/job_search_aggregation.py) rather than
+    #: required: the hidden-market search's per-site Google Programmable
+    #: Search widget already works without it, so this is a genuine upgrade,
+    #: not a hard dependency.
+    #:
+    #: Google's own Custom Search JSON API is closed to new customers (and
+    #: being retired entirely on 2027-01-01), so this aggregation is backed
+    #: by Serper.dev, which wraps real Google results behind a plain API key
+    #: -- no separate search-engine ID to manage.
+    serper_api_key: str | None = None
     # Private alpha access is enforced twice: the web app only exposes Clerk's
     # sign-up form for invitation tickets, and the API only creates a local
     # user when Clerk invitation metadata or this owner allowlist permits it.
@@ -114,6 +124,19 @@ class Settings(BaseSettings):
     # Rollout switch, separate from an individual profile's opt-in schedule.
     # The five-minute task exits without polling or sending while disabled.
     monitoring_enabled: bool = False
+
+    #: Sentry error tracking (see kall/observability.py). Unset means off,
+    #: which is the state for local development and tests. A DSN is public by
+    #: design - it can only send events to one project - so in production it
+    #: is a plaintext task-definition variable, not a Secrets Manager entry.
+    sentry_dsn: str | None = None
+    #: Defaults to app_env. Set explicitly when one deployment should report
+    #: under a different name (e.g. a bounded alpha session).
+    sentry_environment: str | None = None
+    #: Errors only by default. Tracing attaches per-request timing and URLs.
+    sentry_traces_sample_rate: float = 0.0
+    #: Reported as the Sentry release so an issue names the code it came from.
+    app_version: str = "0.9.0"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

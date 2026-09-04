@@ -7,10 +7,14 @@ from slowapi.errors import RateLimitExceeded
 
 from kall.config import get_settings
 from kall.db import create_db_and_tables
+from kall.observability import configure_sentry
 from kall.rate_limit import limiter
 from kall.router_registry import register_api_routers
 
 settings = get_settings()
+# Before the app and its middleware exist, so the SDK can wrap them. No-op
+# without SENTRY_DSN.
+configure_sentry(settings)
 
 
 @asynccontextmanager

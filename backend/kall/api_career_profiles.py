@@ -8,8 +8,15 @@ from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import CareerProfile, JobMatch, ResumeDocument, User
 from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
+from kall.services.profile_suggestions import suggest_empty_fields
 
 router = APIRouter()
+
+_SUGGESTABLE_FIELDS = [
+    "target_titles", "industries", "functional_areas", "work_types", "countries",
+    "minimum_base", "target_base", "stretch_base",
+    "minimum_total_comp", "target_total_comp", "target_bonus_percent",
+]
 
 
 @router.get("/me/career-profiles/functional-areas")
@@ -102,6 +109,44 @@ def career_profiles(
             for profile in profiles
         ]
     }
+
+
+def _resume_text_for(session: Session, profile: CareerProfile, user_id: int) -> str:
+    resume = None
+    if profile.default_resume_id:
+        resume = session.get(ResumeDocument, profile.default_resume_id)
+    if not resume:
+        resume = session.exec(
+            select(ResumeDocument).where(ResumeDocument.user_id == user_id, ResumeDocument.is_default)
+        ).first()
+    if not resume:
+        resume = session.exec(
+            select(ResumeDocument).where(ResumeDocument.user_id == user_id).order_by(ResumeDocument.updated_at.desc())
+        ).first()
+    return (resume.extracted_text or "") if resume else ""
+
+
+@router.post("/me/career-profiles/{profile_id}/suggest-fields")
+def suggest_career_profile_fields(
+    profile_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    profile = session.get(CareerProfile, profile_id)
+    if not profile or profile.user_id != current_user.id:
+        raise HTTPException(404, "Career profile not found")
+
+    empty_fields = [field for field in _SUGGESTABLE_FIELDS if not getattr(profile, field)]
+    if not empty_fields:
+        return {"enabled": True, "suggestions": {}, "rationale": "This profile already has every suggestible field filled in."}
+
+    resume_text = _resume_text_for(session, profile, current_user.id)
+    result = suggest_empty_fields(profile, empty_fields, resume_text)
+    if result is None:
+        return {"enabled": False, "suggestions": {}, "rationale": None}
+
+    rationale = result.pop("rationale", None)
+    return {"enabled": True, "suggestions": result, "rationale": rationale}
 
 
 @router.put("/me/career-profiles/{profile_id}")

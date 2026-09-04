@@ -37,7 +37,9 @@
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 12px;
   align-items: flex-start;
-  color: #747a78;
+  /* 4.5:1 against this panel's #131617 background (WCAG AA); the shared
+     --text-muted token only clears 4.43:1 here, just under the threshold. */
+  color: #8a908e;
 }
 
 .step strong {

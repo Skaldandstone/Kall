@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import { SENTRY_DSN_META_NAME, SENTRY_ENVIRONMENT_META_NAME } from '../lib/sentry-shared';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
 import PlanLimitDialog from './components/PlanLimitDialog';
@@ -71,8 +72,21 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Request-time fallback for the browser Sentry DSN (public by design). Only
+  // dynamically rendered pages see this; prerendered pages freeze the layout
+  // at build, which is why NEXT_PUBLIC_SENTRY_DSN is also inlined there.
+  // instrumentation-client.ts reads these tags when the build-time value is
+  // absent. Both empty leaves the browser SDK inert.
+  const sentryDsn = process.env.SENTRY_DSN;
+  const sentryEnvironment = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV;
   return (
     <html lang="en" data-kall-theme={process.env.KALL_UI_THEME === 'legacy' ? 'legacy' : 'inscription'} className={`${inscription.variable} ${syne.variable} ${epilogue.variable} ${plexMono.variable}`}>
+      <head>
+        {sentryDsn ? <meta name={SENTRY_DSN_META_NAME} content={sentryDsn} /> : null}
+        {sentryDsn && sentryEnvironment ? (
+          <meta name={SENTRY_ENVIRONMENT_META_NAME} content={sentryEnvironment} />
+        ) : null}
+      </head>
       <body>
         {/* Inside <body>, per Clerk's placement rule for this SDK version.
             Telemetry is off deliberately: the CSP blocks clerk-telemetry.com

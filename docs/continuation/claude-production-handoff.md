@@ -252,17 +252,42 @@ The required source work is broader than a single Clerk toggle:
    price treatment are reviewed. SES, continuous monitoring and application
    auto-submission remain disabled and require their own acceptance gates.
 7. **James flagged (2 September 2026) that account deletion is not working in
-   production, discovered while reviewing this checkpoint.** The codebase has
-   gone through substantial rewrites recently (Clerk migration, billing
-   isolation, the public-signup work above, and more per the many `codex/*`
-   branches). James asked for unit, e2e, and contract test coverage to be
-   revisited given how much changed underneath them -- CI passing on each
-   individual PR does not guarantee the suites still exercise the real
-   end-to-end paths a user hits (account deletion apparently regressed
-   without a red test anywhere). Needs its own investigation: reproduce the
-   deletion failure, find what broke and when, then audit test coverage
-   for gaps of this shape before trusting green CI on anything else touching
-   auth/account lifecycle.
+   production -- investigated, root-caused, and fixed in PR #179 (merged to
+   `main` at `146abed`).** Reproduced live three times against production
+   using disposable Clerk test accounts populated with realistic data across
+   ~17 tables (identity, EEO, work authorization, all 14 generic profile
+   resources) -- each one created and cleaned up afterward, no real user data
+   touched. It reproduced on data-rich accounts and not on a blank one, and
+   was intermittent even between two runs with equivalent data.
+   - Confirmed via CloudWatch access logs that the server-side deletion (and
+     the Clerk user deletion) completed successfully both times it "failed" --
+     `DELETE /api/me` logged `204`, and a follow-up `GET /me` returned
+     `401`/`404`. The account was always actually gone.
+   - Root cause: `delete_account()` made a synchronous, blocking call to
+     Clerk's API *before* the local deletion started, adding third-party
+     network latency (variable request to request, matching the intermittent
+     symptom) directly onto how long the browser waits. The frontend's
+     `handleDeleteAccount` had no try/catch around the fetch, so a dropped
+     connection became an unhandled rejection -- the button stuck on
+     "Deleting..." forever with no error shown, while the account was already
+     gone.
+   - Fix: the local deletion now runs and commits first; Clerk cleanup is
+     deferred to a FastAPI `BackgroundTask` so the response never waits on a
+     third-party call. The frontend now catches a failed fetch and checks
+     `GET /me` before deciding what to show -- if the account is confirmed
+     gone, it proceeds exactly like the success path instead of hanging. New
+     backend and e2e tests cover both.
+   - **Not yet deployed.** Same situation as the public-signup work above:
+     this needs a new API and web image built from current `main` and rolled
+     out through the reviewed change-set path -- at the same time as, or
+     before, the Terms of Service image (item 5), since section 10 of the
+     Terms describes this exact deletion behavior.
+   - The broader ask stands: James wants unit/e2e/contract test coverage
+     audited given how much has changed underneath it recently (Clerk
+     migration, billing isolation, public signup, this deletion regression)
+     -- CI passing on each individual PR does not guarantee the suites still
+     exercise the real end-to-end paths a user hits. Not done as part of this
+     fix; still open.
 
 ## Exact checkpoint limitations
 

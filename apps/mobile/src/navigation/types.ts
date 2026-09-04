@@ -5,7 +5,8 @@ export type AuthStackParamList = {
 
 export type ApplicationsStackParamList = {
   ApplicationsHome: undefined;
-  ApplicationDetail: { applicationId: number; company: string; role: string };
+  ApplicationDetail: { applicationId: number; company: string; role: string; stage: string };
+  InterviewPrep: { applicationId: number; company: string; role: string };
 };
 
 export type OpportunitiesStackParamList = {

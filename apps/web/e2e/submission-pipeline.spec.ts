@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, seedJob, firstProfileId } from './helpers';
 
 /**
  * Continues past where canonical-journey.spec.ts stops (application
@@ -18,6 +18,11 @@ import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfil
  * rather than forcing an artificial fully-automated path.
  */
 test('an approved application from an unsupported connector lands on manual completion', async ({ page }) => {
+  // Preparing an application now runs a real tailoring pipeline (job
+  // requirement analysis, resume ranking, per-paragraph tailoring, cover
+  // letter drafting, document generation) instead of writing placeholder
+  // text -- the default 60s budget was sized for the old instant version.
+  test.setTimeout(120_000);
   const unique = Date.now();
   await signInAsNewUser(page);
   await completeOnboarding(page);
@@ -29,11 +34,12 @@ test('an approved application from an unsupported connector lands on manual comp
   await test.step('prepare and approve the application', async () => {
     await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);
     await page.getByRole('button', { name: 'Prepare application' }).click();
-    await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
-    const href = await page.getByRole('link', { name: 'Continue to application review' }).getAttribute('href');
-    applicationId = href!.split('/').pop()!;
+    // Preparing now navigates straight into the tailoring review instead of
+    // stopping at a summary card with a link to click through.
+    await expect(page).toHaveURL(/\/applications\/\d+$/, { timeout: 15_000 });
+    applicationId = page.url().split('/').pop()!;
 
-    await page.goto(`/applications/${applicationId}`);
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();

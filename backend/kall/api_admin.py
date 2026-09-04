@@ -8,7 +8,7 @@ of it they have used -- not their resumes, applications, or profile.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -182,6 +182,7 @@ def reset_usage(
 def delete_user(
     user_id: int,
     payload: DeletionRequest,
+    background_tasks: BackgroundTasks,
     admin: User = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> None:
@@ -203,7 +204,7 @@ def delete_user(
         target_user_id=user.id,
         detail={"target_email": user.email, "reason": payload.reason},
     )
-    delete_account(session, user.id, reason="admin")
+    delete_account(session, user.id, reason="admin", background_tasks=background_tasks)
 
 
 @router.get("/audit")

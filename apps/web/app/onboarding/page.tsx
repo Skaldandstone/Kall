@@ -133,6 +133,7 @@ export default function Onboarding() {
 
       setProfileCreated(true);
       setStep(4);
+      markComplete(resumeUploaded, true);
     } catch {
       setMessage('Kall could not save your strategy. Please try again.');
     } finally {
@@ -187,6 +188,28 @@ export default function Onboarding() {
 
   function skipResume() {
     setStep(3);
+  }
+
+  async function markComplete(withResume: boolean, withProfile: boolean) {
+    const completedSteps = ['account'];
+    if (withResume) completedSteps.push('resume');
+    if (withProfile) completedSteps.push('strategy');
+    try {
+      await fetchKall(`/profile/onboarding`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_step: 'complete',
+          completed_steps: completedSteps,
+          dismissed_steps: [],
+          is_complete: true,
+        }),
+      });
+    } catch {
+      // The wizard itself already finished -- a failed progress write just
+      // means a returning user might see onboarding again, not that
+      // anything they entered was lost.
+    }
   }
 
   if (!ready) {
@@ -396,7 +419,8 @@ export default function Onboarding() {
               </div>
               <div className={styles.actions}>
                 <a className={`${styles.button} ${styles.secondary}`} href="/profiles">Review strategy</a>
-                <a className={styles.button} href="/morning-brief">Open Morning Brief</a>
+                <a className={`${styles.button} ${styles.secondary}`} href="/morning-brief">Open Morning Brief</a>
+                <a className={styles.button} href="/dashboard">Go to dashboard</a>
               </div>
             </div>
           )}
