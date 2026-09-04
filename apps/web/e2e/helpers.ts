@@ -220,7 +220,11 @@ export async function completeDocumentsReview(page: Page) {
     await draftCoverLetter.click();
     const finalizeCoverLetter = page.getByRole('button', { name: 'Finalize cover letter' });
     await expect(finalizeCoverLetter).toBeVisible({ timeout: 15_000 });
-    await acceptAllPending(/·\s*pending/);
+    // The \u00B7 escape (a middle dot) is deliberate, not decorative: the
+    // literal character here was observed being silently dropped from this
+    // regex somewhere in CI's TypeScript transform pipeline, which made the
+    // filter match zero elements and left acceptAllPending() a silent no-op.
+    await acceptAllPending(/\u00B7\s*pending/);
     await expect(finalizeCoverLetter).toBeEnabled();
     await finalizeCoverLetter.click();
     await expect(page.getByText('Cover letter finalized.')).toBeVisible({ timeout: 15_000 });
