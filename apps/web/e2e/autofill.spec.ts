@@ -56,8 +56,9 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     await expect(page.getByRole('button', { name: 'Prepare application' })).toBeEnabled();
     await expect(page.locator('select').nth(1)).not.toHaveValue('');
     await page.getByRole('button', { name: 'Prepare application' }).click();
-    await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('link', { name: 'Continue to application review' }).click();
+    // Preparing now navigates straight into the tailoring review instead of
+    // stopping at a summary card with a link to click through.
+    await expect(page).toHaveURL(/\/applications\/\d+$/, { timeout: 15_000 });
     await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });

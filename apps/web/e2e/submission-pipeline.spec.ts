@@ -29,11 +29,11 @@ test('an approved application from an unsupported connector lands on manual comp
   await test.step('prepare and approve the application', async () => {
     await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);
     await page.getByRole('button', { name: 'Prepare application' }).click();
-    await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
-    const href = await page.getByRole('link', { name: 'Continue to application review' }).getAttribute('href');
-    applicationId = href!.split('/').pop()!;
+    // Preparing now navigates straight into the tailoring review instead of
+    // stopping at a summary card with a link to click through.
+    await expect(page).toHaveURL(/\/applications\/\d+$/, { timeout: 15_000 });
+    applicationId = page.url().split('/').pop()!;
 
-    await page.goto(`/applications/${applicationId}`);
     await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
