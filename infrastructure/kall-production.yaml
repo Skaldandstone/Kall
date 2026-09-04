@@ -137,7 +137,7 @@ Parameters:
     Default: ''
   VerifiedMigrationHead:
     Type: String
-    AllowedValues: ['', '20260831_0029']
+    AllowedValues: ['', '20260831_0029', '20260904_0030']
     Default: ''
 
 Rules:
@@ -146,8 +146,8 @@ Rules:
     Assertions:
       - Assert: !Equals [!Ref VerifiedBootstrapRevision, kall-db-roles-v1]
         AssertDescription: Run and verify the kall-db-roles-v1 bootstrap before enabling services.
-      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260831_0029']
-        AssertDescription: Verify the database is at Alembic head 20260831_0029 before enabling services.
+      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260904_0030']
+        AssertDescription: Verify the database is at Alembic head 20260904_0030 before enabling services.
   StripeActivationRequiresLiveCatalog:
     RuleCondition: !Equals [!Ref EnableStripeLive, 'true']
     Assertions:
@@ -365,6 +365,7 @@ Resources:
                   - !Ref SensitiveDataSecret
                   - !Ref ClerkSecretArn
                   - !Ref MigratorDatabaseSecret
+                  - !Ref ProductionAccessSecretArn
 
   WebExecutionRole:
     Type: AWS::IAM::Role
@@ -1150,6 +1151,8 @@ Resources:
               ValueFrom: !Sub '${MigratorDatabaseSecret}:password::'
             - Name: CLERK_SECRET_KEY
               ValueFrom: !Sub '${ClerkSecretArn}:CLERK_SECRET_KEY::'
+            - Name: ALPHA_ALLOWED_EMAILS
+              ValueFrom: !Sub '${ProductionAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'
           LogConfiguration:
             LogDriver: awslogs
             Options:
