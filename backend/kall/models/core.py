@@ -151,6 +151,12 @@ class Application(TimestampMixin, table=True):
     prepared_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     unanswered_questions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     sensitive_fields_present: bool = False
+    #: Set when the person manually moves this application to the "Interview"
+    #: stage (see api_applications.py's _stage()). ApplicationStatus itself
+    #: has no interview state -- an interview can happen any time after
+    #: SUBMITTED -- so this is a marker on top of SUBMITTED rather than a new
+    #: status. Cleared if moved back to plain "Submitted".
+    interview_scheduled_at: datetime | None = None
     user_approved_at: datetime | None = None
     submitted_at: datetime | None = None
     failure_reason: str | None = None

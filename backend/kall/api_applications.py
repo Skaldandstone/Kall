@@ -10,7 +10,7 @@ from kall.db import get_session
 from kall.models import Application, InterviewPrep, Job, JobMatch, JobRequirementAnalysis, User
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
-from kall.services.interview_prep import generate_questions
+from kall.services.interview_prep import generate_interview_prep
 
 router = APIRouter()
 
@@ -19,6 +19,7 @@ _STAGE_LABELS = {
     "review": "Needs review",
     "approved": "Approved",
     "submitted": "Submitted",
+    "interview": "Interview",
     "closed": "Closed",
     "rejected": "Rejected",
 }
@@ -28,6 +29,11 @@ _STAGE_STATUS = {
     "review": ApplicationStatus.REVIEW_REQUIRED,
     "approved": ApplicationStatus.APPROVED,
     "submitted": ApplicationStatus.SUBMITTED,
+    # No distinct ApplicationStatus exists for "interviewing" -- an interview
+    # can happen any time after submission, so this stays SUBMITTED and
+    # Application.interview_scheduled_at is what actually distinguishes it
+    # (see move_application and _stage below).
+    "interview": ApplicationStatus.SUBMITTED,
     "closed": ApplicationStatus.WITHDRAWN,
     "rejected": ApplicationStatus.FAILED,
 }
@@ -38,6 +44,8 @@ def _stage(application: Application) -> str:
         return "rejected"
     if application.status in {ApplicationStatus.FAILED, ApplicationStatus.WITHDRAWN}:
         return "closed"
+    if application.status == ApplicationStatus.SUBMITTED and application.interview_scheduled_at:
+        return "interview"
     return {
         ApplicationStatus.DISCOVERED: "preparing",
         ApplicationStatus.PREPARING: "preparing",
@@ -66,41 +74,80 @@ class InterviewPrepNotesUpdate(BaseModel):
     notes: str
 
 
+def _build_prep(application: Application, current_user: User, session: Session) -> InterviewPrep:
+    job = session.get(Job, application.job_id)
+    analysis = session.exec(
+        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
+    ).first()
+    company_context: dict = {}
+    question_bank: list[dict] = []
+    questions_to_ask: list[dict] = []
+    if job:
+        # Only the AI path costs anything or needs gating -- generate_interview_prep
+        # falls back to a fixed bank for free when no key is configured or the
+        # call fails, same shape as api_growth.py's generate_plan.
+        quota.assert_ai_allowed(session, current_user)
+        prep_content, used_ai = generate_interview_prep(job, analysis)
+        company_context = prep_content["company_context"]
+        question_bank = prep_content["question_bank"]
+        questions_to_ask = prep_content["questions_to_ask"]
+        if used_ai:
+            quota.record_ai_action(session, current_user)
+    return InterviewPrep(
+        user_id=current_user.id,
+        application_id=application.id,
+        questions=[item["question"] for item in question_bank],
+        company_context=company_context,
+        question_bank=question_bank,
+        questions_to_ask=questions_to_ask,
+    )
+
+
 @router.get("/me/applications/{application_id}/interview-prep", response_model=InterviewPrep)
 def get_interview_prep(
     application_id: int,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> InterviewPrep:
-    """The question bank for this application, generating it on first view.
+    """Company context, question bank, and questions to ask for this
+    application, generating it on first view.
 
     Generated once and stored rather than rebuilt every request -- the
-    questions should stay stable while someone is actually preparing with
-    them, not shuffle on every page load.
+    content should stay stable while someone is actually preparing with
+    it, not shuffle on every page load. See /regenerate to refresh it.
     """
     application = _owned_application(application_id, current_user, session)
     prep = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
     if prep:
         return prep
 
-    job = session.get(Job, application.job_id)
-    analysis = session.exec(
-        select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
-    ).first()
-    questions: list[str] = []
-    if job:
-        # Only the AI path costs anything or needs gating -- generate_questions
-        # falls back to a fixed list for free when no key is configured or the
-        # call fails, same shape as api_growth.py's generate_plan.
-        quota.assert_ai_allowed(session, current_user)
-        questions, used_ai = generate_questions(job, analysis)
-        if used_ai:
-            quota.record_ai_action(session, current_user)
-    prep = InterviewPrep(
-        user_id=current_user.id,
-        application_id=application.id,
-        questions=questions,
-    )
+    prep = _build_prep(application, current_user, session)
+    session.add(prep)
+    session.commit()
+    session.refresh(prep)
+    return prep
+
+
+@router.post("/me/applications/{application_id}/interview-prep/regenerate", response_model=InterviewPrep)
+def regenerate_interview_prep(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> InterviewPrep:
+    """Replaces the company context, question bank, and questions to ask
+    with a fresh AI generation. Notes are preserved -- only the generated
+    content is regenerated."""
+    application = _owned_application(application_id, current_user, session)
+    existing = session.exec(select(InterviewPrep).where(InterviewPrep.application_id == application.id)).first()
+    fresh = _build_prep(application, current_user, session)
+    if existing:
+        existing.company_context = fresh.company_context
+        existing.question_bank = fresh.question_bank
+        existing.questions_to_ask = fresh.questions_to_ask
+        existing.questions = fresh.questions
+        prep = existing
+    else:
+        prep = fresh
     session.add(prep)
     session.commit()
     session.refresh(prep)
@@ -138,16 +185,22 @@ def move_application(
     # A completed application is one that reaches SUBMITTED, which is what the
     # plan actually meters. Guarded on the previous status so dragging a card
     # back and forth cannot charge someone repeatedly for one application.
+    # Moving straight to "interview" (skipping a separate submitted drag)
+    # still counts -- it implies the application was submitted.
     becoming_submitted = (
-        stage == "submitted" and application.status != ApplicationStatus.SUBMITTED
+        stage in {"submitted", "interview"} and application.status != ApplicationStatus.SUBMITTED
     )
     if becoming_submitted:
         quota.check(session, current_user, "applications")
     application.status = _STAGE_STATUS[stage]
     application.updated_at = datetime.now(UTC).replace(tzinfo=None)
     application.failure_reason = "Rejected by employer" if stage == "rejected" else None
-    if stage == "submitted" and not application.submitted_at:
+    if stage in {"submitted", "interview"} and not application.submitted_at:
         application.submitted_at = datetime.now(UTC).replace(tzinfo=None)
+    if stage == "interview":
+        application.interview_scheduled_at = application.interview_scheduled_at or datetime.now(UTC).replace(tzinfo=None)
+    elif stage == "submitted":
+        application.interview_scheduled_at = None
     session.add(application)
     session.commit()
     if becoming_submitted:

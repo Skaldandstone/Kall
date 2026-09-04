@@ -12,6 +12,7 @@ const STAGES = [
   ['review', 'Needs review'],
   ['approved', 'Approved'],
   ['submitted', 'Submitted'],
+  ['interview', 'Interview'],
   ['closed', 'Closed'],
   ['rejected', 'Rejected'],
 ] as const;
@@ -44,6 +45,7 @@ function detail(item: PipelineItem) {
   if (item.stage === 'rejected') return 'Rejected by employer';
   if (item.failure_reason) return item.failure_reason;
   if (item.requires_review) return 'Review required before approval';
+  if (item.stage === 'interview') return 'Interview -- open for prep';
   if (item.submitted_at) return `Submitted ${new Date(item.submitted_at).toLocaleDateString()}`;
   return relativeTime(item.updated_at);
 }
