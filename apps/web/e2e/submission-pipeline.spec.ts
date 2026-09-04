@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, seedJob, firstProfileId } from './helpers';
 
 /**
  * Continues past where canonical-journey.spec.ts stops (application
@@ -34,6 +34,7 @@ test('an approved application from an unsupported connector lands on manual comp
     applicationId = href!.split('/').pop()!;
 
     await page.goto(`/applications/${applicationId}`);
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();

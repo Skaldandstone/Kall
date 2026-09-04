@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { test, expect, signInAsNewUser, completeOnboarding, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end
@@ -77,6 +77,7 @@ test('sign-up through application review and approval', async ({ page }) => {
   await test.step('review and approve the application', async () => {
     await page.goto(`/applications/${applicationId}`);
     await expect(page.getByText('Stage: review')).toBeVisible();
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();

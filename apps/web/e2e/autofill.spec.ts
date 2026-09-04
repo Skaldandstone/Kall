@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser, completeOnboarding, seedJob, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, seedJob, firstProfileId } from './helpers';
 
 /**
  * One-click apply: Kall pre-fills the employer's form, the user submits it
@@ -58,6 +58,7 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     await page.getByRole('button', { name: 'Prepare application' }).click();
     await expect(page.getByRole('link', { name: 'Continue to application review' })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('link', { name: 'Continue to application review' }).click();
+    await completeDocumentsReview(page);
     const confirmReview = page.getByRole('button', { name: 'Confirm review items' });
     await expect(confirmReview).toBeEnabled({ timeout: 15_000 });
     await confirmReview.click();
