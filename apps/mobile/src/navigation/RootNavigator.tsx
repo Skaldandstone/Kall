@@ -9,6 +9,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ApplicationsScreen from '../screens/ApplicationsScreen';
 import ApplicationDetailScreen from '../screens/ApplicationDetailScreen';
+import InterviewPrepScreen from '../screens/InterviewPrepScreen';
 import OpportunitiesScreen from '../screens/OpportunitiesScreen';
 import GrowthScreen from '../screens/GrowthScreen';
 import MorningBriefScreen from '../screens/MorningBriefScreen';
@@ -56,6 +57,11 @@ function ApplicationsNavigator() {
         name="ApplicationDetail"
         component={ApplicationDetailScreen}
         options={({ route }) => ({ title: route.params.role })}
+      />
+      <ApplicationsStack.Screen
+        name="InterviewPrep"
+        component={InterviewPrepScreen}
+        options={{ title: 'Interview prep', presentation: 'modal' }}
       />
     </ApplicationsStack.Navigator>
   );

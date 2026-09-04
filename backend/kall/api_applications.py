@@ -3,11 +3,27 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Application, InterviewPrep, Job, JobMatch, JobRequirementAnalysis, User
+from kall.models import (
+    Application,
+    ApplicationAnswer,
+    ApplicationReview,
+    ApplicationReviewAudit,
+    ApplicationSubmission,
+    ApplicationTestimonial,
+    InterviewPrep,
+    Job,
+    JobMatch,
+    JobRequirementAnalysis,
+    ScreeningQuestion,
+    SubmissionAttempt,
+    SubmissionAudit,
+    SubmissionReceipt,
+    User,
+)
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
 from kall.services.interview_prep import generate_interview_prep, grade_quiz_answers
@@ -258,6 +274,26 @@ def remove_application(
 ) -> dict:
     application = _owned_application(application_id, current_user, session)
     job = session.get(Job, application.job_id)
+
+    # No cascading foreign keys exist at the DB level, so every table that
+    # references application.id has to be cleared here first, in dependency
+    # order, or Postgres rejects the delete with a ForeignKeyViolation --
+    # exactly the error a user hit deleting an application that already had
+    # an ApplicationReview row (created just by opening the review screen).
+    submission_ids = list(
+        session.exec(select(ApplicationSubmission.id).where(ApplicationSubmission.application_id == application_id))
+    )
+    if submission_ids:
+        session.exec(delete(SubmissionAttempt).where(SubmissionAttempt.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionReceipt).where(SubmissionReceipt.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionAudit).where(SubmissionAudit.submission_id.in_(submission_ids)))
+    session.exec(delete(ApplicationSubmission).where(ApplicationSubmission.application_id == application_id))
+    session.exec(delete(ApplicationTestimonial).where(ApplicationTestimonial.application_id == application_id))
+    session.exec(delete(ApplicationReviewAudit).where(ApplicationReviewAudit.application_id == application_id))
+    session.exec(delete(ApplicationReview).where(ApplicationReview.application_id == application_id))
+    session.exec(delete(InterviewPrep).where(InterviewPrep.application_id == application_id))
+    session.exec(delete(ApplicationAnswer).where(ApplicationAnswer.application_id == application_id))
+    session.exec(delete(ScreeningQuestion).where(ScreeningQuestion.application_id == application_id))
     session.delete(application)
     session.commit()
     return {"removed": True, "job_url": job.url if job else None}

@@ -9,12 +9,48 @@ from kall.models import (
 )
 from kall.services.documents import finalized_resume_content
 from kall.services.tailoring import (
+    _find_summary_paragraph,
     create_tailoring_proposal,
     finalize_proposal,
     preserves_immutable_facts,
     review_change,
 )
 from sqlmodel import Session, SQLModel, create_engine
+
+
+def test_summary_paragraph_skips_a_pdf_header_block_split_across_blank_lines() -> None:
+    """Regression test: pypdf extraction split a resume header into
+    "James\\n\\nShattuck\\n\\n360-809-2664", and the naive first-paragraph
+    heuristic proposed editing that instead of an actual summary -- garbled
+    text that could never look like an improvement."""
+    text = (
+        "James\n\n"
+        "Shattuck\n\n"
+        "360-809-2664\n\n"
+        "Senior engineer with eight years building distributed systems and leading cross-functional teams.\n\n"
+        "Experience\n\n"
+        "Led the platform team at Acme."
+    )
+    assert _find_summary_paragraph(text) == (
+        "Senior engineer with eight years building distributed systems and leading cross-functional teams."
+    )
+
+
+def test_summary_paragraph_skips_an_email_only_line() -> None:
+    text = "james@example.com\n\nReal summary paragraph with plenty of actual words in it."
+    assert _find_summary_paragraph(text) == "Real summary paragraph with plenty of actual words in it."
+
+
+def test_summary_paragraph_falls_back_to_the_first_block_when_nothing_else_qualifies() -> None:
+    """A resume with no real summary section (every block is short/contact-
+    shaped) should not raise or return empty -- just proposing against the
+    header is still better than proposing against nothing."""
+    text = "James\n\nShattuck\n\n360-809-2664"
+    assert _find_summary_paragraph(text) == "James"
+
+
+def test_summary_paragraph_handles_empty_text() -> None:
+    assert _find_summary_paragraph("") == ""
 
 
 def test_immutable_metrics_and_dates_are_preserved() -> None:

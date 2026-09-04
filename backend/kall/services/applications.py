@@ -49,7 +49,19 @@ def prepare_application(
     The application stays in REVIEW_REQUIRED until that review is done and
     documents are generated through the existing /tailoring and /documents
     endpoints; this only kicks the proposal off.
+
+    Idempotent per (user, job): re-preparing the same posting -- a
+    double-click, or revisiting /applications/new for a job already in the
+    pipeline -- returns the existing application instead of creating a
+    second row for the same role, the same "existing wins" rule
+    track_external_application already applies for the external-tracking path.
     """
+    existing = session.exec(
+        select(Application).where(Application.user_id == user.id, Application.job_id == job.id)
+    ).first()
+    if existing:
+        return existing
+
     assert_application_allowed(session, user)
 
     tailoring_proposal_id: int | None = None

@@ -51,6 +51,7 @@ JOB_BOARD_DOMAINS = [
     ("4 Day Week", "4dayweek.io"),
     ("Turing", "turing.com"),
     ("ASGC", "jobs.asgc.gg"),
+    ("Speedrun Talent Network", "speedrun-talent-network.com"),
 ]
 
 ALL_SEARCH_DOMAINS = ATS_DOMAINS + JOB_BOARD_DOMAINS

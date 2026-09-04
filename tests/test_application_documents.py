@@ -6,7 +6,7 @@ real tailoring proposal through the same evidence-grounded pipeline used by
 and ends in an actual ATS-formatted PDF/DOCX (see services/documents.py).
 """
 
-from kall.models import CareerProfile, Job, ResumeDocument, ResumeSelection, User
+from kall.models import Application, CareerProfile, Job, ResumeDocument, ResumeSelection, User
 from kall.services.applications import prepare_application
 from sqlmodel import Session, select
 
@@ -120,6 +120,31 @@ def test_prepare_application_honors_the_resume_actually_chosen_on_the_form(engin
         ).first()
         assert selection is not None
         assert selection.selected_resume_id == chosen.id
+
+
+def test_preparing_the_same_job_twice_returns_the_existing_application_not_a_duplicate(engine) -> None:
+    """A double-click on "Prepare application", or revisiting /applications/new
+    for a job already in the pipeline, used to create a second Application
+    row for the same (user, job) pair -- with no way to tell them apart in
+    the pipeline and no clean way to delete either. prepare_application must
+    be idempotent per (user, job), the same "existing wins" rule
+    track_external_application already applies."""
+    with Session(engine) as session:
+        user = User(clerk_user_id="user_dedup", email="dedup@example.com", full_name="Dedup")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        job = _job(session)
+        profile = _profile(session, user.id)
+
+        first = prepare_application(session, user, job, profile, None)
+        second = prepare_application(session, user, job, profile, None)
+
+        assert second.id == first.id
+        applications = list(session.exec(select(Application).where(
+            Application.user_id == user.id, Application.job_id == job.id,
+        )))
+        assert len(applications) == 1
 
 
 def test_get_application_exposes_prepared_payload_for_the_review_ui(client) -> None:
