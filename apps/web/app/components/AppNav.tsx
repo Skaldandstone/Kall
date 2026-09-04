@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import KallMark from './KallMark';
 import styles from './AppNav.module.css';
 
-type AppNavProps={current?:'brief'|'opportunities'|'applications'|'documents'|'career'|'support'};
+type AppNavProps={current?:'brief'|'opportunities'|'applications'|'documents'|'career'|'portfolio'|'support'};
 type User={full_name?:string;email?:string;is_admin?:boolean};
-const items=[['brief','Brief','/morning-brief'],['opportunities','Opportunities','/search'],['applications','Applications','/applications'],['documents','Documents','/resumes'],['career','Career','/profiles']] as const;
+const items=[['brief','Brief','/morning-brief'],['opportunities','Opportunities','/search'],['applications','Applications','/applications'],['documents','Documents','/resumes'],['career','Career','/profiles'],['portfolio','Portfolio','/settings/career-page']] as const;
 
 function initialsFor(user:User|null){
   const source=(user?.full_name||user?.email||'Account').trim();
