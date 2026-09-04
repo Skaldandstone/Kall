@@ -27,11 +27,13 @@
   command, not into this folder.
 - `listing.md` -- short/full description copy for the Play Console listing
   form.
-
-## Still missing
-
-Phone screenshots (2-8 required by Play). These need real app screens, which
-needs a running backend + signed-in test account -- not something to fake
-with a mockup. Capture these from a device or emulator once there's a
-reachable API base to sign into (see `../../README.md`'s "Configuration"
-section), not before.
+- `screenshots/` -- six phone screenshots (1080x1920) captured against a
+  real local backend and a real (throwaway) Clerk test account named
+  "John Kall", not mockups: sign-in, Applications, application review,
+  Morning Brief, Opportunities, and Growth. Captured by
+  `.github/workflows/mobile-store-screenshots.yml`, a manual-only
+  workflow -- run it again (`gh workflow run mobile-store-screenshots.yml`)
+  whenever the app's UI changes enough to make these stale. See
+  `apps/mobile/e2e/store-screenshots.spec.ts` and
+  `apps/mobile/e2e/seed_screenshot_data.py` for how the account and its
+  sample applications are built and torn down.
