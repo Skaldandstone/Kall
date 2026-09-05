@@ -190,6 +190,11 @@ export default function Onboarding() {
     setStep(3);
   }
 
+  function skipStrategy() {
+    setStep(4);
+    markComplete(resumeUploaded, false);
+  }
+
   async function markComplete(withResume: boolean, withProfile: boolean) {
     const completedSteps = ['account'];
     if (withResume) completedSteps.push('resume');
@@ -387,7 +392,9 @@ export default function Onboarding() {
                   <label>Target base salary<input className={styles.input} name="target_base" type="number" inputMode="numeric" placeholder="120000" /></label>
                 </div>
                 <div className={styles.actions}>
-                  <span />
+                  <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={skipStrategy}>
+                    Skip for now
+                  </button>
                   <button type="submit" className={styles.button} disabled={submitting}>
                     {submitting ? 'Saving…' : 'Save strategy'}
                   </button>

@@ -8,6 +8,7 @@ from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import (
     AwardHonor,
+    CareerProfile,
     Certification,
     Contact,
     Education,
@@ -121,12 +122,30 @@ def get_onboarding(
     row = session.exec(
         select(OnboardingProgress).where(OnboardingProgress.user_id == current_user.id)
     ).first()
-    if row:
-        return row
-    row = OnboardingProgress(user_id=current_user.id)
-    session.add(row)
-    session.commit()
-    session.refresh(row)
+    if not row:
+        row = OnboardingProgress(user_id=current_user.id)
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+
+    # A profile created by any path other than this wizard -- the mobile app
+    # has no onboarding screen of its own, an admin action, a future web
+    # entry point -- never PUTs is_complete=true, which stranded that user in
+    # a redirect loop back to /onboarding forever despite already having real
+    # profile data. This flag is meant to track "does this account have a
+    # career profile," so self-heal it from the actual data whenever a wizard
+    # somewhere failed to record it.
+    if not row.is_complete:
+        has_profile = session.exec(
+            select(CareerProfile.id).where(CareerProfile.user_id == current_user.id)
+        ).first()
+        if has_profile:
+            row.current_step = "complete"
+            row.is_complete = True
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+
     return row
 
 
