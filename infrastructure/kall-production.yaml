@@ -137,7 +137,7 @@ Parameters:
     Default: ''
   VerifiedMigrationHead:
     Type: String
-    AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031']
+    AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031', '20260905_0032']
     Default: ''
 
 Rules:
@@ -146,8 +146,8 @@ Rules:
     Assertions:
       - Assert: !Equals [!Ref VerifiedBootstrapRevision, kall-db-roles-v1]
         AssertDescription: Run and verify the kall-db-roles-v1 bootstrap before enabling services.
-      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260904_0031']
-        AssertDescription: Verify the database is at Alembic head 20260904_0031 before enabling services.
+      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260905_0032']
+        AssertDescription: Verify the database is at Alembic head 20260905_0032 before enabling services.
   StripeActivationRequiresLiveCatalog:
     RuleCondition: !Equals [!Ref EnableStripeLive, 'true']
     Assertions:
