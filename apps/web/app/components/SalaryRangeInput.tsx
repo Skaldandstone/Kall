@@ -24,9 +24,9 @@ type Props = {
 //: to the same hourly figure it started as.
 const HOURS_PER_YEAR = 2080;
 
-const HOURLY_STEPS = [15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 100, 125, 150, 200];
+const HOURLY_STEPS = [0, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 100, 125, 150, 200];
 const SALARY_STEPS = [
-  40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 175000, 190000,
+  0, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000, 140000, 150000, 160000, 175000, 190000,
   200000, 225000, 250000, 275000, 300000, 350000, 400000,
 ];
 
@@ -106,7 +106,11 @@ export default function SalaryRangeInput({
       </div>
 
       <div className={styles.range}>
-        <select value={minValue} onChange={(event) => setMinValue(event.target.value ? Number(event.target.value) : '')}>
+        <select
+          aria-label={`${label} minimum`}
+          value={minValue}
+          onChange={(event) => setMinValue(event.target.value ? Number(event.target.value) : '')}
+        >
           <option value="">Minimum</option>
           {steps.map((step) => (
             <option key={step} value={step}>
@@ -115,7 +119,11 @@ export default function SalaryRangeInput({
           ))}
         </select>
         <span>to</span>
-        <select value={maxValue} onChange={(event) => setMaxValue(event.target.value ? Number(event.target.value) : '')}>
+        <select
+          aria-label={`${label} target`}
+          value={maxValue}
+          onChange={(event) => setMaxValue(event.target.value ? Number(event.target.value) : '')}
+        >
           <option value="">Target</option>
           {steps.map((step) => (
             <option key={step} value={step}>

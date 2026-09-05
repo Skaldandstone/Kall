@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser } from './helpers';
+import { test, expect, signInAsNewUser, addChip } from './helpers';
 
 /**
  * Pausing a career profile.
@@ -80,10 +80,10 @@ test('onboarding stores functional areas and exclusions without discarding zero 
   await page.goto('/onboarding');
   await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.locator('input[name="name"]').fill('Quality Leadership');
-  await page.locator('[name="target_titles"]').fill('QA Director');
+  await addChip(page, 'Target roles', 'QA Director');
   await page.locator('input[name="functional_areas"]').fill('Quality Engineering');
-  await page.locator('input[name="exclude_keywords"]').fill('unpaid');
-  await page.locator('input[name="minimum_base"]').fill('0');
+  await addChip(page, 'Exclude keywords', 'unpaid');
+  await page.getByLabel('Compensation range minimum').selectOption('0');
   await page.getByRole('button', { name: 'Save strategy' }).click();
   await expect(page.getByRole('heading', { name: 'Your first career workspace is prepared.' })).toBeVisible();
   const response = await page.request.get('/api/kall/me/career-profiles');

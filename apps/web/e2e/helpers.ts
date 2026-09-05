@@ -152,6 +152,18 @@ export async function signInAsNewUser(
 }
 
 /**
+ * Adds one chip to a ChipsInput field (career strategy's target roles,
+ * industries, keywords, cities), which replaced plain comma-separated text
+ * inputs -- type into the field labelled `label`, then press Enter to
+ * commit it as a chip.
+ */
+export async function addChip(page: Page, label: string, value: string): Promise<void> {
+  const field = page.getByLabel(label);
+  await field.fill(value);
+  await field.press('Enter');
+}
+
+/**
  * Completes onboarding's resume-upload + career-strategy steps, which is
  * what actually creates the professional profile most other flows (search,
  * job intelligence, tailoring, applications) require to function.
@@ -166,8 +178,9 @@ export async function completeOnboarding(page: Page, strategyName = 'Backend Lea
   await expect(page.getByRole('heading', { name: /where do you want your career to go/i })).toBeVisible({ timeout: 30_000 });
 
   await page.locator('input[name="name"]').fill(strategyName);
-  await page.locator('textarea[name="target_titles"]').fill('Senior Backend Engineer, Staff Engineer');
-  await page.locator('input[name="industries"]').fill('Software');
+  await addChip(page, 'Target roles', 'Senior Backend Engineer');
+  await addChip(page, 'Target roles', 'Staff Engineer');
+  await addChip(page, 'Industries', 'Software');
   await page.getByRole('button', { name: 'Save strategy' }).click();
   await expect(page.getByRole('heading', { name: /workspace is prepared/i })).toBeVisible();
 }

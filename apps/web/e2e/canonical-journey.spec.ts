@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, firstProfileId } from './helpers';
+import { test, expect, signInAsNewUser, completeOnboarding, completeDocumentsReview, addChip, firstProfileId } from './helpers';
 
 /**
  * The one automated check that proves the whole product actually works end
@@ -31,8 +31,9 @@ test('sign-up through application review and approval', async ({ page }) => {
 
   await test.step('onboarding: career strategy', async () => {
     await page.locator('input[name="name"]').fill('Backend Leadership');
-    await page.locator('textarea[name="target_titles"]').fill('Senior Backend Engineer, Staff Engineer');
-    await page.locator('input[name="industries"]').fill('Software');
+    await addChip(page, 'Target roles', 'Senior Backend Engineer');
+    await addChip(page, 'Target roles', 'Staff Engineer');
+    await addChip(page, 'Industries', 'Software');
     await page.getByRole('button', { name: 'Save strategy' }).click();
     await expect(page.getByRole('heading', { name: /workspace is prepared/i })).toBeVisible();
     // Both checklist items must have flipped to done -- this is the real
