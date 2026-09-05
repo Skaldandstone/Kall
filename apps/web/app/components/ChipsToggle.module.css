@@ -1,0 +1,37 @@
+.fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.fieldset legend {
+  padding: 0;
+  font: inherit;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggle {
+  padding: 9px 16px;
+  cursor: pointer;
+  border: 1px solid #343a3c;
+  background: #191d1f;
+  color: #a7aaa8;
+}
+
+.toggle:hover {
+  border-color: #6e9fa8;
+}
+
+.active {
+  background: #6e9fa8;
+  color: #0d0f10;
+  border-color: #6e9fa8;
+  font-weight: 600;
+}

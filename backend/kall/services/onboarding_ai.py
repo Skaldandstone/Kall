@@ -7,24 +7,39 @@ _STRATEGY_SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
-        "target_titles": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
+        "profile_name": {"type": "string"},
+        "target_titles": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
         "industries": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
         "keywords": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
         "work_types": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
+        "pay_basis": {"type": "string", "enum": ["hourly", "salary"]},
+        "suggested_salary_min": {"type": ["integer", "null"]},
+        "suggested_salary_max": {"type": ["integer", "null"]},
     },
-    "required": ["summary", "target_titles", "industries", "keywords", "work_types"],
+    "required": [
+        "summary",
+        "profile_name",
+        "target_titles",
+        "industries",
+        "keywords",
+        "work_types",
+        "pay_basis",
+        "suggested_salary_min",
+        "suggested_salary_max",
+    ],
     "additionalProperties": False,
 }
 
 
 def suggest_career_strategy(resume_text: str) -> dict | None:
-    """Suggests career-strategy form fields (target titles, industries, keywords,
-    work types) grounded strictly in a resume's own content, so the onboarding
-    strategy form can start pre-filled instead of blank. Returns None on a
-    missing API key, empty resume text, or any failure -- there is deliberately
-    no heuristic fallback here (see onboarding-redesign plan): guessing these
-    fields without a real read of the resume risks being confidently wrong,
-    which is worse than the caller falling back to its current blank form.
+    """Suggests career-strategy form fields (profile name, target titles,
+    industries, keywords, work types, a rough pay estimate) grounded strictly
+    in a resume's own content, so the onboarding strategy form can start
+    pre-filled instead of blank. Returns None on a missing API key, empty
+    resume text, or any failure -- there is deliberately no heuristic fallback
+    here (see onboarding-redesign plan): guessing these fields without a real
+    read of the resume risks being confidently wrong, which is worse than the
+    caller falling back to its current blank form.
     """
     settings = get_settings()
     if not settings.openai_api_key:
@@ -34,11 +49,29 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         return None
     prompt = (
         "Read this resume and suggest career-strategy fields for a job search, grounded only in what "
-        "the resume actually shows. Never invent employers, titles, or experience the resume doesn't contain. "
-        "target_titles should be roles this person is qualified for based on their actual background. "
-        "industries should reflect industries they have real experience in. keywords are specific skills or "
-        "specializations evidenced in the text. work_types should only include values actually implied "
-        "(e.g. 'remote' if they've worked remotely) -- if nothing is implied, return an empty list.\n\n"
+        "the resume actually shows. Never invent employers, titles, or experience the resume doesn't contain.\n\n"
+        "profile_name is a short label (2-5 words) for this search strategy, like 'Quality Leadership' or "
+        "'Senior Backend Engineering' -- named after the role/direction, not the person.\n\n"
+        "target_titles should be roles this person is qualified for based on their actual background. Include "
+        "close synonyms and common abbreviations of the same role alongside the full title -- for example, "
+        "if the resume supports 'Director of Quality Engineering', also include 'Director of QE' and "
+        "'Director of Quality Assurance' if that is a real equivalent in their field, since a job board search "
+        "matches on exact title text and postings phrase the same role differently.\n\n"
+        "industries must each be a short, canonical, widely-recognized industry name (1-3 words, e.g. 'SaaS', "
+        "'FinTech', 'Healthcare', 'E-Commerce', 'Manufacturing') -- never a descriptive phrase or sentence "
+        "fragment. These are compared as literal substrings against real job posting text to confirm a match, "
+        "so a phrase like 'Advertising technology and ad serving' will never match anything; 'AdTech' will. "
+        "Prefer the single most common industry term over a compound one when they overlap.\n\n"
+        "keywords are specific skills or specializations evidenced in the text. work_types should only include "
+        "values actually implied (e.g. 'remote' if they've worked remotely) -- if nothing is implied, return an "
+        "empty list.\n\n"
+        "pay_basis and suggested_salary_min/suggested_salary_max are a rough, clearly-unverified estimate of "
+        "what someone with this resume's most recent role, seniority, and location typically earns -- pay_basis "
+        "is 'hourly' only if the resume's most recent role reads as hourly/contract work, otherwise 'salary'. "
+        "suggested_salary_min/max are always annualized numbers (multiply an hourly estimate by roughly 2080 "
+        "hours/year) regardless of pay_basis, in whole dollars. Set both to null if the resume gives too little "
+        "signal (no clear recent title, seniority, or location) to estimate responsibly -- do not guess from a "
+        "vague resume just to fill the field.\n\n"
         f"RESUME:\n{text[:30000]}"
     )
     return ask_for_json(
@@ -56,9 +89,10 @@ def deterministic_career_strategy(resume_text: str) -> dict | None:
 
     Narrower than the AI version on purpose: only role titles the parser
     found paired with an actual date range make it into target_titles, and
-    industries/work_types/summary are left for the person to fill in rather
-    than guessed from weaker signal. Returns None when the resume gave the
-    parser nothing to work with, the same as the AI path with no key.
+    industries/work_types/summary/pay estimate are left for the person to
+    fill in rather than guessed from weaker signal. Returns None when the
+    resume gave the parser nothing to work with, the same as the AI path
+    with no key.
     """
     text = (resume_text or "").strip()
     if not text:
@@ -70,8 +104,12 @@ def deterministic_career_strategy(resume_text: str) -> dict | None:
         return None
     return {
         "summary": "",
+        "profile_name": role_titles[0] if role_titles else "",
         "target_titles": role_titles[:5],
         "industries": [],
         "keywords": skills[:8],
         "work_types": [],
+        "pay_basis": "salary",
+        "suggested_salary_min": None,
+        "suggested_salary_max": None,
     }

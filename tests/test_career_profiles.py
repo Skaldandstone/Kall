@@ -11,6 +11,34 @@ def _create_profile(client) -> int:
     return response.json()["id"]
 
 
+def test_cities_and_pay_basis_can_be_set_through_create_and_update(client) -> None:
+    """Onboarding's new city picker and salary hourly/salary toggle both
+    write these two fields -- creation used ProfessionalProfileCreate, which
+    (like employment_types before this) never listed them at all, so a
+    posted value was silently dropped rather than persisted."""
+    created = client.post("/api/me/professional-profiles", json={
+        "name": "Test Profile",
+        "states_regions": ["Washington"],
+        "cities": ["Seattle", "Bellevue"],
+        "pay_basis": "hourly",
+        "employment_types": ["contract", "hourly"],
+    })
+    assert created.status_code == 200, created.text
+    assert created.json()["cities"] == ["Seattle", "Bellevue"]
+    assert created.json()["pay_basis"] == "hourly"
+    assert created.json()["employment_types"] == ["contract", "hourly"]
+
+    profile_id = created.json()["id"]
+    updated = client.put(f"/api/me/career-profiles/{profile_id}", json={
+        "name": "Test Profile",
+        "cities": ["Tacoma"],
+        "pay_basis": "salary",
+    })
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["cities"] == ["Tacoma"]
+    assert updated.json()["pay_basis"] == "salary"
+
+
 def test_equity_preference_can_be_set_and_reads_back(client) -> None:
     profile_id = _create_profile(client)
     updated = client.put(f"/api/me/career-profiles/{profile_id}", json={

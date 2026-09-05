@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from kall.models import ResumeDocument, User
-from kall.services.onboarding_ai import suggest_career_strategy
+from kall.services.onboarding_ai import deterministic_career_strategy, suggest_career_strategy
 from sqlmodel import Session
 
 
@@ -58,6 +58,54 @@ def test_suggest_career_strategy_parses_a_canned_response(monkeypatch: pytest.Mo
     assert result is not None
     assert result["target_titles"] == ["Director of Quality Engineering"]
     assert result["work_types"] == ["remote"]
+
+
+def test_deterministic_fallback_includes_a_profile_name_and_null_salary_estimate() -> None:
+    result = deterministic_career_strategy("Director of Quality Engineering\n2018 - Present\nLed test automation.")
+    assert result is not None
+    assert result["profile_name"] == "Director of Quality Engineering"
+    assert result["pay_basis"] == "salary"
+    assert result["suggested_salary_min"] is None
+    assert result["suggested_salary_max"] is None
+
+
+def test_suggest_career_strategy_prompt_asks_for_concise_industries_and_similar_titles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The prompt is what actually constrains the model's output, so this
+    regression-tests the prompt text itself rather than a live model call --
+    a resume review found production returning verbose, unmatched-in-the-wild
+    phrases like "Advertising technology and ad serving" instead of a short
+    canonical industry name, and no separate/similar-title synonyms at all."""
+    import httpx
+    from kall.config import get_settings
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"output_text": "{}"}
+
+    def fake_post(url, *, headers, json, **kwargs):
+        captured["prompt"] = json["input"]
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    try:
+        suggest_career_strategy("Director of Quality Engineering, ten years leading test automation.")
+    finally:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        get_settings.cache_clear()
+
+    prompt = captured["prompt"]
+    assert "short, canonical" in prompt
+    assert "close synonyms" in prompt or "abbreviations" in prompt
+    assert "profile_name" in prompt
 
 
 def test_suggest_strategy_endpoint_without_api_key_falls_back_to_a_deterministic_guess(client: TestClient) -> None:

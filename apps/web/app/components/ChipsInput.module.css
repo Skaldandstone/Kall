@@ -1,0 +1,63 @@
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #343a3c;
+  background: #191d1f;
+}
+
+.field:focus-within {
+  outline: 2px solid #6e9fa8;
+  outline-offset: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: #232829;
+  color: #f1f0eb;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #a7aaa8;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.chip button:hover,
+.chip button:focus-visible {
+  background: #343a3c;
+  color: #f1f0eb;
+}
+
+.draft {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  background: transparent;
+  color: #f1f0eb;
+  font: inherit;
+  padding: 6px 4px;
+}
+
+.draft:focus {
+  outline: none;
+}

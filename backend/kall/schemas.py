@@ -64,7 +64,10 @@ class ProfessionalProfileCreate(BaseModel):
     exclude_keywords: list[str] = Field(default_factory=list)
     countries: list[str] = Field(default_factory=list)
     states_regions: list[str] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
     work_types: list[WorkType] = Field(default_factory=lambda: [WorkType.REMOTE])
+    employment_types: list[str] = Field(default_factory=lambda: ["full_time"])
+    pay_basis: str = "salary"
     minimum_base: int | None = None
     target_base: int | None = None
     stretch_base: int | None = None

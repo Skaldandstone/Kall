@@ -69,8 +69,19 @@ class CareerProfile(TimestampMixin, table=True):
     exclude_keywords: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     countries: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     states_regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    #: Cities within the selected states/regions the person is willing to work
+    #: in or near. Narrower than states_regions, entirely optional, and only
+    #: meaningful once at least one state/region is picked.
+    cities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     work_types: list[str] = Field(default_factory=lambda: [WorkType.REMOTE], sa_column=Column(JSON))
     employment_types: list[str] = Field(default_factory=lambda: ["full_time"], sa_column=Column(JSON))
+    #: Whether minimum_base/target_base below were entered (and should be
+    #: displayed) as an annual salary or an hourly rate. The stored numbers
+    #: are always annualized for matching.py's direct comparison against a
+    #: job's own (annual) salary_min/salary_max -- this field exists purely
+    #: to round-trip which unit the person actually typed, so editing later
+    #: shows their number back instead of a silently converted one.
+    pay_basis: str = "salary"
     minimum_base: int | None = None
     target_base: int | None = None
     stretch_base: int | None = None

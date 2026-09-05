@@ -1,10 +1,13 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { countries, countryName, regionsForCountry } from '../../lib/location-data';
+import { CITY_SUGGESTION_CEILING, citiesForRegion, countries, countryName, regionsForCountry } from '../../lib/location-data';
 import styles from './page.module.css';
 import { fetchKall } from '../lib/api';
 import FunctionalAreasInput from '../components/FunctionalAreasInput';
+import ChipsInput from '../components/ChipsInput';
+import ChipsToggle from '../components/ChipsToggle';
+import SalaryRangeInput from '../components/SalaryRangeInput';
 import { optionalProfileNumber } from '../lib/profileForm';
 
 const API = '/api/kall';
@@ -17,12 +20,30 @@ const csv = (value: FormDataEntryValue | null) =>
 const selectedOptions = (element: HTMLSelectElement): string[] =>
   Array.from(element.selectedOptions, (option) => option.value);
 
+const WORK_TYPE_OPTIONS = [
+  { value: 'remote', label: 'Remote' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'on_site', label: 'On-Site' },
+];
+
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: 'contract', label: 'Contract' },
+  { value: 'full_time', label: 'Full Time' },
+  { value: 'fractional', label: 'Fractional' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'salaried', label: 'Salaried' },
+];
+
 type StrategySuggestion = {
   summary: string;
+  profile_name: string;
   target_titles: string[];
   industries: string[];
   keywords: string[];
   work_types: string[];
+  pay_basis: 'hourly' | 'salary';
+  suggested_salary_min: number | null;
+  suggested_salary_max: number | null;
 };
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {
@@ -65,6 +86,20 @@ export default function Onboarding() {
     [regionGroups],
   );
 
+  // Cities are looked up by state/region *code*, but selectedRegions stores
+  // display names (matching the existing states_regions select below) --
+  // cross-reference the two through regionGroups, which already carries both.
+  const citySuggestions = useMemo(() => {
+    const found = new Set<string>();
+    for (const group of regionGroups) {
+      for (const region of group.regions) {
+        if (!selectedRegions.includes(region.name)) continue;
+        for (const city of citiesForRegion(group.code, region.code)) found.add(city);
+      }
+    }
+    return Array.from(found).sort().slice(0, CITY_SUGGESTION_CEILING);
+  }, [regionGroups, selectedRegions]);
+
   useEffect(() => {
     // Reaching this page at all means Clerk's middleware already let the
     // request through, so there is nothing further to check here.
@@ -91,6 +126,10 @@ export default function Onboarding() {
     setSelectedRegions((current) => current.filter((region) => nextRegionNames.has(region)));
   }
 
+  function changeRegions(element: HTMLSelectElement) {
+    setSelectedRegions(selectedOptions(element));
+  }
+
   async function createProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage('');
@@ -112,7 +151,10 @@ export default function Onboarding() {
           exclude_keywords: csv(form.get('exclude_keywords')),
           countries: selectedCountryCodes.map((code) => countryName(code) || code),
           states_regions: selectedRegions,
+          cities: csv(form.get('cities')),
           work_types: csv(form.get('work_types')),
+          employment_types: csv(form.get('employment_types')),
+          pay_basis: form.get('pay_basis') || 'salary',
           minimum_base: optionalProfileNumber(form.get('minimum_base')),
           target_base: optionalProfileNumber(form.get('target_base')),
           stretch_base: null,
@@ -296,41 +338,50 @@ export default function Onboarding() {
                   : 'Start with one focused direction; you can add more strategies later.'}
               </p>
               <form className={styles.form} onSubmit={createProfile}>
-                <label>Strategy name<input className={styles.input} name="name" placeholder="Quality leadership" required /></label>
                 <label>
-                  Target roles
-                  <textarea
+                  Strategy name
+                  <input
                     className={styles.input}
-                    name="target_titles"
-                    rows={4}
-                    placeholder="Quality director, Head of quality"
-                    defaultValue={suggestion?.target_titles.join(', ') || ''}
+                    name="name"
+                    placeholder="Quality leadership"
+                    defaultValue={suggestion?.profile_name || ''}
                     required
                   />
-                  <small>Separate roles with commas.</small>
                 </label>
-                <label>
-                  Industries
-                  <input
-                    className={styles.input}
-                    name="industries"
-                    placeholder="Medical devices, manufacturing"
-                    defaultValue={suggestion?.industries.join(', ') || ''}
-                  />
-                  <small>Separate industries with commas.</small>
-                </label>
+
+                <ChipsInput
+                  name="target_titles"
+                  label="Target roles"
+                  placeholder="Quality director, Head of quality"
+                  defaultValue={suggestion?.target_titles || []}
+                  helpText="Press Enter to add a role. Include close variants of the same title -- job boards phrase the same role differently."
+                  required
+                />
+
+                <ChipsInput
+                  name="industries"
+                  label="Industries"
+                  placeholder="SaaS, FinTech"
+                  defaultValue={suggestion?.industries || []}
+                  helpText="Short, specific industry names work best -- they're matched as exact text against job postings."
+                />
+
                 <FunctionalAreasInput className={styles.input} />
-                <label>
-                  Important keywords
-                  <input
-                    className={styles.input}
-                    name="include_keywords"
-                    placeholder="Audit readiness, CAPA"
-                    defaultValue={suggestion?.keywords.join(', ') || ''}
-                  />
-                  <small>Separate phrases with commas.</small>
-                </label>
-                <label>Exclude keywords<input className={styles.input} name="exclude_keywords" placeholder="Unpaid internship, door-to-door" /><small>Separate phrases with commas. Jobs mentioning these phrases are excluded.</small></label>
+
+                <ChipsInput
+                  name="include_keywords"
+                  label="Important keywords"
+                  placeholder="Audit readiness, CAPA"
+                  defaultValue={suggestion?.keywords || []}
+                  helpText="Press Enter to add a skill or specialization."
+                />
+
+                <ChipsInput
+                  name="exclude_keywords"
+                  label="Exclude keywords"
+                  placeholder="Unpaid internship, door-to-door"
+                  helpText="Jobs mentioning these phrases are excluded."
+                />
 
                 <label>
                   <span>Countries</span>
@@ -359,7 +410,7 @@ export default function Onboarding() {
                     size={10}
                     value={selectedRegions}
                     disabled={selectedCountryCodes.length === 0 || availableRegionNames.size === 0}
-                    onChange={(event) => setSelectedRegions(selectedOptions(event.currentTarget))}
+                    onChange={(event) => changeRegions(event.currentTarget)}
                     aria-describedby="regions-help"
                   >
                     {regionGroups.map((group) => (
@@ -377,20 +428,41 @@ export default function Onboarding() {
                   </small>
                 </label>
 
-                <label>
-                  Work arrangements
-                  <input
-                    className={styles.input}
-                    name="work_types"
-                    defaultValue={suggestion?.work_types.join(', ') || 'remote, hybrid'}
-                    placeholder="Remote, hybrid"
+                {selectedRegions.length > 0 && (
+                  <ChipsInput
+                    key={selectedRegions.join('|')}
+                    name="cities"
+                    label="Cities"
+                    placeholder="Add a city you'd work in or near"
+                    suggestions={citySuggestions}
+                    helpText="Optional. Narrows your selected states/regions to specific cities -- type your own if it's not suggested."
                   />
-                  <small>Separate arrangements with commas.</small>
-                </label>
-                <div className={styles.two}>
-                  <label>Minimum base salary<input className={styles.input} name="minimum_base" type="number" inputMode="numeric" placeholder="90000" /></label>
-                  <label>Target base salary<input className={styles.input} name="target_base" type="number" inputMode="numeric" placeholder="120000" /></label>
-                </div>
+                )}
+
+                <ChipsToggle
+                  name="work_types"
+                  label="Work type"
+                  options={WORK_TYPE_OPTIONS}
+                  defaultValue={suggestion?.work_types?.length ? suggestion.work_types : ['remote', 'hybrid']}
+                />
+
+                <ChipsToggle
+                  name="employment_types"
+                  label="Work arrangement"
+                  options={EMPLOYMENT_TYPE_OPTIONS}
+                  defaultValue={['full_time']}
+                />
+
+                <SalaryRangeInput
+                  minName="minimum_base"
+                  maxName="target_base"
+                  basisName="pay_basis"
+                  label="Compensation range"
+                  defaultBasis={suggestion?.pay_basis || 'salary'}
+                  suggestedMin={suggestion?.suggested_salary_min ?? null}
+                  suggestedMax={suggestion?.suggested_salary_max ?? null}
+                />
+
                 <div className={styles.actions}>
                   <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={skipStrategy}>
                     Skip for now
