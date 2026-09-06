@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSignIn } from '@clerk/expo';
 import Constants from 'expo-constants';
 import { theme } from '../theme';
+import SocialSignInButtons from '../components/SocialSignInButtons';
 import type { AuthStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -163,6 +164,8 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.link}>Need an account? Create one</Text>
         </Pressable>
       ) : null}
+
+      {!awaitingCode ? <SocialSignInButtons onError={setError} /> : null}
     </View>
   );
 }
