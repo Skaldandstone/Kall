@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Google Play service-account key (written at CI time, never committed)
+google-service-account.json
+
 # Metro
 .metro-health-check*
 
