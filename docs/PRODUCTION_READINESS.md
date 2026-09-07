@@ -1,21 +1,26 @@
 # Kall production readiness
 
-Updated 2 September 2026. This is the release contract for the first Kall
-production candidate. It is still invitation-only. Live Stripe billing and
-production Clerk authentication are configured, while automatic tax, SES
-sending, continuous monitoring, public signup, and application auto-submission
-remain disabled.
+Updated 6 September 2026. This is the release contract for the first Kall
+production candidate. Production Clerk and the isolated live Stripe catalog are
+configured. Automatic tax, SES sending, continuous monitoring, and application
+auto-submission remain disabled. Public signup is an explicit deployment
+parameter and must match the release decision for each rollout.
 
 ## Current state
 
-The production stack is standing in AWS project `734702670689`, selected Region
-`us-east-2`, at `https://kall.skaldandstone.com`. The API and web services are
-healthy, the database is PostgreSQL 16.15, and CloudFront-to-ALB plus
-web-to-API TLS paths passed the hosted smoke checks. Live Stripe billing is
-enabled with a Kall-only catalog, restricted key, portal configuration and
-webhook destination. Automatic tax, SES sending, continuous monitoring and
-public signup remain disabled. No controlled live charge or refund has been
-performed.
+`https://kall.skaldandstone.com` remains healthy on the accepted stack in AWS
+project `734702670689`, selected Region `us-east-2`, while its successor is
+created in the new Skald and Stone AWS project `051722405355`. The successor
+uses the same selected Region, starts with application services and live Stripe
+disabled, and leaves the public CloudFront alias detached until its database,
+roles, migrations, images, and signed-in path pass acceptance. Do not treat the
+new project as cut over while the public alias still belongs to the old stack.
+
+The accepted old-project runtime uses PostgreSQL 16.15. Its API and web services
+are healthy, and CloudFront-to-ALB plus web-to-API TLS paths passed the hosted
+smoke checks. Live Stripe uses a Kall-only catalog, restricted key, portal
+configuration and webhook destination. No controlled live charge or refund has
+been performed.
 
 The exact `83309deeec03a8b22ea2c34a1089e6c9d3823911` release commit passed all
 five CI jobs. Its rebuilt web image
@@ -120,9 +125,10 @@ not a billing guarantee. See
 
 These are external gates and cannot be marked complete by source tests:
 
-1. Confirm credit and spend-limit status in AWS Settings > Billing before the
-   first cost-bearing change set. The AWS API confirms the $100 monthly budget,
-   but the new-experience plan-state endpoint returns no project data.
+1. The new AWS project has a healthy $100 monthly monitoring budget with actual
+   and forecast alerts. Confirm its separate spend-limit status in AWS Settings
+   > Billing; the new-experience plan-state endpoint returns no project data.
+   A budget alerts and reports with lag. It does not stop resources.
 2. The initial availability contract is Multi-AZ PostgreSQL 16.15, seven-day
    point-in-time backups, deletion protection, encrypted gp3 with autoscaling to
    100 GiB, and snapshot-on-delete/replace. Schedule and prove a restore after
