@@ -81,11 +81,13 @@ test('onboarding submits custom areas, exclusions and zero compensation', async 
   await page.goto('/onboarding');
   await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.locator('[name="name"]').fill('Quality Leadership');
-  await page.locator('[name="target_titles"]').fill('QA Director');
+  await page.getByRole('textbox', { name: 'Target roles' }).fill('QA Director');
+  await page.getByRole('textbox', { name: 'Target roles' }).press('Enter');
   await page.locator('[name="functional_areas"]').fill('Quality Engineering, Technical Writing');
-  await page.locator('[name="exclude_keywords"]').fill('unpaid');
-  await page.locator('[name="minimum_base"]').fill('0');
-  await page.locator('[name="target_base"]').fill('0');
+  await page.getByRole('textbox', { name: 'Exclude keywords' }).fill('unpaid');
+  await page.getByRole('textbox', { name: 'Exclude keywords' }).press('Enter');
+  await page.getByRole('combobox', { name: 'Compensation range minimum' }).selectOption('0');
+  await page.getByRole('combobox', { name: 'Compensation range target' }).selectOption('0');
   await page.screenshot({ path: info.outputPath(`functional-area-onboarding-${info.project.name}.png`), fullPage: true });
   await page.getByRole('button', { name: 'Save strategy' }).click();
   await expect(page.getByRole('heading', { name: 'Your first career workspace is prepared.' })).toBeVisible();
