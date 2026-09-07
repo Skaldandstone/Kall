@@ -54,3 +54,13 @@ def test_mobile_browser_gate_exercises_invite_only_release_ui() -> None:
     playwright_config = (ROOT / "apps" / "mobile" / "playwright.config.ts").read_text()
     assert "isRelease\n        ? false" in app_config
     assert "KALL_MOBILE_ALLOW_REGISTRATION: '0'" in playwright_config
+
+
+def test_mobile_release_can_emit_play_bundle_with_production_clerk() -> None:
+    build_script = (ROOT / "apps" / "mobile" / "scripts" / "build-alpha-apk.ps1").read_text()
+    eas = (ROOT / "apps" / "mobile" / "eas.json").read_text()
+    assert "[ValidateSet('Apk', 'Aab')]" in build_script
+    assert "bundleRelease" in build_script
+    assert "Kall-alpha-1.0.0.$extension" in build_script
+    assert "pk_live_" in eas
+    assert "pk_test_" not in eas

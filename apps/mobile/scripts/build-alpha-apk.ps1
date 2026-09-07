@@ -8,6 +8,9 @@ param(
     [ValidatePattern('^pk_(test|live)_')]
     [string]$ClerkPublishableKey,
 
+    [ValidateSet('Apk', 'Aab')]
+    [string]$Format = 'Apk',
+
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\dist')
 )
 
@@ -81,17 +84,27 @@ try {
     Set-Location -LiteralPath $mobileRoot
     & npx expo prebuild --platform android --clean --no-install
     if ($LASTEXITCODE -ne 0) { throw 'Expo Android prebuild failed.' }
-    & .\android\gradlew.bat -p .\android assembleRelease
-    if ($LASTEXITCODE -ne 0) { throw 'Android release build failed.' }
+    $gradleTask = if ($Format -eq 'Aab') { 'bundleRelease' } else { 'assembleRelease' }
+    & .\android\gradlew.bat -p .\android $gradleTask
+    if ($LASTEXITCODE -ne 0) { throw "Android $Format release build failed." }
 
-    $sourceApk = Join-Path $mobileRoot 'android\app\build\outputs\apk\release\app-release.apk'
-    if (-not (Test-Path -LiteralPath $sourceApk)) { throw 'Gradle completed without producing the release APK.' }
+    $sourceArtifact = if ($Format -eq 'Aab') {
+        Join-Path $mobileRoot 'android\app\build\outputs\bundle\release\app-release.aab'
+    }
+    else {
+        Join-Path $mobileRoot 'android\app\build\outputs\apk\release\app-release.apk'
+    }
+    if (-not (Test-Path -LiteralPath $sourceArtifact)) {
+        throw "Gradle completed without producing the release $Format artifact."
+    }
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
-    $outputPath = Join-Path (Resolve-Path -LiteralPath $OutputDirectory).Path 'Kall-alpha-1.0.0.apk'
-    Copy-Item -LiteralPath $sourceApk -Destination $outputPath -Force
+    $extension = $Format.ToLowerInvariant()
+    $fileName = "Kall-alpha-1.0.0.$extension"
+    $outputPath = Join-Path (Resolve-Path -LiteralPath $OutputDirectory).Path $fileName
+    Copy-Item -LiteralPath $sourceArtifact -Destination $outputPath -Force
     $hash = Get-FileHash -LiteralPath $outputPath -Algorithm SHA256
-    Set-Content -LiteralPath "$outputPath.sha256" -Value "$($hash.Hash)  Kall-alpha-1.0.0.apk"
-    Write-Output "APK: $outputPath"
+    Set-Content -LiteralPath "$outputPath.sha256" -Value "$($hash.Hash)  $fileName"
+    Write-Output "${Format}: $outputPath"
     Write-Output "SHA256: $($hash.Hash)"
 }
 finally {

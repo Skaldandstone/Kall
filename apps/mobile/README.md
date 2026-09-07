@@ -64,12 +64,26 @@ expired CloudFront URL. Release builds also force self-service registration
 off. Invited alpha users sign in with the account attached to their invitation;
 the registration screen remains available only to local automated tests.
 
-Build the signed internal APK from PowerShell after the alpha URL is known:
+Build the signed internal APK from PowerShell after the alpha URL is known.
+Release builds use the production Clerk publishable key, which is public by
+design. Clerk secret keys never belong in a mobile build:
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
-.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_test_...'
+.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_live_...'
 ```
+
+Google Play requires an Android App Bundle. Use the same reviewed signing
+identity and release configuration to produce it:
+
+```powershell
+.\scripts\build-alpha-apk.ps1 -Format Aab -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_live_...'
+```
+
+The generated `Kall-alpha-1.0.0.aab` and its SHA-256 file are written to
+`apps/mobile/dist`. Google Play App Signing may add a separate distribution
+certificate, but this upload key must remain backed up and stable for future
+updates.
 
 The first run creates a dedicated alpha signing key under
 `$env:USERPROFILE\.kall\android`, locks the directory to the current Windows
@@ -81,8 +95,8 @@ alpha APKs must use the same key to upgrade an existing installation.
 
 EAS Build can compile the iOS project in Expo's macOS build environment, so a
 local Mac is not required. Both iOS profiles use the same release safeguards as
-the Android alpha: the vanity API base, the alpha Clerk publishable key, and
-self-service registration disabled.
+the Android alpha: the vanity API base, the production Clerk publishable key,
+and self-service registration disabled.
 
 Validate the bundle identifier, build number, icon, release profiles, and
 retired-host exclusion locally:

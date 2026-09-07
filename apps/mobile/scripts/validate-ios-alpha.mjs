@@ -40,8 +40,8 @@ for (const [profileName, simulator] of [
   assert.equal(profile.env?.API_BASE_URL, expectedApiBase, `${profileName} has the wrong API base.`);
   assert.match(
     profile.env?.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
-    /^pk_test_\S+$/,
-    `${profileName} must use the alpha Clerk publishable key.`,
+    /^pk_live_\S+$/,
+    `${profileName} must use the production Clerk publishable key.`,
   );
 }
 
