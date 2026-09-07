@@ -19,6 +19,7 @@ junit.xml
 htmlcov/
 uploads/
 generated/
+data/generated-resumes/
 .DS_Store
 test-results/
 playwright-report/
