@@ -1,6 +1,6 @@
 """Support and administration.
 
-Every route here requires a verified address on the admin domain, and every
+Every route here requires an explicitly authorized verified account, and every
 change is written to AdminAction. Nothing here reaches a user's own content:
 an administrator can see who someone is, what their plan allows, and how much
 of it they have used -- not their resumes, applications, or profile.
