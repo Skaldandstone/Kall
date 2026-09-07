@@ -31,6 +31,9 @@
   },
   "scripts": {
     "start": "expo start",
+    "release:android": "node scripts/release-store.mjs android",
+    "release:ios": "node scripts/release-store.mjs ios",
+    "release:all": "node scripts/release-store.mjs all",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

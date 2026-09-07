@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 23.2.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "ios-simulator-alpha": {
@@ -29,6 +29,7 @@
       }
     },
     "android-production": {
+      "autoIncrement": true,
       "distribution": "store",
       "env": {
         "KALL_MOBILE_RELEASE": "1",
@@ -38,6 +39,22 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "production": {
+      "extends": "android-production",
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {}
     }
   }
 }

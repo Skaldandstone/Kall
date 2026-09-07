@@ -1,0 +1,32 @@
+name: Build and submit iOS to TestFlight
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kall-ios-submit
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Check Apple app setup before building
+        run: npm run release:ios -- --check
+      - run: npm ci
+      - name: Build and automatically submit to TestFlight
+        run: npm run release:ios -- --non-interactive --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

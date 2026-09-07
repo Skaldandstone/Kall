@@ -49,7 +49,7 @@ Generate and validate from this directory:
 powershell.exe -NoProfile -File .\make-template.ps1
 python -m unittest -v test_expiry_handler.py
 cfn-lint .\kall-session-expiry.yaml
-aws cloudformation validate-template --template-body file://kall-session-expiry.yaml --profile skaldandstone-dev --region us-east-2
+aws cloudformation validate-template --template-body file://kall-session-expiry.yaml --profile skaldandstone-admin --region us-east-2
 ```
 
 `ControllerEnabled` defaults to `false`. A source validation or local template

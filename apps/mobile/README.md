@@ -138,12 +138,44 @@ resulting `.aab` is uploaded to Play Console; Google then holds the actual
 app-signing key and re-signs what it distributes, per the Play App Signing
 Terms of Service accepted when the app was created in Play Console.
 
-This produces a build ready to upload manually to any Play Console track
-(Internal testing, Closed, Open, or Production) -- which track to use is a
-Play Console choice made at upload time, not something in this repo. `eas
-submit` automation (uploading directly from this command instead of via the
-Play Console UI) needs a separate Google Cloud service account key and isn't
-configured yet.
+The build-only command above remains available for the first manual upload.
+Google requires one manual upload before API submissions can work.
+
+### Automatic store submission
+
+Run these commands in PowerShell from this mobile directory:
+
+```powershell
+npm run release:android
+npm run release:ios
+# Once both stores have credentials:
+npm run release:all
+```
+
+Each command builds the `production` profile and automatically submits that
+exact build with the matching submission profile. Android targets Google Play
+internal testing; iOS targets TestFlight. Public release remains a separate
+store action. EAS maintains remote build numbers and increments each store
+build so repeated CI runs do not reuse numbers from an unchanged checkout.
+
+Android needs its Google Play service account key configured through
+`npx eas-cli@23.2.0 credentials --platform android`, plus access to Kall in
+Play Console. Store the key in EAS credentials, never in this repository.
+The existing Android push/manual workflow now includes auto-submit.
+
+iOS cloud builds and submission work from Windows without local Xcode.
+First enroll in Apple Developer, create Kall in App Store Connect using
+`com.skaldandstone.kall`, and put its numeric Apple ID in
+`submit.production.ios.ascAppId` in `eas.json`. Configure signing and an
+App Store Connect API key using `npx eas-cli@23.2.0 credentials --platform ios`.
+The release script blocks iOS/all before queuing any build until the app ID is
+present. `-- --check` checks local prerequisites only, not remote credentials.
+The iOS GitHub workflow is manually triggered after setup, using the repository
+`EXPO_TOKEN` secret. Workflow changes take effect after they reach GitHub.
+
+References: [automatic submission](https://docs.expo.dev/build/automate-submissions/),
+[Android setup](https://docs.expo.dev/submit/android/),
+[iOS setup](https://docs.expo.dev/submit/ios/).
 
 ## Structure
 
