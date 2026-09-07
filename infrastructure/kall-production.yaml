@@ -7,7 +7,7 @@ Metadata:
   com.aws.cloudformation.Context:
     arch: CloudFront to TLS ALB to isolated ECS web and API services, with private encrypted PostgreSQL and retained S3 documents.
     must:
-      - All Regional resources stay in us-east-2 and project 734702670689.
+      - All Regional resources stay in us-east-2 and project 051722405355.
       - Application services remain stopped until database-role bootstrap and Alembic head verification succeed.
       - Clerk production identity and Stripe live billing remain isolated from development and other products.
       - Stateful storage and generated secrets survive accidental stack deletion or replacement.
@@ -28,27 +28,27 @@ Parameters:
     Description: Verified us-east-2 com.amazonaws.global.cloudfront.origin-facing managed prefix list.
   ClusterName:
     Type: String
-    Default: skaldandstone-development-foundation-cluster
+    Default: skaldandstone-production
   ApiImage:
     Type: String
-    AllowedPattern: '^734702670689\.dkr\.ecr\.us-east-2\.amazonaws\.com/skaldandstone-development-foundation/kall-api@sha256:[0-9a-f]{64}$'
+    AllowedPattern: '^051722405355\.dkr\.ecr\.us-east-2\.amazonaws\.com/kall-api@sha256:[0-9a-f]{64}$'
     ConstraintDescription: Use an immutable Kall API digest from the reviewed us-east-2 ECR repository.
   WebImage:
     Type: String
-    AllowedPattern: '^734702670689\.dkr\.ecr\.us-east-2\.amazonaws\.com/skaldandstone-development-foundation/kall-web@sha256:[0-9a-f]{64}$'
+    AllowedPattern: '^051722405355\.dkr\.ecr\.us-east-2\.amazonaws\.com/kall-web@sha256:[0-9a-f]{64}$'
     ConstraintDescription: Use an immutable Kall web digest from the reviewed us-east-2 ECR repository.
   ProductionAccessSecretArn:
     Type: String
-    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/access-[A-Za-z0-9]+$'
+    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/access-[A-Za-z0-9]+$'
     Description: ARN of the externally managed production invitation allowlist secret.
   ClerkSecretArn:
     Type: String
-    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/clerk-[A-Za-z0-9]+$'
+    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/clerk-[A-Za-z0-9]+$'
     Description: ARN of the production Clerk secret JSON containing CLERK_SECRET_KEY.
   StripeSecretArn:
     Type: String
-    Default: arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/stripe-disabled
-    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/stripe-[A-Za-z0-9]+$'
+    Default: arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/stripe-disabled
+    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/stripe-[A-Za-z0-9]+$'
     Description: ARN of the production Stripe secret JSON; keep the fail-closed sentinel while live billing is disabled.
   OriginDomainName:
     Type: String
@@ -56,8 +56,8 @@ Parameters:
     Description: Externally managed DNS-only Cloudflare name mapped to the ALB and covered by OriginCertificateArn.
   OriginCertificateArn:
     Type: String
-    AllowedPattern: '^arn:aws:acm:us-east-2:734702670689:certificate/[0-9a-f-]+$'
-    ConstraintDescription: Must be an ACM certificate ARN from project 734702670689 in us-east-2.
+    AllowedPattern: '^arn:aws:acm:us-east-2:051722405355:certificate/[0-9a-f-]+$'
+    ConstraintDescription: Must be an ACM certificate ARN from project 051722405355 in us-east-2.
     Description: us-east-2 ACM certificate ARN for OriginDomainName on the ALB HTTPS listener.
   PublicDomainName:
     Type: String
@@ -65,17 +65,17 @@ Parameters:
     Description: Public Kall hostname managed in Cloudflare DNS.
   ViewerCertificateArn:
     Type: String
-    AllowedPattern: '^arn:aws:acm:us-east-1:734702670689:certificate/[0-9a-f-]+$'
-    ConstraintDescription: Must be an ACM certificate ARN from project 734702670689 in us-east-1.
+    AllowedPattern: '^arn:aws:acm:us-east-1:051722405355:certificate/[0-9a-f-]+$'
+    ConstraintDescription: Must be an ACM certificate ARN from project 051722405355 in us-east-1.
     Description: us-east-1 ACM certificate ARN for PublicDomainName on CloudFront.
   OpenAISecretArn:
     Type: String
     Default: ''
-    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/openai-[A-Za-z0-9]+$'
+    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/openai-[A-Za-z0-9]+$'
   SerperSecretArn:
     Type: String
     Default: ''
-    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/serper-[A-Za-z0-9]+$'
+    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/serper-[A-Za-z0-9]+$'
   StripePlusPriceId:
     Type: String
     Default: ''
@@ -139,6 +139,11 @@ Parameters:
     Type: String
     AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031', '20260905_0032']
     Default: ''
+  AttachPublicAlias:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: Attach PublicDomainName to CloudFront. Set false only while another distribution still owns the alias during an account migration; move the alias with AssociateAlias, then set true.
 
 Rules:
   ApplicationActivationRequiresDatabaseEvidence:
@@ -153,7 +158,7 @@ Rules:
     Assertions:
       - Assert: !Not [!Equals [!Ref StripeSecretArn, '']]
         AssertDescription: Live Stripe requires the production secret ARN.
-      - Assert: !Not [!Equals [!Ref StripeSecretArn, 'arn:aws:secretsmanager:us-east-2:734702670689:secret:prod/kall/stripe-disabled']]
+      - Assert: !Not [!Equals [!Ref StripeSecretArn, 'arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/stripe-disabled']]
         AssertDescription: Live Stripe rejects the disabled secret sentinel.
       - Assert: !Not [!Equals [!Ref StripePlusPriceId, '']]
         AssertDescription: Live Stripe requires the Kall Plus price.
@@ -172,6 +177,7 @@ Conditions:
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
   PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
+  PublicAliasAttached: !Equals [!Ref AttachPublicAlias, 'true']
 
 Resources:
   AppSecret:
@@ -858,8 +864,7 @@ Resources:
         PriceClass: PriceClass_100
         HttpVersion: http2and3
         IPV6Enabled: true
-        Aliases:
-          - !Ref PublicDomainName
+        Aliases: !If [PublicAliasAttached, [!Ref PublicDomainName], !Ref AWS::NoValue]
         Origins:
           - Id: kall-production-alb
             DomainName: !Ref OriginDomainName

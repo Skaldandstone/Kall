@@ -19,7 +19,8 @@ def test_production_template_is_separate_durable_and_region_bounded() -> None:
     assert "Durable invite-only Kall production runtime" in template
     assert "AWSAgentToolkit: aws-cloudformation@2" in template
     assert "us-east-2" in template
-    assert "734702670689" in template
+    assert "051722405355" in template
+    assert "734702670689" not in template
     assert "kall-alpha" not in template
     assert "skald-dev-734702670689-kall-storage" not in template
     assert "AWS::Lambda::Function" not in template
@@ -32,8 +33,8 @@ def test_production_images_require_immutable_reviewed_ecr_digests() -> None:
     parameters = _section(template, "Parameters:\n", "Rules:\n")
 
     assert parameters.count("@sha256:[0-9a-f]{64}") == 2
-    assert "skaldandstone-development-foundation/kall-api@sha256" in parameters
-    assert "skaldandstone-development-foundation/kall-web@sha256" in parameters
+    assert r"051722405355\.dkr\.ecr\.us-east-2\.amazonaws\.com/kall-api@sha256" in parameters
+    assert r"051722405355\.dkr\.ecr\.us-east-2\.amazonaws\.com/kall-web@sha256" in parameters
     assert ":latest" not in parameters
 
 
@@ -216,6 +217,24 @@ def test_production_routing_tls_identity_and_observability_contracts() -> None:
     assert "WebTarget5xxAlarm" in template
     assert "DatabaseFreeStorageAlarm" in template
     assert "DatabaseCpuAlarm" in template
+
+
+def test_public_alias_can_be_transferred_without_weakening_tls() -> None:
+    template = _template()
+    parameters = _section(template, "Parameters:\n", "Rules:\n")
+    conditions = _section(template, "Conditions:\n", "Resources:\n")
+    distribution = _section(template, "  Distribution:\n", "  ApiTaskDefinition:\n")
+
+    alias_parameter = parameters.split("  AttachPublicAlias:\n", 1)[1]
+    assert "AllowedValues: ['true', 'false']" in alias_parameter
+    assert "Default: 'true'" in alias_parameter
+    assert "PublicAliasAttached: !Equals [!Ref AttachPublicAlias, 'true']" in conditions
+    assert (
+        "Aliases: !If [PublicAliasAttached, [!Ref PublicDomainName], !Ref AWS::NoValue]"
+        in distribution
+    )
+    assert "AcmCertificateArn: !Ref ViewerCertificateArn" in distribution
+    assert "MinimumProtocolVersion: TLSv1.2_2021" in distribution
 
 
 def test_sentry_dsns_are_optional_plaintext_parameters_not_secrets() -> None:
