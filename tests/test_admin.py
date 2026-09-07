@@ -65,6 +65,10 @@ def make_user(session: Session, email: str = "someone@example.com") -> User:
         ("james@skaldandstone.com", True),
         ("JAMES@SkaldAndStone.COM", True),
         ("  james@skaldandstone.com  ", True),
+        ("play-reviewer@skaldandstone.com", False),
+        (" PLAY-REVIEWER@SkaldAndStone.COM ", False),
+        ("another-person@skaldandstone.com", False),
+        ("james+reviewer@skaldandstone.com", False),
         # The ones that matter: near-misses that must not pass.
         ("james@skaldandstone.com.attacker.net", False),
         ("james@evil-skaldandstone.com", False),
@@ -74,8 +78,31 @@ def make_user(session: Session, email: str = "someone@example.com") -> User:
         ("", False),
     ],
 )
-def test_only_the_admin_domain_counts(email: str, expected: bool) -> None:
+def test_only_explicit_admin_accounts_count(email: str, expected: bool) -> None:
     assert is_admin(User(email=email, full_name="X")) is expected
+
+
+def test_store_reviewer_cannot_read_or_mutate_admin_resources(client, engine) -> None:
+    with Session(engine) as session:
+        reviewer = session.get(User, client.user_id)
+        reviewer.email = "play-reviewer@skaldandstone.com"
+        session.add(reviewer)
+        session.commit()
+
+    for path in ("/api/admin/whoami", "/api/admin/users", "/api/admin/audit"):
+        assert client.get(path).status_code == 404
+    assert client.patch(
+        f"/api/admin/users/{client.user_id}/billing-exempt",
+        json={"billing_exempt": True},
+    ).status_code == 404
+    assert client.patch(
+        f"/api/admin/users/{client.user_id}/plan",
+        json={"plan": "premium"},
+    ).status_code == 404
+    assert client.request(
+        "DELETE", f"/api/admin/users/{client.user_id}",
+        json={"confirm_email": "play-reviewer@skaldandstone.com"},
+    ).status_code == 404
 
 
 def test_an_ordinary_account_gets_404_not_403(client) -> None:

@@ -1,11 +1,8 @@
 """Who may use the admin tools, and a record of what they did with them.
 
-Access is by email domain. That is only safe because identity is Clerk's and
-Clerk verifies an address before it becomes the primary one, so a local
-`User.email` ending in the admin domain means someone proved control of a
-mailbox on it. If that ever stops being true -- an unverified email reaching
-this column, or an import that writes it directly -- this check becomes
-worthless, so it is deliberately the only rule and it lives in one place.
+Access is limited to explicitly authorized, verified accounts. A studio-domain
+address alone is not sufficient: shared app-store reviewer accounts use that
+domain too and must never receive administrative access.
 """
 
 from datetime import datetime
@@ -16,17 +13,13 @@ from kall.auth import get_current_user
 from kall.models.core import AdminAction, User
 from sqlmodel import Session, select
 
-#: The one domain whose verified members may administer Kall.
-ADMIN_EMAIL_DOMAIN = "@skaldandstone.com"
+#: Adding an administrator requires a deliberate, reviewed change.
+ADMIN_EMAILS = frozenset({"james@skaldandstone.com"})
 
 
 def is_admin(user: User) -> bool:
-    """True for a verified address on the admin domain.
-
-    Compared as a suffix on the lowercased address, so `casing@Domain` matches
-    and `evil-skaldandstone.com` or `x@skaldandstone.com.attacker.net` do not.
-    """
-    return (user.email or "").strip().lower().endswith(ADMIN_EMAIL_DOMAIN)
+    """True only for an explicitly authorized account, ignoring email casing."""
+    return (user.email or "").strip().lower() in ADMIN_EMAILS
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
