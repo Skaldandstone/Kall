@@ -76,7 +76,7 @@ test('the editor says whether a pasted link will actually play', async ({ page }
 
   // The server decided this one embeds, and the editor reflects that rather
   // than leaving the user guessing.
-  await expect(page.getByText('vimeo')).toBeVisible();
+  await expect(page.getByText('· vimeo', { exact: true })).toBeVisible();
 
   await link.fill('https://example.com/deck.pdf');
   await add.click();
