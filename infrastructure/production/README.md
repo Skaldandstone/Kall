@@ -2,7 +2,7 @@
 
 `../kall-production.yaml` is a separate durable production stack. It does not
 modify or revive the expiring alpha runtime. Regional resources stay in the
-selected Region `us-east-2` and AWS project `734702670689`; Cloudflare continues
+selected Region `us-east-2` and AWS project `051722405355`; Cloudflare continues
 to own public DNS.
 
 The stack creates retained production-only signing, sensitive-data, runtime
@@ -15,7 +15,7 @@ The initial stack must use `EnableApplicationServices=false` and
 `EnableStripeLive=false`. This creates the durable data, routing, task
 definitions, and observability layer with no running application tasks. Run the
 exported bootstrap task once, then the migration task once, and verify exact
-records `kall-db-roles-v1` and `20260831_0029`. Only a second reviewed change
+records `kall-db-roles-v1` and `20260905_0032`. Only a second reviewed change
 set may record that evidence and enable the two services.
 
 Production data uses a private encrypted Multi-AZ PostgreSQL 16.15 instance,
@@ -30,7 +30,7 @@ The source gate is:
 Set-Location -LiteralPath C:\Users\James\Documents\GitHub\Kall
 cfn-lint -i E3691 -- .\infrastructure\kall-production.yaml
 & '<reviewed-cfn-guard-3.2.1-path>\cfn-guard.exe' validate --rules .\infrastructure\production\kall-production.guard --data .\infrastructure\kall-production.yaml
-aws cloudformation validate-template --profile skaldandstone-dev --region us-east-2 --template-body file://infrastructure/kall-production.yaml
+aws cloudformation validate-template --profile kall-production --region us-east-2 --template-body file://infrastructure/kall-production.yaml
 python -m pytest -q tests/test_production_infrastructure.py infrastructure/production/test_cost_model.py
 python .\infrastructure\production\cost_model.py
 ```
@@ -42,11 +42,12 @@ The deterministic low-traffic model is **$73.71 per 730-hour month** before
 credits and taxes. It assumes two continuously running 0.25 vCPU/0.5 GB tasks,
 Multi-AZ `db.t4g.micro`, 20 GiB gp3, one ALB and one average LCU, six secrets,
 six alarms, 1 GiB logs, 5 GiB documents, 10 GiB CloudFront data out, and one
-million HTTPS requests. It excludes the shared foundation, request charges,
+million HTTPS requests. It excludes request charges,
 snapshot growth, provider fees, email, AI, monitoring, WAF, and traffic above
-those assumptions. The existing AWS project budget is $100/month, so review
+those assumptions. The AWS project has a $100 monthly monitoring budget, so review
 project-wide usage and credits in AWS Settings > Billing before executing the
-production change set.
+production change set. The budget sends alerts but does not stop resources or
+replace a project spend limit.
 
 Public signup is a parameter, not a code change. `EnablePublicSignup` defaults to
 `false`, which keeps `ALPHA_INVITE_ONLY=true` in all three task definitions (API,
