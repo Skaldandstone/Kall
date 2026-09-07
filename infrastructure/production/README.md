@@ -1,5 +1,7 @@
 # Kall production infrastructure
 
+> **Account migration 2026-09-07:** Kall production now runs in the Skald and Stone management account `051722405355` (stack `kall-production`, cluster `skaldandstone-production`, ECR `kall-api`/`kall-web`, CloudFront `E2HHZUTE7F4UDE`). Account `734702670689` is retired. Any `734702670689` reference below is historical.
+
 `../kall-production.yaml` is a separate durable production stack. It does not
 modify or revive the expiring alpha runtime. Regional resources stay in the
 selected Region `us-east-2` and AWS project `051722405355`; Cloudflare continues

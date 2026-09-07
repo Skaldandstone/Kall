@@ -1,5 +1,7 @@
 # Kall production readiness
 
+> **Account migration 2026-09-07:** Kall production now runs in the Skald and Stone management account `051722405355` (stack `kall-production`, cluster `skaldandstone-production`, ECR `kall-api`/`kall-web`, CloudFront `E2HHZUTE7F4UDE`). Account `734702670689` is retired. Any `734702670689` reference below is historical.
+
 Updated 6 September 2026. This is the release contract for the first Kall
 production candidate. Production Clerk and the isolated live Stripe catalog are
 configured. Automatic tax, SES sending, continuous monitoring, and application
