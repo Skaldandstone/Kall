@@ -6,10 +6,11 @@ must never flip is_still_posted, since a posting is innocent until proven
 gone.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import pytest
+from kall.clock import utcnow
 from kall.models import Application, CareerProfile, Job, User
 from kall.models.enums import ApplicationStatus
 from kall.services import job_liveness
@@ -86,7 +87,7 @@ def test_jobs_to_check_skips_withdrawn_applications(engine) -> None:
         session.add(application)
         session.commit()
 
-        due = job_liveness._jobs_to_check(session, datetime.utcnow() + timedelta(hours=1))
+        due = job_liveness._jobs_to_check(session, utcnow() + timedelta(hours=1))
         assert job.id not in {row.id for row in due}
 
 
@@ -94,9 +95,9 @@ def test_jobs_to_check_skips_ones_checked_recently(engine) -> None:
     with Session(engine) as session:
         job = _tracked_job(
             session, "https://boards.example.com/recent",
-            liveness_checked_at=datetime.utcnow(),
+            liveness_checked_at=utcnow(),
         )
-        due = job_liveness._jobs_to_check(session, datetime.utcnow() - timedelta(hours=1))
+        due = job_liveness._jobs_to_check(session, utcnow() - timedelta(hours=1))
         assert job.id not in {row.id for row in due}
 
 

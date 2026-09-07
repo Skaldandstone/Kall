@@ -1,5 +1,6 @@
 
 from fastapi.testclient import TestClient
+from kall.clock import utcnow
 from kall.services.intelligence import analyze_job, parse_resume
 
 
@@ -53,8 +54,7 @@ Built the first automation suite.
     assert "Director of Quality Engineering" in parsed["role_titles"]
     assert "QA Manager" in parsed["role_titles"]
     # 2014 (earliest start) through the current year (an open "Present" role).
-    from datetime import datetime
-    assert parsed["years_of_experience"] == datetime.utcnow().year - 2014
+    assert parsed["years_of_experience"] == utcnow().year - 2014
 
 
 def test_parser_never_surfaces_a_title_without_a_nearby_date() -> None:

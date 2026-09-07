@@ -1,7 +1,8 @@
 import re
 from collections import Counter
-from datetime import datetime
 from typing import Any
+
+from kall.clock import utcnow
 
 SECTION_NAMES = {
     "summary", "experience", "employment", "skills", "education", "certifications",
@@ -64,7 +65,7 @@ def employment_history(lines: list[str]) -> tuple[list[str], int | None]:
     seen: set[str] = set()
     earliest_year: int | None = None
     latest_year: int | None = None
-    current_year = datetime.utcnow().year
+    current_year = utcnow().year
 
     for index, line in enumerate(lines):
         match = _DATE_RANGE.search(line)

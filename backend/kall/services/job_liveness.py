@@ -10,6 +10,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 import httpx
+from kall.clock import utcnow
 from kall.models import Application, Job
 from kall.models.enums import ApplicationStatus
 from sqlmodel import Session, select
@@ -58,7 +59,7 @@ def _jobs_to_check(session: Session, checked_before: datetime) -> list[Job]:
 
 
 async def _recheck(session: Session) -> dict[str, int]:
-    cutoff = datetime.utcnow() - timedelta(hours=_RECHECK_INTERVAL_HOURS)
+    cutoff = utcnow() - timedelta(hours=_RECHECK_INTERVAL_HOURS)
     jobs = _jobs_to_check(session, cutoff)
     if not jobs:
         return {"checked": 0, "newly_flagged": 0}
@@ -78,7 +79,7 @@ async def _recheck(session: Session) -> dict[str, int]:
         if live is None:
             continue
         checked += 1
-        job.liveness_checked_at = datetime.utcnow()
+        job.liveness_checked_at = utcnow()
         if not live and job.is_still_posted:
             newly_flagged += 1
         job.is_still_posted = live
