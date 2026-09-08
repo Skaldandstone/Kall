@@ -357,7 +357,11 @@ def test_billing_status_never_exposes_bindings_and_routes_require_auth(client, e
     from kall.main import app
 
     stripe_gateway.bind(engine, client.user_id)
-    assert client.get("/api/billing/status").json() == {"enabled": True, "can_manage": True}
+    assert client.get("/api/billing/status").json() == {
+        "enabled": True,
+        "can_manage": True,
+        "livemode": False,
+    }
     original = app.dependency_overrides.pop(get_current_user)
     try:
         for path in ("status", "checkout", "portal"):

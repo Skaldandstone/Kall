@@ -48,7 +48,11 @@ def billing_status(user: User = Depends(get_current_user), session: Session = De
                  and row.billing_scope == get_settings().stripe_billing_scope
                  and row.provider_livemode is expected_livemode())
     # No provider identity, binding token, or key crosses the browser boundary.
-    return {"enabled": enabled, "can_manage": enabled and bound}
+    return {
+        "enabled": enabled,
+        "can_manage": enabled and bound,
+        "livemode": enabled and expected_livemode(),
+    }
 
 
 @router.post("/billing/checkout")

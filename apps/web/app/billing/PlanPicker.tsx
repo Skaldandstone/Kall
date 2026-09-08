@@ -38,13 +38,17 @@ function fraction(state: MeterState): number | null {
 export default function PlanPicker() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [message, setMessage] = useState('');
-  const [billing, setBilling] = useState<{ enabled: boolean; can_manage: boolean } | null>(null);
+  const [billing, setBilling] = useState<{
+    enabled: boolean;
+    can_manage: boolean;
+    livemode: boolean;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
     const [body, status] = await Promise.all([
       getKall<Usage>('/me/usage'),
-      getKall<{ enabled: boolean; can_manage: boolean }>('/billing/status'),
+      getKall<{ enabled: boolean; can_manage: boolean; livemode: boolean }>('/billing/status'),
     ]);
     if (body) setUsage(body);
     setBilling(status);
@@ -115,9 +119,13 @@ export default function PlanPicker() {
       </section>
 
       <section className="card" style={{ marginBottom: 16 }} aria-label="Billing status">
-        <p>{billing === null ? 'Billing availability has not been confirmed.' : billing.enabled
-          ? 'Test payments are available. Live payments are disabled.'
-          : 'Payments are not switched on. You can keep using your current plan.'}</p>
+        <p>{billing === null
+          ? 'Billing availability has not been confirmed.'
+          : !billing.enabled
+            ? 'Payments are not switched on. You can keep using your current plan.'
+            : billing.livemode
+              ? 'Live payments are available.'
+              : 'Test payments are available. No real charge will be made.'}</p>
         {message && <p role="status">{message}</p>}
         <div className={styles.actions}>
           <button className="button secondary" type="button" disabled={busy} onClick={() => void refresh()}>Refresh usage</button>
