@@ -31,6 +31,13 @@ def verify_clerk_token(token: str) -> dict:
 
     The SDK caches the signing key by `kid` between calls (and evicts on
     rotation), so this is a network call on cold start, not per request.
+
+    Browser session tokens include an ``azp`` claim and must match the
+    configured web origins. Native Clerk session tokens are sent explicitly
+    as bearer credentials and may omit ``azp`` because there is no browser
+    origin. Clerk's verification guidance says to skip the party check when
+    that claim is absent, while still rejecting any unexpected origin when it
+    is present.
     """
     settings = get_settings()
     if not settings.clerk_secret_key:
@@ -38,13 +45,17 @@ def verify_clerk_token(token: str) -> dict:
         # deployment is simply missing its key.
         raise HTTPException(status_code=503, detail="Authentication is not configured")
     try:
-        return verify_token(
+        claims = verify_token(
             token,
             VerifyTokenOptions(
                 secret_key=settings.clerk_secret_key,
-                authorized_parties=settings.clerk_authorized_party_list or None,
             ),
         )
+        authorized_parties = settings.clerk_authorized_party_list
+        authorized_party = claims.get("azp")
+        if authorized_parties and authorized_party is not None and authorized_party not in authorized_parties:
+            raise HTTPException(status_code=401, detail="Invalid or expired session")
+        return claims
     except TokenVerificationError as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired session") from exc
 
