@@ -100,6 +100,9 @@ export default function Home() {
           <a className="button secondary" href="/demo/opportunity-intelligence">
             See a role comparison
           </a>
+          <a className="button secondary" href="/install">
+            Install on Google Play <span className="pill">Beta</span>
+          </a>
         </div>
       </section>
 
