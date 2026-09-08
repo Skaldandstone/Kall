@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useClerk, useSignUp } from '@clerk/expo';
 import { theme } from '../theme';
+import SocialSignInButtons from '../components/SocialSignInButtons';
 import type { AuthStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -166,6 +167,8 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text style={styles.buttonText}>{awaitingCode ? 'Verify email' : 'Create account'}</Text>
         )}
       </Pressable>
+
+      {!awaitingCode ? <SocialSignInButtons onError={setError} /> : null}
 
       <Pressable onPress={() => navigation.navigate('Login')} accessibilityRole="link" hitSlop={10}>
         <Text style={styles.link}>Already have an account? Sign in</Text>

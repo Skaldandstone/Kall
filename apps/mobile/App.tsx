@@ -1,9 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import RootNavigator from './src/navigation/RootNavigator';
+
+// Complete Clerk's browser handoff once Google returns to the kall:// scheme.
+WebBrowser.maybeCompleteAuthSession();
 
 // Environment variables inside node_modules are not inlined during production
 // builds, so Clerk requires the key be passed explicitly rather than read from

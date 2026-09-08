@@ -73,6 +73,24 @@ assert.ok(
   'The local alpha-APK signing plugin must not be applied to the resolved Play build config -- it would fail Gradle with a missing keystore that only exists on the machine running build-alpha-apk.ps1.',
 );
 
+const appSource = fs.readFileSync(path.join(mobileRoot, 'App.tsx'), 'utf8');
+const socialSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'SocialSignInButtons.tsx'),
+  'utf8',
+);
+assert.ok(
+  appSource.includes('WebBrowser.maybeCompleteAuthSession()'),
+  'App must complete the Clerk browser handoff after Google redirects back.',
+);
+assert.ok(
+  socialSource.includes("strategy: 'oauth_google'"),
+  'Android release must offer the Google provider enabled in production Clerk.',
+);
+assert.ok(
+  !socialSource.includes('oauth_apple'),
+  'Apple sign-in must remain hidden until its production Clerk provider is configured.',
+);
+
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {
   const contents = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
   assert.ok(!contents.includes(retiredHost), `${relativePath} still references the retired CloudFront host.`);
