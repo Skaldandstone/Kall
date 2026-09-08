@@ -5,6 +5,7 @@ from fastapi.routing import APIRoute
 from kall.main import app
 
 PUBLIC_ROUTE_PATHS = {
+    "/api/mobile-release",
     "/health",
     "/ready",
     "/testimonials/submit",

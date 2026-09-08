@@ -6,11 +6,24 @@ from kall.db import get_session
 
 router = APIRouter(tags=["operations"])
 
+LATEST_ANDROID_VERSION = "1.0.2"
+PLAY_TEST_URL = "https://play.google.com/apps/testing/com.skaldandstone.kall"
+
 
 @router.get("/health", include_in_schema=False)
 def health() -> dict[str, str]:
     """Liveness probe: confirms that the API process can answer requests."""
     return {"status": "ok"}
+
+
+@router.get("/api/mobile-release", include_in_schema=False)
+def mobile_release() -> dict[str, str]:
+    """Tell Android beta builds which tested release should be installed."""
+    return {
+        "platform": "android",
+        "latestVersion": LATEST_ANDROID_VERSION,
+        "updateUrl": PLAY_TEST_URL,
+    }
 
 
 @router.get("/ready", include_in_schema=False)
