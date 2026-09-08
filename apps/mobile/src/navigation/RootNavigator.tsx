@@ -19,6 +19,8 @@ import IdentityScreen from "../screens/IdentityScreen";
 import CareerProfilesScreen from "../screens/CareerProfilesScreen";
 import ResumesScreen from "../screens/ResumesScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
+import ConsultingScreen from "../screens/ConsultingScreen";
+import BillingScreen from "../screens/BillingScreen";
 import type {
   ApplicationsStackParamList,
   AppTabParamList,
@@ -101,6 +103,11 @@ function OpportunitiesNavigator() {
         component={OpportunityDetailScreen}
         options={{ title: "Job match" }}
       />
+      <OpportunitiesStack.Screen
+        name="Consulting"
+        component={ConsultingScreen}
+        options={{ title: "Consulting" }}
+      />
     </OpportunitiesStack.Navigator>
   );
 }
@@ -132,6 +139,11 @@ function ProfileNavigator() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: "Notifications" }}
+      />
+      <ProfileStack.Screen
+        name="Billing"
+        component={BillingScreen}
+        options={{ title: "Plan and billing" }}
       />
     </ProfileStack.Navigator>
   );

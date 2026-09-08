@@ -361,6 +361,9 @@ def test_billing_status_never_exposes_bindings_and_routes_require_auth(client, e
         "enabled": True,
         "can_manage": True,
         "livemode": False,
+        "native_enabled": False,
+        "plan": "free",
+        "sources": [],
     }
     original = app.dependency_overrides.pop(get_current_user)
     try:

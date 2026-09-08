@@ -70,3 +70,27 @@ class BillingEvent(TimestampMixin, table=True):
     processed_at: datetime | None = None
     status: str = "pending"
     error: str | None = None
+
+
+class StoreSubscription(TimestampMixin, table=True):
+    """A server-verified Apple or Google subscription received through RevenueCat."""
+
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "original_transaction_id", name="uq_store_subscription_transaction"
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    provider: str = "revenuecat"
+    store: str = Field(index=True)
+    environment: str = Field(index=True)
+    original_transaction_id: str = Field(index=True)
+    product_id: str = Field(index=True)
+    plan: str = "free"
+    status: str = "active"
+    active_until: datetime | None = None
+    will_renew: bool = True
+    last_event_at: datetime
+    last_provider_event_id: str = Field(index=True)

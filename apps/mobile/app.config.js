@@ -6,6 +6,13 @@ module.exports = ({ config }) => {
   const apiBaseUrl = process.env.API_BASE_URL || config.extra.apiBaseUrl;
   const clerkPublishableKey =
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
+  const revenueCatAndroidApiKey =
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || config.extra.revenueCatAndroidApiKey;
+  const revenueCatAppleApiKey =
+    process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY || config.extra.revenueCatAppleApiKey;
+  const purchasesEnabled = process.env.KALL_MOBILE_PURCHASES_ENABLED === '1';
+  const buildPlatform = process.env.EAS_BUILD_PLATFORM;
+  const appleSignInEnabled = process.env.KALL_MOBILE_APPLE_SIGN_IN_ENABLED === '1';
   const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
   // Only the local, sideloaded alpha-APK flow (build-alpha-apk.ps1) needs the
   // with-release-signing plugin -- it patches the generated Gradle build to
@@ -32,6 +39,21 @@ module.exports = ({ config }) => {
     if (!apiBaseUrl.startsWith('https://') || !apiBaseUrl.endsWith('/api')) {
       throw new Error('API_BASE_URL must be an HTTPS URL ending in /api');
     }
+    if (purchasesEnabled) {
+      const purchaseKeys = [];
+      if ((!buildPlatform || buildPlatform === 'android') && !revenueCatAndroidApiKey) {
+        purchaseKeys.push('EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY');
+      }
+      if (buildPlatform === 'ios' && !revenueCatAppleApiKey) {
+        purchaseKeys.push('EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY');
+      }
+      if (!buildPlatform && !revenueCatAndroidApiKey && !revenueCatAppleApiKey) {
+        purchaseKeys.splice(0, purchaseKeys.length, 'a platform RevenueCat API key');
+      }
+      if (purchaseKeys.length) {
+        throw new Error(`Kall mobile purchases are missing ${purchaseKeys.join(' and ')}`);
+      }
+    }
   }
 
   return {
@@ -48,6 +70,10 @@ module.exports = ({ config }) => {
       // The Clerk publishable key identifies an instance and is public by
       // design. Secret keys never belong in an Expo or Android build.
       clerkPublishableKey,
+      revenueCatAndroidApiKey,
+      revenueCatAppleApiKey,
+      purchasesEnabled,
+      appleSignInEnabled,
       // Kall is a public product now (the web app dropped its invite-only
       // gate the same way) -- a release build follows app.json's setting
       // like any other build. An explicit override still lets a fixture or

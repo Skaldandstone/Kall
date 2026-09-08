@@ -18,6 +18,16 @@ Found by comparing Kall against Simplify.jobs, Teal, Huntr, Jobscan, and Final R
 
 Not chasing: bulk/volume auto-apply (LazyApply, FastApply-style spray-and-pray). 2026 data cited by Huntr shows this converts far worse than a quality-focused approach, and it's the opposite of Kall's mandatory-review-before-submit philosophy.
 
+## Consulting pipeline (2026-09-08)
+
+**Consulting opportunity search, first slice implemented.** The Opportunities workspace now includes a Consulting tab that reuses professional profiles and Kall's existing public-search review flow. It searches specialist consulting and fractional-leadership channels, keeps the fixed-scope Release Readiness and Quality Risk Assessment visible, and links to the source marketplaces. Kall does not send outreach, scrape private networks, or claim client relationships.
+
+**Private pipeline records implemented locally.** User-scoped leads now carry warm-network segments, stage, value, and next action. Proposal and follow-up drafts have per-record approval states that reset after editing; follow-ups can only be recorded complete after approval and an explicit confirmation that the action happened outside Kall. Engagements track delivery status and Vaettir paid-design-partner stages. The responsive web workspace and simplified mobile workflow use the same API. No send or proposal-submission endpoint exists, and marketplace integrations still need separate data contracts and acceptance evidence.
+
+## Guided profile creation (2026-09-08)
+
+**Resume-powered guided creation implemented.** Career Profiles now offers a one-question-at-a-time guide that can start from Kall's existing resume analysis. It visibly distinguishes resume suggestions from confirmed profile facts, keeps unknown details listed through final review, and creates a profile only after explicit confirmation. It does not silently overwrite existing profiles or claim that compensation suggestions are verified market data.
+
 ## Competitive gaps, round two (2026-08-28)
 
 Compared Kall against Wellfound (AngelList Talent), LinkedIn Premium Career, and Levels.fyi/Glassdoor. Most of what those offer needs either paid market data (salary/comp benchmarking), a marketplace dynamic (LinkedIn's applicant-volume signals, InMail), or paid human labor (Levels.fyi's negotiation coaches) -- none buildable in-house without a data or business-model change, so not pursuing them. One gap was buildable and is done:

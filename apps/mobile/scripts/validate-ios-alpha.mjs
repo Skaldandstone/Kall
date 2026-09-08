@@ -69,6 +69,27 @@ assert.equal(
 );
 assert.equal(resolvedReleaseConfig.ios?.buildNumber, app.ios.buildNumber, 'Resolved release build number changed.');
 
+const appSource = fs.readFileSync(path.join(mobileRoot, 'App.tsx'), 'utf8');
+const socialSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'SocialSignInButtons.tsx'),
+  'utf8',
+);
+const billingSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'screens', 'BillingScreen.tsx'),
+  'utf8',
+);
+assert.ok(appSource.includes('PurchaseBootstrap'), 'iOS must initialize native purchases after authentication.');
+assert.ok(
+  socialSource.includes("strategy: 'oauth_apple'") &&
+    socialSource.includes("Platform.OS === 'ios'") &&
+    socialSource.includes('appleSignInEnabled'),
+  'Apple sign-in must remain iOS-only and gated by verified provider configuration.',
+);
+assert.ok(
+  billingSource.includes('Purchases.purchasePackage') && billingSource.includes('Purchases.restorePurchases()'),
+  'iOS billing must support StoreKit purchase and explicit restore flows.',
+);
+
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {
   const contents = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
   assert.ok(!contents.includes(retiredHost), `${relativePath} still references the retired CloudFront host.`);

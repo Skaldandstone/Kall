@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useClerk } from "@clerk/expo";
+import Constants from "expo-constants";
 import {
   fetchAccount,
   fetchCareerProfiles,
@@ -78,6 +79,11 @@ export default function WorkspaceScreen({ navigation }: Props) {
       detail: "Brief and opportunity email preferences",
       screen: "Notifications",
     },
+    {
+      title: "Plan and billing",
+      detail: "Subscription, upgrades, and purchase restoration",
+      screen: "Billing",
+    },
   ];
   return (
     <ScrollView
@@ -125,7 +131,7 @@ export default function WorkspaceScreen({ navigation }: Props) {
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
       <Text style={styles.about}>
-        Kall by Skald and Stone LLC · Version 1.0.4
+        Kall by Skald and Stone LLC · Version {Constants.expoConfig?.version ?? "unknown"}
       </Text>
     </ScrollView>
   );

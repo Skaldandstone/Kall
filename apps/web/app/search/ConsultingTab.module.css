@@ -1,0 +1,33 @@
+.workspace { display: grid; gap: 32px; }
+.heroRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-top: 14px; }
+.heroRow h2 { margin: 0 0 10px; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+.metrics div { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); }
+.metrics strong { color: var(--text); font-size: 26px; }
+.metrics span { color: var(--text-secondary); font-size: 13px; }
+.status { min-height: 24px; margin: -16px 0 -16px; color: var(--text-secondary); }
+.filter { display: grid; gap: 6px; min-width: 230px; color: var(--text-secondary); font-size: 13px; }
+.cardGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+.cardTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cardTitle { margin: 18px 0 8px !important; color: var(--text) !important; font-family: var(--font-display); font-size: 19px !important; }
+.value { color: var(--text); font-weight: 650; }
+.nextStep { margin-top: 14px !important; padding-top: 14px; border-top: 1px solid var(--border); }
+.compactLabel, .draftLabel { display: grid; gap: 6px; margin-top: 18px; color: var(--text-secondary); font-size: 13px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.actions :global(.button) { min-height: 42px; }
+.actions :global(.button:disabled) { opacity: .5; cursor: not-allowed; }
+.editor { border-color: var(--accent); scroll-margin-top: 24px; }
+.editor h2 { margin: 14px 0 20px; }
+.textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text); padding: 12px 14px; line-height: 1.5; resize: vertical; }
+.textarea:hover, .textarea:focus { border-color: var(--border-strong); background: var(--surface-interactive); }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; color: var(--text); }
+.check input { width: 20px; height: 20px; }
+.boundary { margin-top: 16px !important; color: var(--text-muted) !important; font-size: 13px; }
+.partner { margin-top: 16px !important; padding: 12px; border: 1px solid rgb(var(--accent-rgb) / 0.35); border-radius: var(--radius-md); background: rgb(var(--accent-rgb) / 0.08); color: var(--accent-hover) !important; }
+.channels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.channels a { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); }
+.channels a:hover { border-color: var(--border-strong); background: var(--surface-interactive); }
+.channels span { color: var(--text-secondary); font-size: 13px; line-height: 1.45; }
+.results { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+@media (max-width: 800px) { .metrics, .channels { grid-template-columns: repeat(2, minmax(0, 1fr)); } .heroRow { align-items: stretch; flex-direction: column; } .heroRow :global(.button) { width: 100%; } }
+@media (max-width: 520px) { .metrics, .channels, .cardGrid { grid-template-columns: 1fr; } .actions { display: grid; grid-template-columns: 1fr; } .actions :global(.button) { width: 100%; min-height: 48px; } .cardTop { align-items: flex-start; } .filter { width: 100%; } }

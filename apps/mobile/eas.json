@@ -54,7 +54,9 @@
         "track": "alpha",
         "releaseStatus": "completed"
       },
-      "ios": {}
+      "ios": {
+        "ascAppId": "6809954928"
+      }
     },
     "internal-qa": {
       "android": {

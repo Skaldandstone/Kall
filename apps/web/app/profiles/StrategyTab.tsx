@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import FunctionalAreasInput from '../components/FunctionalAreasInput';
 import { optionalProfileNumber } from '../lib/profileForm';
+import GuidedProfileBuilder from './GuidedProfileBuilder';
 import styles from './page.module.css';
 
 const API = '/api/kall';
@@ -244,6 +245,8 @@ export default function StrategyTab() {
         </div>
         <a className="button" href="/onboarding">Create other profile</a>
       </div>
+
+      <GuidedProfileBuilder resumes={resumes} onCreated={load} />
 
       {loading ? <section className={styles.state}>Loading career profiles…</section> : !profiles.length ? (
         <section className={styles.state}>

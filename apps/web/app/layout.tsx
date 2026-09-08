@@ -44,8 +44,8 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Kall | Make better career decisions',
-    template: '%s | Kall',
+    default: 'Kall™ | Make better career decisions',
+    template: '%s | Kall™',
   },
   description:
     'Keep your professional record current, compare roles with real experience, and prepare applications without inventing qualifications.',
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Kall',
+    title: 'Kall™',
   },
 };
 

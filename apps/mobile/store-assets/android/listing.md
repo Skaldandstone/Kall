@@ -27,13 +27,16 @@ WHAT YOU CAN DO
 - Check in on a career growth plan and its milestones.
 - Start your day with the Morning Brief: career health, your top match,
   and what needs attention today.
+- Manage a private consulting pipeline with leads, proposals, follow-ups,
+  and active engagements.
+- Build and maintain your identity, career profiles, resumes, notification
+  preferences, and Kall subscription.
 
 Kall signs you in with the same account as the Kall web app, so your
 applications, tailored documents, and progress stay in sync across both.
 
-Documents, opportunity search setup, and your public career page are
-managed on the web for now -- this app is a companion, not a replacement
-for it.
+Some advanced document editing and public career-page publishing are still
+easier on the web, but your core Kall workspace is available in the app.
 ```
 (1120 characters)
 
@@ -43,5 +46,6 @@ for it.
   first; neither is a functional claim that needs revisiting later.
 - Contact email / privacy policy URL: use whatever is already live for the
   web app (same product, same data handling).
-- Content rating questionnaire: no user-generated content shared publicly,
-  no ads, no in-app purchases -- answer accordingly.
+- Content rating questionnaire: no ads. The app offers optional auto-renewing
+  subscriptions through Google Play. User-entered career content stays private
+  unless the user deliberately publishes a career page from the web app.

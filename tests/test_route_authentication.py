@@ -11,6 +11,7 @@ PUBLIC_ROUTE_PATHS = {
     "/testimonials/submit",
     "/testimonials/withdraw",
     "/billing/webhook",
+    "/billing/revenuecat/webhook",
     "/career-pages/{slug}",
 }
 AUTHENTICATION_DEPENDENCIES = {

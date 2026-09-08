@@ -41,18 +41,32 @@ class LocalStorage:
 
 
 class S3Storage:
-    def __init__(self, bucket: str, region: str) -> None:
-        import boto3
-
+    def __init__(self, bucket: str, region: str, client=None) -> None:
         self._bucket = bucket
-        self._client = boto3.client("s3", region_name=region)
+        self._region = region
+        self._client_instance = client
+
+    @property
+    def _client(self):
+        # Delay credential resolution until the first S3 operation. This keeps
+        # configuration and dependency inspection side-effect free, while the
+        # cached client is reused for every request after creation.
+        if self._client_instance is None:
+            import boto3
+
+            self._client_instance = boto3.client("s3", region_name=self._region)
+        return self._client_instance
 
     def save(self, key: str, data: bytes) -> None:
         self._client.put_object(Bucket=self._bucket, Key=key, Body=data, ServerSideEncryption="AES256")
 
     def read(self, key: str) -> bytes:
         response = self._client.get_object(Bucket=self._bucket, Key=key)
-        return response["Body"].read()
+        body = response["Body"]
+        try:
+            return body.read()
+        finally:
+            body.close()
 
     def delete(self, key: str) -> None:
         self._client.delete_object(Bucket=self._bucket, Key=key)
@@ -63,8 +77,13 @@ class S3Storage:
         try:
             self._client.head_object(Bucket=self._bucket, Key=key)
             return True
-        except ClientError:
-            return False
+        except ClientError as exc:
+            # HeadObject does not expose a modeled NoSuchKey exception, so its
+            # HTTP error code is the only reliable missing-object signal.
+            code = str(exc.response.get("Error", {}).get("Code", ""))
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                return False
+            raise
 
 
 @lru_cache

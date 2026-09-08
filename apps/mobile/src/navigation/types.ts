@@ -16,6 +16,7 @@ export type ApplicationsStackParamList = {
 
 export type OpportunitiesStackParamList = {
   OpportunitiesHome: undefined;
+  Consulting: undefined;
   OpportunityDetail: {
     item: import("../api/opportunities").JobFeedItem;
     profileId: number;
@@ -30,6 +31,7 @@ export type ProfileStackParamList = {
   CareerProfiles: undefined;
   Resumes: undefined;
   Notifications: undefined;
+  Billing: undefined;
 };
 
 export type AppTabParamList = {

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSSO } from '@clerk/expo';
 import * as AuthSession from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { theme } from '../theme';
 
 type Props = {
@@ -15,15 +16,16 @@ const googleRedirectUrl = AuthSession.makeRedirectUri({
   scheme: 'kall',
   path: 'sso-callback',
 });
+const appleSignInEnabled = Constants.expoConfig?.extra?.appleSignInEnabled === true;
 
 /** Google sign-in shared by the login and registration screens. */
 export default function SocialSignInButtons({ onError }: Props) {
   const { startSSOFlow } = useSSO();
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<'google' | 'apple' | null>(null);
 
   async function handleGoogle() {
     onError('');
-    setPending(true);
+    setPending('google');
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
@@ -35,7 +37,25 @@ export default function SocialSignInButtons({ onError }: Props) {
     } catch {
       onError('Google sign-in could not be completed. Please try again.');
     } finally {
-      setPending(false);
+      setPending(null);
+    }
+  }
+
+  async function handleApple() {
+    onError('');
+    setPending('apple');
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_apple',
+        redirectUrl: googleRedirectUrl,
+      });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+    } catch {
+      onError('Apple sign-in could not be completed. Please try again.');
+    } finally {
+      setPending(null);
     }
   }
 
@@ -49,18 +69,35 @@ export default function SocialSignInButtons({ onError }: Props) {
       <Pressable
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         onPress={() => void handleGoogle()}
-        disabled={pending}
+        disabled={pending !== null}
         accessibilityRole="button"
         accessibilityLabel="Continue with Google"
         accessibilityHint="Opens Google sign-in in a secure browser"
-        accessibilityState={{ disabled: pending, busy: pending }}
+        accessibilityState={{ disabled: pending !== null, busy: pending === 'google' }}
       >
-        {pending ? (
+        {pending === 'google' ? (
           <ActivityIndicator color={theme.text} />
         ) : (
           <Text style={styles.buttonText}>Continue with Google</Text>
         )}
       </Pressable>
+      {Platform.OS === 'ios' && appleSignInEnabled ? (
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={() => void handleApple()}
+          disabled={pending !== null}
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Apple"
+          accessibilityHint="Opens Apple sign-in in a secure browser"
+          accessibilityState={{ disabled: pending !== null, busy: pending === 'apple' }}
+        >
+          {pending === 'apple' ? (
+            <ActivityIndicator color={theme.text} />
+          ) : (
+            <Text style={styles.buttonText}>Continue with Apple</Text>
+          )}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -80,6 +117,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
   },
   buttonPressed: { opacity: 0.78 },
   buttonText: { color: theme.text, fontWeight: '600', fontSize: 16 },

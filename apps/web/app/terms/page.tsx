@@ -127,7 +127,8 @@ export default function TermsPage() {
           <p>
             Kall offers a Free plan and paid plans. Current plans and prices are shown on the{' '}
             <a href="/billing">billing page</a>, which is the authoritative list. Payments are
-            processed by {LEGAL.paymentProcessor}; we do not receive or store your card number.
+            processed by {LEGAL.paymentProcessor} on the web and by Apple or Google for purchases
+            made in a mobile app. We do not receive or store your card number.
           </p>
           <p>
             A paid plan renews automatically at the end of each billing period, at the then-current
@@ -146,9 +147,9 @@ export default function TermsPage() {
         <section>
           <h2>9. Cancellation and refunds</h2>
           <p>
-            You can cancel a paid plan at any time from the billing page. Cancelling stops the next
-            renewal; it does not end the period you have already paid for, and you keep paid access
-            until that period ends.
+            You can cancel a web purchase from the billing page. Cancel an Apple or Google purchase
+            from your store subscription settings. Cancelling stops the next renewal; it does not
+            end the period you have already paid for, and you keep paid access until that period ends.
           </p>
           {LEGAL.refundStance === null ? (
             <p>
@@ -181,10 +182,10 @@ export default function TermsPage() {
             </p>
           ) : null}
           <p>
-            Deleting your account also cancels a paid subscription, on the same terms as cancelling
-            it yourself: the next renewal is stopped, and the period you have already paid for is
-            not refunded. If you would rather keep using the paid period, cancel on the billing page
-            and delete the account when it ends.
+            Deleting your account cancels a subscription purchased on the Kall website. Apple and
+            Google subscriptions must be cancelled separately in the store account that made the
+            purchase. If you would rather keep using a paid period, cancel first and delete the
+            account when the period ends.
           </p>
         </section>
 
@@ -196,7 +197,7 @@ export default function TermsPage() {
           </p>
           <ul>
             <li>Your profile, resumes, documents, applications, saved opportunities, notifications, billing records, and every other row belonging to you are deleted from our live systems.</li>
-            <li>A paid subscription is set to stop at the end of the period you have already paid for, so it does not renew. That period is not refunded.</li>
+            <li>A web subscription is set to stop at the end of the paid period. Apple or Google subscriptions must be cancelled separately in the applicable store account.</li>
             <li>Your sign-in identity at {LEGAL.authProvider} is deleted, and we record that the identity was closed so that an existing browser session cannot recreate the account.</li>
             <li>Our internal record of support actions taken on the account is kept, with your identifying details removed from it, so that a record of what was done and by whom survives.</li>
             <li>Copies may remain in encrypted backups for a limited period before those backups age out.</li>

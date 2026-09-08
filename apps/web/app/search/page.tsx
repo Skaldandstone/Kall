@@ -7,11 +7,13 @@ import flow from '../components/CurrentFlow.module.css';
 import SearchTab from './SearchTab';
 import DiscoveryTab from './DiscoveryTab';
 import SourcesTab from './SourcesTab';
+import ConsultingTab from './ConsultingTab';
 
 const TABS = [
   ['search', 'Search'],
   ['discovery', 'Tracked roles'],
   ['sources', 'Company boards'],
+  ['consulting', 'Consulting'],
 ] as const;
 
 export default function SearchPage() {
@@ -44,5 +46,6 @@ function SearchPageContent() {
     {tab === 'search' && <SearchTab />}
     {tab === 'discovery' && <DiscoveryTab />}
     {tab === 'sources' && <SourcesTab />}
+    {tab === 'consulting' && <ConsultingTab />}
   </main>;
 }

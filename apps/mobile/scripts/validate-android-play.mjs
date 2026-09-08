@@ -100,6 +100,14 @@ const socialSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'SocialSignInButtons.tsx'),
   'utf8',
 );
+const purchaseBootstrapSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'PurchaseBootstrap.tsx'),
+  'utf8',
+);
+const billingSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'screens', 'BillingScreen.tsx'),
+  'utf8',
+);
 const updateSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.tsx'),
   'utf8',
@@ -127,8 +135,24 @@ assert.ok(
   'Google SSO must use the exact native callback registered in production Clerk.',
 );
 assert.ok(
-  !socialSource.includes('oauth_apple'),
-  'Apple sign-in must remain hidden until its production Clerk provider is configured.',
+  socialSource.includes("strategy: 'oauth_apple'") &&
+    socialSource.includes("Platform.OS === 'ios'") &&
+    socialSource.includes('appleSignInEnabled'),
+  'Apple sign-in must remain iOS-only and gated by explicit production provider configuration.',
+);
+assert.ok(
+  appSource.includes('PurchaseBootstrap'),
+  'The release must initialize native purchases inside the authenticated Clerk boundary.',
+);
+assert.ok(
+  purchaseBootstrapSource.includes('appUserID: userId') &&
+    purchaseBootstrapSource.includes('Purchases.logIn(userId)'),
+  'Native purchases must use the authenticated Clerk user ID across devices and stores.',
+);
+assert.ok(
+  billingSource.includes('Purchases.purchasePackage') &&
+    billingSource.includes('Purchases.restorePurchases()'),
+  'The mobile billing screen must support store purchase and explicit restore flows.',
 );
 assert.ok(
   updateSource.includes('/mobile-release'),

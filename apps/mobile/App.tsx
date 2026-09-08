@@ -6,6 +6,7 @@ import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import RootNavigator from './src/navigation/RootNavigator';
 import UpdatePrompt from './src/components/UpdatePrompt';
+import PurchaseBootstrap from './src/components/PurchaseBootstrap';
 
 // Complete Clerk's browser handoff once Google returns to the kall:// scheme.
 WebBrowser.maybeCompleteAuthSession();
@@ -21,6 +22,7 @@ export default function App() {
       {/* tokenCache is expo-secure-store backed on device and undefined on
           web, where Clerk falls back to its own storage. */}
       <ClerkProvider publishableKey={publishableKey ?? ''} tokenCache={tokenCache}>
+        <PurchaseBootstrap />
         <RootNavigator />
       </ClerkProvider>
       <UpdatePrompt />

@@ -14,6 +14,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import BillingEvent, Subscription, User
 from kall.models.enums import SubscriptionPlan
+from kall.services.entitlements import active_sources
 from kall.services.quota import snapshot
 from kall.services.stripe_billing import (
     billing_transaction,
@@ -52,6 +53,9 @@ def billing_status(user: User = Depends(get_current_user), session: Session = De
         "enabled": enabled,
         "can_manage": enabled and bound,
         "livemode": enabled and expected_livemode(),
+        "native_enabled": user.is_active and get_settings().revenuecat_enabled,
+        "plan": str(user.plan),
+        "sources": active_sources(session, user.id),
     }
 
 

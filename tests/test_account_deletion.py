@@ -18,12 +18,24 @@ foreign_keys=ON is the closest local approximation of that production
 constraint.
 """
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 import pytest
 from kall.models.core import AdminAction, User
 from kall.services.account_deletion import delete_account, plan_deletion
-from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, Integer, Time, event, func, select
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    Integer,
+    Time,
+    event,
+    func,
+    select,
+)
 from sqlmodel import Session, SQLModel, create_engine
 
 
@@ -56,6 +68,8 @@ def _dummy_value(column):
         return False
     if isinstance(column.type, DateTime):
         return datetime(2020, 1, 1)
+    if isinstance(column.type, Date):
+        return date(2020, 1, 1)
     if isinstance(column.type, Time):
         return time(9, 0)
     if isinstance(column.type, Float):

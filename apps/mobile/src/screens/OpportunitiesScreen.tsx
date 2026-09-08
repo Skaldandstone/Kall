@@ -182,6 +182,17 @@ export default function OpportunitiesScreen({ navigation }: Props) {
         <Text style={styles.subtitle}>
           Search the boards Kall watches for you.
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          style={styles.consultingButton}
+          onPress={() => navigation.navigate("Consulting")}
+        >
+          <View>
+            <Text style={styles.consultingTitle}>Consulting pipeline</Text>
+            <Text style={styles.consultingDetail}>Leads, proposals, follow-ups, and client work</Text>
+          </View>
+          <Text accessible={false} style={styles.consultingArrow}>›</Text>
+        </Pressable>
       </View>
 
       {profiles.length > 1 && (
@@ -334,6 +345,21 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, marginBottom: 12 },
   title: { color: theme.text, fontSize: 26, fontWeight: "700" },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
+  consultingButton: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    backgroundColor: theme.surface,
+  },
+  consultingTitle: { color: theme.text, fontSize: 15, fontWeight: "700" },
+  consultingDetail: { color: theme.textSecondary, fontSize: 12, marginTop: 3 },
+  consultingArrow: { color: theme.accent, fontSize: 28, marginLeft: 10 },
   chipRow: { marginBottom: 12 },
   chipRowContent: { paddingHorizontal: 20, gap: 8 },
   chip: {

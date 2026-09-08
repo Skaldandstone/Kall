@@ -129,13 +129,18 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert parameters.count("    Default: 'false'") >= 2
     assert "ApplicationActivationRequiresDatabaseEvidence" in rules
     assert "kall-db-roles-v1" in rules
-    assert "20260905_0032" in rules
+    assert "20260908_0034" in rules
     assert "StripeActivationRequiresLiveCatalog" in rules
     assert "stripe-disabled" in rules
+    assert "RevenueCatActivationRequiresCatalog" in rules
+    assert "revenuecat-disabled" in rules
     assert services.count("DesiredCount: !If [ApplicationServicesEnabled, 1, 0]") == 2
     assert "Value: !Ref EnableStripeLive" in api_task
     assert "- Name: STRIPE_LIVEMODE\n              Value: !Ref EnableStripeLive" in api_task
     assert "Value: kall:production" in api_task
+    assert "- Name: REVENUECAT_ENABLED\n              Value: !Ref EnableRevenueCatNative" in api_task
+    assert "REVENUECAT_WEBHOOK_AUTHORIZATION" in api_task
+    assert "REVENUECAT_WEBHOOK_SIGNING_SECRET" in api_task
     assert "Value: 'false'\n            - Name: MONITORING_ENABLED" not in api_task
     assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in api_task
     assert "price_1UAZ" not in template

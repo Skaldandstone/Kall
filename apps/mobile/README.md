@@ -17,7 +17,10 @@ API path" section for how the API was made reachable for this).
 ## Not yet built (explicit follow-up, not silently dropped)
 
 - **Push notifications.** Needs Firebase Cloud Messaging (Android) and APNs (iOS) credentials/developer-account setup that don't exist yet - this is infrastructure outside this repo, not a code gap.
-- **Desktop-heavy editors.** Paragraph-level resume tailoring, the public career-page layout editor, billing checkout, privacy field rules, search-source administration, and account deletion remain web-only. Mobile links its daily workflow together while those dense or high-risk controls stay in the web workspace.
+- **Desktop-heavy editors.** Paragraph-level resume tailoring, the public career-page layout editor, privacy field rules, search-source administration, and account deletion remain web-only. Mobile links its daily workflow together and includes a store-compliant plan screen; it falls back to web billing until native products are activated.
+
+Native Apple and Google billing setup and release gates are documented in
+[`docs/NATIVE_BILLING.md`](../../docs/NATIVE_BILLING.md).
 
 ## Development
 

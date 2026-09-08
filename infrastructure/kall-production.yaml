@@ -50,6 +50,11 @@ Parameters:
     Default: arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/stripe-disabled
     AllowedPattern: '^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/stripe-[A-Za-z0-9]+$'
     Description: ARN of the production Stripe secret JSON; keep the fail-closed sentinel while live billing is disabled.
+  RevenueCatSecretArn:
+    Type: String
+    Default: arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/revenuecat-disabled
+    AllowedPattern: '^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/revenuecat-[A-Za-z0-9]+$'
+    Description: ARN of the RevenueCat webhook secret JSON; keep the fail-closed sentinel while native billing is disabled.
   OriginDomainName:
     Type: String
     AllowedValues: [origin.kall.skaldandstone.com]
@@ -96,6 +101,26 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: '^$|^bpc_[A-Za-z0-9]+$'
+  RevenueCatGooglePlusProductId:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9._-]+:[a-z0-9._-]+$'
+  RevenueCatGooglePremiumProductId:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9._-]+:[a-z0-9._-]+$'
+  RevenueCatApplePlusProductId:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[A-Za-z0-9._-]+$'
+  RevenueCatApplePremiumProductId:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[A-Za-z0-9._-]+$'
+  RevenueCatAcceptedEnvironments:
+    Type: String
+    Default: PRODUCTION
+    AllowedValues: [PRODUCTION, 'PRODUCTION,SANDBOX']
   SentryApiDsn:
     Type: String
     Default: ''
@@ -113,6 +138,10 @@ Parameters:
       fallback to the browser on dynamically rendered pages. The browser SDK's primary value is
       the NEXT_PUBLIC_SENTRY_DSN image build argument. Blank keeps the runtimes inert.
   EnableStripeLive:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+  EnableRevenueCatNative:
     Type: String
     AllowedValues: ['true', 'false']
     Default: 'false'
@@ -137,7 +166,7 @@ Parameters:
     Default: ''
   VerifiedMigrationHead:
     Type: String
-    AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031', '20260905_0032']
+    AllowedValues: ['', '20260831_0029', '20260904_0030', '20260904_0031', '20260905_0032', '20260908_0033', '20260908_0034']
     Default: ''
   AttachPublicAlias:
     Type: String
@@ -151,8 +180,8 @@ Rules:
     Assertions:
       - Assert: !Equals [!Ref VerifiedBootstrapRevision, kall-db-roles-v1]
         AssertDescription: Run and verify the kall-db-roles-v1 bootstrap before enabling services.
-      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260905_0032']
-        AssertDescription: Verify the database is at Alembic head 20260905_0032 before enabling services.
+      - Assert: !Equals [!Ref VerifiedMigrationHead, '20260908_0034']
+        AssertDescription: Verify the database is at Alembic head 20260908_0034 before enabling services.
   StripeActivationRequiresLiveCatalog:
     RuleCondition: !Equals [!Ref EnableStripeLive, 'true']
     Assertions:
@@ -170,11 +199,29 @@ Rules:
         AssertDescription: Live Stripe requires the Kall Premium product.
       - Assert: !Not [!Equals [!Ref StripePortalConfigurationId, '']]
         AssertDescription: Live Stripe requires the Kall-only portal configuration.
+  RevenueCatActivationRequiresCatalog:
+    RuleCondition: !Equals [!Ref EnableRevenueCatNative, 'true']
+    Assertions:
+      - Assert: !Not [!Equals [!Ref RevenueCatSecretArn, 'arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/revenuecat-disabled']]
+        AssertDescription: Native billing rejects the disabled RevenueCat secret sentinel.
+      - Assert: !Not [!Equals [!Ref RevenueCatGooglePlusProductId, '']]
+        AssertDescription: Native billing requires the Google Plus product.
+      - Assert: !Not [!Equals [!Ref RevenueCatGooglePremiumProductId, '']]
+        AssertDescription: Native billing requires the Google Premium product.
+      - Assert: !Or
+          - !And
+            - !Equals [!Ref RevenueCatApplePlusProductId, '']
+            - !Equals [!Ref RevenueCatApplePremiumProductId, '']
+          - !And
+            - !Not [!Equals [!Ref RevenueCatApplePlusProductId, '']]
+            - !Not [!Equals [!Ref RevenueCatApplePremiumProductId, '']]
+        AssertDescription: Native billing Apple products must either both be configured or both remain disabled.
 
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
   HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, '']]
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
+  RevenueCatNativeEnabled: !Equals [!Ref EnableRevenueCatNative, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
   PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
   PublicAliasAttached: !Equals [!Ref AttachPublicAlias, 'true']
@@ -299,6 +346,12 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref StripeSecretArn
+                - !Ref AWS::NoValue
+              - !If
+                - RevenueCatNativeEnabled
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref RevenueCatSecretArn
                 - !Ref AWS::NoValue
               - !If
                 - HasOpenAISecret
@@ -967,6 +1020,18 @@ Resources:
               Value: !Ref StripePremiumProductId
             - Name: STRIPE_PORTAL_CONFIGURATION_ID
               Value: !Ref StripePortalConfigurationId
+            - Name: REVENUECAT_ENABLED
+              Value: !Ref EnableRevenueCatNative
+            - Name: REVENUECAT_ACCEPTED_ENVIRONMENTS
+              Value: !Ref RevenueCatAcceptedEnvironments
+            - Name: REVENUECAT_GOOGLE_PLUS_PRODUCT_ID
+              Value: !Ref RevenueCatGooglePlusProductId
+            - Name: REVENUECAT_GOOGLE_PREMIUM_PRODUCT_ID
+              Value: !Ref RevenueCatGooglePremiumProductId
+            - Name: REVENUECAT_APPLE_PLUS_PRODUCT_ID
+              Value: !Ref RevenueCatApplePlusProductId
+            - Name: REVENUECAT_APPLE_PREMIUM_PRODUCT_ID
+              Value: !Ref RevenueCatApplePremiumProductId
             - Name: MONITORING_ENABLED
               Value: 'false'
             - Name: SENTRY_DSN
@@ -993,6 +1058,16 @@ Resources:
               - StripeLiveEnabled
               - Name: STRIPE_WEBHOOK_SECRET
                 ValueFrom: !Sub '${StripeSecretArn}:STRIPE_WEBHOOK_SECRET::'
+              - !Ref AWS::NoValue
+            - !If
+              - RevenueCatNativeEnabled
+              - Name: REVENUECAT_WEBHOOK_AUTHORIZATION
+                ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_WEBHOOK_AUTHORIZATION::'
+              - !Ref AWS::NoValue
+            - !If
+              - RevenueCatNativeEnabled
+              - Name: REVENUECAT_WEBHOOK_SIGNING_SECRET
+                ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_WEBHOOK_SIGNING_SECRET::'
               - !Ref AWS::NoValue
             - Name: ALPHA_ALLOWED_EMAILS
               ValueFrom: !Sub '${ProductionAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'

@@ -82,7 +82,7 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Kall</Text>
+      <Text style={styles.title}>Kall™</Text>
       <Text style={styles.subtitle}>
         {awaitingCode
           ? `Enter the code we sent to ${email.trim()} to confirm this device.`

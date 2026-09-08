@@ -1,8 +1,9 @@
 
 from kall.clock import utcfromtimestamp, utcnow
 from kall.config import get_settings
-from kall.models import Subscription, User
+from kall.models import Subscription
 from kall.models.enums import SubscriptionPlan
+from kall.services.entitlements import sync_user_plan
 from sqlmodel import Session, select
 
 ACTIVE_STATUSES = {"active", "trialing"}
@@ -96,10 +97,7 @@ def apply_subscription_event(session: Session, user_id: int, payload: dict, *, c
     item.current_period_end = utcfromtimestamp(int(period_end)) if period_end else None
     item.cancel_at_period_end = bool(payload.get("cancel_at_period_end", False))
     session.add(item)
-    user = session.get(User, user_id)
-    if user:
-        user.plan = item.plan
-        session.add(user)
+    sync_user_plan(session, user_id)
     if commit:
         session.commit()
     else:

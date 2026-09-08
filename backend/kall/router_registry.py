@@ -10,10 +10,12 @@ from kall.api_billing import router as billing_router
 from kall.api_brief import router as brief_router
 from kall.api_career_page import router as career_page_router
 from kall.api_career_profiles import router as career_profiles_router
+from kall.api_consulting import router as consulting_router
 from kall.api_documents import router as documents_router
 from kall.api_growth import router as growth_router
 from kall.api_intelligence import router as intelligence_router
 from kall.api_match_intelligence import router as match_intelligence_router
+from kall.api_native_billing import router as native_billing_router
 from kall.api_opportunities import router as opportunities_router
 from kall.api_ops import router as operations_router
 from kall.api_resume_intelligence import router as resume_intelligence_router
@@ -29,6 +31,7 @@ API_ROUTERS = (
     brief_router,
     applications_router,
     career_profiles_router,
+    consulting_router,
     resumes_router,
     application_review_router,
     testimonials_router,
@@ -43,6 +46,7 @@ API_ROUTERS = (
     search_apply_router,
     submissions_router,
     billing_router,
+    native_billing_router,
     autofill_router,
     career_page_router,
     admin_router,

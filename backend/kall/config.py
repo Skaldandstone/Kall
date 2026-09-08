@@ -94,6 +94,17 @@ class Settings(BaseSettings):
     stripe_premium_price_id: str | None = None
     stripe_plus_product_id: str | None = None
     stripe_premium_product_id: str | None = None
+    # RevenueCat bridges native StoreKit and Google Play purchases. The SDK keys
+    # are public and live only in the mobile build; the API receives only signed
+    # webhook events and keeps the final entitlement decision server-side.
+    revenuecat_enabled: bool = False
+    revenuecat_webhook_authorization: str | None = None
+    revenuecat_webhook_signing_secret: str | None = None
+    revenuecat_accepted_environments: str = "PRODUCTION"
+    revenuecat_google_plus_product_id: str | None = None
+    revenuecat_google_premium_product_id: str | None = None
+    revenuecat_apple_plus_product_id: str | None = None
+    revenuecat_apple_premium_product_id: str | None = None
     sensitive_data_encryption_key: str | None = None
 
     #: Shared secret for the Adminhelper Worker's machine-to-machine calls to
@@ -257,6 +268,40 @@ class Settings(BaseSettings):
                     raise ValueError("Live Stripe billing must use STRIPE_BILLING_SCOPE=kall:production")
                 if not self.stripe_livemode and self.stripe_billing_scope == "kall:production":
                     raise ValueError("Stripe sandbox billing must not use the production billing scope")
+            if self.revenuecat_enabled:
+                native_required = {
+                    "REVENUECAT_WEBHOOK_AUTHORIZATION": self.revenuecat_webhook_authorization,
+                    "REVENUECAT_WEBHOOK_SIGNING_SECRET": self.revenuecat_webhook_signing_secret,
+                    "REVENUECAT_GOOGLE_PLUS_PRODUCT_ID": self.revenuecat_google_plus_product_id,
+                    "REVENUECAT_GOOGLE_PREMIUM_PRODUCT_ID": self.revenuecat_google_premium_product_id,
+                }
+                missing = [name for name, value in native_required.items() if not value]
+                if missing:
+                    raise ValueError("RevenueCat configuration is incomplete: " + ", ".join(missing))
+                apple_products = (
+                    self.revenuecat_apple_plus_product_id,
+                    self.revenuecat_apple_premium_product_id,
+                )
+                if bool(apple_products[0]) != bool(apple_products[1]):
+                    raise ValueError("RevenueCat Apple product identifiers must be configured together")
+                environments = {
+                    value.strip().upper()
+                    for value in self.revenuecat_accepted_environments.split(",")
+                    if value.strip()
+                }
+                if not environments or not environments <= {"PRODUCTION", "SANDBOX"}:
+                    raise ValueError(
+                        "REVENUECAT_ACCEPTED_ENVIRONMENTS must contain only PRODUCTION and SANDBOX"
+                    )
+                product_ids = [
+                    self.revenuecat_google_plus_product_id,
+                    self.revenuecat_google_premium_product_id,
+                    self.revenuecat_apple_plus_product_id,
+                    self.revenuecat_apple_premium_product_id,
+                ]
+                configured_product_ids = [value for value in product_ids if value]
+                if len(set(configured_product_ids)) != len(configured_product_ids):
+                    raise ValueError("RevenueCat product identifiers must be unique")
         return self
 
 
