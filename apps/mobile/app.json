@@ -10,6 +10,7 @@
     "scheme": "kall",
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.skaldandstone.kall",
       "buildNumber": "1",
       "config": {
