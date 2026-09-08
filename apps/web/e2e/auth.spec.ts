@@ -26,9 +26,24 @@ test.describe('authentication boundary', () => {
     expect(api.ok()).toBeFalsy();
   });
 
-  test('the marketing page and a testimonial invitation stay public', async ({ page }) => {
+  test('the marketing page, beta install guide, and a testimonial invitation stay public', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Know what you can do next.' })).toBeVisible();
+
+    await page.getByRole('link', { name: /Install on Google Play/ }).click();
+    await expect(page.getByRole('heading', { name: 'Get Kall on your phone.' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign up for the beta' })).toHaveAttribute(
+      'href',
+      'https://forms.gle/ZbqaLtAt7gVvVoiQ8',
+    );
+    await expect(page.getByRole('link', { name: 'Join the Google Play test' })).toHaveAttribute(
+      'href',
+      'https://play.google.com/apps/testing/com.skaldandstone.kall',
+    );
+    await expect(page.getByRole('link', { name: 'Install on Google Play' })).toHaveAttribute(
+      'href',
+      'https://play.google.com/store/apps/details?id=com.skaldandstone.kall',
+    );
 
     // Opened by a former colleague from an emailed link, so it must work with
     // no Kall account at all.
