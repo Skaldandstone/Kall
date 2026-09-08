@@ -177,10 +177,12 @@ Play Console. Store the key in EAS credentials, never in this repository.
 The existing Android push/manual workflow now includes auto-submit.
 
 iOS cloud builds and submission work from Windows without local Xcode.
-First enroll in Apple Developer, create Kall in App Store Connect using
-`com.skaldandstone.kall`, and put its numeric Apple ID in
-`submit.production.ios.ascAppId` in `eas.json`. Configure signing and an
-App Store Connect API key using `npx eas-cli@23.2.0 credentials --platform ios`.
+Kall is registered in App Store Connect as `Kall: Career Operating System`
+using bundle ID `com.skaldandstone.kall` and numeric Apple ID `6809954928`.
+That ID is set in `submit.production.ios.ascAppId` in `eas.json`. Manage or
+rotate signing and configure an App Store Connect API key using
+`npx eas-cli@23.2.0 credentials --platform ios`. The current Apple Distribution
+certificate and App Store provisioning profile are stored in EAS credentials.
 The release script blocks iOS/all before queuing any build until the app ID is
 present. `-- --check` checks local prerequisites only, not remote credentials.
 The iOS GitHub workflow is manually triggered after setup, using the repository
