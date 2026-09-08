@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchPipeline, type PipelineItem } from '../api/applications';
@@ -37,10 +37,8 @@ export default function ApplicationsScreen({ navigation }: Props) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Applications</Text>
-        <Text style={styles.subtitle}>Review and approve what Kall has prepared.</Text>
+        <Text style={styles.subtitle}>Track each application from preparation through submission.</Text>
       </View>
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <FlatList
         data={items}
@@ -48,7 +46,27 @@ export default function ApplicationsScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.text} />}
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>No applications yet. Start one from the Kall web app.</Text> : null
+          loading ? (
+            <ActivityIndicator color={theme.text} accessibilityLabel="Loading applications" style={styles.loader} />
+          ) : error ? (
+            <View accessibilityRole="alert" style={styles.stateCard}>
+              <Text style={styles.stateTitle}>Applications are unavailable</Text>
+              <Text style={styles.stateBody}>{error} Check your connection and try again.</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Try loading applications again"
+                style={styles.retryButton}
+                onPress={() => void load()}
+              >
+                <Text style={styles.retryButtonText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.stateCard}>
+              <Text style={styles.stateTitle}>No applications yet</Text>
+              <Text style={styles.stateBody}>Choose a role from Jobs when you are ready to start one.</Text>
+            </View>
+          )
         }
         renderItem={({ item }) => (
           <Pressable
@@ -73,9 +91,30 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20 },
   title: { color: theme.text, fontSize: 26, fontWeight: '700' },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-  error: { color: theme.danger, marginBottom: 12 },
-  list: { paddingBottom: 24 },
-  empty: { color: theme.textMuted, textAlign: 'center', marginTop: 60 },
+  list: { paddingBottom: 24, flexGrow: 1 },
+  loader: { marginTop: 48 },
+  stateCard: {
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  stateTitle: { color: theme.text, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  stateBody: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
+  retryButton: {
+    minHeight: 48,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: theme.accent,
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  retryButtonText: { color: theme.accentInk, fontSize: 15, fontWeight: '700' },
   card: {
     backgroundColor: theme.surface,
     borderColor: theme.border,

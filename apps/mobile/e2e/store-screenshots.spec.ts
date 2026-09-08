@@ -115,33 +115,26 @@ test('capture Play Store screenshots as John Kall', async ({ page }) => {
     await page.screenshot({ path: path.join(OUTPUT_DIR, '1-sign-in.png') });
 
     await signIn(page, user.email);
-    await expect(page.getByText('Applications', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Today', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
 
     seedApplications(user.email);
-    await page.reload();
+    await page.getByRole('tab', { name: 'Applications' }).click();
     await expect(page.getByText('Anchor Robotics')).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '2-applications.png') });
 
     await page.getByText('Senior Backend Engineer').click();
     await expect(page.getByText('Readiness')).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '3-application-review.png') });
-    // Neither browser back nor re-pressing the (already-selected) Applications
-    // tab reliably pops React Navigation's stack here -- confirmed by a page
-    // snapshot showing the tab marked [selected] while the review screen was
-    // still rendered. The stack's own accessible back link has a real path
-    // (React Navigation's web linking), so navigate there directly instead.
-    await page.goto('/ApplicationsTab/ApplicationsHome');
-    await expect(page.getByText('Review and approve what Kall has prepared.')).toBeVisible();
-
-    await page.getByText('Brief', { exact: true }).click();
-    await expect(page.getByText(/Good morning|Morning Brief/).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('tab', { name: 'Today' }).click();
+    await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '4-morning-brief.png') });
 
-    await page.getByText('Opportunities', { exact: true }).click();
+    await page.getByRole('tab', { name: 'Jobs and opportunities' }).click();
     await expect(page.getByText('Search the boards Kall watches for you.')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '5-opportunities.png') });
 
-    await page.getByText('Growth', { exact: true }).click();
+    await page.getByRole('tab', { name: 'Growth' }).click();
     await expect(page.getByText('Turn a career goal into a step-by-step plan.')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '6-growth.png') });
   } finally {

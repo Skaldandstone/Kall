@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchBrief, type Brief } from '../api/brief';
 import { theme } from '../theme';
@@ -42,11 +42,25 @@ export default function MorningBriefScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.text} />}
     >
-      <Text style={styles.eyebrow}>Morning Brief</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Text style={styles.eyebrow}>Today</Text>
+      {error && !brief ? (
+        <View accessibilityRole="alert" style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Your brief is unavailable</Text>
+          <Text style={styles.errorBody}>{error} Check your connection and try again.</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Try loading today's brief again"
+            style={styles.retryButton}
+            onPress={() => void load()}
+          >
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {brief && (
         <>
-          <Text style={styles.title}>Good morning, {brief.user.preferred_name}.</Text>
+          <Text style={styles.title}>Welcome back, {brief.user.preferred_name}.</Text>
+          {error ? <Text accessibilityRole="alert" style={styles.refreshError}>We could not refresh this brief. Showing the last update.</Text> : null}
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Daily focus</Text>
             <Text style={styles.focusTitle}>{brief.focus.title}</Text>
@@ -96,7 +110,29 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
   eyebrow: { color: theme.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
   title: { color: theme.text, fontSize: 24, fontWeight: '700', marginTop: 4, marginBottom: 20 },
-  error: { color: theme.danger, marginBottom: 12 },
+  errorCard: {
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  errorTitle: { color: theme.text, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  errorBody: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
+  refreshError: { color: theme.danger, marginBottom: 12 },
+  retryButton: {
+    minHeight: 48,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: theme.accent,
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  retryButtonText: { color: theme.accentInk, fontSize: 15, fontWeight: '700' },
   card: {
     backgroundColor: theme.surface,
     borderColor: theme.border,

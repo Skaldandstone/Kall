@@ -8,11 +8,9 @@ import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
  * renders its own screen (not a blank view or a crash) before signing out
  * and confirming the app returns to the signed-out auth stack.
  *
- * react-native-web renders Pressable as a plain clickable <div>/<span>
- * with no ARIA button role and no accessible name by default, so this
- * clicks on visible Text content (page.getByText(...).click()) rather
- * than page.getByRole('button', ...) -- that's the reliable pattern for
- * driving RN-web from Playwright, not a workaround for a bug.
+ * React Navigation exposes the bottom navigation as real ARIA tabs, so tab
+ * changes use getByRole. Other React Native Pressables still render as plain
+ * clickable elements on web unless the screen assigns an accessibility role.
  *
  * Identity is Clerk's, so this drives a real dev instance. Public sign-up is
  * deliberately disabled for the invite-only release. The test provisions a
@@ -92,8 +90,8 @@ async function signInProgrammatically(page: Page, email: string): Promise<void> 
 
 async function finishDeviceVerificationIfNeeded(page: Page): Promise<void> {
   const codeField = page.locator('input[placeholder="Verification code"]:visible');
-  const applications = page.getByText('Applications', { exact: true }).first();
-  await expect(codeField.or(applications)).toBeVisible({ timeout: 20_000 });
+  const today = page.getByText('Today', { exact: true }).first();
+  await expect(codeField.or(today)).toBeVisible({ timeout: 20_000 });
   if (await codeField.isVisible()) {
     await codeField.fill(CLERK_TEST_CODE);
     await page.getByText('Verify device').click();
@@ -110,28 +108,42 @@ test('sign in as an invited user, browse every tab, and sign out', async ({ page
     await expect(page.getByText('Need an account? Create one')).toHaveCount(0);
     await signInProgrammatically(page, user.email);
 
-    await test.step('Applications tab renders by default', async () => {
-      await expect(page.getByText('Applications', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText('Review and approve what Kall has prepared.')).toBeVisible();
+    await test.step('Today is the useful signed-in landing screen', async () => {
+      await expect(page.getByText('Today', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/Welcome back/).first()).toBeVisible();
     });
 
-    await test.step('Opportunities tab renders', async () => {
-      await page.getByText('Opportunities', { exact: true }).click();
+    await test.step('Jobs tab renders', async () => {
+      await page.getByRole('tab', { name: 'Jobs and opportunities' }).click();
       await expect(page.getByText('Search the boards Kall watches for you.')).toBeVisible();
     });
 
+    await test.step('Applications keeps failure and empty states distinct', async () => {
+      await page.route('**/api/me/applications', (route) => route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Temporarily unavailable' }),
+      }));
+      await page.getByRole('tab', { name: 'Applications' }).click();
+      await expect(page.getByText('Applications are unavailable')).toBeVisible();
+      await expect(page.getByText('No applications yet', { exact: true })).toHaveCount(0);
+      await page.unroute('**/api/me/applications');
+      await page.getByText('Try again', { exact: true }).click();
+      await expect(page.getByText('No applications yet', { exact: true })).toBeVisible();
+    });
+
     await test.step('Growth tab renders', async () => {
-      await page.getByText('Growth', { exact: true }).click();
+      await page.getByRole('tab', { name: 'Growth' }).click();
       await expect(page.getByText('Turn a career goal into a step-by-step plan.')).toBeVisible();
     });
 
-    await test.step('Brief tab renders', async () => {
-      await page.getByText('Brief', { exact: true }).click();
-      await expect(page.getByText(/Good morning|Morning Brief/).first()).toBeVisible();
+    await test.step('Today tab renders', async () => {
+      await page.getByRole('tab', { name: 'Today' }).click();
+      await expect(page.getByText(/Welcome back/).first()).toBeVisible();
     });
 
     await test.step('Profile tab renders and signs out', async () => {
-      await page.getByText('Profile', { exact: true }).click();
+      await page.getByRole('tab', { name: 'Profile' }).click();
       await expect(page.getByText('Manage professional profiles, resumes, and growth goals from the Kall web app.')).toBeVisible();
       await page.getByText('Sign out').click();
       await expect(page.getByText('Sign in to your career workspace.')).toBeVisible();
@@ -142,7 +154,7 @@ test('sign in as an invited user, browse every tab, and sign out', async ({ page
       await page.locator('input[placeholder="Password"]:visible').fill(E2E_PASSWORD);
       await page.getByText('Sign in', { exact: true }).click();
       await finishDeviceVerificationIfNeeded(page);
-      await expect(page.getByText('Applications', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('Today', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
     });
   } finally {
     await deleteTestUser(user.id);

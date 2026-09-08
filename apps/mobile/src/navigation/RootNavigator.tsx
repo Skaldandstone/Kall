@@ -76,12 +76,13 @@ function OpportunitiesNavigator() {
 }
 
 function tabIcon(symbol: string) {
-  return ({ color }: { color: string }) => <Text style={{ color, fontSize: 18 }}>{symbol}</Text>;
+  return ({ color }: { color: string }) => <Text accessible={false} style={{ color, fontSize: 18 }}>{symbol}</Text>;
 }
 
 function AppNavigator() {
   return (
     <Tab.Navigator
+      initialRouteName="BriefTab"
       screenOptions={{
         headerShown: false,
         tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border },
@@ -90,29 +91,34 @@ function AppNavigator() {
       }}
     >
       <Tab.Screen
-        name="ApplicationsTab"
-        component={ApplicationsNavigator}
-        options={{ title: 'Applications', tabBarIcon: tabIcon('✓') }}
+        name="BriefTab"
+        component={MorningBriefScreen}
+        options={{ title: 'Today', tabBarAccessibilityLabel: 'Today', tabBarIcon: tabIcon('☀') }}
       />
       <Tab.Screen
         name="OpportunitiesTab"
         component={OpportunitiesNavigator}
-        options={{ title: 'Opportunities', tabBarIcon: tabIcon('☀') }}
+        options={{ title: 'Jobs', tabBarAccessibilityLabel: 'Jobs and opportunities', tabBarIcon: tabIcon('⌕') }}
+      />
+      <Tab.Screen
+        name="ApplicationsTab"
+        component={ApplicationsNavigator}
+        options={{
+          title: 'Applications',
+          tabBarAccessibilityLabel: 'Applications',
+          tabBarIcon: tabIcon('✓'),
+          popToTopOnBlur: true,
+        }}
       />
       <Tab.Screen
         name="GrowthTab"
         component={GrowthScreen}
-        options={{ title: 'Growth', tabBarIcon: tabIcon('↑') }}
-      />
-      <Tab.Screen
-        name="BriefTab"
-        component={MorningBriefScreen}
-        options={{ title: 'Brief', tabBarIcon: tabIcon('☆') }}
+        options={{ title: 'Growth', tabBarAccessibilityLabel: 'Growth', tabBarIcon: tabIcon('↑') }}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}
-        options={{ title: 'Profile', tabBarIcon: tabIcon('●') }}
+        options={{ title: 'Profile', tabBarAccessibilityLabel: 'Profile', tabBarIcon: tabIcon('●') }}
       />
     </Tab.Navigator>
   );

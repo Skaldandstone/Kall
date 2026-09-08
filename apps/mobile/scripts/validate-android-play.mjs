@@ -108,6 +108,10 @@ const releaseRouteSource = fs.readFileSync(
   path.join(mobileRoot, '..', 'web', 'app', 'api', 'mobile-release', 'route.ts'),
   'utf8',
 );
+const backendReleaseSource = fs.readFileSync(
+  path.join(mobileRoot, '..', '..', 'backend', 'kall', 'api_ops.py'),
+  'utf8',
+);
 assert.ok(
   appSource.includes('WebBrowser.maybeCompleteAuthSession()'),
   'App must complete the Clerk browser handoff after Google redirects back.',
@@ -147,6 +151,12 @@ assert.equal(
   latestVersionMatch?.[1],
   app.version,
   'The public Android release manifest must match the app version being built.',
+);
+const backendLatestVersionMatch = backendReleaseSource.match(/LATEST_ANDROID_VERSION = "(\d+\.\d+\.\d+)"/);
+assert.equal(
+  backendLatestVersionMatch?.[1],
+  app.version,
+  'The production API Android release manifest must match the app version being built.',
 );
 
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {
