@@ -32,7 +32,7 @@ def test_mobile_release_endpoint_matches_the_android_build() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "platform": "android",
-        "latestVersion": "1.0.3",
+        "latestVersion": "1.0.4",
         "updateUrl": "https://play.google.com/apps/testing/com.skaldandstone.kall",
     }
 
