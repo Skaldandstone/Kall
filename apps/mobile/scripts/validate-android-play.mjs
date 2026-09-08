@@ -18,6 +18,10 @@ assert.equal(app.android?.package, expectedPackage, 'Unexpected Android package 
 // it -- see docs/NEEDS_DECISION.md -- so this is the one field on this
 // screen worth a hard assertion rather than a passive default.
 assert.match(String(app.android?.versionCode ?? ''), /^[1-9]\d*$/, 'Android versionCode must be a positive integer.');
+assert.ok(
+  app.android.versionCode >= 2,
+  'Android versionCode baseline must not fall below the highest version already accepted by Play.',
+);
 
 for (const key of ['foregroundImage', 'backgroundImage', 'monochromeImage']) {
   const iconPath = path.join(mobileRoot, app.android?.adaptiveIcon?.[key] ?? '');
