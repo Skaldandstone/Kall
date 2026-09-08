@@ -116,30 +116,29 @@ def get_identity(current_user: User = Depends(get_current_user), session: Sessio
     )
 
 
-@router.put("/me/identity", response_model=CandidateProfile)
-def update_identity(payload: IdentityProfileUpdate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> CandidateProfile:
+@router.put("/me/identity", response_model=IdentityProfileResponse)
+def update_identity(payload: IdentityProfileUpdate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> IdentityProfileResponse:
     profile = session.exec(select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)).first() or CandidateProfile(user_id=current_user.id)
-    data = payload.model_dump()
-    profile.preferred_name = data["preferred_name"]
-    profile.phone_encrypted = encrypt_sensitive(data["phone"])
-    profile.address_encrypted = encrypt_sensitive(data["address"])
-    profile.city = data["city"]
-    profile.state_region = data["state_region"]
-    profile.postal_code_encrypted = encrypt_sensitive(data["postal_code"])
-    profile.country = data["country"]
-    profile.timezone = data["timezone"]
-    profile.linkedin_url = data["linkedin_url"]
-    profile.github_url = data["github_url"]
-    profile.portfolio_urls = data["portfolio_urls"]
-    profile.website_urls = data["website_urls"]
-    profile.professional_summary = data["professional_summary"]
-    current_user.country = data["country"]
-    current_user.state_region = data["state_region"]
+    data = payload.model_dump(exclude_unset=True)
+    encrypted_fields = {
+        "phone": "phone_encrypted",
+        "address": "address_encrypted",
+        "postal_code": "postal_code_encrypted",
+    }
+    for key, value in data.items():
+        if key in encrypted_fields:
+            setattr(profile, encrypted_fields[key], encrypt_sensitive(value))
+        else:
+            setattr(profile, key, value)
+    if "country" in data:
+        current_user.country = data["country"]
+    if "state_region" in data:
+        current_user.state_region = data["state_region"]
     session.add(current_user)
     session.add(profile)
     session.commit()
     session.refresh(profile)
-    return profile
+    return get_identity(current_user, session)
 
 
 @router.post("/me/professional-profiles", response_model=CareerProfile)

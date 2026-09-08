@@ -5,12 +5,31 @@ export type AuthStackParamList = {
 
 export type ApplicationsStackParamList = {
   ApplicationsHome: undefined;
-  ApplicationDetail: { applicationId: number; company: string; role: string; stage: string };
+  ApplicationDetail: {
+    applicationId: number;
+    company: string;
+    role: string;
+    stage: string;
+  };
   InterviewPrep: { applicationId: number; company: string; role: string };
 };
 
 export type OpportunitiesStackParamList = {
   OpportunitiesHome: undefined;
+  OpportunityDetail: {
+    item: import("../api/opportunities").JobFeedItem;
+    profileId: number;
+    opportunityId?: number;
+    state?: string;
+  };
+};
+
+export type ProfileStackParamList = {
+  WorkspaceHome: undefined;
+  Identity: undefined;
+  CareerProfiles: undefined;
+  Resumes: undefined;
+  Notifications: undefined;
 };
 
 export type AppTabParamList = {

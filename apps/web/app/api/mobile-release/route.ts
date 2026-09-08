@@ -1,4 +1,4 @@
-const latestAndroidVersion = '1.0.3';
+const latestAndroidVersion = '1.0.4';
 const playTestUrl = 'https://play.google.com/apps/testing/com.skaldandstone.kall';
 
 export async function GET() {

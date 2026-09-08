@@ -1,7 +1,6 @@
 # Kall Mobile
 
-A native iOS/Android app (Expo + React Native) for the core "review and act
-on a prepared application" loop - not a full mirror of the web app. It calls
+A native iOS/Android app (Expo + React Native) for Kall's daily career workflow. It carries the web app's core capabilities into focused mobile screens instead of copying desktop layouts. It calls
 the same FastAPI backend directly (no server-side proxy, unlike the web
 app's `/api/kall/[...path]` route - see `docs/AWS_DEPLOYMENT.md`'s "Public
 API path" section for how the API was made reachable for this).
@@ -12,11 +11,13 @@ API path" section for how the API was made reachable for this).
 - **Applications** - `src/screens/ApplicationsScreen.tsx`. Lists every application from `GET /me/applications`, the same pipeline endpoint the web app's applications page reads.
 - **Application detail / review** - `src/screens/ApplicationDetailScreen.tsx`. The core loop: shows readiness issues, confirms review items, approves the application - the same three endpoints (`POST/GET/PUT /applications/{id}/review`, `POST /applications/{id}/review/approve`) the web app's `apps/web/app/applications/[id]/page.tsx` calls.
 - **Morning Brief** - `src/screens/MorningBriefScreen.tsx`. Read-only, `GET /me/morning-brief`.
+- **Jobs** - search configured sources, review match evidence, save or dismiss a role, and prepare an application with a selected resume.
+- **Profile workspace** - edit personal details and career profiles, upload and manage resumes, and change email notification preferences.
 
 ## Not yet built (explicit follow-up, not silently dropped)
 
 - **Push notifications.** Needs Firebase Cloud Messaging (Android) and APNs (iOS) credentials/developer-account setup that don't exist yet - this is infrastructure outside this repo, not a code gap.
-- **Documents, Opportunities, Career sections.** The mobile app is scoped to the assisted-application review loop, matching what this README originally called out as the priority mobile flows. Expanding to full parity with the web app is a separate, larger effort.
+- **Desktop-heavy editors.** Paragraph-level resume tailoring, the public career-page layout editor, billing checkout, privacy field rules, search-source administration, and account deletion remain web-only. Mobile links its daily workflow together while those dense or high-risk controls stay in the web workspace.
 
 ## Development
 
@@ -50,10 +51,10 @@ change it now if it should be anything else. `ios.bundleIdentifier` matches.
 
 ### Configuration
 
-| What | Where | Override |
-| --- | --- | --- |
-| API base URL | `app.json` → `expo.extra.apiBaseUrl` (Android emulator localhost) | `API_BASE_URL` env var |
-| Clerk publishable key | `app.json` → `expo.extra.clerkPublishableKey` | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` env var |
+| What                  | Where                                                             | Override                                    |
+| --------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| API base URL          | `app.json` → `expo.extra.apiBaseUrl` (Android emulator localhost) | `API_BASE_URL` env var                      |
+| Clerk publishable key | `app.json` → `expo.extra.clerkPublishableKey`                     | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` env var |
 
 The defaults support local Android-emulator development and the development
 Clerk instance. A review or production build must set `KALL_MOBILE_RELEASE=1`,
