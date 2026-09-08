@@ -153,17 +153,22 @@ npm run release:all
 ```
 
 Each command builds the `production` profile and automatically submits that
-exact build with the matching submission profile. Android targets Google Play
-internal testing; iOS targets TestFlight. Public release remains a separate
-store action. EAS maintains remote build numbers and increments each store
-build so repeated CI runs do not reuse numbers from an unchanged checkout.
+exact build with the matching submission profile. Android targets the selected
+Google Play closed Alpha track; iOS targets TestFlight. Public release remains
+a separate store action. EAS maintains remote build numbers and increments each
+store build so repeated CI runs do not reuse numbers from an unchanged checkout.
 
-After internal acceptance, promote the exact accepted Android build to the
-selected closed Alpha track without rebuilding it:
+For an explicit internal-only QA submission, submit the build with the
+`internal-qa` profile:
 
 ```powershell
-npx eas-cli@23.2.0 submit --platform android --id <EAS_BUILD_ID> --profile closed-alpha --wait --non-interactive
+npx eas-cli@23.2.0 submit --platform android --id <EAS_BUILD_ID> --profile internal-qa --wait --non-interactive
 ```
+
+Google Play does not accept a second upload of the same version code to another
+track. If internal QA is used first, promote that release to Closed testing in
+Play Console. The default automated workflow avoids this step by submitting a
+new version directly to Closed testing Alpha.
 
 Android needs its Google Play service account key configured through
 `npx eas-cli@23.2.0 credentials --platform android`, plus access to Kall in

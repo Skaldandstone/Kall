@@ -55,15 +55,15 @@ assert.notEqual(
 
 assert.equal(
   eas.submit?.production?.android?.track,
-  'internal',
-  'The production submit profile must continue to target Play internal testing.',
+  'alpha',
+  'The production submit profile must automatically target the selected Play closed Alpha track.',
 );
 assert.equal(
-  eas.submit?.['closed-alpha']?.android?.track,
-  'alpha',
-  'The closed-alpha submit profile must target the selected Play closed Alpha track.',
+  eas.submit?.['internal-qa']?.android?.track,
+  'internal',
+  'The internal-qa submit profile must preserve the explicit Play internal testing path.',
 );
-for (const submitProfileName of ['production', 'closed-alpha']) {
+for (const submitProfileName of ['production', 'internal-qa']) {
   assert.equal(
     eas.submit?.[submitProfileName]?.android?.releaseStatus,
     'completed',

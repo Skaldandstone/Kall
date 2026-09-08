@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Queue Android build and automatic internal submission
+      - name: Queue Android build and automatic closed Alpha submission
         run: npm run release:android -- --non-interactive --no-wait
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
