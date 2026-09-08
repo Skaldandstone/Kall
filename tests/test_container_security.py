@@ -101,6 +101,14 @@ def test_api_build_fails_closed_on_unreviewed_openssl_packages() -> None:
     assert "sed 's/^libcrypto3-/" not in dockerfile
 
 
+def test_api_upgrades_the_affected_util_linux_runtime_library() -> None:
+    dockerfile = (ROOT / "Dockerfile.api").read_text()
+
+    assert "apk add --no-cache --upgrade libuuid=2.42.3-r1" in dockerfile
+    assert 'apk info --exists "libuuid=2.42.3-r1"' in dockerfile
+    assert '! apk info --exists "libuuid=2.42.1-r0"' in dockerfile
+
+
 def test_api_approves_only_the_reviewed_openssl_successor() -> None:
     dockerfile = (ROOT / "Dockerfile.api").read_text()
 

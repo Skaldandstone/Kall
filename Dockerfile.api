@@ -4,6 +4,9 @@ FROM python:3.12.14-alpine3.24@sha256:d81968c559557b881aa557ff6d1200acec8e72a2c8
 # exact version so a future base refresh cannot be accepted silently.
 ARG ALPINE_OPENSSL_APPROVED_VERSION
 RUN set -eu; \
+    apk add --no-cache --upgrade libuuid=2.42.3-r1; \
+    apk info --exists "libuuid=2.42.3-r1"; \
+    ! apk info --exists "libuuid=2.42.1-r0"; \
     test -n "${ALPINE_OPENSSL_APPROVED_VERSION}"; \
     test "${ALPINE_OPENSSL_APPROVED_VERSION}" = "3.5.8-r0"; \
     ! apk info --exists "libssl3=3.5.7-r0"; \
