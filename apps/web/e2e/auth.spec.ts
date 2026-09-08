@@ -27,6 +27,14 @@ test.describe('authentication boundary', () => {
   });
 
   test('the marketing page, beta install guide, and a testimonial invitation stay public', async ({ page }) => {
+    const mobileRelease = await page.request.get('/api/mobile-release');
+    expect(mobileRelease.ok()).toBeTruthy();
+    expect(await mobileRelease.json()).toEqual({
+      platform: 'android',
+      latestVersion: '1.0.2',
+      updateUrl: 'https://play.google.com/apps/testing/com.skaldandstone.kall',
+    });
+
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Know what you can do next.' })).toBeVisible();
 
@@ -40,10 +48,12 @@ test.describe('authentication boundary', () => {
       'href',
       'https://play.google.com/apps/testing/com.skaldandstone.kall',
     );
-    await expect(page.getByRole('link', { name: 'Install on Google Play' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Open your tester download' })).toHaveAttribute(
       'href',
-      'https://play.google.com/store/apps/details?id=com.skaldandstone.kall',
+      'https://play.google.com/apps/testing/com.skaldandstone.kall',
     );
+    await page.getByText('Can’t access the test or install the app?').click();
+    await expect(page.getByText(/If Google says “Not Found”/)).toBeVisible();
 
     // Opened by a former colleague from an emailed link, so it must work with
     // no Kall account at all.

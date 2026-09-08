@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSSO } from '@clerk/expo';
+import * as AuthSession from 'expo-auth-session';
 import { theme } from '../theme';
 
 type Props = {
   onError: (message: string) => void;
 };
+
+// This exact URI is registered in Clerk's production mobile SSO allowlist.
+// Passing it explicitly keeps Expo and Clerk from choosing different defaults
+// as the app moves between development clients and Play-signed builds.
+const googleRedirectUrl = AuthSession.makeRedirectUri({
+  scheme: 'kall',
+  path: 'sso-callback',
+});
 
 /** Google sign-in shared by the login and registration screens. */
 export default function SocialSignInButtons({ onError }: Props) {
@@ -16,7 +25,10 @@ export default function SocialSignInButtons({ onError }: Props) {
     onError('');
     setPending(true);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({ strategy: 'oauth_google' });
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: googleRedirectUrl,
+      });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
       }

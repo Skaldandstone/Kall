@@ -100,6 +100,14 @@ const socialSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'SocialSignInButtons.tsx'),
   'utf8',
 );
+const updateSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.tsx'),
+  'utf8',
+);
+const releaseRouteSource = fs.readFileSync(
+  path.join(mobileRoot, '..', 'web', 'app', 'api', 'mobile-release', 'route.ts'),
+  'utf8',
+);
 assert.ok(
   appSource.includes('WebBrowser.maybeCompleteAuthSession()'),
   'App must complete the Clerk browser handoff after Google redirects back.',
@@ -109,8 +117,36 @@ assert.ok(
   'Android release must offer the Google provider enabled in production Clerk.',
 );
 assert.ok(
+  socialSource.includes("scheme: 'kall'") &&
+    socialSource.includes("path: 'sso-callback'") &&
+    socialSource.includes('redirectUrl: googleRedirectUrl'),
+  'Google SSO must use the exact native callback registered in production Clerk.',
+);
+assert.ok(
   !socialSource.includes('oauth_apple'),
   'Apple sign-in must remain hidden until its production Clerk provider is configured.',
+);
+assert.ok(
+  updateSource.includes('/mobile-release'),
+  'Android must check the public mobile release manifest when the app loads.',
+);
+assert.ok(
+  updateSource.includes('https://play.google.com/apps/testing/com.skaldandstone.kall'),
+  'The update prompt must use the account-aware Play testing page.',
+);
+assert.ok(
+  updateSource.includes("Platform.OS !== 'android'"),
+  'The Play update prompt must never appear on iOS or web builds.',
+);
+assert.ok(
+  updateSource.includes('if (!response.ok) return;') && updateSource.includes('catch'),
+  'An unavailable release check must fail open without blocking the app.',
+);
+const latestVersionMatch = releaseRouteSource.match(/latestAndroidVersion = '(\d+\.\d+\.\d+)'/);
+assert.equal(
+  latestVersionMatch?.[1],
+  app.version,
+  'The public Android release manifest must match the app version being built.',
 );
 
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {

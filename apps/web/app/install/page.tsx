@@ -10,7 +10,6 @@ export const metadata: Metadata = {
 // URL with the internal-testing track: it does not count toward the closed test.
 const signupUrl = 'https://forms.gle/ZbqaLtAt7gVvVoiQ8';
 const joinUrl = 'https://play.google.com/apps/testing/com.skaldandstone.kall';
-const installUrl = 'https://play.google.com/store/apps/details?id=com.skaldandstone.kall';
 
 export default function InstallPage() {
   return (
@@ -46,9 +45,12 @@ export default function InstallPage() {
             <a className="button secondary" href={joinUrl}>Join the Google Play test</a>
           </li>
           <li>
-            <h2>Install Kall</h2>
-            <p>After joining, open the listing on your Android phone and tap Install.</p>
-            <a className="button" href={installUrl}>Install on Google Play</a>
+            <h2>Install from the tester page</h2>
+            <p>
+              After Google says “You are a tester,” use its “download it on Google Play”
+              link on that same page. Google creates the store link for your invited account.
+            </p>
+            <a className="button" href={joinUrl}>Open your tester download</a>
           </li>
         </ol>
 
@@ -59,9 +61,10 @@ export default function InstallPage() {
         <details className="card" style={{ marginTop: 24 }}>
           <summary>Can’t access the test or install the app?</summary>
           <p>
-            Check that your invitation has arrived and that Google Play is using the
-            email you signed up with. Availability also depends on your device and
-            Play Store country.
+            If Google says “Not Found” or “App not available,” use the account menu on
+            the testing page and switch to the exact email address that was invited.
+            Become a tester before opening the Play listing. Availability also depends
+            on your device and Play Store country.
           </p>
           <p>
             If you previously joined Kall’s internal test, leave that test before

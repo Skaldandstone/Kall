@@ -25,6 +25,9 @@ const isPublicRoute = createRouteMatcher([
   // user data; keeping this one proxy path public lets hosted checks prove the
   // web-to-API hop without weakening any authenticated application endpoint.
   '/api/kall/health',
+  // Signed-out mobile builds check this small public manifest at startup.
+  // It contains only the current Android version and the Play testing URL.
+  '/api/mobile-release',
   // The API calls that page makes must be public too, or the recipient can
   // open the form and never be able to submit it. Both endpoints authenticate
   // on the single-use invitation token itself (api_testimonials.py), not on a

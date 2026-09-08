@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import RootNavigator from './src/navigation/RootNavigator';
+import UpdatePrompt from './src/components/UpdatePrompt';
 
 // Complete Clerk's browser handoff once Google returns to the kall:// scheme.
 WebBrowser.maybeCompleteAuthSession();
@@ -22,6 +23,7 @@ export default function App() {
       <ClerkProvider publishableKey={publishableKey ?? ''} tokenCache={tokenCache}>
         <RootNavigator />
       </ClerkProvider>
+      <UpdatePrompt />
       <StatusBar style="light" />
     </SafeAreaProvider>
   );
