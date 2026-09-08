@@ -5,6 +5,8 @@ than one that does not exist, and the whole authorization rule is a single
 string comparison, so it is worth pinning down hard.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -13,7 +15,7 @@ from kall.db import get_session
 from kall.main import app
 from kall.models.core import AdminAction, User
 from kall.models.enums import SubscriptionPlan
-from kall.services import quota
+from kall.services import admin, quota
 from kall.services.admin import is_admin
 from sqlmodel import Session, select
 
@@ -80,6 +82,15 @@ def make_user(session: Session, email: str = "someone@example.com") -> User:
 )
 def test_only_explicit_admin_accounts_count(email: str, expected: bool) -> None:
     assert is_admin(User(email=email, full_name="X")) is expected
+
+
+def test_e2e_admin_identity_is_limited_to_test_environment(monkeypatch) -> None:
+    email = "e2e-admin-1788825600000-abc123+clerk_test@skaldandstone.com"
+    monkeypatch.setattr(admin, "get_settings", lambda: SimpleNamespace(app_env="test"))
+    assert is_admin(User(email=email, full_name="Browser Admin")) is True
+
+    monkeypatch.setattr(admin, "get_settings", lambda: SimpleNamespace(app_env="production"))
+    assert is_admin(User(email=email, full_name="Browser Admin")) is False
 
 
 def test_store_reviewer_cannot_read_or_mutate_admin_resources(client, engine) -> None:

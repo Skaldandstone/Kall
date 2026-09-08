@@ -1,9 +1,9 @@
 import { test, expect, signInAsNewUser } from './helpers';
 
 /**
- * The support console. Access is by verified email domain, so the tests that
- * matter are the ones about who is turned away: an admin surface that leaks
- * is worse than one that does not exist.
+ * The support console. Production access is limited to an explicit email
+ * allowlist. The test API recognizes only the e2e-admin Clerk address pattern,
+ * so these journeys can exercise the UI without weakening that boundary.
  */
 test('an ordinary account is told the console is not available', async ({ page }) => {
   await signInAsNewUser(page, 'Ordinary User');

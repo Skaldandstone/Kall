@@ -66,13 +66,13 @@ function secretKey() {
 export async function signInAsNewUser(
   page: Page,
   fullName = 'E2E Test User',
-  // Admin access is decided by email domain, so a test for it needs an
-  // account on that domain. The +clerk_test convention lives in the local
-  // part, so it still applies whatever the domain is.
+  // The backend recognizes only this suite's narrow e2e-admin address pattern
+  // when APP_ENV=test. A studio-domain address by itself never grants access.
   domain = 'example.com',
 ) {
   const [firstName, ...rest] = fullName.split(' ');
-  const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}+clerk_test@${domain}`;
+  const prefix = domain === 'skaldandstone.com' ? 'e2e-admin' : 'e2e';
+  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}+clerk_test@${domain}`;
 
   const response = await fetch(`${CLERK_API}/users`, {
     method: 'POST',

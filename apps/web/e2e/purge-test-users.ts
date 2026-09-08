@@ -12,7 +12,7 @@
  * Stale-user cleanup is disabled unless the caller explicitly opts in.
  */
 const CLERK_API = 'https://api.clerk.com/v1';
-const TEST_EMAIL = /^(e2e|mobile-smoke)-[^@]*\+clerk_test@example\.com$/;
+const TEST_EMAIL = /^(?:(?:e2e|mobile-smoke)-[^@]*\+clerk_test@example\.com|e2e-admin-[0-9]+-[a-z0-9]{6}\+clerk_test@skaldandstone\.com)$/;
 
 type ClerkUser = {
   id: string;
