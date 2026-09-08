@@ -55,6 +55,12 @@
         "releaseStatus": "completed"
       },
       "ios": {}
+    },
+    "closed-alpha": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "completed"
+      }
     }
   }
 }

@@ -158,6 +158,13 @@ internal testing; iOS targets TestFlight. Public release remains a separate
 store action. EAS maintains remote build numbers and increments each store
 build so repeated CI runs do not reuse numbers from an unchanged checkout.
 
+After internal acceptance, promote the exact accepted Android build to the
+selected closed Alpha track without rebuilding it:
+
+```powershell
+npx eas-cli@23.2.0 submit --platform android --id <EAS_BUILD_ID> --profile closed-alpha --wait --non-interactive
+```
+
 Android needs its Google Play service account key configured through
 `npx eas-cli@23.2.0 credentials --platform android`, plus access to Kall in
 Play Console. Store the key in EAS credentials, never in this repository.

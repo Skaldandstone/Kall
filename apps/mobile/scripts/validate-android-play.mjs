@@ -53,6 +53,24 @@ assert.notEqual(
   `${profileName} must not set KALL_MOBILE_LOCAL_ANDROID_SIGNING -- EAS has no access to the local alpha keystore this would require.`,
 );
 
+assert.equal(
+  eas.submit?.production?.android?.track,
+  'internal',
+  'The production submit profile must continue to target Play internal testing.',
+);
+assert.equal(
+  eas.submit?.['closed-alpha']?.android?.track,
+  'alpha',
+  'The closed-alpha submit profile must target the selected Play closed Alpha track.',
+);
+for (const submitProfileName of ['production', 'closed-alpha']) {
+  assert.equal(
+    eas.submit?.[submitProfileName]?.android?.releaseStatus,
+    'completed',
+    `${submitProfileName} must publish a completed Play test release.`,
+  );
+}
+
 const releaseEnvironment = profile.env;
 const previousEnvironment = Object.fromEntries(
   Object.keys(releaseEnvironment).map((name) => [name, process.env[name]]),
