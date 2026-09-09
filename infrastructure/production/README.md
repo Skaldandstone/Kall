@@ -17,7 +17,7 @@ The initial stack must use `EnableApplicationServices=false` and
 `EnableStripeLive=false`. This creates the durable data, routing, task
 definitions, and observability layer with no running application tasks. Run the
 exported bootstrap task once, then the migration task once, and verify exact
-records `kall-db-roles-v1` and `20260908_0034`. Only a second reviewed change
+records `kall-db-roles-v1` and `20260909_0035`. Only a second reviewed change
 set may record that evidence and enable the two services.
 
 Production data uses a private encrypted Multi-AZ PostgreSQL 16.15 instance,

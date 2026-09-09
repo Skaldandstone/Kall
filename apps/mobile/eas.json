@@ -60,7 +60,7 @@
       "environment": "production",
       "env": {
         "KALL_MOBILE_RELEASE": "1",
-        "KALL_MOBILE_E2E_VERSION": "1.1.5",
+        "KALL_MOBILE_E2E_VERSION": "1.1.2",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
         "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"

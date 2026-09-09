@@ -5,5 +5,5 @@ appId: com.skaldandstone.kall
 - assertVisible: Welcome back
 - assertVisible: Sign in to your career workspace.
 - assertVisible: Continue with Google
-- assertVisible: Need an account? Create one
+- assertVisible: Create a Kall account
 - takeScreenshot: ios-launch

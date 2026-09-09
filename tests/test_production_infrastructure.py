@@ -129,7 +129,7 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert parameters.count("    Default: 'false'") >= 2
     assert "ApplicationActivationRequiresDatabaseEvidence" in rules
     assert "kall-db-roles-v1" in rules
-    assert "20260908_0034" in rules
+    assert "20260909_0035" in rules
     assert "StripeActivationRequiresLiveCatalog" in rules
     assert "stripe-disabled" in rules
     assert "RevenueCatActivationRequiresCatalog" in rules
@@ -284,3 +284,4 @@ def test_production_guard_covers_release_critical_invariants() -> None:
     assert "Parameters.EnablePublicSignup.Default == 'false'" in guard
     assert "Parameters.EnableStripeLive.Default == 'false'" in guard
     assert "Parameters.EnableApplicationServices.Default == 'false'" in guard
+    assert "'20260909_0035'" in guard

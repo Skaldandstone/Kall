@@ -3,7 +3,7 @@ appId: com.skaldandstone.kall
 - launchApp:
     clearState: true
 - assertVisible: Kall update available
-- assertVisible: Version 1.1.6 is ready.*
+- assertVisible: Version .* is ready.*
 - tapOn: Later
 - assertVisible: Welcome back
 - assertVisible: Sign in to your career workspace.

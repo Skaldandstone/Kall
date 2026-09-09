@@ -25,7 +25,8 @@ The deployed API image is
 the deployed web image is
 `sha256:d2934a9241d47721bd1cef1fa0d9ab34d65dc2851f1b2c62af1e7c49ce5dfc16`.
 Both ECR Basic scans completed with zero findings. The one-shot migration task
-exited zero and logged verified Alembic head `20260908_0034`. Both services are
+exited zero and logged verified Alembic head `20260908_0034`. The next release
+must run and record current head `20260909_0035` before enabling its services. Both services are
 1/1, both target groups are healthy, all six Kall production alarms are `OK`,
 and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
