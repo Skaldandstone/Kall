@@ -48,12 +48,21 @@ jobs:
           KALL_MOBILE_ALLOW_REGISTRATION: "1"
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
-      - name: Capture iOS listing screenshots
-        run: npx playwright test --grep "capture ios store screenshots"
+      - name: Capture iPhone listing screenshots
+        run: npx playwright test --grep "capture iphone store screenshots"
         working-directory: apps/mobile
         env:
           CAPTURE_STORE_SCREENSHOTS: "1"
-          STORE_SCREENSHOT_TARGET: ios
+          STORE_SCREENSHOT_TARGET: iphone
+          KALL_MOBILE_ALLOW_REGISTRATION: "1"
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      - name: Capture iPad listing screenshots
+        run: npx playwright test --grep "capture ipad store screenshots"
+        working-directory: apps/mobile
+        env:
+          CAPTURE_STORE_SCREENSHOTS: "1"
+          STORE_SCREENSHOT_TARGET: ipad
           KALL_MOBILE_ALLOW_REGISTRATION: "1"
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}

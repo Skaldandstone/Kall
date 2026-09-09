@@ -27,7 +27,13 @@ test.skip(
 const CLERK_API = 'https://api.clerk.com/v1';
 const CLERK_TEST_CODE = '424242';
 const E2E_PASSWORD = 'MobileScreenshot123!';
-const screenshotTarget = process.env.STORE_SCREENSHOT_TARGET === 'ios' ? 'ios' : 'android';
+const supportedScreenshotTargets = ['android', 'iphone', 'ipad'] as const;
+type ScreenshotTarget = (typeof supportedScreenshotTargets)[number];
+const requestedScreenshotTarget = process.env.STORE_SCREENSHOT_TARGET ?? 'android';
+if (!supportedScreenshotTargets.includes(requestedScreenshotTarget as ScreenshotTarget)) {
+  throw new Error(`Unsupported store screenshot target: ${requestedScreenshotTarget}`);
+}
+const screenshotTarget = requestedScreenshotTarget as ScreenshotTarget;
 const OUTPUT_DIR = path.join(mobileRoot, 'e2e', 'screenshots', screenshotTarget);
 
 function secretKey(): string {
@@ -102,9 +108,11 @@ function seedApplications(email: string): void {
 }
 
 test.use({
-  viewport: screenshotTarget === 'ios'
+  viewport: screenshotTarget === 'iphone'
     ? { width: 1290, height: 2796 }
-    : { width: 1080, height: 1920 },
+    : screenshotTarget === 'ipad'
+      ? { width: 2064, height: 2752 }
+      : { width: 1080, height: 1920 },
 });
 
 test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page }) => {
