@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 const API = '/api/kall';
 
@@ -34,9 +34,15 @@ export default function EmploymentTab() {
   const [rows, setRows] = useState<Employment[]>([]);
   const [message, setMessage] = useState('Loading your work history…');
   const [busy, setBusy] = useState(false);
+  const loadSequence = useRef(0);
 
   async function load() {
+    const sequence = ++loadSequence.current;
     const response = await fetch(`${API}/profile/resources/employment`, { headers: authHeaders() });
+    // The initial page request can still be in flight when a newly saved role
+    // triggers a refresh. Only the newest response may replace the visible
+    // history, otherwise the older empty result can erase the saved card.
+    if (sequence !== loadSequence.current) return;
     if (response.status === 401) {window.location.replace('/sign-in'); return; }
     if (!response.ok) { setMessage('Unable to load your work history.'); return; }
     setRows(await response.json());

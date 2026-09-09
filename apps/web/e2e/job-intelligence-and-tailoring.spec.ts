@@ -21,7 +21,9 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
   await test.step('build match intelligence and select a resume', async () => {
     await page.goto(`/job-intelligence?job=${job.id}&profile=${profileId}`);
     await expect(page.locator('input[name="job_id"]')).toHaveValue(String(job.id));
-    await page.getByRole('button', { name: 'Compare role' }).click();
+    // Supplying both IDs starts the analysis automatically. Clicking Compare
+    // role here as well launches a second overlapping request and makes the
+    // result depend on which response reaches the page last.
     await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('heading', { name: 'Why each resume fits or falls short' })).toBeVisible();
     await page.getByRole('button', { name: 'Use this resume' }).first().click();
@@ -31,7 +33,12 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
   let proposalId = '';
   await test.step('create and accept a tailoring proposal', async () => {
     await page.goto('/resumes?tab=tailoring');
-    await page.locator('input[name="job_id"]').fill(String(job.id));
+    // Resume Studio asks for the posting rather than exposing an internal job
+    // ID. Reusing the seeded URL resolves to the same stored job and therefore
+    // preserves the resume selection made in the previous step.
+    await page.getByRole('textbox', { name: 'Job posting link' }).fill(String(job.url));
+    await page.getByRole('textbox', { name: 'Job title' }).fill(String(job.title));
+    await page.getByRole('textbox', { name: 'Job description' }).fill(String(job.description || job.snippet));
     await expect(page.getByRole('button', { name: 'Create proposal' })).toBeEnabled();
     await page.getByRole('button', { name: 'Create proposal' }).click();
     await expect(page.locator('code').first()).toBeVisible({ timeout: 15_000 });
