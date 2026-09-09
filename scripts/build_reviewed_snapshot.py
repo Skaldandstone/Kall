@@ -31,8 +31,12 @@ def main() -> None:
     parser.add_argument("--commit", default="HEAD")
     args = parser.parse_args()
 
-    if git("status", "--porcelain").strip():
-        raise SystemExit("Refusing to package an uncommitted working tree")
+    # The archive is materialized with `git show` from the selected commit, so
+    # unrelated untracked local evidence can never enter it. Refuse tracked
+    # staged or unstaged changes because those are the only changes that could
+    # make an operator mistake the checkout for the reviewed commit.
+    if git("status", "--porcelain", "--untracked-files=no").strip():
+        raise SystemExit("Refusing to package a working tree with uncommitted tracked changes")
 
     commit = git("rev-parse", "--verify", f"{args.commit}^{{commit}}").decode().strip()
     names = git("ls-tree", "-r", "--name-only", "-z", commit).decode().split("\0")
