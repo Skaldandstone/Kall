@@ -18,6 +18,7 @@ html[data-kall-theme='inscription'] {
   --success: #a1c7ad;
   --warning: #e0bc7c;
   --danger: #f2a39a;
+  --danger-ink: #21100e;
   --font-display: var(--font-inscription), Georgia, 'Times New Roman', serif;
   --radius-sm: 3px;
   --radius-md: 5px;

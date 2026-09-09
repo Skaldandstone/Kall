@@ -24,6 +24,7 @@
   --success: #6fae8f;
   --warning: #d9a441;
   --danger: #d97362;
+  --danger-ink: #21100e;
   /* Families come from next/font/google (see layout.tsx), which self-hosts
      them at build time. A <link> to fonts.googleapis.com would be blocked --
      the CSP's style-src and font-src only allow 'self'. */
@@ -220,7 +221,7 @@ nav a:hover {
 .button.danger {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-ink);
   font-family: var(--font-body);
   font-weight: 600;
 }
