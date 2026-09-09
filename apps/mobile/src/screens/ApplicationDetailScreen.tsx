@@ -28,6 +28,10 @@ type Props = NativeStackScreenProps<
   "ApplicationDetail"
 >;
 
+function humanizeStatus(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default function ApplicationDetailScreen({ route, navigation }: Props) {
   const { applicationId, company, role, stage } = route.params;
   const showInterviewPrep = stage === "submitted" || stage === "interview";
@@ -144,7 +148,7 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
       {review && (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Readiness</Text>
-          <Text style={styles.readiness}>{review.review.status}</Text>
+          <Text style={styles.readiness}>{humanizeStatus(review.review.status)}</Text>
           {review.review.readiness_issues.length > 0 ? (
             review.review.readiness_issues.map((issue) => (
               <Text key={issue} style={styles.issue}>
@@ -286,7 +290,7 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   centered: { alignItems: "center", justifyContent: "center" },
-  content: { padding: 20, paddingTop: 60 },
+  content: { padding: 20, paddingTop: 24, paddingBottom: 40 },
   eyebrow: {
     color: theme.textMuted,
     fontSize: 12,

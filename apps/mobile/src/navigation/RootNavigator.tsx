@@ -1,10 +1,11 @@
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View, useWindowDimensions } from "react-native";
 import { DarkTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useAuth } from "@clerk/expo";
 import Constants from "expo-constants";
 import { theme } from "../theme";
+import NavigationIcon from "../components/NavigationIcon";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import ApplicationsScreen from "../screens/ApplicationsScreen";
@@ -149,15 +150,15 @@ function ProfileNavigator() {
   );
 }
 
-function tabIcon(symbol: string) {
+function tabIcon(name: "today" | "work" | "apply" | "growth" | "profile") {
   return ({ color }: { color: string }) => (
-    <Text accessible={false} style={{ color, fontSize: 18 }}>
-      {symbol}
-    </Text>
+    <NavigationIcon name={name} color={color} />
   );
 }
 
 function AppNavigator() {
+  const { fontScale, width } = useWindowDimensions();
+  const compact = width < 390 || fontScale > 1.1;
   return (
     <Tab.Navigator
       initialRouteName="BriefTab"
@@ -166,7 +167,14 @@ function AppNavigator() {
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
+          borderTopWidth: 1,
+          height: compact ? 68 : 72,
+          paddingTop: 7,
+          paddingBottom: 7,
         },
+        tabBarItemStyle: { minHeight: 52 },
+        tabBarLabelStyle: { fontSize: compact ? 10 : 11, fontWeight: "700", letterSpacing: 0.1 },
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.textMuted,
       }}
@@ -177,7 +185,7 @@ function AppNavigator() {
         options={{
           title: "Today",
           tabBarAccessibilityLabel: "Today",
-          tabBarIcon: tabIcon("☀"),
+          tabBarIcon: tabIcon("today"),
         }}
       />
       <Tab.Screen
@@ -186,7 +194,7 @@ function AppNavigator() {
         options={{
           title: "Work",
           tabBarAccessibilityLabel: "Job search and consulting",
-          tabBarIcon: tabIcon("⌕"),
+          tabBarIcon: tabIcon("work"),
           popToTopOnBlur: true,
         }}
       />
@@ -194,9 +202,9 @@ function AppNavigator() {
         name="ApplicationsTab"
         component={ApplicationsNavigator}
         options={{
-          title: "Applications",
+          title: "Apply",
           tabBarAccessibilityLabel: "Applications",
-          tabBarIcon: tabIcon("✓"),
+          tabBarIcon: tabIcon("apply"),
           popToTopOnBlur: true,
         }}
       />
@@ -206,7 +214,7 @@ function AppNavigator() {
         options={{
           title: "Growth",
           tabBarAccessibilityLabel: "Growth",
-          tabBarIcon: tabIcon("↑"),
+          tabBarIcon: tabIcon("growth"),
         }}
       />
       <Tab.Screen
@@ -215,7 +223,7 @@ function AppNavigator() {
         options={{
           title: "Profile",
           tabBarAccessibilityLabel: "Profile",
-          tabBarIcon: tabIcon("●"),
+          tabBarIcon: tabIcon("profile"),
           popToTopOnBlur: true,
         }}
       />

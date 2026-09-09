@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useClerk } from "@clerk/expo";
 import Constants from "expo-constants";
@@ -18,10 +19,12 @@ import {
 } from "../api/workspace";
 import type { ProfileStackParamList } from "../navigation/types";
 import { theme } from "../theme";
+import { Card, PageHeader, StatusMessage } from "../components/ui";
 
 type Props = NativeStackScreenProps<ProfileStackParamList, "WorkspaceHome">;
 
 export default function WorkspaceScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { signOut } = useClerk();
   const [summary, setSummary] = useState<{
     name: string;
@@ -88,28 +91,26 @@ export default function WorkspaceScreen({ navigation }: Props) {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <Text style={styles.eyebrow}>Workspace</Text>
-      <Text style={styles.title}>{summary?.name || "Your profile"}</Text>
-      {summary ? (
-        <Text selectable style={styles.email}>
-          {summary.email}
-        </Text>
-      ) : (
-        <ActivityIndicator color={theme.text} />
-      )}
+      <PageHeader eyebrow="Workspace" title={summary?.name || "Your profile"} description={summary?.email} />
+      {!summary ? <ActivityIndicator color={theme.text} accessibilityLabel="Loading profile" /> : null}
       {error ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
+        <StatusMessage kind="error">{error}</StatusMessage>
       ) : null}
+      <View style={styles.summaryRow}>
+        <Card style={styles.summaryCard}><Text style={styles.summaryValue}>{summary?.profiles ?? 0}</Text><Text style={styles.summaryLabel}>Search directions</Text></Card>
+        <Card style={styles.summaryCard}><Text style={styles.summaryValue}>{summary?.resumes ?? 0}</Text><Text style={styles.summaryLabel}>Documents</Text></Card>
+      </View>
+      <Text accessibilityRole="header" style={styles.sectionTitle}>Manage your workspace</Text>
       <View style={styles.list}>
         {rows.map((row) => (
           <Pressable
             key={row.title}
             accessibilityRole="button"
+            accessibilityLabel={`${row.title}. ${row.detail}`}
+            accessibilityHint="Opens this workspace setting"
             style={styles.row}
             onPress={() => navigation.navigate(row.screen as never)}
           >
@@ -139,7 +140,7 @@ export default function WorkspaceScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
-  content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 20, paddingBottom: 48 },
   eyebrow: {
     color: theme.textMuted,
     fontSize: 12,
@@ -149,7 +150,12 @@ const styles = StyleSheet.create({
   title: { color: theme.text, fontSize: 26, fontWeight: "700", marginTop: 4 },
   email: { color: theme.textSecondary, marginTop: 5 },
   error: { color: theme.danger, marginTop: 12 },
-  list: { marginTop: 24, gap: 10 },
+  summaryRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
+  summaryCard: { flex: 1, padding: 14 },
+  summaryValue: { color: theme.accent, fontSize: 24, fontWeight: "800" },
+  summaryLabel: { color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  sectionTitle: { color: theme.text, fontSize: 17, fontWeight: "800" },
+  list: { marginTop: 12, gap: 10 },
   row: {
     minHeight: 72,
     flexDirection: "row",

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
+import AxeBuilder from "@axe-core/playwright";
 
 /**
  * Baseline coverage for the mobile app's Expo web build: sign in as a
@@ -21,6 +22,20 @@ import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 const CLERK_API = "https://api.clerk.com/v1";
 const CLERK_TEST_CODE = "424242";
 const E2E_PASSWORD = "MobileSmokeTest123!";
+
+async function expectNoSeriousAccessibilityViolations(page: Page, screen: string) {
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    // React Native Web does not expose browser landmarks; native screen-reader
+    // navigation is covered through roles, labels, state, and heading traits.
+    .disableRules(["landmark-one-main", "page-has-heading-one", "region"])
+    // React Navigation keeps inactive native screens mounted and marks their
+    // web wrappers aria-hidden. Audit only the active screen here.
+    .exclude('[aria-hidden="true"]')
+    .analyze();
+  const serious = result.violations.filter(({ impact }) => impact === "serious" || impact === "critical");
+  expect(serious, `${screen}: ${serious.map(({ id, help }) => `${id}: ${help}`).join("; ")}`).toEqual([]);
+}
 
 function secretKey(): string {
   const key = process.env.CLERK_SECRET_KEY;
@@ -128,6 +143,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
     await page.goto("/");
     await expect(page.getByText(/Invite-only alpha/)).toBeVisible();
     await expect(page.getByText("Need an account? Create one")).toHaveCount(0);
+    await expectNoSeriousAccessibilityViolations(page, "Sign in");
     await signInProgrammatically(page, user.email);
 
     await test.step("Today is the useful signed-in landing screen", async () => {
@@ -135,6 +151,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
         page.getByText("Today", { exact: true }).first(),
       ).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
+      await expectNoSeriousAccessibilityViolations(page, "Today");
     });
 
     await test.step("Job search and consulting remain parallel tracks", async () => {
@@ -142,6 +159,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Search the boards Kall watches for you."),
       ).toBeVisible();
+      await expectNoSeriousAccessibilityViolations(page, "Job search");
       await expect(page.getByRole("tab", { name: "Job search", exact: true })).toHaveAttribute(
         "aria-selected",
         "true",
@@ -175,6 +193,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("No applications yet", { exact: true }),
       ).toBeVisible();
+      await expectNoSeriousAccessibilityViolations(page, "Applications");
     });
 
     await test.step("Growth tab renders", async () => {
@@ -182,6 +201,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Turn a career goal into a step-by-step plan."),
       ).toBeVisible();
+      await expectNoSeriousAccessibilityViolations(page, "Growth");
     });
 
     await test.step("Today tab renders", async () => {
@@ -209,6 +229,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Notifications", { exact: true }),
       ).toBeVisible();
+      await expectNoSeriousAccessibilityViolations(page, "Profile");
       await page.getByText("Career profiles", { exact: true }).click();
       await expect(page.getByText("Build a direction with Kall")).toBeVisible();
       await page.getByText("Start guided profile", { exact: true }).click();

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   fetchCareerProfiles,
@@ -25,6 +26,7 @@ import {
 import { ApiError } from "../api/client";
 import OpportunityTrackSwitch from "../components/OpportunityTrackSwitch";
 import { theme } from "../theme";
+import { EmptyState, PageHeader, StatusMessage } from "../components/ui";
 import type { OpportunitiesStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<
@@ -40,6 +42,7 @@ function formatSalary(item: JobFeedItem): string {
 }
 
 export default function OpportunitiesScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [feed, setFeed] = useState<JobFeedItem[]>([]);
@@ -177,7 +180,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
         <OpportunityTrackSwitch
           active="jobs"
@@ -185,10 +188,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
             if (track === "consulting") navigation.navigate("Consulting");
           }}
         />
-        <Text style={styles.title}>Job search</Text>
-        <Text style={styles.subtitle}>
-          Search the boards Kall watches for you.
-        </Text>
+        <View style={styles.pageTitle}><PageHeader eyebrow="Work" title="Job search" description="Search the boards Kall watches for you." /></View>
       </View>
 
       {profiles.length > 1 && (
@@ -201,6 +201,8 @@ export default function OpportunitiesScreen({ navigation }: Props) {
           {profiles.map((profile) => (
             <Pressable
               key={profile.id}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: profile.id === profileId }}
               style={[
                 styles.chip,
                 profile.id === profileId && styles.chipActive,
@@ -221,27 +223,23 @@ export default function OpportunitiesScreen({ navigation }: Props) {
       )}
 
       {profiles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No professional profile yet</Text>
-          <Text style={styles.emptyBody}>
-            Create a career profile from Profile to start finding matches.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            style={styles.emptyButton}
-            onPress={() => {
+        <View style={styles.emptyState}><EmptyState
+            title="Build your search direction first"
+            description="Create a career profile so Kall knows which roles, companies, and working style to search for."
+            actionLabel="Create career profile"
+            onAction={() => {
               const tabs = navigation.getParent() as
                 | { navigate: (name: string, params: object) => void }
                 | undefined;
               tabs?.navigate("ProfileTab", { screen: "CareerProfiles" });
             }}
-          >
-            <Text style={styles.emptyButtonText}>Create career profile</Text>
-          </Pressable>
-        </View>
+          /></View>
       ) : (
         <>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search for new job matches"
+            accessibilityState={{ disabled: searching, busy: searching }}
             style={styles.searchButton}
             onPress={searchNow}
             disabled={searching}
@@ -253,7 +251,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
             )}
           </Pressable>
 
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          {message ? <View style={styles.message}><StatusMessage kind={message.toLowerCase().includes("unable") ? "error" : "neutral"}>{message}</StatusMessage></View> : null}
 
           <FlatList
             data={feed}
@@ -302,6 +300,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                   <View style={styles.actions}>
                     <Pressable
                       accessibilityRole="button"
+                      accessibilityLabel={`Review ${item.title} at ${item.company}, ${item.score} percent match`}
                       style={styles.actionButtonPrimary}
                       onPress={() =>
                         navigation.navigate("OpportunityDetail", {
@@ -318,6 +317,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
+                      accessibilityState={{ disabled: busy }}
                       style={styles.actionButton}
                       disabled={busy}
                       onPress={() => void setState(item, "saved")}
@@ -336,14 +336,16 @@ export default function OpportunitiesScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: theme.background },
   centered: { alignItems: "center", justifyContent: "center" },
   header: { paddingHorizontal: 20, marginBottom: 12 },
-  title: { color: theme.text, fontSize: 26, fontWeight: "700", marginTop: 20 },
+  pageTitle: { marginTop: 20 },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   chipRow: { marginBottom: 12 },
   chipRowContent: { paddingHorizontal: 20, gap: 8 },
   chip: {
+    minHeight: 44,
+    justifyContent: "center",
     borderColor: theme.border,
     borderWidth: 1,
     borderRadius: 999,
@@ -355,6 +357,8 @@ const styles = StyleSheet.create({
   chipText: { color: theme.textSecondary, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: theme.background },
   searchButton: {
+    minHeight: 48,
+    justifyContent: "center",
     marginHorizontal: 20,
     backgroundColor: theme.accent,
     borderRadius: 10,
@@ -364,10 +368,7 @@ const styles = StyleSheet.create({
   },
   searchButtonText: { color: theme.background, fontWeight: "700" },
   message: {
-    color: theme.textSecondary,
     paddingHorizontal: 20,
-    marginBottom: 8,
-    fontSize: 13,
   },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   empty: { color: theme.textMuted, textAlign: "center", marginTop: 40 },

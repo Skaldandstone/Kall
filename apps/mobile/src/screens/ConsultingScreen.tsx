@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import {
@@ -33,6 +34,7 @@ import { fetchCareerProfiles, type CareerProfile } from "../api/opportunities";
 import OpportunityTrackSwitch from "../components/OpportunityTrackSwitch";
 import type { OpportunitiesStackParamList } from "../navigation/types";
 import { theme } from "../theme";
+import { PageHeader } from "../components/ui";
 
 type Props = NativeStackScreenProps<OpportunitiesStackParamList, "Consulting">;
 type Editor = "lead" | "proposal" | "follow-up" | "engagement";
@@ -87,6 +89,7 @@ function money(cents: number | null) {
 }
 
 export default function ConsultingScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [workspace, setWorkspace] = useState(EMPTY);
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [profileId, setProfileId] = useState<number | null>(null);
@@ -272,8 +275,10 @@ export default function ConsultingScreen({ navigation }: Props) {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+      contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
     >
       <OpportunityTrackSwitch
         active="consulting"
@@ -281,12 +286,7 @@ export default function ConsultingScreen({ navigation }: Props) {
           if (track === "jobs") navigation.popToTop();
         }}
       />
-      <Text style={styles.eyebrow}>Consulting search</Text>
-      <Text style={styles.heading}>Find work, then build the pipeline.</Text>
-      <Text style={styles.intro}>
-        Kall turns your career direction into places to look, questions to ask,
-        and private follow-up drafts. You choose every lead and send every message.
-      </Text>
+      <View style={styles.pageHeader}><PageHeader eyebrow="Consulting search" title="Find work, then build the pipeline." description="Kall turns your career direction into places to look, questions to ask, and private follow-up drafts. You choose every lead and send every message." /></View>
 
       <View style={styles.assistantCard}>
         <Text style={styles.cardTitle}>Ask Kall to find consulting leads</Text>
@@ -697,7 +697,8 @@ function LeadChooser({ leads, value, onChange, optional }: { leads: ConsultingLe
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.background },
   center: { alignItems: "center", justifyContent: "center" },
-  content: { padding: 20, paddingTop: 58, paddingBottom: 48 },
+  content: { padding: 20, paddingBottom: 48 },
+  pageHeader: { marginTop: 22 },
   eyebrow: { color: theme.accent, fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginTop: 22 },
   heading: { color: theme.text, fontSize: 26, fontWeight: "700", marginTop: 6 },
   intro: { color: theme.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 8 },

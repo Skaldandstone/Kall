@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   analyzeSkills,
   createGoal,
@@ -25,6 +26,7 @@ import {
 } from '../api/growth';
 import { ApiError } from '../api/client';
 import { theme } from '../theme';
+import { PageHeader, StatusMessage } from '../components/ui';
 
 const BUDGET_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'free_or_low_cost', label: 'Free / low cost' },
@@ -33,6 +35,7 @@ const BUDGET_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 export default function GrowthScreen() {
+  const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<GrowthDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -119,52 +122,51 @@ export default function GrowthScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.text} />}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Growth</Text>
-        <Text style={styles.subtitle}>Turn a career goal into a step-by-step plan.</Text>
+        <PageHeader eyebrow="Development" title="Growth" description="Turn a career goal into a step-by-step plan." />
       </View>
 
       {!showNewGoal ? (
-        <Pressable style={styles.newGoalButton} onPress={() => setShowNewGoal(true)}>
+        <Pressable accessibilityRole="button" style={styles.newGoalButton} onPress={() => setShowNewGoal(true)}>
           <Text style={styles.newGoalButtonText}>+ New career goal</Text>
         </Pressable>
       ) : (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>New career goal</Text>
-          <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Goal name, e.g. Move into game art" placeholderTextColor={theme.textMuted} />
-          <TextInput style={styles.input} value={targetRole} onChangeText={setTargetRole} placeholder="Target role, e.g. Environment Artist" placeholderTextColor={theme.textMuted} />
-          <TextInput style={styles.input} value={targetIndustry} onChangeText={setTargetIndustry} placeholder="Target industry (optional)" placeholderTextColor={theme.textMuted} />
-          <TextInput style={styles.input} value={hoursPerWeek} onChangeText={setHoursPerWeek} placeholder="Hours per week" placeholderTextColor={theme.textMuted} keyboardType="numeric" />
+          <TextInput accessibilityLabel="Goal name" style={styles.input} value={title} onChangeText={setTitle} placeholder="Goal name, e.g. Move into game art" placeholderTextColor={theme.textMuted} />
+          <TextInput accessibilityLabel="Target role" style={styles.input} value={targetRole} onChangeText={setTargetRole} placeholder="Target role, e.g. Environment Artist" placeholderTextColor={theme.textMuted} />
+          <TextInput accessibilityLabel="Target industry, optional" style={styles.input} value={targetIndustry} onChangeText={setTargetIndustry} placeholder="Target industry (optional)" placeholderTextColor={theme.textMuted} />
+          <TextInput accessibilityLabel="Hours per week" style={styles.input} value={hoursPerWeek} onChangeText={setHoursPerWeek} placeholder="Hours per week" placeholderTextColor={theme.textMuted} keyboardType="numeric" />
           <View style={styles.chipRow}>
             {BUDGET_OPTIONS.map((option) => (
-              <Pressable key={option.value} style={[styles.chip, budget === option.value && styles.chipActive]} onPress={() => setBudget(option.value)}>
+              <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ checked: budget === option.value }} style={[styles.chip, budget === option.value && styles.chipActive]} onPress={() => setBudget(option.value)}>
                 <Text style={[styles.chipText, budget === option.value && styles.chipTextActive]}>{option.label}</Text>
               </Pressable>
             ))}
           </View>
           <View style={styles.actionsRow}>
-            <Pressable style={styles.secondaryButton} onPress={() => setShowNewGoal(false)} disabled={creating}>
+            <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setShowNewGoal(false)} disabled={creating}>
               <Text style={styles.secondaryButtonText}>Cancel</Text>
             </Pressable>
-            <Pressable style={styles.button} onPress={() => void submitNewGoal()} disabled={creating}>
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: creating, busy: creating }} style={styles.button} onPress={() => void submitNewGoal()} disabled={creating}>
               {creating ? <ActivityIndicator color={theme.background} /> : <Text style={styles.buttonText}>Create goal and plan</Text>}
             </Pressable>
           </View>
         </View>
       )}
 
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? <StatusMessage kind={message.toLowerCase().includes('unable') || message.toLowerCase().includes('first') ? 'error' : 'neutral'}>{message}</StatusMessage> : null}
 
       {goals.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Your first plan starts above.</Text>
-          <Text style={styles.emptyBody}>
-            Describe the work you want to do. Kall will organize the first research, education, portfolio, and
-            networking steps.
-          </Text>
+          <Text accessibilityRole="header" style={styles.emptyTitle}>Build your first growth plan</Text>
+          <Text style={styles.emptyBody}>Choose a career goal above. Kall will turn it into focused research, learning, portfolio, and networking steps.</Text>
         </View>
       ) : (
         goals.map(({ goal, plan }) => (
@@ -255,13 +257,13 @@ function GoalCard({
       </Text>
 
       {!plan ? (
-        <Pressable style={styles.button} onPress={() => void onGenerate(goal.id, false)}>
+        <Pressable accessibilityRole="button" style={styles.button} onPress={() => void onGenerate(goal.id, false)}>
           <Text style={styles.buttonText}>Generate plan</Text>
         </Pressable>
       ) : (
         <>
           <Text style={styles.summary}>{plan.plan.summary}</Text>
-          <Pressable style={styles.secondaryButton} onPress={() => void onGenerate(goal.id, true)}>
+          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void onGenerate(goal.id, true)}>
             <Text style={styles.secondaryButtonText}>Regenerate plan</Text>
           </Pressable>
 
@@ -302,6 +304,7 @@ function GoalCard({
             <Text style={styles.sectionLabel}>Analyze my skills</Text>
             <Text style={styles.sectionHint}>Describe your current skills, education, or vocational experience.</Text>
             <TextInput
+              accessibilityLabel="Current skills and background"
               style={[styles.input, styles.multiline]}
               value={answer}
               onChangeText={setAnswer}
@@ -310,7 +313,7 @@ function GoalCard({
               multiline
               numberOfLines={4}
             />
-            <Pressable style={styles.secondaryButton} onPress={() => void handleAnalyze()} disabled={analyzing}>
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: analyzing, busy: analyzing }} style={styles.secondaryButton} onPress={() => void handleAnalyze()} disabled={analyzing}>
               {analyzing ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>AI Analyze</Text>}
             </Pressable>
             {latestAssessment && (
@@ -332,15 +335,15 @@ function GoalCard({
           <View style={styles.subsection}>
             <Text style={styles.sectionLabel}>Find learning resources</Text>
             {plan.searches.map((item) => (
-              <Pressable key={item.id} style={styles.searchRow} onPress={() => Linking.openURL(item.search_url)}>
+              <Pressable key={item.id} accessibilityRole="link" accessibilityHint="Opens this search in your browser" style={styles.searchRow} onPress={() => Linking.openURL(item.search_url)}>
                 <Text style={styles.searchQuery}>{item.query}</Text>
                 <Text style={styles.searchRationale}>{item.rationale}</Text>
               </Pressable>
             ))}
             <Text style={styles.sectionHint}>Found something worth keeping? Save it below.</Text>
-            <TextInput style={styles.input} value={resourceUrl} onChangeText={setResourceUrl} placeholder="Resource URL" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="url" />
-            <TextInput style={styles.input} value={resourceTitle} onChangeText={setResourceTitle} placeholder="Title" placeholderTextColor={theme.textMuted} />
-            <Pressable style={styles.secondaryButton} onPress={() => void handleSaveResource()} disabled={savingResource}>
+            <TextInput accessibilityLabel="Resource URL" style={styles.input} value={resourceUrl} onChangeText={setResourceUrl} placeholder="Resource URL" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="url" />
+            <TextInput accessibilityLabel="Resource title" style={styles.input} value={resourceTitle} onChangeText={setResourceTitle} placeholder="Title" placeholderTextColor={theme.textMuted} />
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: savingResource, busy: savingResource }} style={styles.secondaryButton} onPress={() => void handleSaveResource()} disabled={savingResource}>
               {savingResource ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>Save resource</Text>}
             </Pressable>
           </View>
@@ -351,12 +354,14 @@ function GoalCard({
             {sortedResources.map((item) => (
               <View key={item.id} style={styles.resourceRow}>
                 <View style={styles.resourceInfo}>
-                  <Pressable onPress={() => Linking.openURL(item.url)}>
+                  <Pressable accessibilityRole="link" onPress={() => Linking.openURL(item.url)}>
                     <Text style={styles.resourceTitle}>{item.title}</Text>
                   </Pressable>
                   {item.description ? <Text style={styles.milestoneMeta}>{item.description}</Text> : null}
                 </View>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: pendingResourceId === item.id, selected: item.saved }}
                   style={item.saved ? styles.button : styles.secondaryButton}
                   disabled={pendingResourceId === item.id}
                   onPress={() => void handlePin(item.id, !item.saved)}
@@ -379,8 +384,8 @@ function GoalCard({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, paddingTop: 60, paddingBottom: 40 },
-  header: { marginBottom: 16 },
+  content: { padding: 20, paddingBottom: 48 },
+  header: { marginBottom: 0 },
   title: { color: theme.text, fontSize: 26, fontWeight: '700' },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   message: { color: theme.textSecondary, fontSize: 13, marginBottom: 12 },
@@ -404,6 +409,7 @@ const styles = StyleSheet.create({
   },
   cardLabel: { color: theme.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10 },
   input: {
+    minHeight: 52,
     backgroundColor: theme.surfaceRaised,
     borderColor: theme.border,
     borderWidth: 1,
@@ -416,14 +422,14 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 90, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  chip: { borderColor: theme.border, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  chip: { minHeight: 44, justifyContent: 'center', borderColor: theme.border, borderWidth: 1, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12 },
   chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
   chipText: { color: theme.textSecondary, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: theme.background },
   actionsRow: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
-  button: { backgroundColor: theme.accent, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
+  button: { minHeight: 48, justifyContent: 'center', backgroundColor: theme.accent, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
   buttonText: { color: theme.background, fontWeight: '700', fontSize: 13 },
-  secondaryButton: { borderColor: theme.border, borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', marginTop: 10 },
+  secondaryButton: { minHeight: 48, justifyContent: 'center', borderColor: theme.borderStrong, borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', marginTop: 10 },
   secondaryButtonText: { color: theme.text, fontWeight: '600', fontSize: 13 },
   emptyState: { paddingVertical: 20 },
   emptyTitle: { color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 },

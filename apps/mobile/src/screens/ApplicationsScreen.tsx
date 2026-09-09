@@ -1,14 +1,21 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchPipeline, type PipelineItem } from '../api/applications';
 import { theme } from '../theme';
+import { EmptyState, PageHeader } from '../components/ui';
 import type { ApplicationsStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<ApplicationsStackParamList, 'ApplicationsHome'>;
 
+function humanizeStage(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default function ApplicationsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PipelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,10 +41,9 @@ export default function ApplicationsScreen({ navigation }: Props) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Applications</Text>
-        <Text style={styles.subtitle}>Track each application from preparation through submission.</Text>
+        <PageHeader title="Applications" description="Track each application from preparation through submission." />
       </View>
 
       <FlatList
@@ -62,14 +68,19 @@ export default function ApplicationsScreen({ navigation }: Props) {
               </Pressable>
             </View>
           ) : (
-            <View style={styles.stateCard}>
-              <Text style={styles.stateTitle}>No applications yet</Text>
-              <Text style={styles.stateBody}>Choose a role from Jobs when you are ready to start one.</Text>
-            </View>
+            <EmptyState
+              title="No applications yet"
+              description="Review a job match when you are ready. Kall will help prepare the application before anything is submitted."
+              actionLabel="Find job matches"
+              onAction={() => navigation.getParent()?.navigate('OpportunitiesTab' as never)}
+            />
           )
         }
         renderItem={({ item }) => (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.role} at ${item.company}, ${humanizeStage(item.stage)}`}
+            accessibilityHint="Opens application review"
             style={styles.card}
             onPress={() => navigation.navigate('ApplicationDetail', { applicationId: item.id, company: item.company, role: item.role, stage: item.stage })}
           >
@@ -78,7 +89,7 @@ export default function ApplicationsScreen({ navigation }: Props) {
               {item.match_score != null ? <Text style={styles.score}>{item.match_score}%</Text> : null}
             </View>
             <Text style={styles.role}>{item.role}</Text>
-            <Text style={styles.stage}>{item.stage}</Text>
+            <Text style={styles.stage}>{humanizeStage(item.stage)}</Text>
           </Pressable>
         )}
       />
@@ -87,8 +98,8 @@ export default function ApplicationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background, paddingTop: 60, paddingHorizontal: 20 },
-  header: { marginBottom: 20 },
+  container: { flex: 1, backgroundColor: theme.background, paddingHorizontal: 20 },
+  header: { marginBottom: 0 },
   title: { color: theme.text, fontSize: 26, fontWeight: '700' },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   list: { paddingBottom: 24, flexGrow: 1 },

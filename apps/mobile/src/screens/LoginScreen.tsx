@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSignIn } from '@clerk/expo';
 import Constants from 'expo-constants';
 import { theme } from '../theme';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import type { AuthStackParamList } from '../navigation/types';
+import { elevation, radius } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -81,8 +82,13 @@ export default function LoginScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Kall™</Text>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
+      <View accessible={false} style={styles.brandMark}><View style={styles.brandMarkInner} /></View>
+      <Text accessibilityRole="header" style={styles.title}>Kall™</Text>
+      <Text style={styles.kicker}>Your career, run with intention.</Text>
+      <View style={styles.authCard}>
+      <Text accessibilityRole="header" style={styles.formTitle}>{awaitingCode ? 'Confirm this device' : 'Welcome back'}</Text>
       <Text style={styles.subtitle}>
         {awaitingCode
           ? `Enter the code we sent to ${email.trim()} to confirm this device.`
@@ -166,20 +172,30 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.link}>Need an account? Create one</Text>
         </Pressable>
       ) : null}
-    </View>
+      </View>
+      <Text style={styles.privacyNote}>Your career data stays private to your Kall workspace.</Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background, padding: 24, justifyContent: 'center' },
-  title: { color: theme.text, fontSize: 32, fontWeight: '700', marginBottom: 4 },
-  subtitle: { color: theme.textSecondary, fontSize: 15, marginBottom: 32, lineHeight: 21 },
-  inviteNote: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, marginTop: -16, marginBottom: 20 },
+  container: { flex: 1, backgroundColor: theme.background },
+  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 },
+  brandMark: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: theme.borderStrong, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  brandMarkInner: { width: 16, height: 16, borderRadius: 8, backgroundColor: theme.accent },
+  title: { color: theme.text, fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -0.8 },
+  kicker: { color: theme.textSecondary, fontSize: 15, marginTop: 2, marginBottom: 28 },
+  authCard: { ...elevation.card, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: radius.lg, padding: 20 },
+  formTitle: { color: theme.text, fontSize: 21, fontWeight: '800', marginBottom: 6 },
+  subtitle: { color: theme.textSecondary, fontSize: 15, marginBottom: 24, lineHeight: 21 },
+  inviteNote: { color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: -10, marginBottom: 18, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: theme.accent },
   input: {
     backgroundColor: theme.surfaceRaised,
-    borderColor: theme.border,
+    borderColor: theme.borderStrong,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
+    minHeight: 52,
     color: theme.text,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -196,4 +212,5 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: theme.accentInk, fontWeight: '700', fontSize: 16 },
   link: { color: theme.textSecondary, textAlign: 'center', marginTop: 20, fontSize: 14 },
+  privacyNote: { color: theme.textMuted, textAlign: 'center', fontSize: 12, lineHeight: 18, marginTop: 20, paddingHorizontal: 12 },
 });

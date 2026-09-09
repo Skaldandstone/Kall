@@ -6,7 +6,9 @@ export default defineConfig({
   testDir: './usability-tests',
   fullyParallel: false,
   workers: 1,
-  timeout: 45_000,
+  // The accessibility cases intentionally walk every primary route. A cold
+  // Next.js development compile can exceed 45 seconds on CI and Windows.
+  timeout: 90_000,
   expect: { timeout: 12_000 },
   use: { baseURL, trace: 'retain-on-failure' },
   reporter: 'list',
