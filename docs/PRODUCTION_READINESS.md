@@ -2,38 +2,34 @@
 
 > **Account migration 2026-09-07:** Kall production now runs in the Skald and Stone management account `051722405355` (stack `kall-production`, cluster `skaldandstone-production`, ECR `kall-api`/`kall-web`, CloudFront `E2HHZUTE7F4UDE`). Account `734702670689` is retired. Any `734702670689` reference below is historical.
 
-Updated 6 September 2026. This is the release contract for the first Kall
+Updated 8 September 2026. This is the release contract for the first Kall
 production candidate. Production Clerk and the isolated live Stripe catalog are
-configured. Automatic tax, SES sending, continuous monitoring, and application
-auto-submission remain disabled. Public signup is an explicit deployment
-parameter and must match the release decision for each rollout.
+configured and live. Native Apple/Google billing, automatic tax, SES sending,
+continuous monitoring, and application auto-submission remain disabled. Public
+signup is enabled and remains an explicit deployment parameter.
 
 ## Current state
 
-`https://kall.skaldandstone.com` remains healthy on the accepted stack in AWS
-project `734702670689`, selected Region `us-east-2`, while its successor is
-created in the new Skald and Stone AWS project `051722405355`. The successor
-uses the same selected Region, starts with application services and live Stripe
-disabled, and leaves the public CloudFront alias detached until its database,
-roles, migrations, images, and signed-in path pass acceptance. Do not treat the
-new project as cut over while the public alias still belongs to the old stack.
+`https://kall.skaldandstone.com` is healthy on `kall-production` in AWS project
+`051722405355`, selected Region `us-east-2`. PostgreSQL 16.15 is private and
+Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
+Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
+and webhook destination. No controlled live charge or refund has been performed.
 
-The accepted old-project runtime uses PostgreSQL 16.15. Its API and web services
-are healthy, and CloudFront-to-ALB plus web-to-API TLS paths passed the hosted
-smoke checks. Live Stripe uses a Kall-only catalog, restricted key, portal
-configuration and webhook destination. No controlled live charge or refund has
-been performed.
-
-The exact `83309deeec03a8b22ea2c34a1089e6c9d3823911` release commit passed all
-five CI jobs. Its rebuilt web image
-`sha256:bc0399a4878bc4ce31373d066121bfbac8f9327f4201f7ddc38ea64846587829`
-passed ECR Basic scanning with zero findings. The production Clerk custom origin
-is present in the web CSP. An invitation for `james@skaldandstone.com` was
-accepted through Google OAuth, the authenticated Kall dashboard and billing
-screen loaded, and the application created the local Kall user. The billing
-screen correctly remained fail-closed while Stripe was disabled. This proves
-the invited production sign-in and BFF path for that user, not MFA recovery or
-account deletion.
+The 8 September parity release is source commit `1b8c8229398484674082b74fd846df3ed936e189`;
+commit `4b568ef472a53ad83eb9d8a7d61df68b0877e408` adds only the reviewed-snapshot
+packaging safeguard. The exact archived source manifest is
+`53c9a299e5fdd1802e54218687a88c0915029156d28573501e7310d4e0dde383`.
+The deployed API image is
+`sha256:2cacfebfd42f09eb577ea6c6c01bf3e8b76078dc551ef21ff75ddede532be554`;
+the deployed web image is
+`sha256:d2934a9241d47721bd1cef1fa0d9ab34d65dc2851f1b2c62af1e7c49ce5dfc16`.
+Both ECR Basic scans completed with zero findings. The one-shot migration task
+exited zero and logged verified Alembic head `20260908_0034`. Both services are
+1/1, both target groups are healthy, all six Kall production alarms are `OK`,
+and the public root, both health routes, and mobile release manifest return 200.
+RevenueCat remains fail-closed with its webhook returning 404 until store
+catalogs, credentials, and sandbox acceptance are complete.
 
 Production startup now fails closed unless all of the following are true:
 
@@ -88,7 +84,7 @@ version under this exception.
 
 Current local evidence on the production-preparation source:
 
-- 642 backend tests passed, including matching live-mode Checkout, webhook,
+- 763 backend tests passed, including matching live-mode Checkout, webhook,
   entitlement, Clerk-origin, and key-environment regressions;
 - full Ruff and Python compilation passed;
 - the web lockfile install, production build, TypeScript check, and production
@@ -96,7 +92,8 @@ Current local evidence on the production-preparation source:
 - 23 extension unit tests, 12 extension browser tests, and the bundle build
   passed; the production audit reports 14 moderate upstream findings and no high
   or critical finding;
-- mobile TypeScript passed; the production audit reports 29 moderate upstream
+- mobile TypeScript, Android/iOS release validators, Expo Doctor 21/21, and an
+  Android production export passed; the production audit reports 30 moderate upstream
   findings and no high or critical finding; and
 - focused release/configuration tests and CloudFormation lint passed with only
   the documented `E3691` exception.
@@ -159,6 +156,13 @@ These are external gates and cannot be marked complete by source tests:
    grace and recovery, plus a controlled live payment and refund.
    Exercise SES, monitoring, OpenAI, mobile signing, and the installed extension
    independently. A healthy base runtime enables none of them automatically.
+9. Google Play closed-test 1.1.0 build 9 and iOS 1.1.0 build 3 are store-built
+   from `1b8c822`. Android is in Play review and the iOS upload is processing in
+   App Store Connect. Native billing source is implemented, but activation
+   requires the two Google subscriptions, RevenueCat project/webhook/public SDK
+   key, a second Android build with purchases enabled, license-test acceptance,
+   and then the equivalent Apple catalog after paid-app agreements and compliance
+   are complete. See [`NATIVE_BILLING.md`](NATIVE_BILLING.md).
 
 ## Deployment sequence
 
