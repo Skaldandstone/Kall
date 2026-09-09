@@ -38,6 +38,7 @@ assert.ok(profile, `Missing EAS profile ${profileName}.`);
 assert.equal(profile.distribution, 'store', `${profileName} must be a "store" build -- Play Console tracks (Internal/Closed/Open/Production) are chosen at upload time, not by EAS's distribution field.`);
 assert.equal(profile.android?.buildType, 'app-bundle', `${profileName} must build an .aab; Play rejects APKs for new app submissions.`);
 assert.equal(profile.env?.KALL_MOBILE_RELEASE, '1', `${profileName} must enable release safeguards.`);
+assert.equal(profile.environment, 'production', `${profileName} must load the EAS production environment.`);
 assert.equal(profile.env?.API_BASE_URL, expectedApiBase, `${profileName} has the wrong API base.`);
 assert.match(
   profile.env?.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
@@ -73,14 +74,16 @@ for (const submitProfileName of ['production', 'internal-qa']) {
 
 const releaseEnvironment = profile.env;
 const previousEnvironment = Object.fromEntries(
-  Object.keys(releaseEnvironment).map((name) => [name, process.env[name]]),
+  [...Object.keys(releaseEnvironment), 'EXPO_PUBLIC_SENTRY_DSN'].map((name) => [name, process.env[name]]),
 );
 Object.assign(process.env, releaseEnvironment);
+process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://0123456789abcdef0123456789abcdef@o123456.ingest.us.sentry.io/123456';
 delete process.env.KALL_MOBILE_LOCAL_ANDROID_SIGNING;
 let resolvedReleaseConfig;
 try {
   const configModule = await import(pathToFileURL(path.join(mobileRoot, 'app.config.js')).href);
   resolvedReleaseConfig = configModule.default({ config: structuredClone(app) });
+  assert.equal(resolvedReleaseConfig.extra?.sentryDsn, process.env.EXPO_PUBLIC_SENTRY_DSN, 'Resolved release Sentry DSN is wrong.');
 } finally {
   for (const [name, value] of Object.entries(previousEnvironment)) {
     if (value === undefined) delete process.env[name];
@@ -143,6 +146,22 @@ assert.ok(
 assert.ok(
   appSource.includes('PurchaseBootstrap'),
   'The release must initialize native purchases inside the authenticated Clerk boundary.',
+);
+assert.ok(
+  appSource.includes("Sentry.init({") &&
+    appSource.includes("sendDefaultPii: false") &&
+    appSource.includes("export default Sentry.wrap(App)"),
+  'The release must initialize Sentry without default PII and wrap the mobile app.',
+);
+const clientSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'api', 'client.ts'),
+  'utf8',
+);
+assert.ok(
+  clientSource.includes('new File(file.uri)') &&
+    clientSource.includes('nativeFile.bytes()') &&
+    clientSource.includes('new Blob([bytes], { type: file.type })'),
+  'Native uploads must convert document-provider URIs into a real typed Blob.',
 );
 assert.ok(
   purchaseBootstrapSource.includes('appUserID: userId') &&

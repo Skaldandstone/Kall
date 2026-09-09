@@ -1,4 +1,6 @@
 import Constants from "expo-constants";
+import { fetch as expoFetch } from "expo/fetch";
+import { File } from "expo-file-system";
 
 import { getClerkInstance } from "@clerk/expo";
 
@@ -105,9 +107,14 @@ export async function apiUpload<T>(
 ): Promise<T> {
   const token = await sessionToken();
   if (!token) throw new ApiError("Not signed in", 401);
+  const nativeFile = new File(file.uri);
+  if (!nativeFile.exists) {
+    throw new ApiError("Kall could not read that file. Choose it again.", 400);
+  }
   const body = new FormData();
-  body.append(field, file as unknown as Blob);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const bytes = await nativeFile.bytes();
+  body.append(field, new Blob([bytes], { type: file.type }), file.name);
+  const response = await expoFetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body,

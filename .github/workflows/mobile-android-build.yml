@@ -11,6 +11,7 @@ on:
       - 'apps/mobile/App.tsx'
       - 'apps/mobile/app.json'
       - 'apps/mobile/app.config.js'
+      - 'apps/mobile/metro.config.js'
       - 'apps/mobile/eas.json'
       - 'apps/mobile/package.json'
       - 'apps/mobile/package-lock.json'

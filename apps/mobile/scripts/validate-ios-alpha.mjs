@@ -37,6 +37,7 @@ for (const [profileName, simulator] of [
   assert.equal(profile.ios?.simulator, simulator, `${profileName} has the wrong simulator target.`);
   assert.equal(profile.ios?.buildConfiguration, 'Release', `${profileName} must compile the Release configuration.`);
   assert.equal(profile.env?.KALL_MOBILE_RELEASE, '1', `${profileName} must enable release safeguards.`);
+  assert.equal(profile.environment, 'production', `${profileName} must load the EAS production environment.`);
   assert.equal(profile.env?.API_BASE_URL, expectedApiBase, `${profileName} has the wrong API base.`);
   assert.match(
     profile.env?.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
@@ -47,13 +48,15 @@ for (const [profileName, simulator] of [
 
 const releaseEnvironment = eas.build['ios-simulator-alpha'].env;
 const previousEnvironment = Object.fromEntries(
-  Object.keys(releaseEnvironment).map((name) => [name, process.env[name]]),
+  [...Object.keys(releaseEnvironment), 'EXPO_PUBLIC_SENTRY_DSN'].map((name) => [name, process.env[name]]),
 );
 Object.assign(process.env, releaseEnvironment);
+process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://0123456789abcdef0123456789abcdef@o123456.ingest.us.sentry.io/123456';
 let resolvedReleaseConfig;
 try {
   const configModule = await import(pathToFileURL(path.join(mobileRoot, 'app.config.js')).href);
   resolvedReleaseConfig = configModule.default({ config: structuredClone(app) });
+  assert.equal(resolvedReleaseConfig.extra?.sentryDsn, process.env.EXPO_PUBLIC_SENTRY_DSN, 'Resolved release Sentry DSN is wrong.');
 } finally {
   for (const [name, value] of Object.entries(previousEnvironment)) {
     if (value === undefined) delete process.env[name];
@@ -79,6 +82,12 @@ const billingSource = fs.readFileSync(
   'utf8',
 );
 assert.ok(appSource.includes('PurchaseBootstrap'), 'iOS must initialize native purchases after authentication.');
+assert.ok(
+  appSource.includes("Sentry.init({") &&
+    appSource.includes("sendDefaultPii: false") &&
+    appSource.includes("export default Sentry.wrap(App)"),
+  'iOS must initialize Sentry without default PII and wrap the mobile app.',
+);
 assert.ok(
   socialSource.includes("strategy: 'oauth_apple'") &&
     socialSource.includes("Platform.OS === 'ios'") &&

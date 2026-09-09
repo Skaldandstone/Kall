@@ -60,6 +60,15 @@ export type ResumeStudio = {
     default_resume_id?: number | null;
   }>;
 };
+export type CareerStrategySuggestion = {
+  profile_name?: string;
+  target_titles?: string[];
+  industries?: string[];
+  keywords?: string[];
+  work_types?: string[];
+  suggested_salary_min?: number | null;
+  suggested_salary_max?: number | null;
+};
 export type NotificationPreferences = {
   email_enabled: boolean;
   push_enabled: boolean;
@@ -82,9 +91,13 @@ export const createCareerProfile = (body: {
   name: string;
   target_titles: string[];
   industries: string[];
+  include_keywords?: string[];
   countries: string[];
   states_regions: string[];
   work_types: string[];
+  minimum_base?: number | null;
+  target_base?: number | null;
+  default_resume_id?: number | null;
 }) =>
   apiRequest<CareerProfile>("/me/professional-profiles", {
     method: "POST",
@@ -107,6 +120,11 @@ export const uploadResume = (file: {
     name: file.name,
     type: file.mimeType || "application/octet-stream",
   });
+export const suggestCareerStrategy = (resumeId: number) =>
+  apiRequest<{
+    ai_enabled: boolean;
+    suggestion: CareerStrategySuggestion | null;
+  }>(`/me/resumes/${resumeId}/suggest-strategy`, { method: "POST" });
 export const updateResume = (
   id: number,
   body: {

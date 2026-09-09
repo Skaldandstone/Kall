@@ -20,6 +20,18 @@ import {
 } from "../api/workspace";
 import { theme } from "../theme";
 
+const MAX_RESUME_BYTES = 15 * 1024 * 1024;
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  txt: "text/plain",
+};
+
+export function resumeMimeType(name: string, reported?: string | null) {
+  const extension = name.split(".").pop()?.toLowerCase() || "";
+  return MIME_BY_EXTENSION[extension] || reported || "application/octet-stream";
+}
+
 export default function ResumesScreen() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +62,18 @@ export default function ResumesScreen() {
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
+    const selected = result.assets[0];
+    if (selected.size != null && selected.size > MAX_RESUME_BYTES) {
+      setMessage("This resume is larger than the 15 MB upload limit.");
+      return;
+    }
     setBusy(true);
     try {
-      await uploadResume(result.assets[0]);
+      await uploadResume({
+        uri: selected.uri,
+        name: selected.name,
+        mimeType: resumeMimeType(selected.name, selected.mimeType),
+      });
       await load();
       setMessage("Resume uploaded.");
     } catch (e) {
@@ -140,7 +161,11 @@ export default function ResumesScreen() {
       {message ? (
         <Text
           accessibilityLiveRegion="polite"
-          style={message.includes("Unable") ? styles.error : styles.success}
+          style={
+            message.includes("uploaded") || message.includes("updated")
+              ? styles.success
+              : styles.error
+          }
         >
           {message}
         </Text>

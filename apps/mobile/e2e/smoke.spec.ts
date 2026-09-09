@@ -134,7 +134,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Today", { exact: true }).first(),
       ).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText(/Welcome back/).first()).toBeVisible();
+      await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
     });
 
     await test.step("Jobs tab renders", async () => {
@@ -175,10 +175,21 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
 
     await test.step("Today tab renders", async () => {
       await page.getByRole("tab", { name: "Today" }).click();
-      await expect(page.getByText(/Welcome back/).first()).toBeVisible();
+      await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
     });
 
     await test.step("Profile tab renders and signs out", async () => {
+      let createdProfile: Record<string, unknown> | undefined;
+      await page.route("**/api/me/career-profiles", (route) =>
+        route.fulfill({ json: { profiles: [] } }),
+      );
+      await page.route("**/api/me/resume-studio", (route) =>
+        route.fulfill({ json: { resumes: [], profiles: [] } }),
+      );
+      await page.route("**/api/me/professional-profiles", async (route) => {
+        createdProfile = route.request().postDataJSON();
+        await route.fulfill({ json: { id: 27, ...createdProfile } });
+      });
       await page.getByRole("tab", { name: "Profile" }).click();
       await expect(
         page.getByText("Career profiles", { exact: true }),
@@ -187,6 +198,24 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Notifications", { exact: true }),
       ).toBeVisible();
+      await page.getByText("Career profiles", { exact: true }).click();
+      await expect(page.getByText("Build a direction with Kall")).toBeVisible();
+      await page.getByText("Start guided profile", { exact: true }).click();
+      await page.getByLabel("What should we call this career direction?").fill("Quality leadership");
+      await page.getByText("Keep this answer", { exact: true }).click();
+      await page.getByLabel("Which roles should Kall look for?").fill("QA Director, Head of Quality");
+      await page.getByText("Keep this answer", { exact: true }).click();
+      for (let question = 2; question < 7; question += 1) {
+        await page.getByText("Leave open for now", { exact: true }).click();
+      }
+      await expect(page.getByText("Review your direction")).toBeVisible();
+      await page.getByText("Create this profile", { exact: true }).click();
+      await expect.poll(() => createdProfile).toMatchObject({
+        name: "Quality leadership",
+        target_titles: ["QA Director", "Head of Quality"],
+      });
+      await page.getByRole("tab", { name: "Today" }).click();
+      await page.getByRole("tab", { name: "Profile" }).click();
       await page.getByText("Sign out").click();
       await expect(
         page.getByText("Sign in to your career workspace."),

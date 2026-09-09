@@ -8,6 +8,10 @@ param(
     [ValidatePattern('^pk_(test|live)_')]
     [string]$ClerkPublishableKey,
 
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^https://[0-9a-f]+@o[0-9]+\.ingest\.(us|de)\.sentry\.io/[0-9]+$')]
+    [string]$SentryDsn,
+
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\dist')
 )
 
@@ -72,6 +76,7 @@ try {
     $env:KALL_MOBILE_LOCAL_ANDROID_SIGNING = '1'
     $env:API_BASE_URL = $ApiBaseUrl
     $env:EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = $ClerkPublishableKey
+    $env:EXPO_PUBLIC_SENTRY_DSN = $SentryDsn
     $env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
     $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
     $env:ORG_GRADLE_PROJECT_KALL_RELEASE_STORE_FILE = $keyStorePath.Replace('\', '/')
@@ -99,7 +104,7 @@ finally {
     Set-Location -LiteralPath $previousLocation
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
     $plainPassword = $null
-    Remove-Item Env:NODE_ENV, Env:KALL_MOBILE_RELEASE, Env:KALL_MOBILE_LOCAL_ANDROID_SIGNING, Env:API_BASE_URL, Env:EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, `
+    Remove-Item Env:NODE_ENV, Env:KALL_MOBILE_RELEASE, Env:KALL_MOBILE_LOCAL_ANDROID_SIGNING, Env:API_BASE_URL, Env:EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, Env:EXPO_PUBLIC_SENTRY_DSN, `
         Env:ANDROID_HOME, Env:ANDROID_SDK_ROOT, Env:ORG_GRADLE_PROJECT_KALL_RELEASE_STORE_FILE, `
         Env:ORG_GRADLE_PROJECT_KALL_RELEASE_STORE_PASSWORD, Env:ORG_GRADLE_PROJECT_KALL_RELEASE_KEY_ALIAS, `
         Env:ORG_GRADLE_PROJECT_KALL_RELEASE_KEY_PASSWORD -ErrorAction SilentlyContinue

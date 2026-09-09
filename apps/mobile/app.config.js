@@ -13,6 +13,7 @@ module.exports = ({ config }) => {
   const purchasesEnabled = process.env.KALL_MOBILE_PURCHASES_ENABLED === '1';
   const buildPlatform = process.env.EAS_BUILD_PLATFORM;
   const appleSignInEnabled = process.env.KALL_MOBILE_APPLE_SIGN_IN_ENABLED === '1';
+  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN || config.extra?.sentryDsn;
   const isRelease = process.env.KALL_MOBILE_RELEASE === '1';
   // Only the local, sideloaded alpha-APK flow (build-alpha-apk.ps1) needs the
   // with-release-signing plugin -- it patches the generated Gradle build to
@@ -33,6 +34,7 @@ module.exports = ({ config }) => {
     if (!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY) {
       missing.push('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
     }
+    if (!process.env.EXPO_PUBLIC_SENTRY_DSN) missing.push('EXPO_PUBLIC_SENTRY_DSN');
     if (missing.length) {
       throw new Error(`Kall mobile release build is missing ${missing.join(' and ')}`);
     }
@@ -62,6 +64,10 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       '@clerk/expo',
       'expo-web-browser',
+      ['@sentry/react-native/expo', {
+        organization: 'skald-and-stone',
+        project: 'kall-mobile-sp',
+      }],
       ...(useLocalAndroidSigning ? ['./plugins/with-release-signing'] : []),
     ],
     extra: {
@@ -74,6 +80,7 @@ module.exports = ({ config }) => {
       revenueCatAppleApiKey,
       purchasesEnabled,
       appleSignInEnabled,
+      sentryDsn,
       // Kall is a public product now (the web app dropped its invite-only
       // gate the same way) -- a release build follows app.json's setting
       // like any other build. An explicit override still lets a fixture or

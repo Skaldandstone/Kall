@@ -58,4 +58,4 @@ def test_mobile_registration_is_open_like_web_but_the_invite_only_ui_stays_testa
     # The override that lets a test force either state regardless of build
     # type still exists, so the invite-only screen stays exercisable.
     assert "KALL_MOBILE_ALLOW_REGISTRATION" in app_config
-    assert "KALL_MOBILE_ALLOW_REGISTRATION: '0'" in playwright_config
+    assert "process.env.KALL_MOBILE_ALLOW_REGISTRATION ?? '0'" in playwright_config

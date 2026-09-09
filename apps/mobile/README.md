@@ -58,21 +58,23 @@ change it now if it should be anything else. `ios.bundleIdentifier` matches.
 | --------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
 | API base URL          | `app.json` → `expo.extra.apiBaseUrl` (Android emulator localhost) | `API_BASE_URL` env var                      |
 | Clerk publishable key | `app.json` → `expo.extra.clerkPublishableKey`                     | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` env var |
+| Sentry client DSN     | Disabled locally unless configured                               | `EXPO_PUBLIC_SENTRY_DSN` env var             |
 
 The defaults support local Android-emulator development and the development
 Clerk instance. A review or production build must set `KALL_MOBILE_RELEASE=1`,
 `API_BASE_URL` to the selected HTTPS runtime ending in `/api`, and
-`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`. `app.config.js` fails the build when any
+`EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, and `EXPO_PUBLIC_SENTRY_DSN`. `app.config.js` fails the build when any
 release value is missing, so an APK cannot silently ship with a localhost or
-expired CloudFront URL. Release builds also force self-service registration
-off. Invited alpha users sign in with the account attached to their invitation;
-the registration screen remains available only to local automated tests.
+expired CloudFront URL or without crash reporting. Store `SENTRY_AUTH_TOKEN` as
+a sensitive EAS production environment variable so release source maps upload
+to the `skald-and-stone/kall-mobile-sp` Sentry project. The token is build-only and
+must never be added to `app.json`, committed, or exposed through `extra`.
 
 Build the signed internal APK from PowerShell after the alpha URL is known:
 
 ```powershell
 Set-Location -LiteralPath 'C:\Users\James\Documents\GitHub\Kall\apps\mobile'
-.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_test_...'
+.\scripts\build-alpha-apk.ps1 -ApiBaseUrl 'https://kall.skaldandstone.com/api' -ClerkPublishableKey 'pk_live_...' -SentryDsn 'https://public-key@o0.ingest.sentry.io/0'
 ```
 
 The first run creates a dedicated alpha signing key under
