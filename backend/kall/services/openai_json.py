@@ -15,6 +15,8 @@ five-minute fix and an afternoon.
 
 import json
 import logging
+import re
+import unicodedata
 from typing import Any
 
 import httpx
@@ -24,6 +26,35 @@ logger = logging.getLogger(__name__)
 
 _ENDPOINT = "https://api.openai.com/v1/responses"
 _TIMEOUT = 60
+_LATIN = re.compile(r"[A-Za-z]")
+_TRAILING_CYRILLIC_FRAGMENT = re.compile(r"\s*[\u0400-\u04ff]{1,2}$")
+
+
+def _clean_ai_text(value: str) -> str:
+    """Normalize generated copy and remove common accidental output artifacts.
+
+    Entirely Cyrillic (or other non-Latin) suggestions remain valid. We only
+    remove a one or two character Cyrillic fragment appended to otherwise
+    Latin text, the production artifact reported in profile suggestions.
+    """
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = "".join(
+        character for character in normalized
+        if character in "\n\r\t" or unicodedata.category(character) not in {"Cc", "Cf"}
+    )
+    if _LATIN.search(normalized) and _TRAILING_CYRILLIC_FRAGMENT.search(normalized):
+        normalized = _TRAILING_CYRILLIC_FRAGMENT.sub("", normalized)
+    return normalized.strip()
+
+
+def _clean_ai_output(value: Any) -> Any:
+    if isinstance(value, str):
+        return _clean_ai_text(value)
+    if isinstance(value, list):
+        return [_clean_ai_output(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _clean_ai_output(item) for key, item in value.items()}
+    return value
 
 
 def _extract_text(payload: dict[str, Any]) -> str | None:
@@ -110,7 +141,7 @@ def ask_for_json(
         return None
 
     try:
-        return json.loads(text)
+        return _clean_ai_output(json.loads(text))
     except json.JSONDecodeError:
         # strict json_schema should prevent this; if it happens, the schema or
         # the model is not doing what we think it is.

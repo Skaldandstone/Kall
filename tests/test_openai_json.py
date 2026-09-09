@@ -15,6 +15,13 @@ from kall.config import get_settings
 from kall.services import openai_json
 
 
+def test_clean_ai_output_removes_only_trailing_mixed_script_artifacts() -> None:
+    assert openai_json._clean_ai_text("Quality Director\u0430") == "Quality Director"
+    assert openai_json._clean_ai_text("Quality Director \u0430\u0431") == "Quality Director"
+    assert openai_json._clean_ai_text("\u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430") == "\u0414\u0438\u0440\u0435\u043a\u0442\u043e\u0440 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u0430"
+    assert openai_json._clean_ai_text("SaaS\u200b") == "SaaS"
+
+
 class FakeResponse:
     def __init__(self, status_code: int, body, text: str = "") -> None:
         self.status_code = status_code

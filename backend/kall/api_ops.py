@@ -6,7 +6,7 @@ from kall.db import get_session
 
 router = APIRouter(tags=["operations"])
 
-LATEST_ANDROID_VERSION = "1.1.2"
+LATEST_ANDROID_VERSION = "1.1.3"
 PLAY_TEST_URL = "https://play.google.com/apps/testing/com.skaldandstone.kall"
 
 

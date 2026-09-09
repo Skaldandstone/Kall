@@ -214,7 +214,12 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await page.getByText("Start guided profile", { exact: true }).click();
       await page.getByLabel("What should we call this career direction?").fill("Quality leadership");
       await page.getByText("Keep this answer", { exact: true }).click();
-      await page.getByLabel("Which roles should Kall look for?").fill("QA Director, Head of Quality");
+      await page.getByLabel("Add roles").fill("QA Director");
+      await page.getByRole("button", { name: "Confirm roles entry" }).click();
+      await expect(page.getByText("QA Director", { exact: true })).toBeVisible();
+      await page.getByLabel("Add roles").fill("Head of Quality");
+      await page.getByRole("button", { name: "Confirm roles entry" }).click();
+      await expect(page.getByText("Head of Quality", { exact: true })).toBeVisible();
       await page.getByText("Keep this answer", { exact: true }).click();
       for (let question = 2; question < 7; question += 1) {
         await page.getByText("Leave open for now", { exact: true }).click();
