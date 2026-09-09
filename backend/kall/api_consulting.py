@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Literal
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -9,6 +10,7 @@ from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import (
+    CareerProfile,
     ConsultingEngagement,
     ConsultingFollowUp,
     ConsultingLead,
@@ -194,6 +196,55 @@ def _owned_lead(session: Session, lead_id: int | None, user_id: int) -> None:
         _owned(session, ConsultingLead, lead_id, user_id, "Consulting lead")
 
 
+def _owned_profile(session: Session, profile_id: int, user_id: int) -> CareerProfile:
+    return _owned(session, CareerProfile, profile_id, user_id, "Professional profile")
+
+
+def _consulting_searches(profile: CareerProfile, focus: str) -> list[dict[str, str]]:
+    titles = [value.strip() for value in profile.target_titles if value.strip()][:3]
+    functions = [value.strip() for value in profile.functional_areas if value.strip()][:3]
+    industries = [value.strip() for value in profile.industries if value.strip()][:2]
+    specialty = focus.strip() or " OR ".join(functions or titles) or "business transformation"
+    market = " OR ".join(industries)
+    context = f" ({market})" if market else ""
+    searches = [
+        (
+            "Catalant",
+            "catalant.com",
+            f"({specialty}) (consultant OR advisory OR assessment){context}",
+            "Look for scoped projects where an experienced independent specialist can solve a named business problem.",
+        ),
+        (
+            "Business Talent Group",
+            "businesstalentgroup.com",
+            f"({specialty}) (interim OR consultant OR transformation){context}",
+            "Look for interim leadership and project work with a clear executive owner.",
+        ),
+        (
+            "Go Fractional",
+            "gofractional.com",
+            f"({specialty}) (fractional OR advisor){context}",
+            "Look for fractional work that matches your leadership level and proof of delivery.",
+        ),
+        (
+            "Open web",
+            "",
+            f'"seeking consultant" ({specialty}){context}',
+            "Find public demand signals outside a single marketplace, then verify the organization and scope.",
+        ),
+    ]
+    return [
+        {
+            "provider": provider,
+            "query": f"site:{domain} {query}" if domain else query,
+            "search_url": f"https://www.google.com/search?q={quote_plus(f'site:{domain} {query}' if domain else query)}",
+            "rationale": rationale,
+            "suggested_segment": "marketplace" if domain else "inbound",
+        }
+        for provider, domain, query, rationale in searches
+    ]
+
+
 def _save(session: Session, row):
     row.updated_at = utcnow()
     session.add(row)
@@ -212,6 +263,56 @@ def consulting_workspace(
         "proposals": list(session.exec(select(ConsultingProposal).where(ConsultingProposal.user_id == current_user.id).order_by(ConsultingProposal.updated_at.desc()))),
         "follow_ups": list(session.exec(select(ConsultingFollowUp).where(ConsultingFollowUp.user_id == current_user.id).order_by(ConsultingFollowUp.due_on, ConsultingFollowUp.id))),
         "engagements": list(session.exec(select(ConsultingEngagement).where(ConsultingEngagement.user_id == current_user.id).order_by(ConsultingEngagement.updated_at.desc()))),
+    }
+
+
+@router.get("/discovery-plan/{profile_id}")
+def consulting_discovery_plan(
+    profile_id: int,
+    focus: str = Query(default="", max_length=120),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Turn a career profile into reviewable consulting-search actions.
+
+    This finds public search paths and prompts from contacts the user already
+    recorded. It never searches private networks or sends outreach.
+    """
+    profile = _owned_profile(session, profile_id, current_user.id)
+    contacts = list(
+        session.exec(
+            select(Contact)
+            .where(Contact.user_id == current_user.id)
+            .order_by(Contact.last_contacted_on.desc(), Contact.updated_at.desc())
+            .limit(5)
+        )
+    )
+    specialty = focus.strip() or ", ".join(profile.functional_areas[:2] or profile.target_titles[:2])
+    if not specialty:
+        specialty = "your strongest business outcome"
+    return {
+        "professional_profile_id": profile.id,
+        "profile_name": profile.name,
+        "positioning": f"Lead with {specialty}. Look for a specific business problem, a decision maker, and an outcome you can prove.",
+        "qualification_questions": [
+            "What expensive or urgent problem is this organization trying to solve?",
+            "Who owns the outcome and can approve outside help?",
+            "What measurable result could you deliver in the first 30 days?",
+            "Which achievement in your profile proves you can do this work?",
+            "Is there a real timeline and budget, or only general interest?",
+        ],
+        "searches": _consulting_searches(profile, focus),
+        "warm_lead_prompts": [
+            {
+                "contact_id": contact.id,
+                "name": contact.name,
+                "company": contact.company,
+                "title": contact.title,
+                "relationship": contact.relationship,
+                "assistant_prompt": f"Ask whether {contact.name} knows a team facing a {specialty} problem. Draft and review the message before sending it outside Kall.",
+            }
+            for contact in contacts
+        ],
     }
 
 

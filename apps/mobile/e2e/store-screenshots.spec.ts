@@ -148,7 +148,7 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
     await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '4-morning-brief.png') });
 
-    await page.getByRole('tab', { name: 'Jobs and opportunities' }).click();
+    await page.getByRole('tab', { name: 'Job search and consulting' }).click();
     await expect(page.getByText('Search the boards Kall watches for you.')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '5-opportunities.png') });
 

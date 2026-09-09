@@ -137,8 +137,19 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
     });
 
-    await test.step("Jobs tab renders", async () => {
-      await page.getByRole("tab", { name: "Jobs and opportunities" }).click();
+    await test.step("Job search and consulting remain parallel tracks", async () => {
+      await page.getByRole("tab", { name: "Job search and consulting" }).click();
+      await expect(
+        page.getByText("Search the boards Kall watches for you."),
+      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Job search", exact: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await page.getByRole("tab", { name: "Consulting", exact: true }).click();
+      await expect(page.getByText("Find work, then build the pipeline.")).toBeVisible();
+      await expect(page.getByText("Ask Kall to find consulting leads")).toBeVisible();
+      await page.getByRole("tab", { name: "Job search", exact: true }).click();
       await expect(
         page.getByText("Search the boards Kall watches for you."),
       ).toBeVisible();

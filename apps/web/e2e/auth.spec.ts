@@ -31,7 +31,7 @@ test.describe('authentication boundary', () => {
     expect(mobileRelease.ok()).toBeTruthy();
     expect(await mobileRelease.json()).toEqual({
       platform: 'android',
-      latestVersion: '1.1.1',
+      latestVersion: '1.1.2',
       updateUrl: 'https://play.google.com/apps/testing/com.skaldandstone.kall',
     });
 

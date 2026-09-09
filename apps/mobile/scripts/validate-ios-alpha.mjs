@@ -81,6 +81,10 @@ const billingSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'screens', 'BillingScreen.tsx'),
   'utf8',
 );
+const releaseResetSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'ReleaseResetGate.tsx'),
+  'utf8',
+);
 assert.ok(appSource.includes('PurchaseBootstrap'), 'iOS must initialize native purchases after authentication.');
 assert.ok(
   appSource.includes("Sentry.init({") &&
@@ -97,6 +101,14 @@ assert.ok(
 assert.ok(
   billingSource.includes('Purchases.purchasePackage') && billingSource.includes('Purchases.restorePurchases()'),
   'iOS billing must support StoreKit purchase and explicit restore flows.',
+);
+assert.ok(
+  appSource.includes('ReleaseResetGate') &&
+    releaseResetSource.includes('Application.nativeApplicationVersion') &&
+    releaseResetSource.includes('Application.nativeBuildVersion') &&
+    releaseResetSource.includes('await clerk.signOut()') &&
+    releaseResetSource.includes('await clearSessionTokenCache()'),
+  'A changed native release must require a fresh Clerk login on iOS too.',
 );
 
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {

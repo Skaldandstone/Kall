@@ -37,6 +37,33 @@ async function trackExternalApplication(posting: { url: string; title: string; s
   return true;
 }
 
+async function trackConsultingLead(posting: { url: string; title: string; snippet: string }) {
+  let organization = 'Public opportunity';
+  try { organization = new URL(posting.url).hostname.replace(/^www\./, ''); } catch { /* keep fallback */ }
+  const response = await fetch(`${API}/me/consulting/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      organization,
+      opportunity_name: posting.title,
+      relationship_segment: 'marketplace',
+      source: 'Kall public lead finder',
+      source_url: posting.url,
+      next_step: 'Verify the business problem, decision maker, timeline, budget, and fit.',
+      notes: posting.snippet || null,
+    }),
+  });
+  if (response.status === 401) { window.location.replace('/sign-in'); return false; }
+  if (!response.ok) {
+    let message = 'Unable to track that consulting lead.';
+    try { const data = await response.json(); if (typeof data.detail === 'string') message = data.detail; } catch { /* keep fallback */ }
+    showToast(message, 'error');
+    return false;
+  }
+  showToast('Consulting lead added to your private pipeline.', 'success');
+  return true;
+}
+
 function addAppliedPrompt(result: HTMLElement, posting: { url: string; title: string; snippet: string; profileId?: string }) {
   const actions = result.querySelector<HTMLElement>('.kall-search-result-actions');
   if (!actions || actions.querySelector('.kall-applied-prompt')) return;
@@ -58,8 +85,8 @@ function addAppliedPrompt(result: HTMLElement, posting: { url: string; title: st
   actions.appendChild(prompt);
 }
 
-function decorateResults(container: HTMLElement, profileId?: string) {
-  const pending = getPendingPosting();
+function decorateResults(container: HTMLElement, profileId?: string, mode: 'jobs' | 'consulting' = 'jobs') {
+  const pending = mode === 'jobs' ? getPendingPosting() : null;
   container.querySelectorAll<HTMLElement>('.gsc-webResult.gsc-result').forEach((result) => {
     const titleLink = result.querySelector<HTMLAnchorElement>('.gs-title a');
     if (!titleLink?.href) return;
@@ -74,12 +101,24 @@ function decorateResults(container: HTMLElement, profileId?: string) {
       const actions = document.createElement('div');
       actions.className = 'kall-search-result-actions';
 
-      const apply = document.createElement('a');
-      apply.className = 'button kall-result-apply';
-      apply.textContent = 'Apply with Kall';
-      const params = new URLSearchParams({ external_url: titleLink.href, title, snippet });
-      if (profileId) params.set('profile', profileId);
-      apply.href = `/applications/new?${params.toString()}`;
+      const primary = mode === 'consulting'
+        ? document.createElement('button')
+        : document.createElement('a');
+      primary.className = 'button kall-result-apply';
+      if (mode === 'consulting') {
+        primary.textContent = 'Track consulting lead';
+        (primary as HTMLButtonElement).type = 'button';
+        primary.onclick = async () => {
+          (primary as HTMLButtonElement).disabled = true;
+          if (await trackConsultingLead(posting)) result.remove();
+          else (primary as HTMLButtonElement).disabled = false;
+        };
+      } else {
+        primary.textContent = 'Apply with Kall';
+        const params = new URLSearchParams({ external_url: titleLink.href, title, snippet });
+        if (profileId) params.set('profile', profileId);
+        (primary as HTMLAnchorElement).href = `/applications/new?${params.toString()}`;
+      }
 
       const view = document.createElement('a');
       view.className = 'button secondary';
@@ -87,7 +126,7 @@ function decorateResults(container: HTMLElement, profileId?: string) {
       view.href = titleLink.href;
       view.target = '_blank';
       view.rel = 'noreferrer';
-      view.onclick = () => setPendingPosting(posting);
+      if (mode === 'jobs') view.onclick = () => setPendingPosting(posting);
 
       // Dead links are the single biggest source of noise in these results:
       // boards keep serving a page long after the role is filled. Flagging one
@@ -103,7 +142,7 @@ function decorateResults(container: HTMLElement, profileId?: string) {
         showToast('Flagged as a dead link. Undo from "Restore hidden results".', 'success');
       };
 
-      actions.append(apply, view, dead);
+      actions.append(primary, view, dead);
       result.appendChild(actions);
     }
 
@@ -118,7 +157,7 @@ export function soloQuery(query: string): SiteQuery[] {
   return query ? [{ provider: '', domain: '', query }] : [];
 }
 
-export default function GoogleJobSearchResults({ queries, profileId }: { queries: SiteQuery[]; profileId?: string }) {
+export default function GoogleJobSearchResults({ queries, profileId, mode = 'jobs' }: { queries: SiteQuery[]; profileId?: string; mode?: 'jobs' | 'consulting' }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const reactId = useId().replace(/:/g, '');
   const elementName = `kall-job-results-${reactId}`;
@@ -137,7 +176,7 @@ export default function GoogleJobSearchResults({ queries, profileId }: { queries
     const current = queries[pageIndex];
     if (!current || !containerRef.current) return;
 
-    const refreshDecorations = () => { if (containerRef.current) decorateResults(containerRef.current, profileId); };
+    const refreshDecorations = () => { if (containerRef.current) decorateResults(containerRef.current, profileId, mode); };
     const onFocus = () => refreshDecorations();
     const onChanged = () => refreshDecorations();
     window.addEventListener('focus', onFocus);
@@ -172,7 +211,7 @@ export default function GoogleJobSearchResults({ queries, profileId }: { queries
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('kall:search-results-changed', onChanged);
     };
-  }, [elementName, profileId, queries, pageIndex]);
+  }, [elementName, mode, profileId, queries, pageIndex]);
 
   const current = queries[pageIndex];
 

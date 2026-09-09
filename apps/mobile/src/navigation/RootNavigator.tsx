@@ -106,7 +106,7 @@ function OpportunitiesNavigator() {
       <OpportunitiesStack.Screen
         name="Consulting"
         component={ConsultingScreen}
-        options={{ title: "Consulting" }}
+        options={{ headerShown: false }}
       />
     </OpportunitiesStack.Navigator>
   );
@@ -184,9 +184,10 @@ function AppNavigator() {
         name="OpportunitiesTab"
         component={OpportunitiesNavigator}
         options={{
-          title: "Jobs",
-          tabBarAccessibilityLabel: "Jobs and opportunities",
+          title: "Work",
+          tabBarAccessibilityLabel: "Job search and consulting",
           tabBarIcon: tabIcon("⌕"),
+          popToTopOnBlur: true,
         }}
       />
       <Tab.Screen

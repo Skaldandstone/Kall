@@ -48,8 +48,37 @@ export type ConsultingWorkspace = {
   engagements: ConsultingEngagement[];
 };
 
+export type ConsultingDiscoveryPlan = {
+  professional_profile_id: number;
+  profile_name: string;
+  positioning: string;
+  qualification_questions: string[];
+  searches: Array<{
+    provider: string;
+    query: string;
+    search_url: string;
+    rationale: string;
+    suggested_segment: string;
+  }>;
+  warm_lead_prompts: Array<{
+    contact_id: number;
+    name: string;
+    company: string | null;
+    title: string | null;
+    relationship: string | null;
+    assistant_prompt: string;
+  }>;
+};
+
 export const fetchConsultingWorkspace = () =>
   apiRequest<ConsultingWorkspace>("/me/consulting/workspace");
+
+export const fetchConsultingDiscoveryPlan = (profileId: number, focus = "") => {
+  const query = focus.trim() ? `?focus=${encodeURIComponent(focus.trim())}` : "";
+  return apiRequest<ConsultingDiscoveryPlan>(
+    `/me/consulting/discovery-plan/${profileId}${query}`,
+  );
+};
 
 export const createConsultingLead = (body: object) =>
   apiRequest<ConsultingLead>("/me/consulting/leads", { method: "POST", body });

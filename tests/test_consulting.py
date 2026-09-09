@@ -1,6 +1,7 @@
 from datetime import date
 
 from kall.models import (
+    CareerProfile,
     ConsultingEngagement,
     ConsultingFollowUp,
     ConsultingLead,
@@ -26,6 +27,56 @@ def _lead(client, **overrides):
     response = client.post(f"{BASE}/leads", json=payload)
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(client, engine) -> None:
+    with Session(engine) as session:
+        profile = CareerProfile(
+            user_id=client.user_id,
+            name="Quality leadership",
+            target_titles=["VP Quality"],
+            industries=["health tech"],
+            functional_areas=["release readiness"],
+        )
+        contact = Contact(
+            user_id=client.user_id,
+            name="Avery Morgan",
+            company="Northstar",
+            title="CTO",
+            relationship="former colleague",
+        )
+        session.add(profile)
+        session.add(contact)
+        session.commit()
+        session.refresh(profile)
+
+    response = client.get(f"{BASE}/discovery-plan/{profile.id}?focus=quality%20risk")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["profile_name"] == "Quality leadership"
+    assert "quality risk" in payload["positioning"]
+    assert len(payload["qualification_questions"]) == 5
+    assert {item["provider"] for item in payload["searches"]} == {
+        "Catalant",
+        "Business Talent Group",
+        "Go Fractional",
+        "Open web",
+    }
+    assert all(item["search_url"].startswith("https://www.google.com/search?q=") for item in payload["searches"])
+    assert payload["warm_lead_prompts"][0]["name"] == "Avery Morgan"
+
+    with Session(engine) as session:
+        other = User(clerk_user_id="user_other_profile", email="profile-owner@example.com", full_name="Other")
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+        private_profile = CareerProfile(user_id=other.id, name="Private")
+        session.add(private_profile)
+        session.commit()
+        session.refresh(private_profile)
+        private_profile_id = private_profile.id
+
+    assert client.get(f"{BASE}/discovery-plan/{private_profile_id}").status_code == 404
 
 
 def test_leads_are_segmented_and_scoped_to_the_signed_in_account(client, engine) -> None:

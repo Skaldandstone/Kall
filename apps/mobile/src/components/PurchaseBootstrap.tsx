@@ -6,6 +6,16 @@ import Purchases from 'react-native-purchases';
 
 let configuredUserId: string | null = null;
 
+export async function resetPurchaseSession(): Promise<void> {
+  if (configuredUserId === null || !mobilePurchasesEnabled()) return;
+  try {
+    Purchases.invalidateCustomerInfoCache();
+    await Purchases.logOut();
+  } finally {
+    configuredUserId = null;
+  }
+}
+
 function platformApiKey(): string | undefined {
   if (Platform.OS === 'android') {
     return Constants.expoConfig?.extra?.revenueCatAndroidApiKey as string | undefined;

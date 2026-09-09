@@ -11,6 +11,12 @@ type Proposal = { id: number; lead_id: number; title: string; summary: string | 
 type FollowUp = { id: number; lead_id: number; due_on: string; channel: string; purpose: string; draft_message: string | null; status: string };
 type Engagement = { id: number; lead_id: number | null; client_name: string; name: string; status: string; fee_cents: number | null; design_partner_product: string | null; design_partner_stage: string | null };
 type Workspace = { leads: Lead[]; proposals: Proposal[]; follow_ups: FollowUp[]; engagements: Engagement[] };
+type DiscoveryPlan = {
+  positioning: string;
+  qualification_questions: string[];
+  searches: Array<{ provider: string; query: string; rationale: string }>;
+  warm_lead_prompts: Array<{ contact_id: number; name: string; company: string | null; assistant_prompt: string }>;
+};
 type Submit = (path: string, body: object, success: string, method?: string) => Promise<boolean>;
 
 const EMPTY_WORKSPACE: Workspace = { leads: [], proposals: [], follow_ups: [], engagements: [] };
@@ -25,19 +31,6 @@ const CHANNELS = [
   { name: 'Go Fractional', url: 'https://www.gofractional.com/explore/engineering', note: 'Fractional engineering leadership and infrastructure work.' },
   { name: 'Fractionus', url: 'https://fractionus.com/apply', note: 'Fractional executive and specialist matching.' },
 ] as const;
-const SEARCHES = [
-  ['Catalant projects', 'catalant.com', 'quality engineering OR release readiness OR software delivery consultant'],
-  ['BTG projects', 'businesstalentgroup.com', 'technology quality OR engineering transformation OR interim technology leader'],
-  ['Fractional leadership', 'gofractional.com', 'quality engineering OR release management OR engineering operations'],
-  ['Fractional executive work', 'fractionus.com', 'quality OR engineering OR technology operations'],
-  ['Open consulting demand', '', '"release readiness" consultant OR "quality engineering" consultant OR "fractional quality"'],
-  ['Interim leadership', '', '"interim director" "quality engineering" OR "fractional VP" quality software'],
-] as const;
-
-function buildQueries(extraTerms: string): SiteQuery[] {
-  const extra = extraTerms.trim();
-  return SEARCHES.map(([provider, domain, intent]) => ({ provider, domain, query: `${domain ? `site:${domain} ` : ''}${intent}${extra ? ` ${extra}` : ''}` }));
-}
 function money(cents: number | null) { return cents === null ? 'Value not set' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100); }
 function label(value: string) { return value.replaceAll('_', ' '); }
 async function responseMessage(response: Response, fallback: string) { try { const body = await response.json(); return typeof body?.detail === 'string' ? body.detail : fallback; } catch { return fallback; } }
@@ -52,7 +45,7 @@ export default function ConsultingTab() {
   const [profileId, setProfileId] = useState('');
   const [extraTerms, setExtraTerms] = useState('');
   const [queries, setQueries] = useState<SiteQuery[]>([]);
-  const plannedQueries = useMemo(() => buildQueries(extraTerms), [extraTerms]);
+  const [discoveryPlan, setDiscoveryPlan] = useState<DiscoveryPlan | null>(null);
   const visibleLeads = useMemo(() => workspace.leads.filter((lead) => segment === 'all' || (segment === 'warm' ? WARM_SEGMENTS.has(lead.relationship_segment) : lead.relationship_segment === segment)), [segment, workspace.leads]);
   const leadNames = useMemo(() => new Map(workspace.leads.map((lead) => [lead.id, `${lead.organization}: ${lead.opportunity_name}`])), [workspace.leads]);
   const vaettirPartners = workspace.engagements.filter((engagement) => engagement.design_partner_product === 'vaettir');
@@ -78,6 +71,18 @@ export default function ConsultingTab() {
     setActiveForm(form);
     window.setTimeout(() => document.getElementById('consulting-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
   }
+  async function prepareLeadSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profileId) { setMessage('Choose a professional profile so Kall can tailor the consulting search.'); return; }
+    setMessage('Kall is preparing lead paths…');
+    const query = extraTerms.trim() ? `?focus=${encodeURIComponent(extraTerms.trim())}` : '';
+    const response = await fetchKall(`/me/consulting/discovery-plan/${profileId}${query}`);
+    if (!response.ok) { setMessage(await responseMessage(response, 'Unable to prepare consulting searches.')); return; }
+    const plan: DiscoveryPlan = await response.json();
+    setDiscoveryPlan(plan);
+    setQueries(plan.searches.map((item) => ({ provider: item.provider, domain: '', query: item.query })));
+    setMessage('Kall prepared public searches and qualification questions for this direction.');
+  }
 
   return <section aria-label="Consulting opportunities" className={styles.workspace}>
     <section className="card"><span className="eyebrow">Consulting pipeline</span><div className={styles.heroRow}><div><h2>Turn trusted relationships into reviewable consulting work.</h2><p>Track a prospect, prepare a proposal, and plan each follow-up. Kall stores drafts and approvals but never contacts anyone or submits on your behalf.</p></div><button className="button" type="button" onClick={() => chooseForm('lead')}>Add a lead</button></div><div className={styles.metrics} aria-label="Consulting pipeline summary"><div><strong>{workspace.leads.length}</strong><span>leads</span></div><div><strong>{workspace.follow_ups.filter((item) => item.status !== 'completed').length}</strong><span>follow-ups</span></div><div><strong>{workspace.engagements.filter((item) => item.status === 'active').length}</strong><span>active engagements</span></div><div><strong>{vaettirPartners.length}</strong><span>Vaettir partners</span></div></div></section>
@@ -94,7 +99,7 @@ export default function ConsultingTab() {
     <section aria-labelledby="engagement-heading"><div className="section-heading"><div><span className="eyebrow">Engagements</span><h2 id="engagement-heading">Track active client work and paid design partners.</h2></div><button className="button secondary" type="button" onClick={() => chooseForm('engagement')}>Add engagement</button></div><div className={styles.cardGrid}>{workspace.engagements.map((item) => <article className="card" key={item.id}><div className={styles.cardTop}><span className="pill">{label(item.status)}</span><span className={styles.value}>{money(item.fee_cents)}</span></div><h3 className={styles.cardTitle}>{item.name}</h3><p>{item.client_name}</p><label className={styles.compactLabel}>Engagement status <select className="input" value={item.status} onChange={(event) => void submit(`/me/consulting/engagements/${item.id}`, { status: event.target.value }, 'Engagement status updated.', 'PATCH')}><option value="planned">Planned</option><option value="active">Active</option><option value="paused">Paused</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>{item.design_partner_product === 'vaettir' && <><p className={styles.partner}>Vaettir paid design partner · {label(item.design_partner_stage || 'discovery')}</p><label className={styles.compactLabel}>Design-partner stage <select className="input" value={item.design_partner_stage || 'discovery'} onChange={(event) => void submit(`/me/consulting/engagements/${item.id}`, { design_partner_stage: event.target.value }, 'Vaettir partner stage updated.', 'PATCH')}><option value="discovery">Discovery</option><option value="proposed">Proposed</option><option value="active">Active</option><option value="completed">Completed</option><option value="declined">Declined</option></select></label></>}</article>)}{!loading && workspace.engagements.length === 0 && <article className="card"><h3>No engagements yet</h3><p>Convert a won lead into delivery work, or record a Vaettir paid design partnership.</p></article>}</div></section>
 
     <section className="card" aria-labelledby="offer-heading"><span className="eyebrow">Entry offer</span><h2 id="offer-heading" style={{ marginTop: 14 }}>Release Readiness and Quality Risk Assessment</h2><p>Five business days, fixed scope, executive risk brief, prioritized remediation plan, and leadership review. Planning price: $5,000. Every claim must come from the professional record.</p></section>
-    <section className="card" aria-labelledby="search-consulting-heading"><span className="eyebrow">Public opportunity search</span><h2 id="search-consulting-heading" style={{ marginTop: 14 }}>Find advisory, audit, and fractional leadership work.</h2><form className="form" onSubmit={(event) => { event.preventDefault(); setQueries(plannedQueries); }} style={{ marginTop: 20 }}><ProfessionalProfileSelect value={profileId} onChange={setProfileId} required={false} /><label><span className="muted">Optional focus</span><input className="input" value={extraTerms} onChange={(event) => setExtraTerms(event.target.value)} placeholder="fintech, SaaS, SOC 2, AI systems" /></label><button className="button" type="submit">Search consulting work</button></form><div className={styles.channels}>{CHANNELS.map((channel) => <a key={channel.name} href={channel.url} target="_blank" rel="noreferrer"><strong>{channel.name}</strong><span>{channel.note}</span></a>)}</div>{queries.length > 0 && <div className={styles.results}><GoogleJobSearchResults queries={queries} profileId={profileId || undefined} /></div>}</section>
+    <section className="card" aria-labelledby="search-consulting-heading"><span className="eyebrow">Kall lead finder</span><h2 id="search-consulting-heading" style={{ marginTop: 14 }}>Find and qualify advisory, audit, and fractional leadership work.</h2><p>Kall turns a professional direction into public searches, warm-network prompts, and questions that separate real opportunities from vague interest.</p><form className="form" onSubmit={(event) => void prepareLeadSearch(event)} style={{ marginTop: 20 }}><ProfessionalProfileSelect value={profileId} onChange={setProfileId} required /><label><span className="muted">Optional focus</span><input className="input" value={extraTerms} onChange={(event) => setExtraTerms(event.target.value)} placeholder="fintech, SaaS, SOC 2, AI systems" /></label><button className="button" type="submit">Find lead paths</button></form>{discoveryPlan && <div className={styles.results}><h3>Your search brief</h3><p>{discoveryPlan.positioning}</p><h3>Qualify each lead</h3><ol>{discoveryPlan.qualification_questions.map((question) => <li key={question}>{question}</li>)}</ol>{discoveryPlan.warm_lead_prompts.length > 0 && <><h3>Start with people you know</h3>{discoveryPlan.warm_lead_prompts.map((prompt) => <article className="card" key={prompt.contact_id}><strong>{prompt.name}{prompt.company ? ` · ${prompt.company}` : ''}</strong><p>{prompt.assistant_prompt}</p></article>)}</>}</div>}<div className={styles.channels}>{CHANNELS.map((channel) => <a key={channel.name} href={channel.url} target="_blank" rel="noreferrer"><strong>{channel.name}</strong><span>{channel.note}</span></a>)}</div>{queries.length > 0 && <div className={styles.results}><GoogleJobSearchResults queries={queries} profileId={profileId || undefined} mode="consulting" /></div>}</section>
     <p className="notice">Consulting records are private to your account. Kall does not scrape private networks, send outreach, submit proposals, or claim a client relationship.</p>
   </section>;
 }

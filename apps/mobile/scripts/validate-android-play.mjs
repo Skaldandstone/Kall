@@ -115,6 +115,10 @@ const updateSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.tsx'),
   'utf8',
 );
+const releaseResetSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'ReleaseResetGate.tsx'),
+  'utf8',
+);
 const releaseRouteSource = fs.readFileSync(
   path.join(mobileRoot, '..', 'web', 'app', 'api', 'mobile-release', 'route.ts'),
   'utf8',
@@ -188,6 +192,15 @@ assert.ok(
 assert.ok(
   updateSource.includes('if (!response.ok) return;') && updateSource.includes('catch'),
   'An unavailable release check must fail open without blocking the app.',
+);
+assert.ok(
+  appSource.includes('ReleaseResetGate') &&
+    releaseResetSource.includes('Application.nativeApplicationVersion') &&
+    releaseResetSource.includes('Application.nativeBuildVersion') &&
+    releaseResetSource.includes('await clerk.signOut()') &&
+    releaseResetSource.includes('await clearSessionTokenCache()') &&
+    releaseResetSource.includes('await resetPurchaseSession()'),
+  'A changed native release must clear app-owned billing state and require a fresh Clerk login.',
 );
 const latestVersionMatch = releaseRouteSource.match(/latestAndroidVersion = '(\d+\.\d+\.\d+)'/);
 assert.equal(
