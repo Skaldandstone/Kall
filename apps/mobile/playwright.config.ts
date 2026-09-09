@@ -46,10 +46,11 @@ export default defineConfig({
         // app.config.js reads this to hand ClerkProvider its key; without it
         // the app boots signed-out with no way to sign in.
         EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
-        // The first production release is invite-only. The browser fixture
-        // must cover that screen even though ordinary local development keeps
-        // app.json's account-creation convenience enabled.
-        KALL_MOBILE_ALLOW_REGISTRATION: '0',
+        // Auth smoke tests keep the closed-registration fixture by default.
+        // Store screenshot runs explicitly override this with the current
+        // public-registration policy so listing artwork matches the release.
+        KALL_MOBILE_ALLOW_REGISTRATION:
+          process.env.KALL_MOBILE_ALLOW_REGISTRATION ?? '0',
       },
       url: baseURL,
       timeout: 120_000,

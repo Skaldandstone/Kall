@@ -27,7 +27,8 @@ test.skip(
 const CLERK_API = 'https://api.clerk.com/v1';
 const CLERK_TEST_CODE = '424242';
 const E2E_PASSWORD = 'MobileScreenshot123!';
-const OUTPUT_DIR = path.join(mobileRoot, 'e2e', 'screenshots');
+const screenshotTarget = process.env.STORE_SCREENSHOT_TARGET === 'ios' ? 'ios' : 'android';
+const OUTPUT_DIR = path.join(mobileRoot, 'e2e', 'screenshots', screenshotTarget);
 
 function secretKey(): string {
   const key = process.env.CLERK_SECRET_KEY;
@@ -100,9 +101,13 @@ function seedApplications(email: string): void {
   );
 }
 
-test.use({ viewport: { width: 1080, height: 1920 } });
+test.use({
+  viewport: screenshotTarget === 'ios'
+    ? { width: 1290, height: 2796 }
+    : { width: 1080, height: 1920 },
+});
 
-test('capture Play Store screenshots as John Kall', async ({ page }) => {
+test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page }) => {
   test.setTimeout(120_000);
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
@@ -111,7 +116,7 @@ test('capture Play Store screenshots as John Kall', async ({ page }) => {
 
   try {
     await page.goto('/');
-    await expect(page.getByText(/Invite-only alpha/)).toBeVisible();
+    await expect(page.getByText('Need an account? Create one')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '1-sign-in.png') });
 
     await signIn(page, user.email);

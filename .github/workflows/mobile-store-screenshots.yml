@@ -1,6 +1,6 @@
 name: Mobile Store Screenshots
 
-# Manual only: captures Google Play listing screenshots against a real
+# Manual only: captures Google Play and App Store listing screenshots against a real
 # (throwaway) Clerk test account and a real local backend, using the same
 # CLERK_SECRET_KEY dev-instance secret apps/mobile's e2e suite already uses.
 # It has no business running on every push -- see store-screenshots.spec.ts.
@@ -39,10 +39,22 @@ jobs:
       - run: npx playwright install-deps chromium
         working-directory: apps/mobile
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-      - run: npx playwright test --grep "capture Play Store screenshots"
+      - name: Capture Android listing screenshots
+        run: npx playwright test --grep "capture android store screenshots"
         working-directory: apps/mobile
         env:
           CAPTURE_STORE_SCREENSHOTS: "1"
+          STORE_SCREENSHOT_TARGET: android
+          KALL_MOBILE_ALLOW_REGISTRATION: "1"
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      - name: Capture iOS listing screenshots
+        run: npx playwright test --grep "capture ios store screenshots"
+        working-directory: apps/mobile
+        env:
+          CAPTURE_STORE_SCREENSHOTS: "1"
+          STORE_SCREENSHOT_TARGET: ios
+          KALL_MOBILE_ALLOW_REGISTRATION: "1"
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       - uses: actions/upload-artifact@v7

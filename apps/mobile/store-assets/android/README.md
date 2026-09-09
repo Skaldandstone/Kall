@@ -37,3 +37,8 @@
   `apps/mobile/e2e/store-screenshots.spec.ts` and
   `apps/mobile/e2e/seed_screenshot_data.py` for how the account and its
   sample applications are built and torn down.
+
+The same workflow captures an iOS 6.7-inch set at 1290x2796. Both store sets
+use the current public-registration policy. Subscription review artwork is
+captured separately after native purchases are enabled because it must show the
+real store-backed purchase screen.
