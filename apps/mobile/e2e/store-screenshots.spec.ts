@@ -132,7 +132,7 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
 
     await signIn(page, user.email);
     await expect(page.getByText('Today', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Good morning/).first()).toBeVisible({ timeout: 20_000 });
 
     seedApplications(user.email);
     await page.getByRole('tab', { name: 'Applications' }).click();
@@ -145,15 +145,15 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(OUTPUT_DIR, '3-application-review.png') });
     await page.getByRole('tab', { name: 'Today' }).click();
-    await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Good morning/).first()).toBeVisible({ timeout: 20_000 });
     await page.screenshot({ path: path.join(OUTPUT_DIR, '4-morning-brief.png') });
 
     await page.getByRole('tab', { name: 'Job search and consulting' }).click();
-    await expect(page.getByText('Search the boards Kall watches for you.')).toBeVisible();
+    await expect(page.getByText('Kall scans your sources and brings the strongest matches here.')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '5-opportunities.png') });
 
     await page.getByRole('tab', { name: 'Growth' }).click();
-    await expect(page.getByText('Turn a career goal into a step-by-step plan.')).toBeVisible();
+    await expect(page.getByText('A practical plan shaped around where you want to go next.')).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT_DIR, '6-growth.png') });
   } finally {
     await deleteTestUser(user.id);

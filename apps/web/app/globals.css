@@ -4,23 +4,23 @@
      previous palette stepped a similar distance in near-neutral grey, which
      is why nothing appeared to layer -- the separation was there numerically
      but invisible without hue. */
-  --canvas: #0c1420;
-  --surface: #131d2c;
-  --surface-raised: #1c2839;
-  --surface-interactive: #24334a;
-  --border: #2b3d55;
-  --border-strong: #3d5473;
-  --text: #e8ecf2;
-  --text-secondary: #94a5bc;
-  --text-muted: #7b90aa;
+  --canvas: #09111d;
+  --surface: #111c2b;
+  --surface-raised: #182538;
+  --surface-interactive: #213149;
+  --border: #25364c;
+  --border-strong: #38506f;
+  --text: #f4f1e9;
+  --text-secondary: #aab7c8;
+  --text-muted: #8497b1;
   /* Brass. Marks the primary action and the single most important number on
      a screen -- it is not a state colour, and never sits beside --warning. */
-  --accent: #c9a86a;
-  --accent-hover: #dcbf84;
-  --accent-ink: #0c1420;
+  --accent: #d8b66f;
+  --accent-hover: #e5c98e;
+  --accent-ink: #101721;
   /* Channels for tinted fills, so accent washes follow --accent instead of
      drifting out of sync the way three hardcoded rgba() values previously did. */
-  --accent-rgb: 201 168 106;
+  --accent-rgb: 216 182 111;
   --success: #6fae8f;
   --warning: #d9a441;
   --danger: #d97362;

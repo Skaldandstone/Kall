@@ -150,14 +150,14 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(
         page.getByText("Today", { exact: true }).first(),
       ).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/Good morning/).first()).toBeVisible({ timeout: 20_000 });
       await expectNoSeriousAccessibilityViolations(page, "Today");
     });
 
     await test.step("Job search and consulting remain parallel tracks", async () => {
       await page.getByRole("tab", { name: "Job search and consulting" }).click();
       await expect(
-        page.getByText("Search the boards Kall watches for you."),
+        page.getByText("Kall scans your sources and brings the strongest matches here."),
       ).toBeVisible();
       await expectNoSeriousAccessibilityViolations(page, "Job search");
       await expect(page.getByRole("tab", { name: "Job search", exact: true })).toHaveAttribute(
@@ -169,7 +169,7 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(page.getByText("Ask Kall to find consulting leads")).toBeVisible();
       await page.getByRole("tab", { name: "Job search", exact: true }).click();
       await expect(
-        page.getByText("Search the boards Kall watches for you."),
+        page.getByText("Kall scans your sources and brings the strongest matches here."),
       ).toBeVisible();
     });
 
@@ -199,14 +199,14 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
     await test.step("Growth tab renders", async () => {
       await page.getByRole("tab", { name: "Growth" }).click();
       await expect(
-        page.getByText("Turn a career goal into a step-by-step plan."),
+        page.getByText("A practical plan shaped around where you want to go next."),
       ).toBeVisible();
       await expectNoSeriousAccessibilityViolations(page, "Growth");
     });
 
     await test.step("Today tab renders", async () => {
       await page.getByRole("tab", { name: "Today" }).click();
-      await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/Good morning/).first()).toBeVisible({ timeout: 20_000 });
     });
 
     await test.step("Profile tab renders and signs out", async () => {

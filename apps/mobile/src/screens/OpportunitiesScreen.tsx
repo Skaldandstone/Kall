@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   fetchCareerProfiles,
   fetchJobsFeed,
@@ -26,7 +27,7 @@ import {
 import { ApiError } from "../api/client";
 import OpportunityTrackSwitch from "../components/OpportunityTrackSwitch";
 import { theme } from "../theme";
-import { EmptyState, PageHeader, StatusMessage } from "../components/ui";
+import { EmptyState, PageHeader, SectionHeader, StagePill, StatusMessage } from "../components/ui";
 import type { OpportunitiesStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<
@@ -188,7 +189,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
             if (track === "consulting") navigation.navigate("Consulting");
           }}
         />
-        <View style={styles.pageTitle}><PageHeader eyebrow="Work" title="Job search" description="Search the boards Kall watches for you." /></View>
+        <View style={styles.pageTitle}><PageHeader eyebrow="Opportunity desk" title="Find your next role" description="Kall scans your sources and brings the strongest matches here." /></View>
       </View>
 
       {profiles.length > 1 && (
@@ -247,7 +248,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
             {searching ? (
               <ActivityIndicator color={theme.background} />
             ) : (
-              <Text style={styles.searchButtonText}>Search now</Text>
+              <><Ionicons name="sparkles-outline" size={18} color={theme.accentInk} /><Text style={styles.searchButtonText}>Find fresh matches</Text></>
             )}
           </Pressable>
 
@@ -257,6 +258,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
             data={feed}
             keyExtractor={(item) => String(item.match_id)}
             contentContainerStyle={styles.list}
+            ListHeaderComponent={feed.length > 0 ? <SectionHeader title="Recommended for you" detail={`${feed.length} matches for this career profile`} /> : null}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -277,7 +279,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
               return (
                 <View style={styles.card}>
                   <View style={styles.cardHeader}>
-                    <Text style={styles.score}>{item.score}% match</Text>
+                    <StagePill tone="accent">{item.score}% match</StagePill>
                     {trackedItem ? (
                       <Text style={styles.state}>
                         {trackedItem.state.replace("_", " ")}
@@ -286,11 +288,8 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                   </View>
                   <Text style={styles.role}>{item.title}</Text>
                   <Text style={styles.company}>{item.company}</Text>
-                  <Text style={styles.meta}>
-                    {item.location || "Location not listed"} ·{" "}
-                    {item.work_type || "Work type unknown"} ·{" "}
-                    {formatSalary(item)}
-                  </Text>
+                  <View style={styles.metaRow}><Ionicons name="location-outline" size={14} color={theme.textMuted} /><Text style={styles.meta}>{item.location || "Location not listed"}</Text></View>
+                  <View style={styles.metaRow}><Ionicons name="wallet-outline" size={14} color={theme.textMuted} /><Text style={styles.meta}>{formatSalary(item)}</Text></View>
                   {item.strengths.length > 0 && (
                     <Text style={styles.detail}>
                       Strengths: {item.strengths.slice(0, 3).join(" · ")}
@@ -312,8 +311,9 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                       }
                     >
                       <Text style={styles.actionButtonPrimaryText}>
-                        Review match
+                        View fit
                       </Text>
+                      <Ionicons name="arrow-forward" size={16} color={theme.accentInk} />
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
@@ -338,7 +338,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
   centered: { alignItems: "center", justifyContent: "center" },
-  header: { paddingHorizontal: 20, marginBottom: 12 },
+  header: { paddingHorizontal: 20, marginBottom: 14 },
   pageTitle: { marginTop: 20 },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   chipRow: { marginBottom: 12 },
@@ -346,25 +346,26 @@ const styles = StyleSheet.create({
   chip: {
     minHeight: 44,
     justifyContent: "center",
-    borderColor: theme.border,
-    borderWidth: 1,
+    backgroundColor: theme.surface,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 14,
     marginRight: 8,
   },
-  chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  chipActive: { backgroundColor: theme.accent },
   chipText: { color: theme.textSecondary, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: theme.background },
   searchButton: {
     minHeight: 48,
     justifyContent: "center",
+    flexDirection: 'row',
+    gap: 8,
     marginHorizontal: 20,
     backgroundColor: theme.accent,
-    borderRadius: 10,
+    borderRadius: 15,
     paddingVertical: 12,
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 18,
   },
   searchButtonText: { color: theme.background, fontWeight: "700" },
   message: {
@@ -391,10 +392,8 @@ const styles = StyleSheet.create({
   emptyButtonText: { color: theme.accentInk, fontWeight: "700" },
   card: {
     backgroundColor: theme.surface,
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 12,
   },
   cardHeader: {
@@ -402,16 +401,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  score: { color: theme.accent, fontWeight: "700", fontSize: 13 },
   state: {
     color: theme.textMuted,
     fontSize: 12,
     fontWeight: "600",
     textTransform: "capitalize",
   },
-  role: { color: theme.text, fontSize: 17, fontWeight: "700", marginTop: 8 },
+  role: { color: theme.text, fontSize: 19, lineHeight: 24, letterSpacing: -0.25, fontWeight: "700", marginTop: 15 },
   company: { color: theme.textSecondary, fontSize: 14, marginTop: 2 },
-  meta: { color: theme.textMuted, fontSize: 12, marginTop: 8 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 },
+  meta: { color: theme.textMuted, fontSize: 12 },
   detail: {
     color: theme.textSecondary,
     fontSize: 13,
@@ -421,9 +420,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
   actionButton: {
     minHeight: 44,
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderRadius: 8,
+    backgroundColor: theme.surfaceRaised,
+    borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
     justifyContent: "center",
@@ -432,8 +430,10 @@ const styles = StyleSheet.create({
   actionButtonPrimary: {
     minHeight: 44,
     flex: 1,
+    flexDirection: 'row',
+    gap: 7,
     backgroundColor: theme.accent,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: "center",

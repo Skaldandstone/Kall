@@ -3,9 +3,10 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Tex
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { fetchPipeline, type PipelineItem } from '../api/applications';
 import { theme } from '../theme';
-import { EmptyState, PageHeader } from '../components/ui';
+import { EmptyState, PageHeader, SectionHeader, StagePill } from '../components/ui';
 import type { ApplicationsStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<ApplicationsStackParamList, 'ApplicationsHome'>;
@@ -43,13 +44,22 @@ export default function ApplicationsScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <View style={styles.header}>
-        <PageHeader title="Applications" description="Track each application from preparation through submission." />
+        <PageHeader eyebrow="Pipeline" title="Applications" description="Every opportunity, organized around the next decision." />
       </View>
+
+      {!loading && !error && items.length > 0 ? (
+        <View style={styles.summary} accessible accessibilityLabel={`${items.length} applications in your pipeline`}>
+          <View><Text style={styles.summaryValue}>{items.length}</Text><Text style={styles.summaryLabel}>Active</Text></View>
+          <View style={styles.summaryLine} />
+          <Text style={styles.summaryNote}>Tap any role to review Kall’s work and choose what happens next.</Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={items.length > 0 ? <SectionHeader title="Your pipeline" detail="Most recent activity first" /> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.text} />}
         ListEmptyComponent={
           loading ? (
@@ -84,12 +94,15 @@ export default function ApplicationsScreen({ navigation }: Props) {
             style={styles.card}
             onPress={() => navigation.navigate('ApplicationDetail', { applicationId: item.id, company: item.company, role: item.role, stage: item.stage })}
           >
-            <View style={styles.cardHeader}>
+            <View style={styles.cardBody}>
+              <View style={styles.cardHeader}>
+                <StagePill tone={item.stage.toLowerCase().includes('interview') ? 'success' : 'accent'}>{humanizeStage(item.stage)}</StagePill>
+                {item.match_score != null ? <Text style={styles.score}>{item.match_score}% match</Text> : null}
+              </View>
+              <Text style={styles.role}>{item.role}</Text>
               <Text style={styles.company}>{item.company}</Text>
-              {item.match_score != null ? <Text style={styles.score}>{item.match_score}%</Text> : null}
             </View>
-            <Text style={styles.role}>{item.role}</Text>
-            <Text style={styles.stage}>{humanizeStage(item.stage)}</Text>
+            <View accessible={false} style={styles.chevron}><Ionicons name="chevron-forward" size={18} color={theme.textMuted} /></View>
           </Pressable>
         )}
       />
@@ -102,7 +115,12 @@ const styles = StyleSheet.create({
   header: { marginBottom: 0 },
   title: { color: theme.text, fontSize: 26, fontWeight: '700' },
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-  list: { paddingBottom: 24, flexGrow: 1 },
+  list: { paddingBottom: 32, flexGrow: 1 },
+  summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.accentWash, borderRadius: 18, padding: 16, marginBottom: 24 },
+  summaryValue: { color: theme.accent, fontSize: 24, lineHeight: 27, fontWeight: '700' },
+  summaryLabel: { color: theme.textMuted, fontSize: 11, marginTop: 2 },
+  summaryLine: { width: 1, height: 38, backgroundColor: theme.borderStrong, marginHorizontal: 16 },
+  summaryNote: { flex: 1, color: theme.textSecondary, fontSize: 13, lineHeight: 18 },
   loader: { marginTop: 48 },
   stateCard: {
     backgroundColor: theme.surface,
@@ -127,16 +145,17 @@ const styles = StyleSheet.create({
   },
   retryButtonText: { color: theme.accentInk, fontSize: 15, fontWeight: '700' },
   card: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: theme.surface,
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 18,
+    padding: 17,
+    marginBottom: 10,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  company: { color: theme.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-  score: { color: theme.accent, fontWeight: '700' },
-  role: { color: theme.text, fontSize: 17, fontWeight: '600', marginTop: 4 },
-  stage: { color: theme.textSecondary, fontSize: 13, marginTop: 8, textTransform: 'capitalize' },
+  cardBody: { flex: 1 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  company: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
+  score: { color: theme.textMuted, fontSize: 11, fontWeight: '600' },
+  role: { color: theme.text, fontSize: 17, lineHeight: 22, fontWeight: '700', letterSpacing: -0.2, marginTop: 13 },
+  chevron: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.surfaceRaised, alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
 });

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   analyzeSkills,
   createGoal,
@@ -26,12 +27,18 @@ import {
 } from '../api/growth';
 import { ApiError } from '../api/client';
 import { theme } from '../theme';
-import { PageHeader, StatusMessage } from '../components/ui';
+import { PageHeader, SectionHeader, StatusMessage } from '../components/ui';
 
 const BUDGET_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'free_or_low_cost', label: 'Free / low cost' },
   { value: 'flexible', label: 'Flexible' },
   { value: 'premium', label: 'Premium' },
+];
+
+const STARTING_POINTS = [
+  { icon: 'arrow-up-circle-outline' as const, title: 'Move up', detail: 'Prepare for your next level', goal: 'Move into a leadership role' },
+  { icon: 'navigate-circle-outline' as const, title: 'Change direction', detail: 'Build a practical transition plan', goal: 'Transition into a new career' },
+  { icon: 'flash-outline' as const, title: 'Sharpen skills', detail: 'Close a specific experience gap', goal: 'Strengthen my professional skills' },
 ];
 
 export default function GrowthScreen() {
@@ -109,6 +116,11 @@ export default function GrowthScreen() {
     }
   }
 
+  function startGoal(goal = '') {
+    setTitle(goal);
+    setShowNewGoal(true);
+  }
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -129,16 +141,16 @@ export default function GrowthScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={theme.text} />}
     >
       <View style={styles.header}>
-        <PageHeader eyebrow="Development" title="Growth" description="Turn a career goal into a step-by-step plan." />
+        <PageHeader eyebrow="Career development" title="Grow with direction" description="A practical plan shaped around where you want to go next." />
       </View>
 
-      {!showNewGoal ? (
+      {!showNewGoal && goals.length > 0 ? (
         <Pressable accessibilityRole="button" style={styles.newGoalButton} onPress={() => setShowNewGoal(true)}>
-          <Text style={styles.newGoalButtonText}>+ New career goal</Text>
+          <Ionicons name="add" size={18} color={theme.accentInk} /><Text style={styles.newGoalButtonText}>New career goal</Text>
         </Pressable>
-      ) : (
+      ) : showNewGoal ? (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>New career goal</Text>
+          <SectionHeader title="Shape your goal" detail="Start with the role. Kall will help build the route." />
           <TextInput accessibilityLabel="Goal name" style={styles.input} value={title} onChangeText={setTitle} placeholder="Goal name, e.g. Move into game art" placeholderTextColor={theme.textMuted} />
           <TextInput accessibilityLabel="Target role" style={styles.input} value={targetRole} onChangeText={setTargetRole} placeholder="Target role, e.g. Environment Artist" placeholderTextColor={theme.textMuted} />
           <TextInput accessibilityLabel="Target industry, optional" style={styles.input} value={targetIndustry} onChangeText={setTargetIndustry} placeholder="Target industry (optional)" placeholderTextColor={theme.textMuted} />
@@ -159,14 +171,24 @@ export default function GrowthScreen() {
             </Pressable>
           </View>
         </View>
-      )}
+      ) : null}
 
       {message ? <StatusMessage kind={message.toLowerCase().includes('unable') || message.toLowerCase().includes('first') ? 'error' : 'neutral'}>{message}</StatusMessage> : null}
 
       {goals.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text accessibilityRole="header" style={styles.emptyTitle}>Build your first growth plan</Text>
-          <Text style={styles.emptyBody}>Choose a career goal above. Kall will turn it into focused research, learning, portfolio, and networking steps.</Text>
+          {!showNewGoal ? <>
+            <View style={styles.emptyIllustration}><View style={styles.pathLine} /><View style={[styles.pathDot, styles.pathDotOne]} /><View style={[styles.pathDot, styles.pathDotTwo]} /><View style={[styles.pathDot, styles.pathDotThree]}><Ionicons name="flag" size={17} color={theme.accentInk} /></View></View>
+            <Text accessibilityRole="header" style={styles.emptyTitle}>What are you working toward?</Text>
+            <Text style={styles.emptyBody}>Choose a starting point. You can make it specific on the next step.</Text>
+            <View style={styles.startingPoints}>
+              {STARTING_POINTS.map((item) => <Pressable key={item.title} accessibilityRole="button" style={styles.startingPoint} onPress={() => startGoal(item.goal)}>
+                <View style={styles.startIcon}><Ionicons name={item.icon} size={20} color={theme.accent} /></View>
+                <View style={styles.startCopy}><Text style={styles.startTitle}>{item.title}</Text><Text style={styles.startDetail}>{item.detail}</Text></View>
+                <Ionicons name="chevron-forward" size={17} color={theme.textMuted} />
+              </Pressable>)}
+            </View>
+          </> : null}
         </View>
       ) : (
         goals.map(({ goal, plan }) => (
@@ -390,21 +412,20 @@ const styles = StyleSheet.create({
   subtitle: { color: theme.textSecondary, fontSize: 13, marginTop: 4 },
   message: { color: theme.textSecondary, fontSize: 13, marginBottom: 12 },
   newGoalButton: {
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 14,
+    minHeight: 50,
+    flexDirection: 'row',
+    gap: 7,
+    backgroundColor: theme.accent,
+    borderRadius: 14,
+    paddingVertical: 13,
     alignItems: 'center',
     marginBottom: 16,
   },
-  newGoalButtonText: { color: theme.accent, fontWeight: '700' },
+  newGoalButtonText: { color: theme.accentInk, fontWeight: '700' },
   card: {
     backgroundColor: theme.surface,
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
   },
   cardLabel: { color: theme.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10 },
@@ -431,9 +452,21 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.background, fontWeight: '700', fontSize: 13 },
   secondaryButton: { minHeight: 48, justifyContent: 'center', borderColor: theme.borderStrong, borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', marginTop: 10 },
   secondaryButtonText: { color: theme.text, fontWeight: '600', fontSize: 13 },
-  emptyState: { paddingVertical: 20 },
-  emptyTitle: { color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  emptyBody: { color: theme.textSecondary, fontSize: 14, lineHeight: 20 },
+  emptyState: { paddingTop: 10, paddingBottom: 24 },
+  emptyIllustration: { height: 72, marginBottom: 22, justifyContent: 'center' },
+  pathLine: { position: 'absolute', left: 22, right: 22, top: 35, height: 2, backgroundColor: theme.borderStrong },
+  pathDot: { position: 'absolute', top: 28, width: 16, height: 16, borderRadius: 8, backgroundColor: theme.surfaceInteractive, borderWidth: 3, borderColor: theme.background },
+  pathDotOne: { left: 18 },
+  pathDotTwo: { left: '48%' },
+  pathDotThree: { right: 14, top: 20, width: 32, height: 32, borderRadius: 16, borderWidth: 0, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { color: theme.text, fontSize: 22, lineHeight: 28, letterSpacing: -0.35, fontWeight: '700', marginBottom: 8 },
+  emptyBody: { color: theme.textSecondary, fontSize: 14, lineHeight: 21, maxWidth: 330 },
+  startingPoints: { gap: 9, marginTop: 22 },
+  startingPoint: { minHeight: 68, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.surface, borderRadius: 17, padding: 13 },
+  startIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: theme.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  startCopy: { flex: 1, marginHorizontal: 12 },
+  startTitle: { color: theme.text, fontSize: 15, fontWeight: '700' },
+  startDetail: { color: theme.textMuted, fontSize: 12, marginTop: 3 },
   pill: { color: theme.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   goalTitle: { color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 6 },
   goalMeta: { color: theme.textSecondary, fontSize: 13, marginTop: 2, marginBottom: 14 },

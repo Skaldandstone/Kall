@@ -3,6 +3,8 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSignIn } from '@clerk/expo';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BrandMark } from '../components/ui';
 import { theme } from '../theme';
 import SocialSignInButtons from '../components/SocialSignInButtons';
 import type { AuthStackParamList } from '../navigation/types';
@@ -83,10 +85,10 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <LinearGradient accessible={false} pointerEvents="none" colors={['#17243a', theme.background, theme.background]} locations={[0, 0.42, 1]} style={StyleSheet.absoluteFill} />
+      <View accessible={false} pointerEvents="none" style={styles.glow} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
-      <View accessible={false} style={styles.brandMark}><View style={styles.brandMarkInner} /></View>
-      <Text accessibilityRole="header" style={styles.title}>Kall™</Text>
-      <Text style={styles.kicker}>Your career, run with intention.</Text>
+      <View style={styles.brandRow}><BrandMark /><View><Text accessibilityRole="header" style={styles.title}>Kall</Text><Text style={styles.kicker}>Career command center</Text></View></View>
       <View style={styles.authCard}>
       <Text accessibilityRole="header" style={styles.formTitle}>{awaitingCode ? 'Confirm this device' : 'Welcome back'}</Text>
       <Text style={styles.subtitle}>
@@ -173,7 +175,7 @@ export default function LoginScreen({ navigation }: Props) {
         </Pressable>
       ) : null}
       </View>
-      <Text style={styles.privacyNote}>Your career data stays private to your Kall workspace.</Text>
+      <Text style={styles.privacyNote}>Private by design · Nothing is submitted without your approval</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -181,20 +183,20 @@ export default function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.background },
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 },
-  brandMark: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: theme.borderStrong, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  brandMarkInner: { width: 16, height: 16, borderRadius: 8, backgroundColor: theme.accent },
-  title: { color: theme.text, fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -0.8 },
-  kicker: { color: theme.textSecondary, fontSize: 15, marginTop: 2, marginBottom: 28 },
-  authCard: { ...elevation.card, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: radius.lg, padding: 20 },
-  formTitle: { color: theme.text, fontSize: 21, fontWeight: '800', marginBottom: 6 },
+  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 52 },
+  glow: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(216, 182, 111, 0.055)', top: -86, right: -64 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 34 },
+  title: { color: theme.text, fontSize: 25, lineHeight: 29, fontWeight: '700', letterSpacing: -0.5 },
+  kicker: { color: theme.textMuted, fontSize: 12, marginTop: 1, letterSpacing: 0.25 },
+  authCard: { ...elevation.card, backgroundColor: 'rgba(17, 28, 43, 0.92)', borderRadius: radius.xl, padding: 22 },
+  formTitle: { color: theme.text, fontSize: 24, lineHeight: 30, fontWeight: '700', letterSpacing: -0.4, marginBottom: 6 },
   subtitle: { color: theme.textSecondary, fontSize: 15, marginBottom: 24, lineHeight: 21 },
   inviteNote: { color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: -10, marginBottom: 18, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: theme.accent },
   input: {
     backgroundColor: theme.surfaceRaised,
-    borderColor: theme.borderStrong,
+    borderColor: theme.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     minHeight: 52,
     color: theme.text,
     paddingHorizontal: 14,
@@ -205,10 +207,15 @@ const styles = StyleSheet.create({
   error: { color: theme.danger, marginBottom: 12, fontSize: 14, lineHeight: 20 },
   button: {
     backgroundColor: theme.accent,
-    borderRadius: 10,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
+    shadowColor: theme.accent,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   buttonText: { color: theme.accentInk, fontWeight: '700', fontSize: 16 },
   link: { color: theme.textSecondary, textAlign: 'center', marginTop: 20, fontSize: 14 },
