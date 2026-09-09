@@ -165,12 +165,15 @@ These are external gates and cannot be marked complete by source tests:
    only in the dedicated production secret. Apple Plus and Premium monthly
    subscriptions exist in subscription group `22370361` at USD 4.99 and USD
    14.99 respectively. Native billing remains fail-closed. Activation still
-   requires valid Google base plans, a dedicated Play service-account
-   connection, product import/offering publication, the platform public SDK
-   keys in EAS, a purchases-enabled rebuild, and physical-device license-test
-   acceptance. Apple additionally requires paid-agreement banking/tax/trader
-   information, review screenshots, the RevenueCat App Store connection, and
-   TestFlight sandbox acceptance. See [`NATIVE_BILLING.md`](NATIVE_BILLING.md).
+   requires valid Google base plans, completion of the dedicated Play
+   service-account connection, product import/offering publication, a
+   purchases-enabled rebuild, and physical-device license-test acceptance. Both
+   platform public SDK keys are configured in EAS production. Apple additionally
+   requires paid-agreement banking/tax/trader information, an App Store Connect
+   API key for RevenueCat product import, listing and subscription review
+   screenshots, and TestFlight sandbox acceptance. Clerk's iOS registration and
+   Apple Services ID exist, but Apple sign-in remains disabled pending safe key
+   replacement. See [`NATIVE_BILLING.md`](NATIVE_BILLING.md).
 
 ## Deployment sequence
 

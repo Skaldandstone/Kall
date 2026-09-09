@@ -77,18 +77,30 @@ to the existing web billing page rather than presenting a broken store checkout.
   `com.skaldandstone.kall.premium.monthly` at USD 14.99. Both are in Prepare for
   Submission. Paid-app banking, tax, and trader information and review
   screenshots remain incomplete.
-- RevenueCat project `b4b5bad9` contains the Android app shell and the `plus`
-  and `premium` entitlements. Its authenticated, HMAC-signed production webhook
-  is configured for production and sandbox events. The dedicated webhook secret
-  is stored in AWS Secrets Manager; native billing remains disabled in the
-  production stack.
-- EAS does not yet contain a RevenueCat public platform key. Do not enable
-  purchases or create a replacement store build until the store connection,
-  product import, offering, and public-key configuration are complete.
-- Clerk production has the Android native application registered. The exact iOS
-  registration values are known from the signed provisioning profile, but the
-  persistent Clerk application registration and Apple social connection still
-  require their provider-side setup.
+- RevenueCat project `b4b5bad9` contains Android and App Store app records and
+  the `plus` and `premium` entitlements. The App Store record validates the
+  dedicated in-app purchase key. Its authenticated, HMAC-signed production
+  webhook is configured for production and sandbox events. The dedicated
+  webhook secret is stored in AWS Secrets Manager; native billing remains
+  disabled in the production stack.
+- EAS production now contains both public RevenueCat platform SDK keys. Do not
+  enable purchases or create a purchases-enabled replacement store build until
+  the store connections, product imports, and offering are complete. RevenueCat
+  still needs a dedicated App Store Connect API key for product import and price
+  tracking.
+- Google Cloud has Android Publisher, Play Developer Reporting, and Pub/Sub APIs
+  enabled and a dedicated `kall-revenuecat` service account with Pub/Sub Editor
+  and Monitoring Viewer. Organization policy blocks creation of its JSON key,
+  so the Google Play connection remains incomplete.
+- Clerk production has both Android and iOS native applications registered. The
+  Apple Services ID and callback domain exist, but Apple sign-in remains disabled
+  until the exposed one-time Apple key is revoked and replaced safely.
+- The manual `Mobile Store Screenshots` workflow captures the current public
+  registration flow and authenticated product screens at Google Play phone,
+  App Store iPhone 6.7-inch, and App Store iPad 13-inch dimensions. Listing
+  uploads remain a provider-side release action after visual review. Subscription
+  review screenshots remain separate and require a working native sandbox
+  purchase screen.
 
 ## Release gates
 
