@@ -109,10 +109,13 @@ function seedApplications(email: string): void {
 
 test.use({
   viewport: screenshotTarget === 'iphone'
-    ? { width: 1290, height: 2796 }
+    ? { width: 430, height: 932 }
     : screenshotTarget === 'ipad'
-      ? { width: 2064, height: 2752 }
-      : { width: 1080, height: 1920 },
+      ? { width: 1032, height: 1376 }
+      : { width: 360, height: 640 },
+  deviceScaleFactor: screenshotTarget === 'ipad' ? 2 : 3,
+  isMobile: true,
+  hasTouch: true,
 });
 
 test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page }) => {
