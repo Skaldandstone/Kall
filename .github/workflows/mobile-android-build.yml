@@ -4,7 +4,16 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/mobile/**'
+      - 'apps/mobile/src/**'
+      - 'apps/mobile/assets/**'
+      - 'apps/mobile/plugins/**'
+      - 'apps/mobile/scripts/release-store.mjs'
+      - 'apps/mobile/App.tsx'
+      - 'apps/mobile/app.json'
+      - 'apps/mobile/app.config.js'
+      - 'apps/mobile/eas.json'
+      - 'apps/mobile/package.json'
+      - 'apps/mobile/package-lock.json'
   workflow_dispatch: {}
 
 jobs:
