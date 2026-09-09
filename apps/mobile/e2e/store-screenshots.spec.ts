@@ -137,8 +137,9 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
     await page.screenshot({ path: path.join(OUTPUT_DIR, '2-applications.png') });
 
     await page.getByText('Senior Backend Engineer').click();
-    await expect(page.getByLabel('Loading application review')).toBeHidden({ timeout: 20_000 });
-    await expect(page.getByText('All required review items are complete.')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Review checklist', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Review required: Why are you interested in this role?')).toBeVisible();
+    await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(OUTPUT_DIR, '3-application-review.png') });
     await page.getByRole('tab', { name: 'Today' }).click();
     await expect(page.getByText(/Welcome back/).first()).toBeVisible({ timeout: 20_000 });
