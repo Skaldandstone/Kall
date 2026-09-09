@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -6,7 +6,7 @@ from kall.db import get_session
 
 router = APIRouter(tags=["operations"])
 
-LATEST_ANDROID_VERSION = "1.1.5"
+LATEST_ANDROID_VERSION = "1.1.6"
 PLAY_TEST_URL = "https://play.google.com/apps/testing/com.skaldandstone.kall"
 
 
@@ -17,8 +17,9 @@ def health() -> dict[str, str]:
 
 
 @router.get("/api/mobile-release", include_in_schema=False)
-def mobile_release() -> dict[str, str]:
+def mobile_release(response: Response) -> dict[str, str]:
     """Tell Android beta builds which tested release should be installed."""
+    response.headers["Cache-Control"] = "no-store"
     return {
         "platform": "android",
         "latestVersion": LATEST_ANDROID_VERSION,

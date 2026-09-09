@@ -97,6 +97,7 @@ type PublicPage = {
   theme: string;
   links: { label: string; url: string }[];
   professional_summary: string | null;
+  consulting: { engagement_types: string[]; rate_cents: number | null; rate_basis: string; currency: string; availability_note: string | null; agreement_url: string | null } | null;
   sections: Section[];
 };
 
@@ -280,6 +281,7 @@ export default async function CareerPage({ params }: { params: Promise<{ slug: s
       <nav className={styles.nav} aria-label="Sections">
         <span className={styles.navName}>{page.display_name}</span>
         <ul>
+          {page.consulting ? <li><a href="#consulting">Consulting</a></li> : null}
           {visible
             .filter((section) => section.kind !== 'intro')
             .map((section) => (
@@ -307,6 +309,8 @@ export default async function CareerPage({ params }: { params: Promise<{ slug: s
           </ul>
         ) : null}
       </header>
+
+      {page.consulting ? <section className={styles.section} id="consulting"><h2>Available for consulting</h2><p className={styles.lede}>{page.consulting.engagement_types.map((item) => item.replaceAll('_', ' ')).join(' · ') || 'Consulting and fractional work'}</p>{page.consulting.rate_cents !== null ? <p><strong>{new Intl.NumberFormat('en-US', { style: 'currency', currency: page.consulting.currency, maximumFractionDigits: 0 }).format(page.consulting.rate_cents / 100)}</strong> per {page.consulting.rate_basis}</p> : null}{page.consulting.availability_note ? <p>{page.consulting.availability_note}</p> : null}{page.consulting.agreement_url ? <p><a href={page.consulting.agreement_url} target="_blank" rel="noopener noreferrer nofollow">Review engagement terms</a></p> : null}</section> : null}
 
       {visible.map((section) => {
         if (section.kind === 'intro') {

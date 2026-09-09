@@ -25,6 +25,7 @@ import {
   fetchConsultingWorkspace,
   updateConsultingEngagement,
   updateConsultingLead,
+  updateConsultingPractice,
   type ConsultingDiscoveryPlan,
   type ConsultingLead,
   type ConsultingWorkspace,
@@ -51,6 +52,8 @@ const EMPTY: ConsultingWorkspace = {
   proposals: [],
   follow_ups: [],
   engagements: [],
+  practice: null,
+  career_page: { exists: false, published: false, slug: null },
 };
 const WARM = new Set([
   "warm_contact",
@@ -109,6 +112,12 @@ export default function ConsultingScreen({ navigation }: Props) {
   const [source, setSource] = useState("");
   const [dueOn, setDueOn] = useState(new Date().toISOString().slice(0, 10));
   const [vaettir, setVaettir] = useState(false);
+  const [practiceAvailable, setPracticeAvailable] = useState(false);
+  const [engagementTypes, setEngagementTypes] = useState<string[]>([]);
+  const [practiceRate, setPracticeRate] = useState("");
+  const [rateBasis, setRateBasis] = useState<"hour" | "day" | "project" | "month">("hour");
+  const [availability, setAvailability] = useState("");
+  const [agreementUrl, setAgreementUrl] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -117,6 +126,12 @@ export default function ConsultingScreen({ navigation }: Props) {
         fetchCareerProfiles(),
       ]);
       setWorkspace(nextWorkspace);
+      setPracticeAvailable(nextWorkspace.practice?.available ?? false);
+      setEngagementTypes(nextWorkspace.practice?.engagement_types ?? []);
+      setPracticeRate(nextWorkspace.practice?.rate_cents == null ? "" : String(nextWorkspace.practice.rate_cents / 100));
+      setRateBasis(nextWorkspace.practice?.rate_basis ?? "hour");
+      setAvailability(nextWorkspace.practice?.availability_note ?? "");
+      setAgreementUrl(nextWorkspace.practice?.agreement_url ?? "");
       setProfiles(profileResponse.profiles);
       setProfileId((current) => current ?? profileResponse.profiles[0]?.id ?? null);
       setMessage("");
@@ -195,6 +210,25 @@ export default function ConsultingScreen({ navigation }: Props) {
     } finally {
       setDiscovering(false);
     }
+  }
+
+  function toggleEngagementType(value: string) {
+    setEngagementTypes((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  }
+
+  async function savePractice() {
+    await action(
+      () => updateConsultingPractice({
+        available: practiceAvailable,
+        engagement_types: engagementTypes,
+        rate_cents: practiceRate ? Math.round(Number(practiceRate) * 100) : null,
+        rate_basis: rateBasis,
+        currency: "USD",
+        availability_note: availability.trim() || null,
+        agreement_url: agreementUrl.trim() || null,
+      }),
+      "Consulting offer saved.",
+    );
   }
 
   async function saveEditor() {
@@ -287,6 +321,26 @@ export default function ConsultingScreen({ navigation }: Props) {
         }}
       />
       <View style={styles.pageHeader}><PageHeader eyebrow="Consulting search" title="Find work, then build the pipeline." description="Kall turns your career direction into places to look, questions to ask, and private follow-up drafts. You choose every lead and send every message." /></View>
+
+      <View style={styles.assistantCard}>
+        <Text style={styles.cardTitle}>Set up your consulting offer</Text>
+        <Text style={styles.cardBody}>Create a shareable portfolio first, then choose whether visitors can see your availability and rate.</Text>
+        <Pressable accessibilityRole="link" style={styles.action} onPress={() => void Linking.openURL("https://kall.skaldandstone.com/settings/career-page")}>
+          <Text style={styles.actionText}>{workspace.career_page.exists ? "Edit shareable portfolio" : "Create shareable portfolio first"}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: practiceAvailable }} style={styles.checkRow} onPress={() => setPracticeAvailable((value) => !value)}>
+          <View style={[styles.checkbox, practiceAvailable && styles.checkboxChecked]} />
+          <Text style={styles.checkText}>I am available for consulting or fractional work</Text>
+        </Pressable>
+        <Text style={styles.fieldLabel}>Engagement types</Text>
+        <View style={styles.actions}>{[["consulting", "Consulting"], ["fractional", "Fractional role"], ["advisory", "Advisory"], ["project", "Fixed project"]].map(([value, text]) => <Pressable key={value} accessibilityRole="checkbox" accessibilityState={{ checked: engagementTypes.includes(value) }} style={[styles.smallChip, engagementTypes.includes(value) && styles.smallChipActive]} onPress={() => toggleEngagementType(value)}><Text style={[styles.smallChipText, engagementTypes.includes(value) && styles.smallChipTextActive]}>{text}</Text></Pressable>)}</View>
+        <Field label="Consulting rate in USD" value={practiceRate} onChange={setPracticeRate} keyboard="numeric" />
+        <ChipChooser title="Rate basis" values={["hour", "day", "project", "month"]} value={rateBasis} onChange={(value) => setRateBasis(value as typeof rateBasis)} />
+        <Field label="Availability" value={availability} onChange={setAvailability} />
+        <Field label="Agreement or engagement terms link" value={agreementUrl} onChange={setAgreementUrl} keyboard="url" />
+        <Pressable accessibilityRole="button" style={styles.primary} onPress={() => void savePractice()}><Text style={styles.primaryText}>Save consulting offer</Text></Pressable>
+        <Text style={styles.boundary}>Your public portfolio shows these details only when availability is selected.</Text>
+      </View>
 
       <View style={styles.assistantCard}>
         <Text style={styles.cardTitle}>Ask Kall to find consulting leads</Text>
@@ -684,7 +738,7 @@ function Empty({ text }: { text: string }) {
 function Action({ label: text, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" disabled={disabled} style={[styles.action, disabled && styles.disabled]} onPress={onPress}><Text style={styles.actionText}>{text}</Text></Pressable>;
 }
-function Field({ label: text, value, onChange, multiline = false, keyboard = "default" }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; keyboard?: "default" | "numeric" }) {
+function Field({ label: text, value, onChange, multiline = false, keyboard = "default" }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; keyboard?: "default" | "numeric" | "url" }) {
   return <View style={styles.field}><Text style={styles.fieldLabel}>{text}</Text><TextInput accessibilityLabel={text} value={value} onChangeText={onChange} multiline={multiline} keyboardType={keyboard} style={[styles.input, multiline && styles.multiline]} placeholderTextColor={theme.textMuted} /></View>;
 }
 function ChipChooser({ title, values, value, onChange }: { title: string; values: string[]; value: string; onChange: (value: string) => void }) {

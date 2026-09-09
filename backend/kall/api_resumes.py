@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import CareerProfile, ResumeDocument, User
+from kall.services.resume_readiness import resume_readiness
 
 router = APIRouter()
 
@@ -14,16 +15,16 @@ class DefaultResumeRequest(BaseModel):
 
 
 def readiness(resume: ResumeDocument) -> dict[str, object]:
-    text = (resume.extracted_text or "").strip()
-    checks = {
-        "content_extracted": bool(text),
-        "descriptive_name": bool(resume.name and len(resume.name.strip()) > 3),
-        "target_titles": bool(resume.target_titles),
-        "industries": bool(resume.industries),
-        "tags": bool(resume.tags),
+    score, strengths, gaps = resume_readiness(resume)
+    return {
+        "score": score,
+        "strengths": strengths,
+        "gaps": gaps,
+        "explanation": (
+            "This score measures whether Kall has enough readable resume content, target labels, "
+            "and reusable evidence for matching and tailoring. It is not a comparison with one job."
+        ),
     }
-    score = round(sum(checks.values()) / len(checks) * 100)
-    return {"score": score, "checks": checks}
 
 
 @router.get("/me/resume-studio")

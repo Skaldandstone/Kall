@@ -258,7 +258,9 @@ export default function SearchTab() {
       </article>
       <article className="card search-page-results-column">
         <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Open roles</span><h2 style={{ marginTop: 14 }}>Results for these criteria</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
-        {aggregatedResults !== null ? (
+        {loading ? (
+          <div className="search-empty-state" role="status" aria-live="polite"><span className="pill">Search running</span><h2>Looking across matching job sources</h2><p>This usually takes 10 to 30 seconds. Kall is building the search from your selected career direction and any terms you added; results will appear here as soon as the source checks finish.</p></div>
+        ) : aggregatedResults !== null ? (
           <AggregatedJobResults
             results={aggregatedResults}
             profileId={profileId || undefined}

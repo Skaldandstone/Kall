@@ -1,12 +1,24 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
-from kall.models import CareerProfile, JobMatch, ResumeDocument, User
+from kall.models import (
+    Application,
+    CareerProfile,
+    DiscoverySchedule,
+    JobMatch,
+    Opportunity,
+    ResumeDocument,
+    ResumeJobScore,
+    ResumeSelection,
+    SearchRun,
+    TailoringProposal,
+    User,
+)
 from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
 from kall.services.profile_suggestions import suggest_empty_fields
 
@@ -170,3 +182,34 @@ def update_career_profile(
     session.commit()
     session.refresh(profile)
     return profile
+
+
+@router.delete("/me/career-profiles/{profile_id}", status_code=204)
+def delete_career_profile(
+    profile_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    profile = session.get(CareerProfile, profile_id)
+    if not profile or profile.user_id != current_user.id:
+        raise HTTPException(404, "Career profile not found")
+
+    # Applications and tailoring proposals are review/audit records. Require
+    # the user to remove those through their dedicated flows rather than
+    # silently erasing them as a side effect of deleting a search direction.
+    if session.exec(select(Application.id).where(Application.career_profile_id == profile.id)).first():
+        raise HTTPException(409, "Remove applications linked to this profile before deleting it.")
+    if session.exec(select(TailoringProposal.id).where(TailoringProposal.professional_profile_id == profile.id)).first():
+        raise HTTPException(409, "Remove tailoring proposals linked to this profile before deleting it.")
+
+    for model, field in (
+        (JobMatch, JobMatch.career_profile_id),
+        (SearchRun, SearchRun.professional_profile_id),
+        (ResumeJobScore, ResumeJobScore.professional_profile_id),
+        (ResumeSelection, ResumeSelection.professional_profile_id),
+        (DiscoverySchedule, DiscoverySchedule.professional_profile_id),
+        (Opportunity, Opportunity.professional_profile_id),
+    ):
+        session.exec(delete(model).where(field == profile.id))
+    session.delete(profile)
+    session.commit()

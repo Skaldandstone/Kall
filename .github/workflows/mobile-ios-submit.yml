@@ -13,6 +13,8 @@ on:
       - 'apps/mobile/app.config.js'
       - 'apps/mobile/metro.config.js'
       - 'apps/mobile/eas.json'
+      - 'apps/mobile/.eas/**'
+      - 'apps/mobile/.maestro/**'
       - 'apps/mobile/package.json'
       - 'apps/mobile/package-lock.json'
   workflow_dispatch: {}
@@ -40,6 +42,10 @@ jobs:
       - name: Check Apple app setup before building
         run: npm run release:ios -- --check
       - run: npm ci
+      - name: Run compiled iOS launch smoke test
+        run: eas workflow:run .eas/workflows/native-e2e-ios.yml --non-interactive --wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       - name: Build and automatically submit to TestFlight
         run: npm run release:ios -- --non-interactive --no-wait
         env:

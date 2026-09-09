@@ -1,19 +1,21 @@
 from datetime import date
 from typing import Literal
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
 from kall.models import (
+    CareerPage,
     CareerProfile,
     ConsultingEngagement,
     ConsultingFollowUp,
     ConsultingLead,
+    ConsultingPractice,
     ConsultingProposal,
     Contact,
     User,
@@ -39,6 +41,26 @@ WARM_SEGMENTS = {"warm_contact", "former_colleague", "past_client", "referral", 
 
 class ConsultingPayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class PracticeUpdate(ConsultingPayload):
+    available: bool = False
+    engagement_types: list[Literal["consulting", "fractional", "advisory", "project"]] = Field(default_factory=list)
+    rate_cents: int | None = Field(default=None, ge=0)
+    rate_basis: Literal["hour", "day", "project", "month"] = "hour"
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
+    availability_note: str | None = Field(default=None, max_length=500)
+    agreement_url: str | None = Field(default=None, max_length=2048)
+
+    @field_validator("agreement_url")
+    @classmethod
+    def require_safe_agreement_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("Agreement links must use a complete HTTPS address")
+        return value
 
 
 def _reject_null_updates(payload: BaseModel, fields: tuple[str, ...]) -> None:
@@ -221,10 +243,10 @@ def _consulting_searches(profile: CareerProfile, focus: str) -> list[dict[str, s
             "Look for interim leadership and project work with a clear executive owner.",
         ),
         (
-            "Go Fractional",
-            "gofractional.com",
-            f"({specialty}) (fractional OR advisor){context}",
-            "Look for fractional work that matches your leadership level and proof of delivery.",
+            "Contra",
+            "contra.com",
+            f"({specialty}) (freelance OR consultant OR project){context}",
+            "Look for portfolio-led independent work with a specific buyer and deliverable.",
         ),
         (
             "Open web",
@@ -258,12 +280,29 @@ def consulting_workspace(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> dict:
+    practice = session.exec(select(ConsultingPractice).where(ConsultingPractice.user_id == current_user.id)).first()
+    page = session.exec(select(CareerPage).where(CareerPage.user_id == current_user.id)).first()
     return {
+        "practice": practice,
+        "career_page": {"exists": page is not None, "published": bool(page and page.published), "slug": page.slug if page else None},
         "leads": list(session.exec(select(ConsultingLead).where(ConsultingLead.user_id == current_user.id).order_by(ConsultingLead.updated_at.desc()))),
         "proposals": list(session.exec(select(ConsultingProposal).where(ConsultingProposal.user_id == current_user.id).order_by(ConsultingProposal.updated_at.desc()))),
         "follow_ups": list(session.exec(select(ConsultingFollowUp).where(ConsultingFollowUp.user_id == current_user.id).order_by(ConsultingFollowUp.due_on, ConsultingFollowUp.id))),
         "engagements": list(session.exec(select(ConsultingEngagement).where(ConsultingEngagement.user_id == current_user.id).order_by(ConsultingEngagement.updated_at.desc()))),
     }
+
+
+@router.put("/practice", response_model=ConsultingPractice)
+def update_consulting_practice(
+    payload: PracticeUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> ConsultingPractice:
+    row = session.exec(select(ConsultingPractice).where(ConsultingPractice.user_id == current_user.id)).first()
+    row = row or ConsultingPractice(user_id=current_user.id)
+    for key, value in payload.model_dump().items():
+        setattr(row, key, value)
+    return _save(session, row)
 
 
 @router.get("/discovery-plan/{profile_id}")

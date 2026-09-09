@@ -41,11 +41,23 @@ export type ConsultingEngagement = {
   design_partner_stage: string | null;
 };
 
+export type ConsultingPractice = {
+  available: boolean;
+  engagement_types: string[];
+  rate_cents: number | null;
+  rate_basis: "hour" | "day" | "project" | "month";
+  currency: string;
+  availability_note: string | null;
+  agreement_url: string | null;
+};
+
 export type ConsultingWorkspace = {
   leads: ConsultingLead[];
   proposals: ConsultingProposal[];
   follow_ups: ConsultingFollowUp[];
   engagements: ConsultingEngagement[];
+  practice: ConsultingPractice | null;
+  career_page: { exists: boolean; published: boolean; slug: string | null };
 };
 
 export type ConsultingDiscoveryPlan = {
@@ -72,6 +84,9 @@ export type ConsultingDiscoveryPlan = {
 
 export const fetchConsultingWorkspace = () =>
   apiRequest<ConsultingWorkspace>("/me/consulting/workspace");
+
+export const updateConsultingPractice = (body: object) =>
+  apiRequest<ConsultingPractice>("/me/consulting/practice", { method: "PUT", body });
 
 export const fetchConsultingDiscoveryPlan = (profileId: number, focus = "") => {
   const query = focus.trim() ? `?focus=${encodeURIComponent(focus.trim())}` : "";

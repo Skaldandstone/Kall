@@ -1,0 +1,19 @@
+name: Native iOS release gate
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_ios:
+    type: build
+    params:
+      platform: ios
+      profile: ios-e2e
+  test_ios:
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path: [.maestro/ios-launch.yml]
+      record_screen: true
+      retries: 1

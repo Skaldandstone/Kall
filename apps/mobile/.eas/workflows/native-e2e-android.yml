@@ -1,0 +1,20 @@
+name: Native Android release gate
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: android-e2e
+  test_android:
+    needs: [build_android]
+    type: maestro
+    runs_on: linux-large-nested-virtualization
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path: [.maestro/android-update-and-launch.yml]
+      record_screen: true
+      retries: 1

@@ -13,7 +13,7 @@ type Resume = {
   industries: string[];
   target_titles: string[];
   updated_at: string;
-  readiness: { score: number; checks: Record<string, boolean> };
+  readiness: { score: number; strengths: string[]; gaps: string[]; explanation: string };
 };
 
 type Profile = {
@@ -123,11 +123,13 @@ export default function LibraryTab() {
                   {data.resumes.map((resume) => (
                     <article className={styles.card} key={resume.id}>
                       <div><p>Version {resume.version}</p><h3>{resume.name}</h3><span>Updated {new Date(resume.updated_at).toLocaleDateString()}</span></div>
-                      <div className={styles.score}><strong>{resume.readiness.score}</strong><span>readiness</span></div>
+                      <details className={styles.scoreHelp}>
+                        <summary aria-label={`Explain the ${resume.readiness.score} percent readiness score`}><span className={styles.score}><strong>{resume.readiness.score}%</strong><span>readiness</span></span><span aria-hidden="true" className={styles.info}>?</span></summary>
+                        <div><p>{resume.readiness.explanation}</p><strong>What is ready</strong><ul>{resume.readiness.strengths.map((item) => <li key={item}>{item}</li>)}</ul><strong>What raises the score</strong><ul>{resume.readiness.gaps.length ? resume.readiness.gaps.map((item) => <li key={item}>{item}</li>) : <li>No immediate gaps detected.</li>}</ul></div>
+                      </details>
                       <div className={styles.checks}>
-                        {Object.entries(resume.readiness.checks).map(([key, complete]) => (
-                          <span key={key} className={complete ? styles.complete : ''}>{complete ? '✓' : '○'} {key.replaceAll('_', ' ')}</span>
-                        ))}
+                        {resume.readiness.strengths.map((item) => <span key={item} className={styles.complete}>✓ {item}</span>)}
+                        {resume.readiness.gaps.map((item) => <span key={item}>○ {item}</span>)}
                       </div>
                     </article>
                   ))}

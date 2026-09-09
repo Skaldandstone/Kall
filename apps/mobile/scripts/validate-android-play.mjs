@@ -19,7 +19,7 @@ assert.equal(app.android?.package, expectedPackage, 'Unexpected Android package 
 // screen worth a hard assertion rather than a passive default.
 assert.match(String(app.android?.versionCode ?? ''), /^[1-9]\d*$/, 'Android versionCode must be a positive integer.');
 assert.ok(
-  app.android.versionCode >= 2,
+  app.android.versionCode >= 3,
   'Android versionCode baseline must not fall below the highest version already accepted by Play.',
 );
 

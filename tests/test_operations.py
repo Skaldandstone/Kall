@@ -32,12 +32,13 @@ def test_mobile_release_endpoint_matches_the_android_build() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "platform": "android",
-        "latestVersion": "1.1.5",
+        "latestVersion": "1.1.6",
         "updateUrl": "https://play.google.com/apps/testing/com.skaldandstone.kall",
     }
 
     app_config = json.loads((Path(__file__).parents[1] / "apps/mobile/app.json").read_text())
     assert app_config["expo"]["version"] == LATEST_ANDROID_VERSION
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_readiness_endpoint_checks_the_database() -> None:

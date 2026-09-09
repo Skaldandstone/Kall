@@ -59,7 +59,7 @@ def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(clien
     assert {item["provider"] for item in payload["searches"]} == {
         "Catalant",
         "Business Talent Group",
-        "Go Fractional",
+        "Contra",
         "Open web",
     }
     assert all(item["search_url"].startswith("https://www.google.com/search?q=") for item in payload["searches"])
@@ -131,6 +131,32 @@ def test_a_lead_cannot_link_another_accounts_contact(client, engine) -> None:
         "contact_id": contact_id,
     })
     assert response.status_code == 404
+
+
+def test_consulting_offer_is_public_only_after_explicit_availability_opt_in(client) -> None:
+    page = client.get("/api/me/career-page").json()["page"]
+    client.patch("/api/me/career-page", json={"published": True})
+    payload = {
+        "available": False,
+        "engagement_types": ["consulting", "fractional"],
+        "rate_cents": 17500,
+        "rate_basis": "hour",
+        "currency": "USD",
+        "availability_note": "One new engagement this quarter",
+        "agreement_url": "https://example.com/terms",
+    }
+    saved = client.put(f"{BASE}/practice", json=payload)
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/api/career-pages/{page['slug']}").json()["consulting"] is None
+
+    payload["available"] = True
+    client.put(f"{BASE}/practice", json=payload)
+    public_offer = client.get(f"/api/career-pages/{page['slug']}").json()["consulting"]
+    assert public_offer["rate_cents"] == 17500
+    assert public_offer["engagement_types"] == ["consulting", "fractional"]
+
+    unsafe = client.put(f"{BASE}/practice", json={**payload, "agreement_url": "javascript:alert(1)"})
+    assert unsafe.status_code == 422
 
 
 def test_proposal_editing_invalidates_approval_and_has_no_send_action(client) -> None:

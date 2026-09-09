@@ -59,3 +59,26 @@ def test_mobile_registration_is_open_like_web_but_the_invite_only_ui_stays_testa
     # type still exists, so the invite-only screen stays exercisable.
     assert "KALL_MOBILE_ALLOW_REGISTRATION" in app_config
     assert "process.env.KALL_MOBILE_ALLOW_REGISTRATION ?? '0'" in playwright_config
+
+
+def test_store_releases_wait_for_compiled_native_smoke_tests() -> None:
+    android = (ROOT / ".github" / "workflows" / "mobile-android-build.yml").read_text()
+    ios = (ROOT / ".github" / "workflows" / "mobile-ios-submit.yml").read_text()
+    assert android.index("native-e2e-android.yml") < android.index("release:android")
+    assert ios.index("native-e2e-ios.yml") < ios.index("release:ios -- --non-interactive")
+    for body in (android, ios):
+        assert "--non-interactive --wait" in body
+        assert "apps/mobile/.eas/**" in body
+        assert "apps/mobile/.maestro/**" in body
+
+
+def test_installed_update_resets_private_cache_and_rechecks_on_resume() -> None:
+    reset_gate = (ROOT / "apps" / "mobile" / "src" / "components" / "ReleaseResetGate.tsx").read_text()
+    update_prompt = (ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.tsx").read_text()
+    assert "new Directory(Paths.cache)" in reset_gate
+    assert "cache.list()" in reset_gate
+    assert "await clerk.signOut()" in reset_gate
+    assert "AppState.addEventListener" in update_prompt
+    assert "'Cache-Control': 'no-cache'" in update_prompt
+    assert "&t=${Date.now()}" in update_prompt
+    assert "Application.nativeApplicationVersion" in update_prompt

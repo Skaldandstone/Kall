@@ -5,6 +5,20 @@ from sqlmodel import JSON, Column, Field
 from kall.models.core import TimestampMixin
 
 
+class ConsultingPractice(TimestampMixin, table=True):
+    """Owner-controlled consulting offer settings, private unless opted in."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id", unique=True)
+    available: bool = False
+    engagement_types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    rate_cents: int | None = None
+    rate_basis: str = "hour"
+    currency: str = "USD"
+    availability_note: str | None = None
+    agreement_url: str | None = None
+
+
 class ConsultingLead(TimestampMixin, table=True):
     """A private consulting prospect owned by one Kall account."""
 

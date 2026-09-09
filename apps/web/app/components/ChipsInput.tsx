@@ -4,7 +4,7 @@ import { KeyboardEvent, useId, useState } from 'react';
 import styles from './ChipsInput.module.css';
 
 type Props = {
-  name: string;
+  name?: string;
   label: string;
   placeholder?: string;
   helpText?: string;
@@ -14,22 +14,32 @@ type Props = {
   /** Optional autocomplete options (e.g. known cities) shown while typing.
    * Freeform entries outside this list are still accepted. */
   suggestions?: string[];
+  value?: string[];
+  onChange?: (value: string[]) => void;
+  autoFocus?: boolean;
 };
 
 /** A free-text "type and press Enter/comma to add" chip field. Keeps a
  * hidden comma-joined input under `name` so existing FormData-based submit
  * handlers (`csv(form.get(name))`) work unchanged -- only the display
  * changes from a raw text box to removable chips. */
-export default function ChipsInput({ name, label, placeholder, helpText, defaultValue = [], required, className, suggestions }: Props) {
+export default function ChipsInput({ name, label, placeholder, helpText, defaultValue = [], required, className, suggestions, value, onChange, autoFocus }: Props) {
   const id = useId();
-  const [chips, setChips] = useState<string[]>(defaultValue);
+  const [internalChips, setInternalChips] = useState<string[]>(defaultValue);
   const [draft, setDraft] = useState('');
+  const chips = value ?? internalChips;
+
+  function updateChips(update: (current: string[]) => string[]) {
+    const next = update(chips);
+    if (value === undefined) setInternalChips(next);
+    onChange?.(next);
+  }
 
   function commitDraft() {
-    const value = draft.trim();
+    const nextValues = draft.split(/[,\n]+/).map((item) => item.trim()).filter(Boolean);
     setDraft('');
-    if (!value) return;
-    setChips((current) => (current.includes(value) ? current : [...current, value]));
+    if (!nextValues.length) return;
+    updateChips((current) => [...current, ...nextValues.filter((item) => !current.includes(item))]);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -37,18 +47,18 @@ export default function ChipsInput({ name, label, placeholder, helpText, default
       event.preventDefault();
       commitDraft();
     } else if (event.key === 'Backspace' && !draft && chips.length > 0) {
-      setChips((current) => current.slice(0, -1));
+      updateChips((current) => current.slice(0, -1));
     }
   }
 
   function removeChip(value: string) {
-    setChips((current) => current.filter((chip) => chip !== value));
+    updateChips((current) => current.filter((chip) => chip !== value));
   }
 
   return (
     <label htmlFor={id}>
       {label}
-      <input type="hidden" name={name} value={chips.join(',')} />
+      {name ? <input type="hidden" name={name} value={chips.join(',')} /> : null}
       <div className={`${styles.field} ${className || ''}`}>
         {chips.map((chip) => (
           <span className={styles.chip} key={chip}>
@@ -60,6 +70,7 @@ export default function ChipsInput({ name, label, placeholder, helpText, default
         ))}
         <input
           id={id}
+          autoFocus={autoFocus}
           className={styles.draft}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

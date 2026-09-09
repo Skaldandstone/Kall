@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { showToast } from '../components/ToastHost';
+import ChipsInput from '../components/ChipsInput';
 import {
   RECORD_RESOURCES,
   RECORD_SCHEMAS,
@@ -14,6 +15,8 @@ const API = '/api/kall';
 
 type Row = Record<string, unknown>;
 type SkillCheck = { input: string; canonical: string | null; suggestion: string | null };
+type SkillSuggestion = { name: string; reason: string };
+type SkillSuggestions = { resume: SkillSuggestion[]; role: SkillSuggestion[] };
 
 /** Coerce one form value to what the API expects for its field kind. */
 function readField(field: RecordField, form: FormData): unknown {
@@ -55,7 +58,8 @@ export default function RecordTab() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   // Bulk skill entry, plus whatever the spell check had to say about it.
-  const [skillNames, setSkillNames] = useState('');
+  const [skillNames, setSkillNames] = useState<string[]>([]);
+  const [skillSuggestions, setSkillSuggestions] = useState<SkillSuggestions>({ resume: [], role: [] });
   const [checks, setChecks] = useState<SkillCheck[] | null>(null);
 
   // Read inside load() to tell a stale response from a current one.
@@ -64,18 +68,23 @@ export default function RecordTab() {
   const schema = RECORD_SCHEMAS[resource];
 
   async function load(selected = resource) {
-    const response = await fetch(`${API}/profile/resources/${selected}`);
+    const [response, suggestionsResponse] = await Promise.all([
+      fetch(`${API}/profile/resources/${selected}`),
+      selected === 'skills' ? fetch(`${API}/profile/skills/suggestions`) : Promise.resolve(null),
+    ]);
     if (response.status === 401) { window.location.replace('/sign-in'); return; }
     // Ignore a response for a section the user has already switched away from,
     // or a slow request can overwrite the rows of the section now on screen.
     if (response.ok && selected === resourceRef.current) setRows(await response.json());
+    if (suggestionsResponse?.ok && selected === resourceRef.current) setSkillSuggestions(await suggestionsResponse.json());
   }
 
   useEffect(() => {
     resourceRef.current = resource;
     setMessage('');
     setChecks(null);
-    setSkillNames('');
+    setSkillNames([]);
+    setSkillSuggestions({ resume: [], role: [] });
     // Drop the previous section's rows immediately. Rendering them against the
     // new section's schema produced a list of "Untitled" entries for the beat
     // before the fetch landed, because none of their fields matched.
@@ -118,7 +127,7 @@ export default function RecordTab() {
    */
   async function checkSpelling(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const names = splitList(skillNames);
+    const names = skillNames;
     if (!names.length) { setMessage('Enter at least one skill.'); return; }
     setBusy(true);
     try {
@@ -158,11 +167,33 @@ export default function RecordTab() {
     const added = results.filter(Boolean).length;
     if (added) {
       showToast(`Added ${added} skill${added === 1 ? '' : 's'}.`, 'success');
-      setSkillNames('');
+      setSkillNames([]);
       setChecks(null);
       void load();
     }
     if (added < results.length) setMessage(`${results.length - added} skill(s) could not be saved.`);
+  }
+
+  function toggleSkill(name: string) {
+    setChecks(null);
+    setSkillNames((current) => current.includes(name)
+      ? current.filter((item) => item !== name)
+      : [...current, name]);
+  }
+
+  function suggestionGroup(title: string, description: string, suggestions: SkillSuggestion[]) {
+    if (!suggestions.length) return null;
+    return (
+      <section className="skill-suggestions" aria-label={title}>
+        <h3>{title}</h3><p>{description}</p>
+        <div className="skill-suggestion-list">
+          {suggestions.map((suggestion) => {
+            const selected = skillNames.includes(suggestion.name);
+            return <button key={suggestion.name} type="button" className={selected ? 'selected' : ''} aria-pressed={selected} title={suggestion.reason} onClick={() => toggleSkill(suggestion.name)}>{selected ? '✓ ' : '+ '}{suggestion.name}</button>;
+          })}
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -185,19 +216,12 @@ export default function RecordTab() {
 
         {resource === 'skills' ? (
           <>
-            <p className="record-intro">Add several at once, separated by commas. Kall checks the spelling before saving.</p>
+            <p className="record-intro">Choose grounded suggestions or add your own. Nothing is saved until you review the spelling.</p>
+            {suggestionGroup('From your resume', 'Skills detected in your resume metadata, parsed content, and achievements.', skillSuggestions.resume)}
+            {suggestionGroup('Relevant to your target roles', 'Skills named by your active career directions and roles already in your opportunity pipeline.', skillSuggestions.role)}
             <form className="form" onSubmit={checkSpelling}>
-              <label>
-                <span className="muted">Skills</span>
-                <input
-                  className="input"
-                  name="skill_names"
-                  value={skillNames}
-                  onChange={(event) => { setSkillNames(event.target.value); setChecks(null); }}
-                  placeholder="Python, Kubernetes, Test Automation"
-                />
-              </label>
-              <button className="button" disabled={busy}>Check spelling</button>
+              <ChipsInput name="skill_names" label="Selected and custom skills" value={skillNames} onChange={(values) => { setSkillNames(values); setChecks(null); }} placeholder="Type a skill and press Enter" />
+              <button className="button" disabled={busy}>Review selected skills</button>
             </form>
 
             {checks && (

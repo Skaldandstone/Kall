@@ -29,12 +29,24 @@ type CoverLetterResult = {
   }>;
 };
 
+const TEMPLATES = {
+  standard: { label: 'Classic chronological', use: 'A familiar structure for most roles and industries.', order: ['Summary', 'Experience', 'Skills', 'Education'] },
+  executive: { label: 'Leadership and impact', use: 'For senior leaders whose scope, decisions, and outcomes should lead.', order: ['Leadership profile', 'Selected impact', 'Experience', 'Education'] },
+  creative: { label: 'Creative and portfolio', use: 'For art, design, writing, performance, and other portfolio-backed work.', order: ['Creative profile', 'Selected work', 'Experience', 'Skills'] },
+  commercial: { label: 'Sales and customer outcomes', use: 'For sales, account management, fundraising, and customer-facing work.', order: ['Commercial profile', 'Results', 'Experience', 'Skills'] },
+  service: { label: 'Service, hospitality, and skilled work', use: 'For culinary, hospitality, retail, trades, operations, and hands-on roles.', order: ['Professional profile', 'Core capabilities', 'Experience', 'Training'] },
+  early: { label: 'Early career and career change', use: 'For transferable skills, training, projects, and emerging experience.', order: ['Objective', 'Transferable skills', 'Projects and experience', 'Education'] },
+  compact: { label: 'Compact two-page', use: 'For long work histories that need a concise, scan-friendly structure.', order: ['Summary', 'Selected achievements', 'Recent experience', 'Earlier experience'] },
+} as const;
+type TemplateKey = keyof typeof TEMPLATES;
+
 export default function GenerateTab() {
   const [documentResult, setDocumentResult] = useState<DocumentResult | null>(null);
   const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
+  const [templateKey, setTemplateKey] = useState<TemplateKey>('standard');
 
   async function generateResume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -153,14 +165,15 @@ export default function GenerateTab() {
               <input className="input" name="proposal_id" inputMode="numeric" required />
             </label>
             <label>
-              <span className="muted">ATS-safe template</span>
-              <select className="input" name="template_key" defaultValue="standard">
-                <option value="standard">Standard professional</option>
-                <option value="executive">Executive</option>
-                <option value="technical-leadership">Technical leadership</option>
-                <option value="compact">Compact two-page</option>
+              <span className="muted">ATS-readable layout</span>
+              <select className="input" name="template_key" value={templateKey} onChange={(event) => setTemplateKey(event.target.value as TemplateKey)}>
+                {Object.entries(TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
               </select>
             </label>
+            <section className="template-preview" aria-live="polite">
+              <div className="template-sheet"><strong>Your Name</strong><span>Contact details · Location · Portfolio or LinkedIn</span>{TEMPLATES[templateKey].order.map((section) => <div key={section}><b>{section}</b><i /><i /></div>)}</div>
+              <div><h3>{TEMPLATES[templateKey].label}</h3><p>{TEMPLATES[templateKey].use}</p><p className="muted">Single column, standard headings, selectable text, and no decorative graphics that interfere with parsing.</p></div>
+            </section>
             <button className="button" disabled={busy}>Generate files</button>
           </form>
         </article>

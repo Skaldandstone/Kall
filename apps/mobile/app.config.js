@@ -24,6 +24,10 @@ module.exports = ({ config }) => {
   // required" for a keystore that will never exist in that environment.
   const useLocalAndroidSigning = process.env.KALL_MOBILE_LOCAL_ANDROID_SIGNING === '1';
   const registrationOverride = process.env.KALL_MOBILE_ALLOW_REGISTRATION;
+  const nativeE2EVersion = process.env.KALL_MOBILE_E2E_VERSION;
+  if (nativeE2EVersion && !/^\d+\.\d+\.\d+$/.test(nativeE2EVersion)) {
+    throw new Error('KALL_MOBILE_E2E_VERSION must be a semantic version.');
+  }
 
   // A review APK must be tied to an explicitly selected HTTPS runtime and
   // Clerk instance. This prevents a release build from quietly inheriting a
@@ -60,6 +64,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    version: nativeE2EVersion || config.version,
     plugins: [
       ...(config.plugins ?? []),
       '@clerk/expo',

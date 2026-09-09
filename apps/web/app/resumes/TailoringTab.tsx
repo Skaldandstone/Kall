@@ -27,10 +27,22 @@ export default function TailoringTab() {
     event.preventDefault();
     if (!profileId) return alert('Create or select a professional profile first.');
     const data = new FormData(event.currentTarget);
+    const jobResponse = await fetch(`${API}/jobs/import-search-result`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url: String(data.get('job_url') || ''),
+        title: String(data.get('job_title') || ''),
+        snippet: String(data.get('job_description') || ''),
+        source: 'resume_studio',
+      }),
+    });
+    const job = await jobResponse.json();
+    if (!jobResponse.ok) return alert(job.detail || 'Kall could not save that job description.');
     const response = await fetch(`${API}/tailoring/proposals`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({job_id:Number(data.get('job_id')), professional_profile_id:Number(profileId)})
+      body: JSON.stringify({job_id:Number(job.id), professional_profile_id:Number(profileId)})
     });
     const proposal = await response.json();
     if (!response.ok) return alert(proposal.detail || 'Unable to create proposal');
@@ -70,12 +82,14 @@ export default function TailoringTab() {
   return <>
     <section className="card">
       <h2>Evidence-grounded tailoring</h2>
-      <p>Create a proposal for a job. Every proposed change to your resume must be reviewed and grounded in real evidence before use in Generate.</p>
+      <p>Link the job posting and paste its description. Kall uses the actual requirements to prepare changes, and every proposed change must be reviewed before export.</p>
       <form className="form" onSubmit={createProposal}>
+        <label><span className="muted">Job posting link</span><input className="input" name="job_url" type="url" placeholder="https://company.com/careers/role" required/></label>
         <div className="two">
-          <label><span className="muted">Job ID</span><input className="input" name="job_id" placeholder="Job ID" required/></label>
+          <label><span className="muted">Job title</span><input className="input" name="job_title" placeholder="e.g. Executive Chef, Account Executive, Art Director" required/></label>
           <ProfessionalProfileSelect value={profileId} onChange={setProfileId} />
         </div>
+        <label><span className="muted">Job description</span><textarea className="input" name="job_description" rows={8} placeholder="Paste the responsibilities and requirements from the posting" required/></label>
         <button className="button" disabled={!profileId}>Create proposal</button>
       </form>
     </section>

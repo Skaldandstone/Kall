@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, AppState, Linking, Platform } from 'react-native';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'http://10.0.2.2:8000/api';
-const INSTALLED_VERSION = Constants.expoConfig?.version;
 const PLAY_TEST_URL = 'https://play.google.com/apps/testing/com.skaldandstone.kall';
 
 type MobileRelease = {
@@ -38,26 +38,33 @@ function isRelease(value: unknown): value is MobileRelease {
 }
 
 export default function UpdatePrompt() {
+  const activeCheck = useRef(false);
+  const promptedVersion = useRef('');
+
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const installedVersion = INSTALLED_VERSION ?? '';
+    const installedVersion = Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '';
     if (!installedVersion) return;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    let disposed = false;
+    let controller: AbortController | null = null;
 
     async function checkForUpdate() {
+      if (activeCheck.current) return;
+      activeCheck.current = true;
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller?.abort(), 5000);
       try {
-        const response = await fetch(`${API_BASE_URL}/mobile-release`, {
-          headers: { Accept: 'application/json' },
+        const response = await fetch(`${API_BASE_URL}/mobile-release?installed=${encodeURIComponent(installedVersion)}&t=${Date.now()}`, {
+          headers: { Accept: 'application/json', 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
           signal: controller.signal,
         });
         if (!response.ok) return;
 
         const release: unknown = await response.json();
-        if (!isRelease(release) || compareVersions(installedVersion, release.latestVersion) >= 0) {
+        if (disposed || !isRelease(release) || compareVersions(installedVersion, release.latestVersion) >= 0 || promptedVersion.current === release.latestVersion) {
           return;
         }
+        promptedVersion.current = release.latestVersion;
 
         Alert.alert(
           'Kall update available',
@@ -78,13 +85,18 @@ export default function UpdatePrompt() {
         // never block sign-in or the rest of the app.
       } finally {
         clearTimeout(timeout);
+        activeCheck.current = false;
       }
     }
 
     void checkForUpdate();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkForUpdate();
+    });
     return () => {
-      clearTimeout(timeout);
-      controller.abort();
+      disposed = true;
+      subscription.remove();
+      controller?.abort();
     };
   }, []);
 

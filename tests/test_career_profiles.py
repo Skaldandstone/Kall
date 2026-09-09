@@ -210,3 +210,27 @@ def test_suggest_fields_short_circuits_when_profile_is_already_complete(client, 
     response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
     assert response.status_code == 200
     assert response.json()["suggestions"] == {}
+
+
+def test_a_profile_can_be_permanently_deleted(client) -> None:
+    profile_id = _create_profile(client)
+    response = client.delete(f"/api/me/career-profiles/{profile_id}")
+    assert response.status_code == 204, response.text
+    assert client.get("/api/me/career-profiles").json()["profiles"] == []
+
+
+def test_profile_deletion_preserves_linked_application_history(client, engine) -> None:
+    from kall.models import Application, Job
+    from sqlmodel import Session
+
+    profile_id = _create_profile(client)
+    with Session(engine) as session:
+        job = Job(source="test", company="Cafe", title="Chef", description="Cook", url="https://example.com/chef")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        session.add(Application(user_id=client.user_id, job_id=job.id, career_profile_id=profile_id))
+        session.commit()
+    response = client.delete(f"/api/me/career-profiles/{profile_id}")
+    assert response.status_code == 409
+    assert "applications linked" in response.json()["detail"]

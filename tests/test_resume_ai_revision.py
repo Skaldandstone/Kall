@@ -47,6 +47,17 @@ def test_applying_a_tag_recommendation_raises_the_readiness_score(client: TestCl
     assert new_row["readiness_score"] > before_score
 
 
+def test_library_and_evidence_use_the_same_explained_readiness_score(client: TestClient, engine) -> None:
+    resume_id = _make_resume(engine, client.user_id, extracted_text="Experience " * 180)
+    library = client.get("/api/me/resume-studio").json()
+    evidence = client.get("/api/me/resume-intelligence").json()
+    library_row = next(row for row in library["resumes"] if row["id"] == resume_id)
+    evidence_row = next(row for row in evidence["resumes"] if row["id"] == resume_id)
+    assert library_row["readiness"]["score"] == evidence_row["readiness_score"]
+    assert "not a comparison with one job" in library_row["readiness"]["explanation"]
+    assert library_row["readiness"]["gaps"] == evidence_row["gaps"]
+
+
 def test_applying_a_recommendation_preserves_is_default_from_the_source(client: TestClient, engine) -> None:
     resume_id = _make_resume(engine, client.user_id, is_default=True, tags=["existing"])
 

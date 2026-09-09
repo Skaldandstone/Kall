@@ -663,6 +663,35 @@ label .muted,
   color: var(--text-secondary);
 }
 
+.skill-suggestions { margin: 18px 0; }
+.skill-suggestions h3 { margin: 0; font-size: 15px; }
+.skill-suggestions p { margin: 5px 0 10px; color: var(--text-secondary); font-size: 13px; }
+.skill-suggestion-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.skill-suggestion-list button { min-height: 38px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-raised); color: var(--text); cursor: pointer; }
+.skill-suggestion-list button.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface-raised)); }
+
+.parse-warnings {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--warning) 58%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-raised));
+}
+
+.parse-warnings h3,
+.parse-warnings p { margin: 0; }
+.parse-warnings ul { margin: 10px 0; padding-left: 20px; }
+
+.template-preview { display: grid; grid-template-columns: 150px minmax(0,1fr); gap: 18px; align-items: start; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-raised); }
+.template-preview h3, .template-preview p { margin: 0 0 8px; }
+.template-sheet { display: grid; gap: 5px; min-height: 190px; padding: 14px 12px; border-radius: 3px; background: #fff; color: #18202a; box-shadow: 0 5px 18px rgba(0,0,0,.22); font-size: 7px; }
+.template-sheet>strong { font-family: Georgia,serif; font-size: 14px; }
+.template-sheet>span { color: #475569; }
+.template-sheet>div { display: grid; gap: 3px; padding-top: 5px; border-top: 1px solid #cbd5e1; }
+.template-sheet b { font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
+.template-sheet i { display: block; height: 3px; border-radius: 2px; background: #dbe3ea; }
+@media(max-width:640px){.template-preview{grid-template-columns:1fr}.template-sheet{width:150px}}
+
 @media (max-width: 900px) {
   .record-layout {
     grid-template-columns: 1fr;

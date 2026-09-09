@@ -13,6 +13,8 @@ on:
       - 'apps/mobile/app.config.js'
       - 'apps/mobile/metro.config.js'
       - 'apps/mobile/eas.json'
+      - 'apps/mobile/.eas/**'
+      - 'apps/mobile/.maestro/**'
       - 'apps/mobile/package.json'
       - 'apps/mobile/package-lock.json'
   workflow_dispatch: {}
@@ -43,6 +45,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run compiled Android update and launch smoke test
+        run: eas workflow:run .eas/workflows/native-e2e-android.yml --non-interactive --wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Queue Android build and automatic closed Alpha submission
         run: npm run release:android -- --non-interactive --no-wait

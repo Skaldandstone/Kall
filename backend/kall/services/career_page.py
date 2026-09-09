@@ -18,6 +18,7 @@ from kall.models import (
     CareerPage,
     CareerPageSection,
     Certification,
+    ConsultingPractice,
     Education,
     Employment,
     Patent,
@@ -238,6 +239,12 @@ def render_public_page(session: Session, page: CareerPage) -> dict[str, Any]:
     profile = session.exec(
         select(CandidateProfile).where(CandidateProfile.user_id == page.user_id)
     ).first()
+    practice = session.exec(
+        select(ConsultingPractice).where(
+            ConsultingPractice.user_id == page.user_id,
+            ConsultingPractice.available.is_(True),
+        )
+    ).first()
 
     sections = []
     for section in sections_for(session, page, visible_only=True):
@@ -289,6 +296,14 @@ def render_public_page(session: Session, page: CareerPage) -> dict[str, Any]:
         # profile that could identify where this person lives or how to call
         # them reaches this payload.
         "professional_summary": profile.professional_summary if profile else None,
+        "consulting": ({
+            "engagement_types": practice.engagement_types,
+            "rate_cents": practice.rate_cents,
+            "rate_basis": practice.rate_basis,
+            "currency": practice.currency,
+            "availability_note": practice.availability_note,
+            "agreement_url": practice.agreement_url,
+        } if practice else None),
         "sections": sections,
     }
 

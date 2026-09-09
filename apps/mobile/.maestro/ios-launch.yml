@@ -1,0 +1,9 @@
+appId: com.skaldandstone.kall
+---
+- launchApp:
+    clearState: true
+- assertVisible: Welcome back
+- assertVisible: Sign in to your career workspace.
+- assertVisible: Continue with Google
+- assertVisible: Need an account? Create one
+- takeScreenshot: ios-launch

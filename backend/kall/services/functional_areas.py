@@ -13,7 +13,14 @@ FUNCTIONAL_AREA_ALIASES: dict[str, tuple[str, ...]] = {
     "Data Science": ("data scientist", "machine learning engineer", "applied scientist"),
     "Data Engineering": ("data engineer", "analytics engineer", "data platform engineer"),
     "Design": ("product designer", "UX designer", "user experience", "interaction designer"),
-    "Operations": ("business operations", "operations manager", "operations analyst"),
+    "Creative and Art": ("artist", "illustrator", "art director", "creative director", "writer", "photographer"),
+    "Sales": ("sales", "account executive", "business development", "revenue", "partnerships"),
+    "Marketing": ("marketing", "brand", "content", "communications", "demand generation"),
+    "Culinary and Hospitality": ("chef", "cook", "culinary", "restaurant", "hospitality", "food service"),
+    "Operations": ("business operations", "operations manager", "operations analyst", "supply chain", "logistics"),
+    "Skilled Trades": ("electrician", "carpenter", "plumber", "welder", "technician", "craftsperson"),
+    "Education and Training": ("teacher", "educator", "trainer", "curriculum", "instructional design"),
+    "Healthcare": ("healthcare", "clinical", "nursing", "patient care", "medical"),
     "Security": ("security engineer", "information security", "cybersecurity", "security analyst"),
 }
 

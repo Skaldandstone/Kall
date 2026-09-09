@@ -3,12 +3,19 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { useAuth, useClerk } from '@clerk/expo';
 import * as Application from 'expo-application';
 import * as SecureStore from 'expo-secure-store';
+import { Directory, Paths } from 'expo-file-system';
 
 import { resetPurchaseSession } from './PurchaseBootstrap';
 import { clearSessionTokenCache } from '../auth/sessionTokenCache';
 import { theme } from '../theme';
 
 const RELEASE_MARKER_KEY = 'kall.release.identity';
+
+async function clearNativeFileCache() {
+  const cache = new Directory(Paths.cache);
+  if (!cache.exists) return;
+  for (const entry of cache.list()) entry.delete();
+}
 
 export function currentReleaseIdentity(): string {
   return [
@@ -44,6 +51,7 @@ export default function ReleaseResetGate({ children }: PropsWithChildren) {
         await clerk.signOut();
         await clearSessionTokenCache();
         await resetPurchaseSession();
+        await clearNativeFileCache();
       }
 
       await SecureStore.setItemAsync(RELEASE_MARKER_KEY, identity);

@@ -81,6 +81,21 @@ def test_a_generated_document_is_immediately_finalized() -> None:
         assert generated.status == "finalized"
 
 
+def test_selected_layout_changes_section_order_and_rejects_unknown_layouts() -> None:
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        proposal = _finalized_proposal(session)
+        session.add(TailoringChange(proposal_id=proposal.id, section="experience", original_text="", proposed_text="Experience", reason="verified", status="accepted"))
+        session.add(TailoringChange(proposal_id=proposal.id, section="achievement", original_text="", proposed_text="Achievement", reason="verified", status="accepted"))
+        session.commit()
+
+        creative = generate_resume_documents(session, proposal, "creative")
+        assert [item["section"] for item in creative.content_json["sections"]] == ["summary", "achievement", "experience"]
+        with pytest.raises(ValueError, match="available resume layouts"):
+            generate_resume_documents(session, proposal, "unknown")
+
+
 def test_generation_writes_no_files_until_one_is_asked_for(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Three formats were rendered eagerly for a document nobody had opened."""
     monkeypatch.chdir(tmp_path)

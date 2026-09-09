@@ -19,6 +19,8 @@
 .guideReview dl div{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface-raised)}
 .guideReview dt{color:var(--text-secondary);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
 .guideReview dd{margin:5px 0 0}
+.answerChips{display:flex;flex-wrap:wrap;gap:8px}
+.answerChips>span{display:inline-flex;align-items:center;min-height:32px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text);font-size:13px;line-height:1.25}
 .unknowns{padding:16px;border:1px solid var(--border);border-radius:14px}
 .unknowns ul,.unknowns p{margin-bottom:0}
 .actions{display:flex;align-items:center;gap:12px}

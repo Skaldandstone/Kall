@@ -28,6 +28,46 @@ from sqlmodel import Session, select
 
 GENERATION_VERSION = "documents-v1"
 
+RESUME_TEMPLATE_KEYS = {
+    "standard",
+    "executive",
+    "creative",
+    "commercial",
+    "service",
+    "early",
+    "compact",
+    # Keep documents created by the original UI reproducible.
+    "technical-leadership",
+}
+
+_TEMPLATE_SECTION_PRIORITIES: dict[str, tuple[str, ...]] = {
+    "standard": ("summary", "experience", "achievement", "skill", "education"),
+    "executive": ("summary", "achievement", "experience", "skill", "education"),
+    "technical-leadership": ("summary", "achievement", "skill", "experience", "education"),
+    "creative": ("summary", "project", "portfolio", "achievement", "experience", "skill", "education"),
+    "commercial": ("summary", "achievement", "result", "experience", "skill", "education"),
+    "service": ("summary", "skill", "training", "certification", "experience", "education"),
+    "early": ("summary", "skill", "project", "experience", "education"),
+    "compact": ("summary", "achievement", "experience", "skill", "education"),
+}
+
+
+def _ordered_sections(sections: list[dict[str, str]], template_key: str) -> list[dict[str, str]]:
+    """Apply the selected content emphasis while preserving unknown sections."""
+    if template_key not in RESUME_TEMPLATE_KEYS:
+        raise ValueError("Choose one of the available resume layouts")
+    priorities = _TEMPLATE_SECTION_PRIORITIES[template_key]
+
+    def rank(item: tuple[int, dict[str, str]]) -> tuple[int, int]:
+        original_index, section = item
+        normalized = section["section"].casefold().replace("_", " ")
+        for priority, term in enumerate(priorities):
+            if term in normalized:
+                return priority, original_index
+        return len(priorities), original_index
+
+    return [section for _, section in sorted(enumerate(sections), key=rank)]
+
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -155,7 +195,7 @@ def generate_resume_documents(
     proposal: TailoringProposal,
     template_key: str = "standard",
 ) -> GeneratedDocument:
-    sections = finalized_resume_content(session, proposal)
+    sections = _ordered_sections(finalized_resume_content(session, proposal), template_key)
     content_text = "\n\n".join(item["text"] for item in sections)
     canonical = json.dumps(sections, sort_keys=True).encode()
     generated = GeneratedDocument(

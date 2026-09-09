@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import (
+    Achievement,
     AwardHonor,
     CareerProfile,
     Certification,
@@ -15,13 +16,16 @@ from kall.models import (
     EEOProfile,
     Employment,
     FieldPrivacy,
+    JobRequirementAnalysis,
     Language,
     OnboardingProgress,
+    Opportunity,
     Patent,
     ProfessionalMembership,
     Publication,
     Reference,
     ResumeDocument,
+    ResumeParse,
     SecurityClearance,
     Skill,
     SpeakingEngagement,
@@ -388,6 +392,101 @@ class SkillCheckResult(BaseModel):
     canonical: str | None = None
     #: A likely intended spelling when it is not, or None to leave it alone.
     suggestion: str | None = None
+
+
+class SkillSuggestion(BaseModel):
+    name: str
+    reason: str
+
+
+def _append_skill_suggestion(
+    output: list[SkillSuggestion],
+    seen: set[str],
+    value: str,
+    reason: str,
+) -> None:
+    cleaned = normalize_skill(value)
+    if not cleaned:
+        return
+    name = canonical_skill(cleaned) or cleaned
+    key = name.casefold()
+    if key in seen:
+        return
+    seen.add(key)
+    output.append(SkillSuggestion(name=name, reason=reason))
+
+
+@router.get("/skills/suggestions")
+def suggest_profile_skills(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, list[SkillSuggestion]]:
+    """Offer grounded, optional skill chips from the user's own evidence.
+
+    Resume-derived skills and role requirements remain separate so the UI can
+    explain why each suggestion exists. Nothing from this endpoint is saved
+    until the user selects and confirms it.
+    """
+    saved = {
+        row.name.casefold()
+        for row in session.exec(select(Skill).where(Skill.user_id == current_user.id))
+    }
+    seen = set(saved)
+    resume_items: list[SkillSuggestion] = []
+    role_items: list[SkillSuggestion] = []
+
+    resumes = list(session.exec(select(ResumeDocument).where(ResumeDocument.user_id == current_user.id)))
+    resume_ids = [resume.id for resume in resumes if resume.id is not None]
+    resume_names = {resume.id: resume.name for resume in resumes}
+    for resume in resumes:
+        for value in resume.tags:
+            _append_skill_suggestion(resume_items, seen, value, f"Listed on {resume.name}")
+
+    if resume_ids:
+        parses = list(session.exec(
+            select(ResumeParse)
+            .where(ResumeParse.user_id == current_user.id, ResumeParse.resume_id.in_(resume_ids))
+            .order_by(ResumeParse.updated_at.desc())
+        ))
+        parsed_resumes: set[int] = set()
+        for parse in parses:
+            if parse.resume_id in parsed_resumes:
+                continue
+            parsed_resumes.add(parse.resume_id)
+            values = parse.parsed_json.get("skills", [])
+            if isinstance(values, list):
+                for value in values:
+                    if isinstance(value, str):
+                        _append_skill_suggestion(
+                            resume_items, seen, value,
+                            f"Detected in {resume_names.get(parse.resume_id, 'your resume')}",
+                        )
+
+    achievements = session.exec(select(Achievement).where(Achievement.user_id == current_user.id))
+    for achievement in achievements:
+        for value in [*achievement.skills, *achievement.technologies]:
+            _append_skill_suggestion(resume_items, seen, value, "Supported by a resume achievement")
+
+    profiles = list(session.exec(
+        select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active)
+    ))
+    for profile in profiles:
+        for value in profile.include_keywords:
+            _append_skill_suggestion(role_items, seen, value, f"Relevant to {profile.name}")
+
+    opportunities = list(session.exec(
+        select(Opportunity).where(Opportunity.user_id == current_user.id)
+    ))
+    job_ids = sorted({item.job_id for item in opportunities})
+    if job_ids:
+        analyses = session.exec(
+            select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id.in_(job_ids))
+        )
+        for analysis in analyses:
+            for value in [*analysis.required_skills, *analysis.preferred_skills]:
+                _append_skill_suggestion(role_items, seen, value, "Requested by a role in your opportunity pipeline")
+
+    return {"resume": resume_items[:12], "role": role_items[:12]}
 
 
 @router.post("/skills/spellcheck", response_model=list[SkillCheckResult])

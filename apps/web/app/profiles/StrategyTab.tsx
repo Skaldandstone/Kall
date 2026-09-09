@@ -55,6 +55,7 @@ export default function StrategyTab() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [uploadingProfileId, setUploadingProfileId] = useState<number | null>(null);
   const [suggestingId, setSuggestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,19 @@ export default function StrategyTab() {
         : `Unable to ${active ? 'reactivate' : 'pause'} that profile.`,
     );
     if (response.ok) await load();
+  }
+
+  async function deleteProfile(profile: Profile) {
+    const response = await fetch(`${API}/me/career-profiles/${profile.id}`, { method: 'DELETE' });
+    if (response.status === 401) { window.location.replace('/sign-in'); return; }
+    if (response.ok) {
+      setDeletingId(null);
+      setMessage(`${profile.name} deleted.`);
+      await load();
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    setMessage(typeof body.detail === 'string' ? body.detail : 'Unable to delete that profile.');
   }
 
   async function assignResume(profileId: number, resumeId: string, successMessage = 'Profile resume updated.') {
@@ -322,8 +336,10 @@ export default function StrategyTab() {
                         ) : (
                           <button className="button ghost" onClick={() => setActive(profile, true)}>Reactivate</button>
                         )}
+                        <button className="button danger" onClick={() => setDeletingId(profile.id)}>Delete</button>
                       </div>
                     </div>
+                    {deletingId === profile.id && <div className="card" role="alertdialog" aria-labelledby={`delete-profile-${profile.id}`}><h3 id={`delete-profile-${profile.id}`}>Delete {profile.name}?</h3><p>This permanently removes this career direction, its matches, opportunities, and scheduled searches. Existing applications or tailoring proposals must be removed first.</p><div className={styles.actions}><button className="button danger" type="button" onClick={() => void deleteProfile(profile)}>Yes, delete profile</button><button className="button ghost" type="button" autoFocus onClick={() => setDeletingId(null)}>Keep profile</button></div></div>}
                     <div className={styles.tags}>{profile.target_titles.length ? profile.target_titles.map((title) => <span className={styles.tag} key={title}>{title}</span>) : <span className={styles.tag}>No target titles</span>}</div>
                     <dl className={styles.details}>
                       <div><dt>Industries</dt><dd>{profile.industries.join(', ') || 'Not set'}</dd></div>

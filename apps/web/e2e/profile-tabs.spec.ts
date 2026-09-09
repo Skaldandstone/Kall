@@ -26,7 +26,7 @@ test.describe('profile tabs', () => {
     await expect(page.locator('select[name="country"] option:checked')).toHaveText('United States');
   });
 
-  test('skills are added comma-separated, with a spelling check', async ({ page }) => {
+  test('skills are added as chips, with a spelling check', async ({ page }) => {
     const unique = Date.now();
     await signInAsNewUser(page);
 
@@ -35,8 +35,9 @@ test.describe('profile tabs', () => {
 
     // One deliberate typo alongside two good terms: the check has to catch the
     // first without second-guessing the others.
-    await page.locator('input[name="skill_names"]').fill('Python, Kubernets, Test Automation');
-    await page.getByRole('button', { name: 'Check spelling' }).click();
+    await page.getByLabel('Selected and custom skills').fill('Python, Kubernets, Test Automation');
+    await page.getByLabel('Selected and custom skills').press('Enter');
+    await page.getByRole('button', { name: 'Review selected skills' }).click();
 
     await expect(page.getByText('Did you mean')).toBeVisible();
     await page.getByRole('button', { name: 'Use Kubernetes' }).click();
@@ -59,8 +60,9 @@ test.describe('profile tabs', () => {
     await page.goto('/profiles?tab=record');
     await page.locator('select[name="resource"]').selectOption('skills');
     // The vocabulary cannot be complete, so an unknown term is not an error.
-    await page.locator('input[name="skill_names"]').fill('Frobnicator Engineering');
-    await page.getByRole('button', { name: 'Check spelling' }).click();
+    await page.getByLabel('Selected and custom skills').fill('Frobnicator Engineering');
+    await page.getByLabel('Selected and custom skills').press('Enter');
+    await page.getByRole('button', { name: 'Review selected skills' }).click();
     await expect(page.getByText('Kept as typed')).toBeVisible();
 
     await page.getByRole('button', { name: /Add 1 skill/ }).click();
@@ -94,8 +96,9 @@ test.describe('profile tabs', () => {
 
     await page.goto('/profiles?tab=record');
     await page.locator('select[name="resource"]').selectOption('skills');
-    await page.locator('input[name="skill_names"]').fill('Python');
-    await page.getByRole('button', { name: 'Check spelling' }).click();
+    await page.getByLabel('Selected and custom skills').fill('Python');
+    await page.getByLabel('Selected and custom skills').press('Enter');
+    await page.getByRole('button', { name: 'Review selected skills' }).click();
     await page.getByRole('button', { name: /Add 1 skill/ }).click();
     await expect(page.getByRole('heading', { name: 'Python', exact: true })).toBeVisible();
 
@@ -122,8 +125,15 @@ test.describe('profile tabs', () => {
     // resume" silently no-ops until it does (no resume id yet) -- wait for
     // the uploaded resume to actually appear as an option before clicking.
     await expect(page.locator('select').first().locator('option')).toHaveCount(1);
+    await page.route('**/api/kall/intelligence/resumes/*/parse', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, warnings: ['One employment date needs review.'] } });
+    });
     await page.getByRole('button', { name: 'Parse selected resume' }).click();
-    await expect(page.getByText(/Parse complete\. \d+ warning/)).toBeVisible();
+    await expect(page.getByText(/Parse complete with \d+ item/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review these parse notes' })).toBeVisible();
+    await expect(page.getByText('One employment date needs review.')).toBeVisible();
     // "Owned on-call..." doesn't extract as an achievement candidate here --
     // "50M" has no standalone digit run the metrics regex's word boundary
     // matches (the "M" blocks it). Only the employer/dates line has a bare

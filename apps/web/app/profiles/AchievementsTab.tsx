@@ -18,6 +18,7 @@ export default function AchievementsTab() {
   const [resumeId, setResumeId] = useState('');
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [message, setMessage] = useState('');
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   async function load() {
     const headers = { };
@@ -37,12 +38,21 @@ export default function AchievementsTab() {
 
   async function parse() {
     if (!resumeId) return;
+    setWarnings([]);
     setMessage('Parsing resume into structured sections and achievement candidates…');
     const response = await fetch(`${API}/intelligence/resumes/${resumeId}/parse`, {
       method: 'POST'
     });
     const data = await response.json();
-    setMessage(response.ok ? `Parse complete. ${data.warnings.length} warning(s).` : data.detail || 'Parse failed.');
+    const parseWarnings = response.ok && Array.isArray(data.warnings)
+      ? data.warnings.filter((warning: unknown): warning is string => typeof warning === 'string' && Boolean(warning.trim()))
+      : [];
+    setWarnings(parseWarnings);
+    setMessage(response.ok
+      ? parseWarnings.length
+        ? `Parse complete with ${parseWarnings.length} item${parseWarnings.length === 1 ? '' : 's'} to review.`
+        : 'Parse complete. No issues found.'
+      : data.detail || 'Parse failed.');
     if (response.ok) void load();
   }
 
@@ -67,6 +77,13 @@ export default function AchievementsTab() {
           <button className="button" type="button" onClick={parse}>Parse selected resume</button>
         </div>
         <p aria-live="polite">{message}</p>
+        {warnings.length > 0 && (
+          <section className="parse-warnings" aria-labelledby="parse-warning-heading">
+            <h3 id="parse-warning-heading">Review these parse notes</h3>
+            <ul>{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+            <p>The resume is still available. Add or clarify the missing information before relying on it for tailoring.</p>
+          </section>
+        )}
       </section>
       <section className="grid">
         {achievements.map((item) => <article className="card" key={item.id}>

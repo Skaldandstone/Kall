@@ -1,7 +1,9 @@
 """Skill spelling suggestions are advisory, and must not confidently mislead."""
 
 import pytest
+from kall.models import CareerProfile, ResumeDocument, Skill
 from kall.services.skill_vocabulary import canonical_skill, normalize_skill, suggest_skill
+from sqlmodel import Session
 
 API = "/api/profile/skills/spellcheck"
 
@@ -64,3 +66,24 @@ def test_spellcheck_endpoint_reports_each_term(client) -> None:
 def test_spellcheck_endpoint_drops_blank_entries(client) -> None:
     response = client.post(API, json={"names": ["  ", "", "Python"]})
     assert [row["input"] for row in response.json()] == ["Python"]
+
+
+def test_skill_suggestions_are_grounded_in_resume_and_target_direction(client, engine) -> None:
+    with Session(engine) as session:
+        session.add(ResumeDocument(
+            user_id=client.user_id, name="Chef resume.pdf", file_path="resume.pdf",
+            mime_type="application/pdf", tags=["Menu Development", "Food Safety"],
+        ))
+        session.add(CareerProfile(
+            user_id=client.user_id, name="Culinary consulting",
+            include_keywords=["Cost Control", "Kitchen Leadership"],
+        ))
+        session.add(Skill(user_id=client.user_id, name="Food Safety"))
+        session.commit()
+
+    response = client.get("/api/profile/skills/suggestions")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["resume"] == [{"name": "Menu Development", "reason": "Listed on Chef resume.pdf"}]
+    assert {item["name"] for item in body["role"]} == {"Cost Control", "Kitchen Leadership"}
+    assert "Food Safety" not in str(body)
