@@ -64,6 +64,32 @@ If provider setup is incomplete, leave `EnableRevenueCatNative=false` and
 `KALL_MOBILE_PURCHASES_ENABLED` unset. The mobile billing screen then sends users
 to the existing web billing page rather than presenting a broken store checkout.
 
+## Provider checkpoint: 8 September 2026
+
+- Stripe web billing is live with the Kall-only Plus and Premium monthly catalog
+  at USD 5 and USD 15.
+- Google Play contains the `kall_plus_monthly` and `kall_premium_monthly`
+  subscription records and reviewed customer-facing metadata. Play Console has
+  rejected otherwise valid monthly base-plan saves with a generic provider
+  error, so neither required `monthly` base plan exists yet.
+- App Store Connect subscription group `22370361` contains
+  `com.skaldandstone.kall.plus.monthly` at USD 4.99 and
+  `com.skaldandstone.kall.premium.monthly` at USD 14.99. Both are in Prepare for
+  Submission. Paid-app banking, tax, and trader information and review
+  screenshots remain incomplete.
+- RevenueCat project `b4b5bad9` contains the Android app shell and the `plus`
+  and `premium` entitlements. Its authenticated, HMAC-signed production webhook
+  is configured for production and sandbox events. The dedicated webhook secret
+  is stored in AWS Secrets Manager; native billing remains disabled in the
+  production stack.
+- EAS does not yet contain a RevenueCat public platform key. Do not enable
+  purchases or create a replacement store build until the store connection,
+  product import, offering, and public-key configuration are complete.
+- Clerk production has the Android native application registered. The exact iOS
+  registration values are known from the signed provisioning profile, but the
+  persistent Clerk application registration and Apple social connection still
+  require their provider-side setup.
+
 ## Release gates
 
 - The Google and Apple product details must match Kall's web plan descriptions.

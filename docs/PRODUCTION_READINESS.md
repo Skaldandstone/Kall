@@ -41,7 +41,7 @@ Production startup now fails closed unless all of the following are true:
 - the frontend is a credential-free HTTPS origin;
 - Alembic owns schema changes and automatic table creation is off;
 - durable S3 document storage is configured in the selected Region `us-east-2`;
-- signup remains invitation-only;
+- signup matches the reviewed deployment parameter and release policy;
 - any enabled Stripe environment has a matching test or live key, complete
   Kall-only catalog, portal, signing secret, and environment-specific scope;
 - live Stripe uses exactly `kall:production`, while sandbox objects cannot use
@@ -157,12 +157,20 @@ These are external gates and cannot be marked complete by source tests:
    Exercise SES, monitoring, OpenAI, mobile signing, and the installed extension
    independently. A healthy base runtime enables none of them automatically.
 9. Google Play closed-test 1.1.0 build 9 and iOS 1.1.0 build 3 are store-built
-   from `1b8c822`. Android is in Play review and the iOS upload is processing in
-   App Store Connect. Native billing source is implemented, but activation
-   requires the two Google subscriptions, RevenueCat project/webhook/public SDK
-   key, a second Android build with purchases enabled, license-test acceptance,
-   and then the equivalent Apple catalog after paid-app agreements and compliance
-   are complete. See [`NATIVE_BILLING.md`](NATIVE_BILLING.md).
+   from `1b8c822`. Android is published to the closed track. The iOS build is
+   processed, is available to the internal `Team (Expo)` group, and remains
+   ready to submit for external TestFlight review. RevenueCat project
+   `b4b5bad9`, the Android app shell, Plus/Premium entitlements, and the
+   production webhook are configured; its two webhook credentials are stored
+   only in the dedicated production secret. Apple Plus and Premium monthly
+   subscriptions exist in subscription group `22370361` at USD 4.99 and USD
+   14.99 respectively. Native billing remains fail-closed. Activation still
+   requires valid Google base plans, a dedicated Play service-account
+   connection, product import/offering publication, the platform public SDK
+   keys in EAS, a purchases-enabled rebuild, and physical-device license-test
+   acceptance. Apple additionally requires paid-agreement banking/tax/trader
+   information, review screenshots, the RevenueCat App Store connection, and
+   TestFlight sandbox acceptance. See [`NATIVE_BILLING.md`](NATIVE_BILLING.md).
 
 ## Deployment sequence
 
