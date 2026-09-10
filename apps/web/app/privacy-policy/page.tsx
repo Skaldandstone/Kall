@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'How Kall collects, uses, protects, and shares personal information.',
 };
 
-const updated = 'August 3, 2026';
+const updated = 'September 10, 2026';
 
 export default function PrivacyPolicyPage() {
   return (
@@ -143,10 +143,24 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>11. California privacy notice</h2>
           <p>
-            California residents may have rights under applicable California privacy law, including rights to know,
-            access, correct, or delete certain personal information and to receive information about disclosures.
-            Kall does not sell personal information for money and does not knowingly use personal information for
-            cross-context behavioral advertising.
+            California residents have rights under the California Consumer Privacy Act (CCPA), as
+            amended by the California Privacy Rights Act (CPRA), including the right to know what
+            personal information is collected, the right to access or obtain a copy of it, the right
+            to correct inaccurate information, the right to delete personal information (subject to
+            certain exceptions), the right to limit the use of sensitive personal information, and
+            the right to be free from discrimination for exercising these rights.
+          </p>
+          <p>
+            Kall does not sell personal information for money and does not share personal
+            information for cross-context behavioral advertising, as those terms are defined under
+            the CCPA. Because Kall does not engage in either practice, no separate &ldquo;Do Not Sell
+            or Share My Personal Information&rdquo; link is required or provided.
+          </p>
+          <p>
+            To exercise a California privacy right, contact Kall using the details in section 15
+            below. Kall may need to verify your identity before completing a request, and an
+            authorized agent may submit a request on your behalf with appropriate proof of
+            authorization.
           </p>
         </section>
 
