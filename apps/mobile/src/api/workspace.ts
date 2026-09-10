@@ -30,8 +30,10 @@ export type CareerProfile = {
   exclude_keywords: string[];
   countries: string[];
   states_regions: string[];
+  cities: string[];
   work_types: string[];
   employment_types: string[];
+  pay_basis: "salary" | "hourly" | string;
   minimum_base?: number | null;
   target_base?: number | null;
   default_resume_id?: number | null;
@@ -50,7 +52,7 @@ export type Resume = {
   target_titles: string[];
   is_default: boolean;
   updated_at: string;
-  readiness: { score: number; checks: Record<string, boolean> };
+  readiness: { score: number; strengths: string[]; gaps: string[]; explanation: string };
 };
 export type ResumeStudio = {
   resumes: Resume[];
@@ -61,13 +63,33 @@ export type ResumeStudio = {
   }>;
 };
 export type CareerStrategySuggestion = {
+  summary?: string;
   profile_name?: string;
   target_titles?: string[];
   industries?: string[];
   keywords?: string[];
   work_types?: string[];
+  pay_basis?: "salary" | "hourly";
   suggested_salary_min?: number | null;
   suggested_salary_max?: number | null;
+};
+export type CareerProfileInput = {
+  name: string;
+  target_titles: string[];
+  industries: string[];
+  functional_areas: string[];
+  include_keywords: string[];
+  exclude_keywords: string[];
+  countries: string[];
+  states_regions: string[];
+  cities: string[];
+  work_types: string[];
+  employment_types: string[];
+  pay_basis: string;
+  minimum_base: number | null;
+  target_base: number | null;
+  default_resume_id: number | null;
+  is_active?: boolean;
 };
 export type NotificationPreferences = {
   email_enabled: boolean;
@@ -87,26 +109,29 @@ export const saveIdentity = (body: Partial<Identity>) =>
   apiRequest<Identity>("/me/identity", { method: "PUT", body });
 export const fetchCareerProfiles = () =>
   apiRequest<{ profiles: CareerProfile[] }>("/me/career-profiles");
-export const createCareerProfile = (body: {
-  name: string;
-  target_titles: string[];
-  industries: string[];
-  include_keywords?: string[];
-  countries: string[];
-  states_regions: string[];
-  work_types: string[];
-  minimum_base?: number | null;
-  target_base?: number | null;
-  default_resume_id?: number | null;
-}) =>
+export const createCareerProfile = (body: CareerProfileInput) =>
   apiRequest<CareerProfile>("/me/professional-profiles", {
     method: "POST",
     body,
   });
-export const saveCareerProfile = (id: number, body: Partial<CareerProfile>) =>
+export const saveCareerProfile = (id: number, body: CareerProfileInput) =>
   apiRequest<CareerProfile>(`/me/career-profiles/${id}`, {
     method: "PUT",
     body,
+  });
+export const fetchFunctionalAreas = () =>
+  apiRequest<{ areas: Array<{ name: string; related_roles: string[] }> }>("/me/career-profiles/functional-areas");
+/** What the web onboarding wizard records when it finishes. The server
+ * self-heals this from profile data too, so a failure here is harmless. */
+export const markOnboardingComplete = (withResume: boolean) =>
+  apiRequest<unknown>("/profile/onboarding", {
+    method: "PUT",
+    body: {
+      current_step: "complete",
+      completed_steps: ["account", ...(withResume ? ["resume"] : []), "strategy"],
+      dismissed_steps: [],
+      is_complete: true,
+    },
   });
 export const fetchResumeStudio = () =>
   apiRequest<ResumeStudio>("/me/resume-studio");

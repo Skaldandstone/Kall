@@ -11,6 +11,7 @@ import RegisterScreen from "../screens/RegisterScreen";
 import ApplicationsScreen from "../screens/ApplicationsScreen";
 import ApplicationDetailScreen from "../screens/ApplicationDetailScreen";
 import InterviewPrepScreen from "../screens/InterviewPrepScreen";
+import TailoringScreen from "../screens/TailoringScreen";
 import OpportunitiesScreen from "../screens/OpportunitiesScreen";
 import OpportunityDetailScreen from "../screens/OpportunityDetailScreen";
 import GrowthScreen from "../screens/GrowthScreen";
@@ -86,6 +87,11 @@ function ApplicationsNavigator() {
         name="InterviewPrep"
         component={InterviewPrepScreen}
         options={{ title: "Interview prep", presentation: "modal" }}
+      />
+      <ApplicationsStack.Screen
+        name="Tailoring"
+        component={TailoringScreen}
+        options={{ title: "Tailored resume" }}
       />
     </ApplicationsStack.Navigator>
   );

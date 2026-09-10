@@ -12,6 +12,7 @@ export type ApplicationsStackParamList = {
     stage: string;
   };
   InterviewPrep: { applicationId: number; company: string; role: string };
+  Tailoring: { applicationId: number; company: string; role: string };
 };
 
 export type OpportunitiesStackParamList = {

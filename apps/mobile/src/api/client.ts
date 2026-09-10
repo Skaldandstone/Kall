@@ -41,6 +41,11 @@ async function errorMessage(
   try {
     const body = await response.json();
     if (typeof body.detail === "string") return body.detail;
+    // Plan-limit refusals (402) carry a structured detail object whose
+    // message is the human-readable part.
+    if (body.detail && typeof body.detail === "object" && !Array.isArray(body.detail) && typeof body.detail.message === "string") {
+      return body.detail.message;
+    }
     if (Array.isArray(body.detail)) {
       return body.detail
         .map((item: { msg?: string }) => item.msg)
@@ -99,6 +104,27 @@ export async function apiRequest<T>(
   if (response.status === 204) return undefined as T;
   const text = await response.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/** An authenticated binary GET -- generated documents are served with a
+ * bearer token, so a plain link to them just 401s. */
+export async function apiDownload(path: string): Promise<{ bytes: Uint8Array; mimeType: string }> {
+  const token = await sessionToken();
+  if (!token) throw new ApiError("Not signed in", 401);
+  const response = await expoFetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (response.status === 401)
+    throw new ApiError("Your session expired. Please sign in again.", 401);
+  if (!response.ok)
+    throw new ApiError(
+      await errorMessage(response, `Download failed (${response.status})`),
+      response.status,
+    );
+  return {
+    bytes: await response.bytes(),
+    mimeType: response.headers.get("content-type") || "application/octet-stream",
+  };
 }
 
 export async function apiUpload<T>(

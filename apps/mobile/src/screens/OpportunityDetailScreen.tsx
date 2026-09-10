@@ -18,6 +18,7 @@ import {
   type OpportunityState,
 } from "../api/opportunities";
 import { fetchResumeStudio, type Resume } from "../api/workspace";
+import { rankResumes, selectResume, type JobIntelligence, type ResumeScore } from "../api/intelligence";
 import type { OpportunitiesStackParamList } from "../navigation/types";
 import { theme } from "../theme";
 
@@ -25,28 +26,78 @@ type Props = NativeStackScreenProps<
   OpportunitiesStackParamList,
   "OpportunityDetail"
 >;
+
+const COVERAGE_LABELS: Record<string, string> = {
+  required_skill: "Required skills",
+  preferred_skill: "Preferred skills",
+  ats_keyword: "ATS keywords",
+  leadership: "Leadership signals",
+  education: "Education",
+  certification: "Certifications",
+};
+
 export default function OpportunityDetailScreen({ route, navigation }: Props) {
   const { item, profileId, opportunityId } = route.params;
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [resumeId, setResumeId] = useState<number | null>(null);
+  const [intelligence, setIntelligence] = useState<JobIntelligence | null>(null);
+  const [ranking, setRanking] = useState(false);
   const [customize, setCustomize] = useState(true);
   const [cover, setCover] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   useEffect(() => {
+    let cancelled = false;
     fetchResumeStudio()
-      .then((studio) => {
+      .then(async (studio) => {
+        if (cancelled) return;
         setResumes(studio.resumes);
         const preferred =
           studio.resumes.find((r) => r.is_default) || studio.resumes[0];
         setResumeId(preferred?.id ?? null);
+        if (!studio.resumes.length) return;
+        // Rank every resume against this posting's actual requirements --
+        // the same evidence the web job-intelligence page shows -- and
+        // preselect whichever one Kall recommends (or the user already chose).
+        setRanking(true);
+        try {
+          const result = await rankResumes(item.job_id, profileId);
+          if (cancelled) return;
+          setIntelligence(result);
+          const chosen = result.selection?.selected_resume_id
+            ?? result.selection?.recommended_resume_id
+            ?? result.scores[0]?.resume_id;
+          if (chosen && studio.resumes.some((r) => r.id === chosen)) setResumeId(chosen);
+        } catch {
+          // Ranking is advice; the plain resume list still works without it.
+        } finally {
+          if (!cancelled) setRanking(false);
+        }
       })
       .catch(() =>
         setMessage(
           "Resume choices are unavailable. You can still prepare without one.",
         ),
       );
-  }, []);
+    return () => { cancelled = true; };
+  }, [item.job_id, profileId]);
+
+  function chooseResume(id: number) {
+    setResumeId(id);
+    if (intelligence) {
+      // Recorded server-side so the prepared application and the web app
+      // honor the same choice; a failure here only loses the memo, not the pick.
+      selectResume(item.job_id, profileId, id).catch(() => undefined);
+    }
+  }
+
+  const scoresByResume = new Map<number, ResumeScore>(
+    (intelligence?.scores ?? []).map((score) => [score.resume_id, score]),
+  );
+  const rankedResumes = [...resumes].sort(
+    (a, b) => (scoresByResume.get(b.id)?.total_score ?? -1) - (scoresByResume.get(a.id)?.total_score ?? -1),
+  );
+  const coverageRows = Object.entries(intelligence?.coverage ?? {}).filter(([, value]) => value.total > 0);
   async function track(state: OpportunityState) {
     if (!opportunityId) {
       setMessage("Run a search to add this role to your tracked inbox first.");
@@ -155,27 +206,59 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
           </>
         ) : null}
       </View>
+      {coverageRows.length > 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>What the posting asks for</Text>
+          {coverageRows.map(([key, value]) => (
+            <View key={key} style={styles.coverageRow}>
+              <Text style={styles.coverageLabel}>{COVERAGE_LABELS[key] ?? key.replace(/_/g, " ")}</Text>
+              <Text style={styles.coverageValue}>{value.covered} of {value.total} covered</Text>
+            </View>
+          ))}
+          <Text style={styles.body}>Coverage is measured against your best-matching resume.</Text>
+        </View>
+      ) : null}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Application setup</Text>
+        <Text style={styles.cardTitle}>{intelligence ? "Which resume fits best" : "Application setup"}</Text>
+        {ranking ? (
+          <View style={styles.rankingRow}>
+            <ActivityIndicator color={theme.text} />
+            <Text style={styles.body}>Ranking your resumes against this posting…</Text>
+          </View>
+        ) : null}
         {resumes.length ? (
           <View style={styles.chips}>
-            {resumes.map((r) => (
-              <Pressable
-                accessibilityRole="button"
-                key={r.id}
-                style={[styles.chip, resumeId === r.id && styles.chipActive]}
-                onPress={() => setResumeId(r.id)}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={
-                    resumeId === r.id ? styles.chipActiveText : styles.chipText
-                  }
+            {rankedResumes.map((r, index) => {
+              const score = scoresByResume.get(r.id);
+              const selected = resumeId === r.id;
+              return (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={score ? `${r.name}, ${score.total_score} percent fit` : r.name}
+                  key={r.id}
+                  style={[styles.resumeCard, selected && styles.resumeCardActive]}
+                  onPress={() => chooseResume(r.id)}
                 >
-                  {r.name}
-                </Text>
-              </Pressable>
-            ))}
+                  <View style={styles.resumeTop}>
+                    <Text numberOfLines={1} style={[styles.resumeName, selected && styles.resumeNameActive]}>
+                      {r.name}
+                    </Text>
+                    {score ? (
+                      <Text style={[styles.resumeScore, selected && styles.resumeNameActive]}>
+                        {score.total_score}%{index === 0 ? " · best fit" : ""}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {score?.explanation[0] ? (
+                    <Text style={[styles.resumeDetail, selected && styles.resumeDetailActive]} numberOfLines={2}>{score.explanation[0]}</Text>
+                  ) : null}
+                  {score?.gaps[0] ? (
+                    <Text style={[styles.resumeGap, selected && styles.resumeDetailActive]} numberOfLines={2}>Gap: {score.gaps[0]}</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.body}>
@@ -283,17 +366,27 @@ const styles = StyleSheet.create({
   gap: { color: theme.warning, lineHeight: 21 },
   body: { color: theme.textSecondary, lineHeight: 20 },
   chips: { gap: 8, marginBottom: 10 },
-  chip: {
-    minHeight: 44,
+  rankingRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  coverageRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, minHeight: 28, alignItems: "center" },
+  coverageLabel: { color: theme.textSecondary, fontSize: 14 },
+  coverageValue: { color: theme.text, fontSize: 14, fontWeight: "600" },
+  resumeCard: {
+    minHeight: 48,
     justifyContent: "center",
     borderColor: theme.border,
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 10,
     paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  chipText: { color: theme.text },
-  chipActiveText: { color: theme.accentInk, fontWeight: "700" },
+  resumeCardActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  resumeTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  resumeName: { flex: 1, color: theme.text, fontWeight: "600" },
+  resumeNameActive: { color: theme.accentInk, fontWeight: "700" },
+  resumeScore: { color: theme.accent, fontWeight: "700", fontSize: 13 },
+  resumeDetail: { color: theme.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  resumeDetailActive: { color: theme.accentInk },
+  resumeGap: { color: theme.warning, fontSize: 12, lineHeight: 17, marginTop: 2 },
   switchRow: {
     minHeight: 52,
     flexDirection: "row",

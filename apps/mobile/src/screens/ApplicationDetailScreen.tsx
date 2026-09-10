@@ -228,10 +228,25 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Tailored resume and documents</Text>
+        <Text style={styles.readiness}>Review Kall's proposed changes</Text>
+        <Text style={styles.issue}>
+          Accept, edit, or reject each change, then generate the resume as a
+          PDF or Word file and draft a cover letter.
+        </Text>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("Tailoring", { applicationId, company, role })}
+          accessibilityRole="button"
+        >
+          <Text style={styles.secondaryButtonText}>Open tailored resume</Text>
+        </Pressable>
+      </View>
+
       {!canApprove ? (
         <Text style={styles.guidance} accessibilityRole="summary">
-          Complete the review checklist and required answers. Detailed document
-          editing remains available in the web workspace.
+          Complete the review checklist and required answers before approval.
         </Text>
       ) : null}
 
