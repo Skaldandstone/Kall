@@ -53,15 +53,31 @@ Google Play Console and App Store Connect before submission.
    call). Apple refunds are never issued by Kall; the portal shows the
    customer-facing steps instead. Configure the exact
    webhook URL `https://kall.skaldandstone.com/api/billing/revenuecat/webhook`.
+   The secret record must be a single JSON object holding all three keys: the
+   API task definition reads each key with `ValueFrom <arn>:<KEY>::`, and a
+   task that references a JSON key on a plain-string secret fails at secret
+   retrieval before the application starts. The current
+   `prod/kall/revenuecat-live20260908` value is a plain string and must be
+   rewritten as JSON before `RevenueCatSecretArn` points at it.
 4. Deploy migration `20260908_0034`. Enable native billing in the production
    stack with the two Google product IDs and accepted environments
-   `PRODUCTION,SANDBOX` for closed testing.
+   `PRODUCTION,SANDBOX` for closed testing. The product ID parameters take the
+   colon form RevenueCat reports for Google products created after February
+   2023 — `RevenueCatGooglePlusProductId=kall_plus_monthly:monthly` and
+   `RevenueCatGooglePremiumProductId=kall_premium_monthly:monthly` — because
+   the webhook maps `product_id` to a plan by exact match; the bare
+   subscription ID would map every purchase to `free`.
 5. Add the public Android SDK key to the Android EAS build environment and set
    `KALL_MOBILE_PURCHASES_ENABLED=1`. Build and submit a new Android version.
 6. Verify purchase, renewal simulation, cancellation with remaining access,
    expiration, refund, restore, duplicate webhook delivery, and cross-device
    sign-in using license-test accounts. Confirm the API reports the expected
-   plan and `play_store` source without inspecting receipts or tokens.
+   plan and `play_store` source without inspecting receipts or tokens. After a
+   license-tester purchase, run "Refund & revoke" from the portal's Kall tab
+   and check that the `portal_store_refund` history row reports
+   `revenuecat_identifier` as `<subscription_id>:<base_plan_id>`; the revoke
+   call retries the pre-colon form only on a RevenueCat 404, and that fallback
+   is removed once the colon form is proven.
 7. Repeat the store setup for Apple after App Store Connect agreements and the
    subscription group are ready. Add the Apple public SDK key only to iOS builds,
    configure both Apple products together, and repeat sandbox/TestFlight tests.
