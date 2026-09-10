@@ -7,6 +7,15 @@
 import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 
+//: A single-task ECS service briefly runs the old and new task during every
+//: rolling deploy. A tab that loaded the old client bundle can POST a server
+//: action ID the new task never registered -- clicking "Try again" would
+//: just resubmit against the same still-loaded old bundle, so the only real
+//: fix is a hard reload to fetch the current one. sentry-shared.ts's
+//: ignoreErrors already keeps this out of Sentry as the known, expected
+//: deploy-timing case it is.
+const STALE_SERVER_ACTION = 'Failed to find Server Action';
+
 export default function GlobalError({
   error,
   reset,
@@ -14,9 +23,19 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isStaleServerAction = error.message?.includes(STALE_SERVER_ACTION);
+
   useEffect(() => {
+    if (isStaleServerAction) {
+      window.location.reload();
+      return;
+    }
     Sentry.captureException(error);
-  }, [error]);
+  }, [error, isStaleServerAction]);
+
+  if (isStaleServerAction) {
+    return null;
+  }
 
   return (
     <html lang="en">

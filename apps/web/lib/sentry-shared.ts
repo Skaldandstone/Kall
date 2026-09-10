@@ -43,4 +43,20 @@ export const sharedSentryOptions = {
   beforeSend: scrubEvent,
   // Sentry's own debug output stays off even when a DSN is present.
   debug: false,
+  ignoreErrors: [
+    // A single-task ECS service still briefly runs the old and new task
+    // during every rolling deploy. A browser tab that loaded the old
+    // client bundle can POST a server action ID the new task never
+    // registered -- Next.js's own docs describe this exact case (see the
+    // error's own "Read more" link) as expected with server actions plus
+    // a rolling deploy, not an application bug. GlobalError below already
+    // recovers from it with a hard reload instead of showing an error.
+    'Failed to find Server Action',
+    // Thrown by the WebView JS bridge some Android launchers/browsers wrap
+    // pages in (e.g. a social app's in-app browser) when its native side is
+    // torn down mid-call. Third-party bridge code, not ours -- confirmed via
+    // the KALL-WEB-3 stacktrace, which is entirely
+    // `navigation_performance_logger_android` frames.
+    'Error invoking postMessage: Java object is gone',
+  ] as string[],
 } as const;
