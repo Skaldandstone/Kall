@@ -25,6 +25,12 @@ jobs:
   # e2e). This scopes each job to the paths it actually covers. workflow_dispatch
   # (manual validation runs) and any edit to this file itself always run
   # everything, so the filtering can't silently hide a real failure.
+  #
+  # e2e/accessibility/mobile-e2e (the Playwright jobs -- the most expensive
+  # ones) additionally only run on pull_request, not push-to-main: direct
+  # pushes to main happen often in this repo, and those don't get browser
+  # coverage from this workflow until a PR is opened. That's a deliberate
+  # coverage-for-cost tradeoff, not an oversight.
   changes:
     runs-on: ubuntu-latest
     # dorny/paths-filter calls the GitHub API to list a PR's changed files,
@@ -127,8 +133,12 @@ jobs:
   e2e:
     needs: changes
     # Full-stack: exercises the backend through the web UI, so either side
-    # changing can break it.
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    # changing can break it. PR-only (not push-to-main): this is the most
+    # expensive job here (real Playwright browser run), and every push to
+    # main -- including frequent direct pushes that never went through a
+    # PR -- was re-paying for it even though the PR gate already covered
+    # the same diff for anything merged normally.
+    if: (github.event_name == 'pull_request' && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.web == 'true')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-e2e-${{ github.ref }}
@@ -182,7 +192,8 @@ jobs:
 
   accessibility:
     needs: changes
-    if: needs.changes.outputs.web == 'true' || github.event_name == 'workflow_dispatch'
+    # PR-only, see e2e above.
+    if: (github.event_name == 'pull_request' && needs.changes.outputs.web == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-accessibility-${{ github.ref }}
@@ -266,7 +277,8 @@ jobs:
   mobile-e2e:
     needs: changes
     # Runs against the local backend, so backend changes can break it too.
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.mobile == 'true' || github.event_name == 'workflow_dispatch'
+    # PR-only, see e2e above.
+    if: (github.event_name == 'pull_request' && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.mobile == 'true')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: ci-mobile-e2e-${{ github.ref }}
