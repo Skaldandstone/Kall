@@ -61,17 +61,24 @@ Google Play Console and App Store Connect before submission.
    configure both Apple products together, and repeat sandbox/TestFlight tests.
 
 If provider setup is incomplete, leave `EnableRevenueCatNative=false` and
-`KALL_MOBILE_PURCHASES_ENABLED` unset. The mobile billing screen then sends users
-to the existing web billing page rather than presenting a broken store checkout.
+`KALL_MOBILE_PURCHASES_ENABLED` unset. The mobile billing screen then stays
+read-only: it shows the plan and usage the account already has and deliberately
+does not link out to web billing, because Google Play and the App Store both
+prohibit pointing an app at an external checkout for a digital subscription.
 
-## Provider checkpoint: 8 September 2026
+## Provider checkpoint: 10 September 2026
 
 - Stripe web billing is live with the Kall-only Plus and Premium monthly catalog
   at USD 5 and USD 15.
 - Google Play contains the `kall_plus_monthly` and `kall_premium_monthly`
-  subscription records and reviewed customer-facing metadata. Play Console has
-  rejected otherwise valid monthly base-plan saves with a generic provider
-  error, so neither required `monthly` base plan exists yet.
+  subscription records and reviewed customer-facing metadata. Both `monthly`
+  base plans are saved and active, available in the United States and Canada
+  only for launch: Plus at USD 4.99 / CAD 6.99 and Premium at USD 14.99 /
+  CAD 20.99. Each is monthly auto-renewing with a 7-day grace period and the
+  automatically calculated account hold. The earlier generic save failure was
+  caused by saving before any regional price existed; set prices first, then
+  save, then activate. Plus retains stored prices for the other regions so they
+  can be re-added without re-entry when availability widens.
 - App Store Connect subscription group `22370361` contains
   `com.skaldandstone.kall.plus.monthly` at USD 4.99 and
   `com.skaldandstone.kall.premium.monthly` at USD 14.99. Both are in Prepare for
