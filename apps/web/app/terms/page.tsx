@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'The agreement between you and the operator of Kall.',
 };
 
-const updated = 'September 2, 2026';
+const updated = 'September 10, 2026';
 
 /**
  * Every company-specific value on this page comes from app/lib/legal.ts.
@@ -240,8 +240,9 @@ export default function TermsPage() {
             damages, or for lost profits, lost opportunities, lost employment, or lost or corrupted
             data. Our total liability for any claim relating to the Service is limited to the
             greater of the amount you paid us in the twelve months before the claim arose, or one
-            hundred United States dollars. These limits do not apply where the law does not allow
-            them to.
+            hundred United States dollars. Nothing in this section limits liability for Kall&rsquo;s
+            gross negligence, fraud, or willful misconduct, and these limits otherwise do not apply
+            where the law does not allow them to.
           </p>
         </section>
 
