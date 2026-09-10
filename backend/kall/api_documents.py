@@ -6,9 +6,11 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import (
+    Application,
     CoverLetterChange,
     CoverLetterProposal,
     GeneratedDocument,
+    Job,
     KeywordCoverageReport,
     TailoringProposal,
     User,
@@ -62,6 +64,47 @@ def generate_documents(
         return generate_resume_documents(session, proposal, payload.template_key)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/documents")
+def list_documents(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Every document generated for this account, newest first.
+
+    Until now the only pointer to a generated document was the id an
+    application happened to record -- a document generated from the resume
+    studio without an application was unreachable after the page reloaded.
+    """
+    documents = list(
+        session.exec(
+            select(GeneratedDocument)
+            .where(GeneratedDocument.user_id == current_user.id)
+            .order_by(GeneratedDocument.created_at.desc(), GeneratedDocument.id.desc())
+        )
+    )
+    job_ids = {document.job_id for document in documents if document.job_id}
+    jobs = {job.id: job for job in session.exec(select(Job).where(Job.id.in_(job_ids)))} if job_ids else {}
+    application_by_job = {
+        application.job_id: application.id
+        for application in session.exec(
+            select(Application).where(Application.user_id == current_user.id, Application.job_id.in_(job_ids))
+        )
+    } if job_ids else {}
+    return [
+        {
+            "id": document.id,
+            "document_type": document.document_type,
+            "template_key": document.template_key,
+            "created_at": document.created_at,
+            "job_id": document.job_id,
+            "company": jobs[document.job_id].company if document.job_id in jobs else None,
+            "title": jobs[document.job_id].title if document.job_id in jobs else None,
+            "application_id": application_by_job.get(document.job_id),
+        }
+        for document in documents
+    ]
 
 
 @router.get("/documents/{document_id}")

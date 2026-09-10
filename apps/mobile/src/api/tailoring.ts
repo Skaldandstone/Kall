@@ -113,6 +113,19 @@ export const generateDocument = (proposalId: number, templateKey: string) =>
 export const fetchDocument = (documentId: number) =>
   apiRequest<DocumentDetail>(`/documents/${documentId}`);
 
+export type DocumentSummary = {
+  id: number;
+  document_type: string;
+  template_key: string;
+  created_at: string;
+  job_id: number | null;
+  company: string | null;
+  title: string | null;
+  application_id: number | null;
+};
+
+export const listDocuments = () => apiRequest<DocumentSummary[]>("/documents");
+
 export const downloadDocument = (documentId: number, format: ArtifactFormat) =>
   apiDownload(`/documents/${documentId}/download/${format}`);
 

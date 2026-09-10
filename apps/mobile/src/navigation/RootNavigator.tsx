@@ -28,6 +28,10 @@ import RecordResourceScreen from "../screens/RecordResourceScreen";
 import AchievementsScreen from "../screens/AchievementsScreen";
 import SensitiveDetailsScreen from "../screens/SensitiveDetailsScreen";
 import SourcesScreen from "../screens/SourcesScreen";
+import CareerPageScreen from "../screens/CareerPageScreen";
+import TestimonialsScreen from "../screens/TestimonialsScreen";
+import DocumentsScreen from "../screens/DocumentsScreen";
+import DeleteAccountScreen from "../screens/DeleteAccountScreen";
 import { RECORD_SCHEMAS } from "../lib/recordSchema";
 import type {
   ApplicationsStackParamList,
@@ -182,6 +186,26 @@ function ProfileNavigator() {
         name="Sources"
         component={SourcesScreen}
         options={{ title: "Boards and monitoring" }}
+      />
+      <ProfileStack.Screen
+        name="CareerPage"
+        component={CareerPageScreen}
+        options={{ title: "Public career page" }}
+      />
+      <ProfileStack.Screen
+        name="Testimonials"
+        component={TestimonialsScreen}
+        options={{ title: "Testimonials" }}
+      />
+      <ProfileStack.Screen
+        name="Documents"
+        component={DocumentsScreen}
+        options={{ title: "Generated documents" }}
+      />
+      <ProfileStack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
+        options={{ title: "Delete account" }}
       />
     </ProfileStack.Navigator>
   );

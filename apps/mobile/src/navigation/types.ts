@@ -38,6 +38,10 @@ export type ProfileStackParamList = {
   Achievements: undefined;
   SensitiveDetails: undefined;
   Sources: undefined;
+  CareerPage: undefined;
+  Testimonials: undefined;
+  Documents: undefined;
+  DeleteAccount: undefined;
 };
 
 export type AppTabParamList = {

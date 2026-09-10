@@ -192,3 +192,50 @@ def test_expiry_leaves_recent_files_alone(tmp_path: Path, monkeypatch: pytest.Mo
         generated = generate_resume_documents(session, _finalized_proposal(session))
         ensure_artifact(session, generated, "pdf")
         assert expire_artifacts(session) == 0
+
+
+def test_documents_list_is_scoped_to_the_signed_in_account(client, engine) -> None:
+    """There was no way to find a generated document again except through the
+    id an application happened to record. The list returns the account's own
+    documents newest first, with the job and application they belong to."""
+    from kall.models import Application, CareerProfile
+    from kall.models.enums import ApplicationStatus
+
+    with Session(engine) as session:
+        other = User(clerk_user_id="user_other_docs", email="other-docs@example.com", full_name="Other")
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+        job = Job(source="test", company="North", title="Director", description="Lead quality", url="https://example.com/list")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        profile = CareerProfile(user_id=client.user_id, name="Quality")
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        mine = TailoringProposal(user_id=client.user_id, job_id=job.id, resume_id=1, professional_profile_id=profile.id, status="finalized", finalized_at=job.created_at)
+        theirs = TailoringProposal(user_id=other.id, job_id=job.id, resume_id=1, professional_profile_id=profile.id, status="finalized", finalized_at=job.created_at)
+        session.add(mine)
+        session.add(theirs)
+        session.commit()
+        session.refresh(mine)
+        session.refresh(theirs)
+        for proposal in (mine, theirs):
+            session.add(TailoringChange(proposal_id=proposal.id, section="summary", original_text="Old", proposed_text="New", reason="verified", status="accepted"))
+        session.commit()
+        generated = generate_resume_documents(session, mine)
+        generate_resume_documents(session, theirs)
+        application = Application(user_id=client.user_id, job_id=job.id, career_profile_id=profile.id, status=ApplicationStatus.APPROVED)
+        session.add(application)
+        session.commit()
+        session.refresh(application)
+        generated_id, application_id = generated.id, application.id
+
+    response = client.get("/api/documents")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [item["id"] for item in body] == [generated_id]
+    assert body[0]["company"] == "North" and body[0]["title"] == "Director"
+    assert body[0]["application_id"] == application_id
+    assert body[0]["document_type"] == "resume"

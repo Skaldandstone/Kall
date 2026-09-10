@@ -10,3 +10,18 @@ export type BillingStatus = {
 };
 
 export const fetchBillingStatus = () => apiRequest<BillingStatus>('/billing/status');
+
+export type MeterState = {
+  used: number;
+  limit: number | null;
+  period: 'week' | 'month' | 'lifetime' | string;
+  remaining: number | null;
+};
+
+export type Usage = {
+  plan: 'free' | 'plus' | 'premium' | string;
+  billing_exempt: boolean;
+  meters: Record<'applications' | 'ai_actions' | 'storage_bytes' | string, MeterState>;
+};
+
+export const fetchUsage = () => apiRequest<Usage>('/me/usage');

@@ -105,6 +105,10 @@ export type NotificationPreferences = {
 };
 
 export const fetchAccount = () => apiRequest<Account>("/me");
+/** Irreversible. The server deletes everything in one transaction and
+ * returns 204; the email is typed back as the confirmation step. */
+export const deleteAccount = (confirmEmail: string) =>
+  apiRequest<void>("/me", { method: "DELETE", body: { confirm_email: confirmEmail } });
 export const fetchIdentity = () => apiRequest<Identity>("/me/identity");
 // phone, address and postal_code are accepted, encrypted, and never returned.
 export const saveIdentity = (body: Partial<Identity> & { phone?: string; address?: string; postal_code?: string }) =>

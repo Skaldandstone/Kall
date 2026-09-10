@@ -9,9 +9,34 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
-import { fetchBillingStatus, type BillingStatus } from '../api/billing';
+import { fetchBillingStatus, fetchUsage, type BillingStatus, type MeterState, type Usage } from '../api/billing';
 import { mobilePurchasesEnabled } from '../components/PurchaseBootstrap';
 import { theme } from '../theme';
+
+const MB = 1024 * 1024;
+const METER_LABELS: Record<string, string> = {
+  applications: 'Applications',
+  ai_actions: 'AI actions',
+  storage_bytes: 'Resume storage',
+};
+const RESET_COPY: Record<string, string> = {
+  week: 'Resets each Monday',
+  month: 'Resets on the 1st',
+  lifetime: 'Does not reset',
+};
+
+function formatUsed(meter: string, state: MeterState): string {
+  if (meter === 'storage_bytes') {
+    const used = (state.used / MB).toFixed(state.used < MB ? 2 : 0);
+    return state.limit === null ? `${used} MB used` : `${used} of ${Math.round(state.limit / MB)} MB`;
+  }
+  return state.limit === null ? `${state.used} used` : `${state.used} of ${state.limit}`;
+}
+
+function fraction(state: MeterState): number | null {
+  if (state.limit === null || state.limit === 0) return null;
+  return Math.min(1, state.used / state.limit);
+}
 
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
@@ -21,6 +46,7 @@ function friendlyError(error: unknown): string {
 
 export default function BillingScreen() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,8 +55,9 @@ export default function BillingScreen() {
   const load = useCallback(async () => {
     setBusy(true);
     try {
-      const nextStatus = await fetchBillingStatus();
+      const [nextStatus, nextUsage] = await Promise.all([fetchBillingStatus(), fetchUsage().catch(() => null)]);
       setStatus(nextStatus);
+      setUsage(nextUsage);
       if (purchasesEnabled) {
         const offerings = await Purchases.getOfferings();
         setPackages(offerings.current?.availablePackages ?? []);
@@ -82,6 +109,29 @@ export default function BillingScreen() {
       </Text>
       {message ? <Text accessibilityRole="alert" style={styles.message}>{message}</Text> : null}
       {busy && !status ? <ActivityIndicator color={theme.accent} style={styles.spinner} /> : null}
+
+      {usage ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Usage</Text>
+          {usage.billing_exempt ? <Text style={styles.copy}>No limits apply to this account.</Text> : null}
+          {Object.entries(usage.meters).map(([meter, state]) => {
+            const share = fraction(state);
+            const nearly = share !== null && share >= 0.8;
+            return (
+              <View key={meter} style={styles.meter} accessible accessibilityLabel={`${METER_LABELS[meter] ?? meter}: ${formatUsed(meter, state)}`}>
+                <View style={styles.meterRow}>
+                  <Text style={styles.meterLabel}>{METER_LABELS[meter] ?? meter.replace(/_/g, ' ')}</Text>
+                  <Text style={[styles.meterValue, nearly && styles.meterValueNearly]}>{formatUsed(meter, state)}</Text>
+                </View>
+                {share !== null ? (
+                  <View style={styles.track}><View style={[styles.fill, nearly && styles.fillNearly, { width: `${Math.max(2, Math.round(share * 100))}%` }]} /></View>
+                ) : null}
+                <Text style={styles.meterHint}>{state.limit === null ? 'Unlimited' : RESET_COPY[state.period] ?? state.period}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
 
       {purchasesEnabled && status?.native_enabled ? (
         <View style={styles.stack}>
@@ -150,4 +200,13 @@ const styles = StyleSheet.create({
   secondaryText: { color: theme.text, fontSize: 16, fontWeight: '700' },
   pressed: { opacity: 0.72 },
   terms: { color: theme.textMuted, fontSize: 12, lineHeight: 18, marginTop: 24 },
+  meter: { marginTop: 14 },
+  meterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  meterLabel: { color: theme.text, fontSize: 14, fontWeight: '600' },
+  meterValue: { color: theme.textSecondary, fontSize: 13, fontWeight: '600' },
+  meterValueNearly: { color: theme.warning },
+  track: { height: 6, borderRadius: 3, backgroundColor: theme.surfaceInteractive, overflow: 'hidden', marginTop: 8 },
+  fill: { height: 6, borderRadius: 3, backgroundColor: theme.accent },
+  fillNearly: { backgroundColor: theme.warning },
+  meterHint: { color: theme.textMuted, fontSize: 12, marginTop: 5 },
 });

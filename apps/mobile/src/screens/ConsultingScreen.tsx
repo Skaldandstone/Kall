@@ -347,7 +347,15 @@ export default function ConsultingScreen({ navigation }: Props) {
       <View style={styles.assistantCard}>
         <Text style={styles.cardTitle}>Set up your consulting offer</Text>
         <Text style={styles.cardBody}>Create a shareable portfolio first, then choose whether visitors can see your availability and rate.</Text>
-        <Pressable accessibilityRole="link" style={styles.action} onPress={() => void Linking.openURL("https://kall.skaldandstone.com/settings/career-page")}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Opens the public career page editor"
+          style={styles.action}
+          onPress={() => {
+            const tabs = navigation.getParent() as { navigate: (name: string, params: object) => void } | undefined;
+            tabs?.navigate("ProfileTab", { screen: "CareerPage" });
+          }}
+        >
           <Text style={styles.actionText}>{workspace.career_page.exists ? "Edit shareable portfolio" : "Create shareable portfolio first"}</Text>
         </Pressable>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: practiceAvailable }} style={styles.checkRow} onPress={() => setPracticeAvailable((value) => !value)}>

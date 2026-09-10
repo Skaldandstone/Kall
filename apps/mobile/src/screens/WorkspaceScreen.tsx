@@ -93,6 +93,21 @@ export default function WorkspaceScreen({ navigation }: Props) {
       screen: "Sources",
     },
     {
+      title: "Public career page",
+      detail: "The page you can share instead of a resume",
+      screen: "CareerPage",
+    },
+    {
+      title: "Testimonials",
+      detail: "Ask people to vouch for you; choose where it shows",
+      screen: "Testimonials",
+    },
+    {
+      title: "Generated documents",
+      detail: "Every tailored resume Kall has produced",
+      screen: "Documents",
+    },
+    {
       title: "Notifications",
       detail: "Brief and opportunity email preferences",
       screen: "Notifications",
@@ -146,6 +161,14 @@ export default function WorkspaceScreen({ navigation }: Props) {
       >
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens the account deletion screen"
+        style={styles.deleteLink}
+        onPress={() => navigation.navigate("DeleteAccount")}
+      >
+        <Text style={styles.deleteLinkText}>Delete my account</Text>
+      </Pressable>
       <Text style={styles.about}>
         Kall by Skald and Stone LLC · Version {Constants.expoConfig?.version ?? "unknown"}
       </Text>
@@ -195,6 +218,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   signOutText: { color: theme.text, fontWeight: "700" },
+  deleteLink: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  deleteLinkText: { color: theme.danger, fontWeight: "600", fontSize: 13 },
   about: {
     color: theme.textMuted,
     textAlign: "center",
