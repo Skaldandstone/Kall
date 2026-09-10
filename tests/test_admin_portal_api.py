@@ -78,6 +78,72 @@ def test_portal_user_lookup_detail_and_active_toggle(client, admin_token):
     assert resp.json() == []
 
 
+def test_portal_support_actions_change_plan_exemption_and_usage(client, admin_token, engine):
+    """The support-tier actions the portal exposes: plan changes, lifting
+    plan limits, and clearing the current period's counters. Each writes an
+    actor-less AdminAction row carrying the forwarded staff_actor."""
+    from kall.models.core import AdminAction
+    from kall.services import quota
+    from sqlmodel import Session, select
+
+    headers = {"X-Admin-Token": admin_token}
+    user_id = client.user_id  # type: ignore[attr-defined]
+
+    detail = client.get(f"/api/admin/portal/users/{user_id}", headers=headers).json()
+    assert detail["billing_exempt"] is False
+    assert detail["usage"]["meters"]["applications"]["used"] == 0
+    assert detail["plans"] == ["free", "plus", "premium"]
+
+    resp = client.post(
+        f"/api/admin/portal/users/{user_id}/plan",
+        json={"plan": "premium", "reason": "comped", "staff_actor": "grace@skaldandstone.com"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["plan"] == "premium"
+    resp = client.post(
+        f"/api/admin/portal/users/{user_id}/plan", json={"plan": "platinum"}, headers=headers
+    )
+    assert resp.status_code == 422
+
+    resp = client.post(
+        f"/api/admin/portal/users/{user_id}/billing-exempt",
+        json={"billing_exempt": True, "reason": "partner", "staff_actor": "grace@skaldandstone.com"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    detail = client.get(f"/api/admin/portal/users/{user_id}", headers=headers).json()
+    assert detail["billing_exempt"] is True
+    assert detail["usage"]["meters"]["applications"]["limit"] is None
+
+    with Session(engine) as session:
+        from kall.models.core import User
+
+        user = session.get(User, user_id)
+        quota.consume(session, user, "applications", 3)
+
+    resp = client.post(
+        f"/api/admin/portal/users/{user_id}/reset-usage",
+        json={"reason": "stuck counter", "staff_actor": "grace@skaldandstone.com"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["cleared"] == {"applications": 3}
+    assert resp.json()["usage"]["meters"]["applications"]["used"] == 0
+
+    with Session(engine) as session:
+        actions = session.exec(
+            select(AdminAction).where(AdminAction.target_user_id == user_id).order_by(AdminAction.id)
+        ).all()
+        assert [a.action for a in actions] == [
+            "portal_set_plan", "portal_set_billing_exempt", "portal_reset_usage",
+        ]
+        assert all(a.actor_user_id is None for a in actions)
+        assert all(a.actor_email == "grace@skaldandstone.com" for a in actions)
+        assert actions[0].detail == {"from": "free", "to": "premium", "reason": "comped"}
+        assert actions[2].detail["cleared"] == {"applications": 3}
+
+
 def test_portal_unknown_user_404s(client, admin_token):
     headers = {"X-Admin-Token": admin_token}
     assert client.get("/api/admin/portal/users/999999", headers=headers).status_code == 404

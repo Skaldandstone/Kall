@@ -246,6 +246,25 @@ def snapshot(session: Session, user: User) -> dict[str, object]:
     return {"plan": plan, "billing_exempt": exempt, "meters": meters}
 
 
+def reset_current_period(session: Session, user: User) -> dict[str, int]:
+    """Zero the consumable meters for the current period only.
+
+    Past periods are left as they were, so this cannot be used to quietly
+    rewrite an account's history. Returns what each meter held before the
+    reset so the caller can put it in the audit row.
+    """
+    cleared: dict[str, int] = {}
+    for meter in ("applications", "ai_actions"):
+        key = period_key(limit_for(user, meter).period)  # type: ignore[arg-type]
+        row = _counter(session, user.id, meter, key)  # type: ignore[arg-type]
+        if row is not None:
+            cleared[meter] = row.used
+            row.used = 0
+            session.add(row)
+    session.commit()
+    return cleared
+
+
 # --- Backwards-compatible helpers -------------------------------------------
 
 def assert_application_allowed(session: Session, user: User) -> None:

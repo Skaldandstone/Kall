@@ -154,21 +154,7 @@ def reset_usage(
     used to quietly rewrite an account's history.
     """
     user = _target(session, user_id)
-    cleared = {}
-    for meter in ("applications", "ai_actions"):
-        key = quota.period_key(quota.limit_for(user, meter).period)
-        row = session.exec(
-            select(quota.UsageCounter).where(
-                quota.UsageCounter.user_id == user.id,
-                quota.UsageCounter.meter == meter,
-                quota.UsageCounter.period == key,
-            )
-        ).first()
-        if row:
-            cleared[meter] = row.used
-            row.used = 0
-            session.add(row)
-    session.commit()
+    cleared = quota.reset_current_period(session, user)
     record_action(
         session, admin,
         action="reset_usage",

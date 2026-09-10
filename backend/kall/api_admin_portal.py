@@ -34,6 +34,8 @@ from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models.core import AdminAction, Application, Job, JobMatch, User
+from kall.models.enums import SubscriptionPlan
+from kall.services import quota
 
 router = APIRouter(prefix="/admin/portal", tags=["admin-portal"])
 
@@ -77,6 +79,11 @@ class PortalUserDetail(PortalUserSummary):
     stripe_customer_id: str | None
     stripe_subscription_id: str | None
     application_count: int
+    billing_exempt: bool
+    #: quota.snapshot(): per-meter used / limit / remaining for the current
+    #: period, so support can see a limit before the user reports hitting it.
+    usage: dict
+    plans: list[str]
 
 
 class PortalApplicationRow(BaseModel):
@@ -91,6 +98,25 @@ class ActiveTogglePayload(BaseModel):
     active: bool
     #: Who on the support team asked for this, forwarded from the Worker's
     #: own operator session -- there is no Clerk actor to attribute it to.
+    staff_actor: str | None = None
+
+
+class PlanChangePayload(BaseModel):
+    plan: str
+    #: Why. Recorded in the audit row, because "who changed this and why" is
+    #: the question a support log has to answer.
+    reason: str = ""
+    staff_actor: str | None = None
+
+
+class BillingExemptPayload(BaseModel):
+    billing_exempt: bool
+    reason: str = ""
+    staff_actor: str | None = None
+
+
+class ResetUsagePayload(BaseModel):
+    reason: str = ""
     staff_actor: str | None = None
 
 
@@ -156,6 +182,9 @@ def get_user(user_id: int, session: Session = Depends(get_session)) -> PortalUse
         stripe_customer_id=user.stripe_customer_id,
         stripe_subscription_id=user.stripe_subscription_id,
         application_count=int(application_count),
+        billing_exempt=user.billing_exempt,
+        usage=quota.snapshot(session, user),
+        plans=[str(p) for p in SubscriptionPlan],
     )
 
 
@@ -177,6 +206,64 @@ def set_user_active(
         detail={"from": previous, "to": payload.active},
     )
     return _summary(user)
+
+
+@router.post("/users/{user_id}/plan", dependencies=[Depends(require_admin_token)])
+def set_user_plan(
+    user_id: int, payload: PlanChangePayload, session: Session = Depends(get_session)
+) -> PortalUserSummary:
+    """Move an account between plans (support action, e.g. a comped upgrade)."""
+    if payload.plan not in set(SubscriptionPlan):
+        raise HTTPException(status_code=422, detail=f"Unknown plan: {payload.plan}")
+    user = _target(session, user_id)
+    previous = str(user.plan) if user.plan is not None else None
+    user.plan = SubscriptionPlan(payload.plan)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    _log(
+        session, payload.staff_actor,
+        action="portal_set_plan",
+        target_user_id=user.id,
+        detail={"from": previous, "to": payload.plan, "reason": payload.reason},
+    )
+    return _summary(user)
+
+
+@router.post("/users/{user_id}/billing-exempt", dependencies=[Depends(require_admin_token)])
+def set_user_billing_exempt(
+    user_id: int, payload: BillingExemptPayload, session: Session = Depends(get_session)
+) -> PortalUserSummary:
+    """Support toggle for the billing_exempt flag; mirrors api_admin.set_billing_exempt."""
+    user = _target(session, user_id)
+    previous = user.billing_exempt
+    user.billing_exempt = payload.billing_exempt
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    _log(
+        session, payload.staff_actor,
+        action="portal_set_billing_exempt",
+        target_user_id=user.id,
+        detail={"from": previous, "to": payload.billing_exempt, "reason": payload.reason},
+    )
+    return _summary(user)
+
+
+@router.post("/users/{user_id}/reset-usage", dependencies=[Depends(require_admin_token)])
+def reset_user_usage(
+    user_id: int, payload: ResetUsagePayload, session: Session = Depends(get_session)
+) -> dict:
+    """Clear the current period's counters, for when something went wrong."""
+    user = _target(session, user_id)
+    cleared = quota.reset_current_period(session, user)
+    _log(
+        session, payload.staff_actor,
+        action="portal_reset_usage",
+        target_user_id=user.id,
+        detail={"cleared": cleared, "reason": payload.reason},
+    )
+    return {"cleared": cleared, "usage": quota.snapshot(session, user)}
 
 
 @router.get("/users/{user_id}/applications", dependencies=[Depends(require_admin_token)])
