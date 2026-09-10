@@ -20,6 +20,7 @@ import {
   type ReviewData,
 } from "../api/applications";
 import { ApiError } from "../api/client";
+import SubmissionSection from "../components/SubmissionSection";
 import { theme } from "../theme";
 import type { ApplicationsStackParamList } from "../navigation/types";
 
@@ -33,8 +34,10 @@ function humanizeStatus(value: string): string {
 }
 
 export default function ApplicationDetailScreen({ route, navigation }: Props) {
-  const { applicationId, company, role, stage } = route.params;
+  const { applicationId, company, role } = route.params;
+  const [stage, setStage] = useState(route.params.stage);
   const showInterviewPrep = stage === "submitted" || stage === "interview";
+  const inReview = stage === "review" || stage === "preparing";
   const [review, setReview] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -68,7 +71,8 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
     setMessage("");
     try {
       await approveReview(applicationId);
-      setMessage("Application approved.");
+      setStage("approved");
+      setMessage("Application approved. Kall can now pre-fill the employer's form.");
       await load();
     } catch (err) {
       setMessage(
@@ -142,10 +146,12 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>{company}</Text>
+      <Text style={styles.eyebrow}>{company} · {humanizeStatus(stage)}</Text>
       <Text style={styles.title}>{role}</Text>
 
-      {review && (
+      <SubmissionSection applicationId={applicationId} company={company} role={role} stage={stage} onStage={setStage} />
+
+      {review && inReview && (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Readiness</Text>
           <Text style={styles.readiness}>{humanizeStatus(review.review.status)}</Text>
@@ -163,7 +169,7 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {review && review.questions.length > 0 ? (
+      {review && inReview && review.questions.length > 0 ? (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Application answers</Text>
           {review.questions.map((question) => {
@@ -192,7 +198,7 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
-      {review ? (
+      {review && inReview ? (
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Review checklist</Text>
           {(
@@ -244,7 +250,7 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      {!canApprove ? (
+      {!canApprove && inReview ? (
         <Text style={styles.guidance} accessibilityRole="summary">
           Complete the review checklist and required answers before approval.
         </Text>
@@ -284,20 +290,22 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </Text>
       ) : null}
 
-      <Pressable
-        style={[styles.button, (!canApprove || busy) && styles.buttonDisabled]}
-        onPress={confirmApprove}
-        disabled={!canApprove || busy}
-        accessibilityRole="button"
-        accessibilityHint="Approves this package but does not submit it to the employer"
-        accessibilityState={{ disabled: !canApprove || busy, busy }}
-      >
-        {busy ? (
-          <ActivityIndicator color={theme.background} />
-        ) : (
-          <Text style={styles.buttonText}>Approve application package</Text>
-        )}
-      </Pressable>
+      {inReview ? (
+        <Pressable
+          style={[styles.button, (!canApprove || busy) && styles.buttonDisabled]}
+          onPress={confirmApprove}
+          disabled={!canApprove || busy}
+          accessibilityRole="button"
+          accessibilityHint="Approves this package but does not submit it to the employer"
+          accessibilityState={{ disabled: !canApprove || busy, busy }}
+        >
+          {busy ? (
+            <ActivityIndicator color={theme.background} />
+          ) : (
+            <Text style={styles.buttonText}>Approve application package</Text>
+          )}
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }

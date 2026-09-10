@@ -23,11 +23,21 @@ export default function NotificationsScreen() {
   const [message, setMessage] = useState("");
   useEffect(() => {
     fetchNotificationPreferences()
-      .then(setPrefs)
+      // The server serializes times as HH:MM:SS; the inputs work in HH:MM.
+      .then((loaded) => setPrefs({
+        ...loaded,
+        quiet_hours_start: loaded.quiet_hours_start ? loaded.quiet_hours_start.slice(0, 5) : null,
+        quiet_hours_end: loaded.quiet_hours_end ? loaded.quiet_hours_end.slice(0, 5) : null,
+      }))
       .catch(() => setMessage("Unable to load notification settings."));
   }, []);
   async function save() {
     if (!prefs) return;
+    const quietOn = prefs.quiet_hours_start !== null || prefs.quiet_hours_end !== null;
+    if (quietOn && (!/^\d{2}:\d{2}$/.test(prefs.quiet_hours_start ?? "") || !/^\d{2}:\d{2}$/.test(prefs.quiet_hours_end ?? ""))) {
+      setMessage("Quiet hours need both a start and an end, written as HH:MM.");
+      return;
+    }
     setSaving(true);
     setMessage("");
     try {
@@ -172,6 +182,55 @@ export default function NotificationsScreen() {
           />
         </View>
       </View>
+      <View style={styles.card}>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>Quiet hours</Text>
+            <Text style={styles.rowDetail}>
+              Hold immediate alerts until the morning. Digests are unaffected.
+            </Text>
+          </View>
+          <Switch
+            value={prefs.quiet_hours_start !== null}
+            onValueChange={(on) =>
+              setPrefs({
+                ...prefs,
+                quiet_hours_start: on ? prefs.quiet_hours_start ?? "22:00" : null,
+                quiet_hours_end: on ? prefs.quiet_hours_end ?? "07:00" : null,
+              })
+            }
+            trackColor={{ false: theme.border, true: theme.accent }}
+          />
+        </View>
+        {prefs.quiet_hours_start !== null ? (
+          <View style={styles.quietRow}>
+            <View style={styles.quietField}>
+              <Text style={styles.label}>From</Text>
+              <TextInput
+                accessibilityLabel="Quiet hours start"
+                style={styles.input}
+                value={(prefs.quiet_hours_start ?? "").slice(0, 5)}
+                onChangeText={(v) => set("quiet_hours_start", v)}
+                placeholder="22:00"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+            <View style={styles.quietField}>
+              <Text style={styles.label}>Until</Text>
+              <TextInput
+                accessibilityLabel="Quiet hours end"
+                style={styles.input}
+                value={(prefs.quiet_hours_end ?? "").slice(0, 5)}
+                onChangeText={(v) => set("quiet_hours_end", v)}
+                placeholder="07:00"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
       <View style={[styles.switchRow, styles.disabledRow]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>Push notifications</Text>
@@ -262,6 +321,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   hint: { color: theme.textMuted, fontSize: 11, marginTop: 5 },
+  quietRow: { flexDirection: "row", gap: 10, marginTop: 6 },
+  quietField: { flex: 1 },
   segment: { flexDirection: "row", gap: 8, marginTop: 14 },
   segmentButton: {
     flex: 1,

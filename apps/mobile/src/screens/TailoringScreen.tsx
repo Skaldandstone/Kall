@@ -11,9 +11,8 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
 import { ApiError } from "../api/client";
+import { safeFileName, saveAndShare } from "../lib/files";
 import {
   RESUME_TEMPLATES,
   createCoverLetter,
@@ -56,16 +55,6 @@ const COVER_LETTER_OPTIONS = {
 
 function label(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-async function saveAndShare(bytes: Uint8Array, name: string, format: ArtifactFormat, mimeType: string) {
-  const file = new File(Paths.cache, name);
-  file.create({ overwrite: true });
-  file.write(bytes);
-  if (!(await Sharing.isAvailableAsync())) {
-    throw new Error("Sharing is not available on this device.");
-  }
-  await Sharing.shareAsync(file.uri, { mimeType, UTI: UTI_BY_FORMAT[format], dialogTitle: name });
 }
 
 export default function TailoringScreen({ route }: Props) {
@@ -155,8 +144,7 @@ export default function TailoringScreen({ route }: Props) {
     if (!document) return;
     void run(`download-${artifact.format}`, async () => {
       const { bytes, mimeType } = await downloadDocument(document.document.id, artifact.format);
-      const safeCompany = company.replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "") || "kall";
-      await saveAndShare(bytes, `kall-resume-${safeCompany}.${artifact.format}`, artifact.format, artifact.mime_type || mimeType);
+      await saveAndShare(bytes, `kall-resume-${safeFileName(company)}.${artifact.format}`, artifact.mime_type || mimeType, UTI_BY_FORMAT[artifact.format]);
     }, "Unable to save that file.");
   }
 

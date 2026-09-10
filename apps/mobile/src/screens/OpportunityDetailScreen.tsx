@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   Pressable,
   ScrollView,
@@ -13,6 +14,8 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { prepareApplication } from "../api/applications";
 import { ApiError } from "../api/client";
+import { suppressResult } from "../api/search";
+import { trackExternalApplication } from "../api/submissions";
 import {
   updateOpportunityState,
   type OpportunityState,
@@ -81,6 +84,61 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
       );
     return () => { cancelled = true; };
   }, [item.job_id, profileId]);
+
+  // Set when the listing is opened in the browser; on return to the app,
+  // ask once whether they applied -- the same "Did you apply?" prompt the
+  // web workspace shows on window focus.
+  const askOnReturn = useRef(false);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active" || !askOnReturn.current) return;
+      askOnReturn.current = false;
+      Alert.alert("Did you apply?", `Did you submit an application for ${item.title} at ${item.company}?`, [
+        { text: "Not yet", style: "cancel" },
+        { text: "I applied", onPress: () => void trackApplied() },
+      ]);
+    });
+    return () => subscription.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.job_id]);
+
+  function openListing() {
+    askOnReturn.current = true;
+    void Linking.openURL(item.url);
+  }
+
+  async function trackApplied() {
+    setBusy(true);
+    try {
+      await trackExternalApplication({ url: item.url, title: item.title, source: "mobile", professional_profile_id: profileId });
+      await suppressResult(item.url, item.title, "applied_external").catch(() => undefined);
+      setMessage("Recorded in your pipeline as submitted.");
+    } catch (e) {
+      setMessage(e instanceof ApiError ? e.message : "Unable to record that application.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function markDeadLink() {
+    Alert.alert("Hide as a dead link?", "Kall stops showing this posting anywhere. You can restore it from Boards and monitoring.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Hide",
+        style: "destructive",
+        onPress: async () => {
+          setBusy(true);
+          try {
+            await suppressResult(item.url, item.title, "dead_link");
+            navigation.goBack();
+          } catch (e) {
+            setMessage(e instanceof ApiError ? e.message : "Unable to hide this posting.");
+            setBusy(false);
+          }
+        },
+      },
+    ]);
+  }
 
   function chooseResume(id: number) {
     setResumeId(id);
@@ -306,8 +364,9 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
       </Pressable>
       <Pressable
         accessibilityRole="link"
+        accessibilityHint="Opens the posting in your browser and asks afterwards whether you applied"
         style={styles.secondary}
-        onPress={() => void Linking.openURL(item.url)}
+        onPress={openListing}
       >
         <Text style={styles.secondaryText}>Open original listing</Text>
       </Pressable>
@@ -325,6 +384,14 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
           onPress={() => void track("not_interested")}
         >
           <Text style={styles.dismissText}>Not interested</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Hides this posting from every search"
+          disabled={busy}
+          onPress={markDeadLink}
+        >
+          <Text style={styles.dismissText}>Dead link</Text>
         </Pressable>
       </View>
     </ScrollView>

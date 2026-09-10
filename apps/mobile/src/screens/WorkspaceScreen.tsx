@@ -78,6 +78,21 @@ export default function WorkspaceScreen({ navigation }: Props) {
       screen: "Resumes",
     },
     {
+      title: "Professional record",
+      detail: "Employment, education, skills, achievements, references",
+      screen: "Record",
+    },
+    {
+      title: "Sensitive details",
+      detail: "Work authorization, self-identification, autofill consent",
+      screen: "SensitiveDetails",
+    },
+    {
+      title: "Boards and monitoring",
+      detail: "Company job boards, scheduled searches, hidden results",
+      screen: "Sources",
+    },
+    {
       title: "Notifications",
       detail: "Brief and opportunity email preferences",
       screen: "Notifications",

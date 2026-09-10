@@ -98,14 +98,16 @@ export type NotificationPreferences = {
   digest_hour_local: number;
   timezone: string;
   minimum_match_score: number;
-  quiet_hours_start?: string | null;
-  quiet_hours_end?: string | null;
+  // Both set, or both null -- the server rejects one without the other.
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
   email_provider_status?: string;
 };
 
 export const fetchAccount = () => apiRequest<Account>("/me");
 export const fetchIdentity = () => apiRequest<Identity>("/me/identity");
-export const saveIdentity = (body: Partial<Identity>) =>
+// phone, address and postal_code are accepted, encrypted, and never returned.
+export const saveIdentity = (body: Partial<Identity> & { phone?: string; address?: string; postal_code?: string }) =>
   apiRequest<Identity>("/me/identity", { method: "PUT", body });
 export const fetchCareerProfiles = () =>
   apiRequest<{ profiles: CareerProfile[] }>("/me/career-profiles");

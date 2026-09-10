@@ -23,6 +23,12 @@ import ResumesScreen from "../screens/ResumesScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import ConsultingScreen from "../screens/ConsultingScreen";
 import BillingScreen from "../screens/BillingScreen";
+import RecordScreen from "../screens/RecordScreen";
+import RecordResourceScreen from "../screens/RecordResourceScreen";
+import AchievementsScreen from "../screens/AchievementsScreen";
+import SensitiveDetailsScreen from "../screens/SensitiveDetailsScreen";
+import SourcesScreen from "../screens/SourcesScreen";
+import { RECORD_SCHEMAS } from "../lib/recordSchema";
 import type {
   ApplicationsStackParamList,
   AppTabParamList,
@@ -151,6 +157,31 @@ function ProfileNavigator() {
         name="Billing"
         component={BillingScreen}
         options={{ title: "Plan and billing" }}
+      />
+      <ProfileStack.Screen
+        name="Record"
+        component={RecordScreen}
+        options={{ title: "Professional record" }}
+      />
+      <ProfileStack.Screen
+        name="RecordResource"
+        component={RecordResourceScreen}
+        options={({ route }) => ({ title: RECORD_SCHEMAS[route.params.resource]?.label ?? "Record" })}
+      />
+      <ProfileStack.Screen
+        name="Achievements"
+        component={AchievementsScreen}
+        options={{ title: "Achievements" }}
+      />
+      <ProfileStack.Screen
+        name="SensitiveDetails"
+        component={SensitiveDetailsScreen}
+        options={{ title: "Sensitive details" }}
+      />
+      <ProfileStack.Screen
+        name="Sources"
+        component={SourcesScreen}
+        options={{ title: "Boards and monitoring" }}
       />
     </ProfileStack.Navigator>
   );

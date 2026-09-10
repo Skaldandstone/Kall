@@ -33,6 +33,11 @@ export type ProfileStackParamList = {
   Resumes: undefined;
   Notifications: undefined;
   Billing: undefined;
+  Record: undefined;
+  RecordResource: { resource: string };
+  Achievements: undefined;
+  SensitiveDetails: undefined;
+  Sources: undefined;
 };
 
 export type AppTabParamList = {
