@@ -29,7 +29,20 @@ def _lead(client, **overrides):
     return response.json()
 
 
-def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(client, engine) -> None:
+def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(client, engine, monkeypatch) -> None:
+    captured = {}
+
+    async def fake_aggregate(queries):
+        captured["queries"] = queries
+        return {
+            "enabled": True,
+            "results": [{"title": "Interim VP Quality", "url": "https://catalant.com/x", "snippet": "…", "provider": "Catalant", "domain": "catalant.com"}],
+            "sites_searched": len(queries),
+            "sites_failed": 0,
+        }
+
+    monkeypatch.setattr("kall.api_consulting.aggregate_job_search", fake_aggregate)
+
     with Session(engine) as session:
         profile = CareerProfile(
             user_id=client.user_id,
@@ -64,6 +77,20 @@ def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(clien
     }
     assert all(item["search_url"].startswith("https://www.google.com/search?q=") for item in payload["searches"])
     assert payload["warm_lead_prompts"][0]["name"] == "Avery Morgan"
+    # The searches actually run server-side, not just handed back as links.
+    assert [item["provider"] for item in captured["queries"]] == ["Catalant", "Business Talent Group", "Contra", "Open web"]
+    assert captured["queries"][0]["domain"] == "catalant.com"
+    assert captured["queries"][3]["domain"] == ""
+    assert payload["search_enabled"] is True
+    assert payload["results"] == [{
+        "title": "Interim VP Quality", "url": "https://catalant.com/x", "snippet": "…",
+        "provider": "Catalant", "suggested_segment": "marketplace",
+    }]
+
+    # No focus is required: the profile alone produces a plan.
+    unfocused = client.get(f"{BASE}/discovery-plan/{profile.id}")
+    assert unfocused.status_code == 200
+    assert "release readiness" in unfocused.json()["positioning"]
 
     with Session(engine) as session:
         other = User(clerk_user_id="user_other_profile", email="profile-owner@example.com", full_name="Other")

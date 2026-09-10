@@ -20,6 +20,26 @@ import type { AppTabParamList } from "../navigation/types";
 
 type Props = BottomTabScreenProps<AppTabParamList, "BriefTab">;
 
+// Routed on the focus's kind, not its web href -- the href is the web app's
+// URL and "/onboarding" (define a profile) matched none of the substrings the
+// old check sniffed for, so that card landed on the job feed.
+function openFocus(navigation: Props["navigation"], kind: string) {
+  const tabs = navigation as unknown as { navigate: (name: string, params?: object) => void };
+  switch (kind) {
+    case "autofill":
+      tabs.navigate("ApplicationsTab");
+      return;
+    case "resume":
+      tabs.navigate("ProfileTab", { screen: "Resumes" });
+      return;
+    case "profile":
+      tabs.navigate("ProfileTab", { screen: "CareerProfiles" });
+      return;
+    default:
+      tabs.navigate("OpportunitiesTab");
+  }
+}
+
 export default function MorningBriefScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [brief, setBrief] = useState<Brief | null>(null);
@@ -105,17 +125,7 @@ export default function MorningBriefScreen({ navigation }: Props) {
             <Pressable
               accessibilityRole="button"
               style={styles.cardAction}
-              onPress={() =>
-                navigation.navigate(
-                  brief.focus.href.includes("application")
-                    ? "ApplicationsTab"
-                    : brief.focus.href.includes("profile") ||
-                        brief.focus.href.includes("resume") ||
-                        brief.focus.href.includes("setting")
-                      ? "ProfileTab"
-                      : "OpportunitiesTab",
-                )
-              }
+              onPress={() => openFocus(navigation, brief.focus.kind)}
             >
               <Text style={styles.cardActionText}>Start now</Text><Ionicons name="arrow-forward" size={16} color={theme.text} />
             </Pressable>
@@ -132,9 +142,10 @@ export default function MorningBriefScreen({ navigation }: Props) {
           <Card style={styles.card}>
             <SectionHeader title="Career health" detail="Where your profile can get stronger" action={<Text accessibilityLabel={`${brief.career_health.score} percent`} style={styles.healthScore}>{brief.career_health.score}%</Text>} />
             {brief.career_health.dimensions.map((dimension) => (
-              <View key={dimension.label} style={styles.dimensionBlock} accessible accessibilityLabel={`${dimension.label}, ${dimension.score} percent. ${dimension.explanation}`}>
-                <View style={styles.dimensionRow}><Text style={styles.dimensionLabel}>{dimension.label}</Text><Text style={styles.dimensionScore}>{dimension.score}%</Text></View>
-                <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, Math.min(100, dimension.score))}%` }]} /></View>
+              <View key={dimension.label} style={styles.dimensionBlock} accessible accessibilityLabel={`${dimension.label}, ${dimension.measured ? `${dimension.score} percent` : "not measured yet"}. ${dimension.explanation}`}>
+                <View style={styles.dimensionRow}><Text style={styles.dimensionLabel}>{dimension.label}</Text><Text style={dimension.measured ? styles.dimensionScore : styles.dimensionUnmeasured}>{dimension.measured ? `${dimension.score}%` : "Not measured"}</Text></View>
+                <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${dimension.measured ? Math.max(2, Math.min(100, dimension.score)) : 0}%` }]} /></View>
+                {!dimension.measured ? <Text style={styles.dimensionHint}>{dimension.explanation}</Text> : null}
               </View>
             ))}
           </Card>
@@ -272,6 +283,8 @@ const styles = StyleSheet.create({
   },
   dimensionLabel: { color: theme.textSecondary, fontSize: 13 },
   dimensionScore: { color: theme.text, fontSize: 13, fontWeight: "600" },
+  dimensionUnmeasured: { color: theme.textMuted, fontSize: 12, fontWeight: "600" },
+  dimensionHint: { color: theme.textMuted, fontSize: 12, lineHeight: 16, marginTop: 5 },
   progressTrack: { height: 5, overflow: "hidden", borderRadius: 3, backgroundColor: theme.surfaceInteractive },
   progressFill: { height: 5, borderRadius: 3, backgroundColor: theme.accent },
   opportunityRow: {

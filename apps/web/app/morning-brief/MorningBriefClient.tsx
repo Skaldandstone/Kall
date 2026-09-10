@@ -19,7 +19,7 @@ type Opportunity = {
   gaps: string[];
 };
 
-type Dimension = { label: string; score: number; explanation: string };
+type Dimension = { label: string; score: number; measured: boolean; explanation: string };
 type Brief = {
   generated_at: string;
   user: { preferred_name: string };
@@ -227,8 +227,8 @@ export default function MorningBriefClient() {
             <div className={styles.healthList}>
               {brief.career_health.dimensions.map((dimension) => (
                 <div className={styles.healthItem} key={dimension.label}>
-                  <div className={styles.healthLabel}><span>{dimension.label}</span><strong>{dimension.score}%</strong></div>
-                  <div className={styles.track}><span style={{ width: `${dimension.score}%` }} /></div>
+                  <div className={styles.healthLabel}><span>{dimension.label}</span><strong>{dimension.measured ? `${dimension.score}%` : 'Not measured'}</strong></div>
+                  <div className={styles.track}><span style={{ width: `${dimension.measured ? dimension.score : 0}%` }} /></div>
                   <p>{dimension.explanation}</p>
                 </div>
               ))}

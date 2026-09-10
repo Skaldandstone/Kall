@@ -5,6 +5,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -20,10 +21,12 @@ import {
   generatePlan,
   importResource,
   pinResource,
+  searchPlanResources,
   type Assessment,
   type Goal,
   type GrowthDashboard,
   type Plan,
+  type ResourceHit,
 } from '../api/growth';
 import { ApiError } from '../api/client';
 import { theme } from '../theme';
@@ -34,6 +37,35 @@ const BUDGET_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'flexible', label: 'Flexible' },
   { value: 'premium', label: 'Premium' },
 ];
+
+// Plain Markdown so the share sheet can hand it to Docs, Keep, Files, mail
+// or any notes app -- the plan is already stored in Kall, this is the copy
+// someone keeps on their own device.
+function planAsMarkdown(goal: Goal, plan: Plan): string {
+  const lines = [
+    `# ${goal.title}`,
+    `Target role: ${goal.target_role}${goal.target_industry ? ` · ${goal.target_industry}` : ''}`,
+    '',
+    plan.plan.summary,
+    '',
+  ];
+  if (plan.plan.current_strengths.length) lines.push('## Current strengths', ...plan.plan.current_strengths.map((item) => `- ${item}`), '');
+  if (plan.plan.skill_gaps.length) lines.push('## Priority gaps', ...plan.plan.skill_gaps.map((item) => `- ${item}`), '');
+  if (plan.plan.recommended_roles.length) lines.push('## Recommended roles', ...plan.plan.recommended_roles.map((item) => `- ${item}`), '');
+  if (plan.milestones.length) {
+    lines.push('## Milestones');
+    for (const item of plan.milestones) {
+      lines.push(`${item.sequence}. **${item.title}** (${item.phase}${item.estimated_hours ? `, ~${item.estimated_hours} hours` : ''})`, `   ${item.description}`);
+    }
+    lines.push('');
+  }
+  const kept = plan.resources.filter((item) => item.saved);
+  if (kept.length) lines.push('## Saved resources', ...kept.map((item) => `- [${item.title}](${item.url})`), '');
+  const latest = plan.skill_assessments[0];
+  if (latest) lines.push('## Latest skills assessment', `${latest.readiness_score}% readiness`, latest.narrative, '');
+  lines.push('_Exported from Kall._');
+  return lines.join('\n');
+}
 
 const STARTING_POINTS = [
   { icon: 'arrow-up-circle-outline' as const, title: 'Move up', detail: 'Prepare for your next level', goal: 'Move into a leadership role' },
@@ -217,7 +249,54 @@ function GoalCard({
   const [resourceUrl, setResourceUrl] = useState('');
   const [resourceTitle, setResourceTitle] = useState('');
   const [savingResource, setSavingResource] = useState(false);
+  const [showManualResource, setShowManualResource] = useState(false);
   const [pendingResourceId, setPendingResourceId] = useState<number | null>(null);
+  const [hits, setHits] = useState<ResourceHit[] | null>(null);
+  const [hitsCategory, setHitsCategory] = useState<string | null>(null);
+  const [searchingHits, setSearchingHits] = useState(false);
+  const [savingHitUrl, setSavingHitUrl] = useState<string | null>(null);
+
+  async function handleSearch(category: string) {
+    if (!plan) return;
+    setSearchingHits(true);
+    setHitsCategory(category);
+    try {
+      const response = await searchPlanResources(plan.plan.id, category);
+      if (!response.enabled) {
+        onError('Resource search is not available right now. Open the search in your browser instead.');
+        setHits(null);
+        return;
+      }
+      setHits(response.results);
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'Unable to search for resources right now.');
+    } finally {
+      setSearchingHits(false);
+    }
+  }
+
+  async function handleSaveHit(hit: ResourceHit) {
+    if (!plan) return;
+    setSavingHitUrl(hit.url);
+    try {
+      await importResource(plan.plan.id, hit.url, hit.title, hit.snippet || undefined);
+      setHits((current) => current?.map((item) => (item.url === hit.url ? { ...item, saved: true } : item)) ?? null);
+      await onReload();
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'Unable to save that resource.');
+    } finally {
+      setSavingHitUrl(null);
+    }
+  }
+
+  async function handleShare() {
+    if (!plan) return;
+    try {
+      await Share.share({ title: goal.title, message: planAsMarkdown(goal, plan) });
+    } catch {
+      // The share sheet was dismissed, or no app could take the text.
+    }
+  }
 
   async function handleAnalyze() {
     if (answer.trim().length < 2) {
@@ -285,9 +364,14 @@ function GoalCard({
       ) : (
         <>
           <Text style={styles.summary}>{plan.plan.summary}</Text>
-          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void onGenerate(goal.id, true)}>
-            <Text style={styles.secondaryButtonText}>Regenerate plan</Text>
-          </Pressable>
+          <View style={styles.planActions}>
+            <Pressable accessibilityRole="button" accessibilityHint="Opens the share sheet to save or send this plan" style={[styles.secondaryButton, styles.planAction]} onPress={() => void handleShare()}>
+              <Ionicons name="share-outline" size={16} color={theme.text} /><Text style={styles.secondaryButtonText}>Save or share plan</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" style={[styles.secondaryButton, styles.planAction]} onPress={() => void onGenerate(goal.id, true)}>
+              <Text style={styles.secondaryButtonText}>Regenerate</Text>
+            </Pressable>
+          </View>
 
           {plan.plan.current_strengths.length > 0 && (
             <View style={styles.subsection}>
@@ -356,18 +440,61 @@ function GoalCard({
 
           <View style={styles.subsection}>
             <Text style={styles.sectionLabel}>Find learning resources</Text>
-            {plan.searches.map((item) => (
-              <Pressable key={item.id} accessibilityRole="link" accessibilityHint="Opens this search in your browser" style={styles.searchRow} onPress={() => Linking.openURL(item.search_url)}>
-                <Text style={styles.searchQuery}>{item.query}</Text>
-                <Text style={styles.searchRationale}>{item.rationale}</Text>
-              </Pressable>
-            ))}
-            <Text style={styles.sectionHint}>Found something worth keeping? Save it below.</Text>
-            <TextInput accessibilityLabel="Resource URL" style={styles.input} value={resourceUrl} onChangeText={setResourceUrl} placeholder="Resource URL" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="url" />
-            <TextInput accessibilityLabel="Resource title" style={styles.input} value={resourceTitle} onChangeText={setResourceTitle} placeholder="Title" placeholderTextColor={theme.textMuted} />
-            <Pressable accessibilityRole="button" accessibilityState={{ disabled: savingResource, busy: savingResource }} style={styles.secondaryButton} onPress={() => void handleSaveResource()} disabled={savingResource}>
-              {savingResource ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>Save resource</Text>}
+            <Text style={styles.sectionHint}>Pick a search. Kall runs it and lets you keep a result with one tap.</Text>
+            <View style={styles.chipRow}>
+              {plan.searches.map((item) => (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search for ${item.category} resources`}
+                  accessibilityState={{ selected: hitsCategory === item.category, busy: searchingHits && hitsCategory === item.category }}
+                  style={[styles.chip, hitsCategory === item.category && styles.chipActive]}
+                  disabled={searchingHits}
+                  onPress={() => void handleSearch(item.category)}
+                >
+                  <Text style={[styles.chipText, hitsCategory === item.category && styles.chipTextActive]}>{item.category[0].toUpperCase()}{item.category.slice(1)}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {searchingHits ? <ActivityIndicator color={theme.text} style={styles.hitsSpinner} /> : null}
+            {!searchingHits && hits ? (
+              hits.length === 0 ? (
+                <Text style={styles.sectionHint}>Nothing came back for that search. Try another category.</Text>
+              ) : (
+                hits.map((hit) => (
+                  <View key={hit.url} style={styles.hitCard}>
+                    <Text style={styles.hitTitle}>{hit.title}</Text>
+                    {hit.snippet ? <Text style={styles.milestoneDescription} numberOfLines={3}>{hit.snippet}</Text> : null}
+                    <View style={styles.hitActions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: hit.saved || savingHitUrl === hit.url, busy: savingHitUrl === hit.url }}
+                        style={[styles.button, styles.hitButton, hit.saved && styles.hitButtonSaved]}
+                        disabled={hit.saved || savingHitUrl === hit.url}
+                        onPress={() => void handleSaveHit(hit)}
+                      >
+                        {savingHitUrl === hit.url ? <ActivityIndicator color={theme.background} /> : <Text style={styles.buttonText}>{hit.saved ? 'Saved' : 'Save to plan'}</Text>}
+                      </Pressable>
+                      <Pressable accessibilityRole="link" style={[styles.secondaryButton, styles.hitButton, styles.hitButtonSecondary]} onPress={() => Linking.openURL(hit.url)}>
+                        <Text style={styles.secondaryButtonText}>Open</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )
+            ) : null}
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: showManualResource }} onPress={() => setShowManualResource((value) => !value)}>
+              <Text style={styles.manualToggle}>{showManualResource ? 'Hide manual link entry' : 'Found a link elsewhere? Add it yourself'}</Text>
             </Pressable>
+            {showManualResource ? (
+              <>
+                <TextInput accessibilityLabel="Resource URL" style={styles.input} value={resourceUrl} onChangeText={setResourceUrl} placeholder="Resource URL" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="url" />
+                <TextInput accessibilityLabel="Resource title" style={styles.input} value={resourceTitle} onChangeText={setResourceTitle} placeholder="Title" placeholderTextColor={theme.textMuted} />
+                <Pressable accessibilityRole="button" accessibilityState={{ disabled: savingResource, busy: savingResource }} style={styles.secondaryButton} onPress={() => void handleSaveResource()} disabled={savingResource}>
+                  {savingResource ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>Save resource</Text>}
+                </Pressable>
+              </>
+            ) : null}
           </View>
 
           <View style={styles.subsection}>
@@ -488,9 +615,16 @@ const styles = StyleSheet.create({
   milestoneMeta: { color: theme.textMuted, fontSize: 12, marginTop: 6 },
   assessment: { marginTop: 12, backgroundColor: theme.surfaceRaised, borderRadius: 10, padding: 12 },
   readiness: { color: theme.accent, fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  searchRow: { borderColor: theme.border, borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 8 },
-  searchQuery: { color: theme.text, fontWeight: '700', fontSize: 13 },
-  searchRationale: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  planActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  planAction: { flexDirection: 'row', gap: 6, flexGrow: 1 },
+  hitsSpinner: { marginVertical: 12 },
+  hitCard: { backgroundColor: theme.surfaceRaised, borderRadius: 10, padding: 12, marginBottom: 8 },
+  hitTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
+  hitActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  hitButton: { flex: 1, marginTop: 0 },
+  hitButtonSaved: { opacity: 0.55 },
+  hitButtonSecondary: { marginTop: 0 },
+  manualToggle: { color: theme.accent, fontSize: 13, fontWeight: '600', marginTop: 12 },
   resourceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 },
   resourceInfo: { flex: 1 },
   resourceTitle: { color: theme.text, fontWeight: '600', fontSize: 14 },

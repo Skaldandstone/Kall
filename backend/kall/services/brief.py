@@ -33,11 +33,17 @@ from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed,
 from sqlmodel import Session, select
 
 
-def _dimension(score: int, label: str, explanation: str) -> dict[str, Any]:
+def _dimension(score: int | None, label: str, explanation: str, *, unmeasured: str) -> dict[str, Any]:
+    # None means Kall has no evidence for this dimension yet. It used to be
+    # reported as a made-up floor (25-35%), so a brand-new account read as
+    # "30% application momentum" with zero applications -- the number looked
+    # like a measurement of nothing. An unmeasured dimension is 0 and says so.
+    measured = score is not None
     return {
         "label": label,
-        "score": max(0, min(100, score)),
-        "explanation": explanation,
+        "score": max(0, min(100, score)) if measured else 0,
+        "measured": measured,
+        "explanation": explanation if measured else unmeasured,
     }
 
 
@@ -93,37 +99,41 @@ def build_morning_brief(session: Session, user: User) -> dict[str, Any]:
             break
 
     target_count = sum(len(profile.target_titles) for profile in profiles)
-    direction_score = 90 if target_count >= 2 else 72 if target_count == 1 else 35
-    resume_score = 90 if any(resume.is_default for resume in resumes) else 72 if resumes else 25
-    market_score = opportunities[0]["score"] if opportunities else 30
+    direction_score = 90 if target_count >= 2 else 72 if target_count == 1 else None
+    resume_score = 90 if any(resume.is_default for resume in resumes) else 72 if resumes else None
+    market_score = opportunities[0]["score"] if opportunities else None
     active_applications = [
         application
         for application in applications
         if str(application.status.value if hasattr(application.status, "value") else application.status)
         not in {"accepted", "rejected", "withdrawn"}
     ]
-    momentum_score = min(100, 35 + len(active_applications) * 12) if applications else 30
+    momentum_score = min(100, 35 + len(active_applications) * 12) if applications else None
 
     dimensions = [
         _dimension(
             direction_score,
             "Direction",
             "Based on the number of active target roles in your professional profiles.",
+            unmeasured="Not measured yet. Add target roles to a professional profile.",
         ),
         _dimension(
             resume_score,
             "Resume readiness",
             "Based on whether you have uploaded resumes and selected a default starting point.",
+            unmeasured="Not measured yet. Upload a resume.",
         ),
         _dimension(
             market_score,
             "Market alignment",
             "Based on your highest stored deterministic job-match score.",
+            unmeasured="Not measured yet. Run an opportunity search.",
         ),
         _dimension(
             momentum_score,
             "Application momentum",
             "Based on the number of applications currently in progress.",
+            unmeasured="Not measured yet. Start an application.",
         ),
     ]
     career_health = round(sum(item["score"] for item in dimensions) / len(dimensions))

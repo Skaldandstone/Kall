@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
+from kall.services.job_search_aggregation import aggregate_job_search
 from kall.models import (
     CareerPage,
     CareerProfile,
@@ -258,6 +259,7 @@ def _consulting_searches(profile: CareerProfile, focus: str) -> list[dict[str, s
     return [
         {
             "provider": provider,
+            "domain": domain,
             "query": f"site:{domain} {query}" if domain else query,
             "search_url": f"https://www.google.com/search?q={quote_plus(f'site:{domain} {query}' if domain else query)}",
             "rationale": rationale,
@@ -306,7 +308,7 @@ def update_consulting_practice(
 
 
 @router.get("/discovery-plan/{profile_id}")
-def consulting_discovery_plan(
+async def consulting_discovery_plan(
     profile_id: int,
     focus: str = Query(default="", max_length=120),
     current_user: User = Depends(get_current_user),
@@ -315,9 +317,18 @@ def consulting_discovery_plan(
     """Turn a career profile into reviewable consulting-search actions.
 
     This finds public search paths and prompts from contacts the user already
-    recorded. It never searches private networks or sends outreach.
+    recorded, and runs those searches server-side so the answer is a list of
+    actual engagements rather than four links to Google. It never searches
+    private networks or sends outreach.
     """
     profile = _owned_profile(session, profile_id, current_user.id)
+    searches = _consulting_searches(profile, focus)
+    # aggregate_job_search tags each hit with the query's provider/domain;
+    # the open-web query has no domain, which it tolerates as "".
+    aggregated = await aggregate_job_search([
+        {"provider": item["provider"], "domain": item["domain"], "query": item["query"]} for item in searches
+    ])
+    segment_by_provider = {item["provider"]: item["suggested_segment"] for item in searches}
     contacts = list(
         session.exec(
             select(Contact)
@@ -340,7 +351,18 @@ def consulting_discovery_plan(
             "Which achievement in your profile proves you can do this work?",
             "Is there a real timeline and budget, or only general interest?",
         ],
-        "searches": _consulting_searches(profile, focus),
+        "searches": searches,
+        "search_enabled": aggregated["enabled"],
+        "results": [
+            {
+                "title": result["title"],
+                "url": result["url"],
+                "snippet": result["snippet"],
+                "provider": result["provider"],
+                "suggested_segment": segment_by_provider.get(result["provider"], "inbound"),
+            }
+            for result in aggregated["results"]
+        ],
         "warm_lead_prompts": [
             {
                 "contact_id": contact.id,

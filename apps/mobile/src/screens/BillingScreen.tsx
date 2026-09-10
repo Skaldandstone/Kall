@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,8 +12,6 @@ import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 import { fetchBillingStatus, type BillingStatus } from '../api/billing';
 import { mobilePurchasesEnabled } from '../components/PurchaseBootstrap';
 import { theme } from '../theme';
-
-const WEB_BILLING_URL = 'https://kall.skaldandstone.com/billing';
 
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
@@ -117,21 +114,20 @@ export default function BillingScreen() {
           </Pressable>
         </View>
       ) : (
+        // Deliberately no link out. Google Play and the App Store both
+        // prohibit pointing an app at an external checkout for a digital
+        // subscription; until native purchases are provisioned this screen
+        // is read-only and only reports the plan the account already has.
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Manage on the web</Text>
-          <Text style={styles.copy}>Review Kall plans and manage your current subscription securely.</Text>
-          <Pressable
-            accessibilityRole="link"
-            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-            onPress={() => void Linking.openURL(WEB_BILLING_URL)}
-          >
-            <Text style={styles.primaryText}>Open plan and billing</Text>
-          </Pressable>
+          <Text style={styles.cardTitle}>Plan changes are not available in the app yet</Text>
+          <Text style={styles.copy}>Your current plan is shown above and applies everywhere you sign in to Kall.</Text>
         </View>
       )}
-      <Text style={styles.terms}>
-        Payment is charged by Apple or Google when you confirm. Subscriptions renew automatically unless cancelled through your store account before renewal. Restoring purchases never creates a new charge.
-      </Text>
+      {purchasesEnabled && status?.native_enabled ? (
+        <Text style={styles.terms}>
+          Payment is charged by Apple or Google when you confirm. Subscriptions renew automatically unless cancelled through your store account before renewal. Restoring purchases never creates a new charge.
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }

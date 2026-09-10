@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -272,12 +272,25 @@ def approve(application_id: int, payload: ApproveApplicationRequest, current_use
         raise HTTPException(422, str(exc)) from exc
 
 
+class DiscoveryRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: Replaces the profile's own hidden-market boolean for this run -- the
+    #: extra terms someone typed on the search screen. Empty means "search
+    #: for what the profile says".
+    intent: str | None = Field(default=None, max_length=600)
+
+
 @router.post("/discovery/run/{professional_profile_id}", response_model=SearchRun)
-async def discovery_run(professional_profile_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> SearchRun:
+async def discovery_run(
+    professional_profile_id: int,
+    payload: DiscoveryRunRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SearchRun:
     profile = session.get(CareerProfile, professional_profile_id)
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Professional profile not found")
-    return await run_discovery(session, current_user, profile)
+    return await run_discovery(session, current_user, profile, intent=payload.intent if payload else None)
 
 
 @router.get("/jobs/feed")

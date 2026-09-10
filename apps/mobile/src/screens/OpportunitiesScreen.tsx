@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -51,6 +52,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [extraTerms, setExtraTerms] = useState("");
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
 
@@ -133,13 +135,21 @@ export default function OpportunitiesScreen({ navigation }: Props) {
   async function searchNow() {
     if (!profileId) return;
     setSearching(true);
-    setMessage("Searching your configured company boards…");
+    setMessage("Searching job boards and company career sites for this profile…");
     try {
-      const result = await runDiscovery(profileId);
+      const result = await runDiscovery(profileId, extraTerms);
       await load(profileId);
-      setMessage(
-        `Search complete: ${result.jobs_collected} collected, ${result.matches_created} matched.`,
-      );
+      if (result.jobs_collected === 0) {
+        setMessage(
+          result.errors.length
+            ? "The search could not reach the job sites. Try again in a moment."
+            : "No open roles matched this profile right now. Broaden the target titles, or add terms above and search again.",
+        );
+      } else {
+        setMessage(
+          `Found ${result.jobs_collected} open ${result.jobs_collected === 1 ? "role" : "roles"}, ${result.matches_created} new for this profile.`,
+        );
+      }
     } catch (err) {
       setMessage(
         err instanceof ApiError ? err.message : "Unable to run discovery.",
@@ -237,6 +247,17 @@ export default function OpportunitiesScreen({ navigation }: Props) {
           /></View>
       ) : (
         <>
+          <TextInput
+            accessibilityLabel="Extra search terms"
+            style={styles.termsInput}
+            value={extraTerms}
+            onChangeText={setExtraTerms}
+            placeholder="Add titles or keywords to this search (optional)"
+            placeholderTextColor={theme.textMuted}
+            returnKeyType="search"
+            onSubmitEditing={() => void searchNow()}
+            editable={!searching}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Search for new job matches"
@@ -270,7 +291,7 @@ export default function OpportunitiesScreen({ navigation }: Props) {
               />
             }
             ListEmptyComponent={
-              <Text style={styles.empty}>No matches yet. Try Search now.</Text>
+              <Text style={styles.empty}>No matches yet. Tap Find fresh matches to search job boards and company career sites for this profile.</Text>
             }
             renderItem={({ item }) => {
               const trackedItem = trackedOpportunity(item);
@@ -355,6 +376,18 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: theme.accent },
   chipText: { color: theme.textSecondary, fontSize: 13, fontWeight: "600" },
   chipTextActive: { color: theme.background },
+  termsInput: {
+    minHeight: 48,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    backgroundColor: theme.surfaceRaised,
+    color: theme.text,
+    paddingHorizontal: 14,
+    fontSize: 14,
+  },
   searchButton: {
     minHeight: 48,
     justifyContent: "center",

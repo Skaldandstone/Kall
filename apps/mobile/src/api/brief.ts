@@ -12,7 +12,7 @@ export type Opportunity = {
   gaps: string[];
 };
 
-export type Dimension = { label: string; score: number; explanation: string };
+export type Dimension = { label: string; score: number; measured: boolean; explanation: string };
 
 export type Brief = {
   generated_at: string;

@@ -131,6 +131,43 @@ def test_import_resource_and_pin_ownership_checks(client: TestClient) -> None:
     assert client.patch("/api/growth/resources/999999", json={"saved": True}).status_code == 404
 
 
+def test_plan_resource_search_runs_the_plans_queries_and_flags_saved_hits(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mobile used to hand people four Google links and a blank URL/title
+    form. The plan's searches now run server-side and come back as hits
+    that can be saved in one tap."""
+    _goal_id, plan = _create_goal_and_plan(client)
+    plan_id = plan["plan"]["id"]
+    client.post(f"/api/growth/plans/{plan_id}/resources", json={"url": "https://example.com/already", "title": "Kept"})
+    captured = {}
+
+    async def fake_aggregate(queries):
+        captured["queries"] = queries
+        return {
+            "enabled": True,
+            "results": [
+                {"title": "Course", "url": "https://example.com/course", "snippet": "Learn.", "provider": "learning", "domain": ""},
+                {"title": "Kept", "url": "https://example.com/already", "snippet": "", "provider": "learning", "domain": ""},
+            ],
+            "sites_searched": len(queries), "sites_failed": 0,
+        }
+
+    monkeypatch.setattr("kall.api_growth.aggregate_job_search", fake_aggregate)
+
+    everything = client.post(f"/api/growth/plans/{plan_id}/search")
+    assert everything.status_code == 200, everything.text
+    assert len(captured["queries"]) == 4
+    body = everything.json()
+    assert body["enabled"] is True
+    assert body["results"][0] == {"title": "Course", "url": "https://example.com/course", "snippet": "Learn.", "category": "learning", "saved": False}
+    assert body["results"][1]["saved"] is True
+
+    one_category = client.post(f"/api/growth/plans/{plan_id}/search", json={"category": "learning"})
+    assert one_category.status_code == 200
+    assert [item["provider"] for item in captured["queries"]] == ["learning"]
+
+    assert client.post("/api/growth/plans/999999/search").status_code == 404
+
+
 def test_milestone_status_can_be_set_to_completed(client: TestClient) -> None:
     """Regression test: nothing anywhere ever wrote to GrowthMilestone.status
     or completed_at -- every milestone stayed "not_started" forever, with no

@@ -81,12 +81,31 @@ def test_a_paused_profile_does_not_count_toward_direction(engine) -> None:
         brief = build_morning_brief(session, user)
 
         direction = next(d for d in brief["career_health"]["dimensions"] if d["label"] == "Direction")
-        assert direction["score"] == 35, "an inactive profile's target titles must not count"
+        assert direction["score"] == 0, "an inactive profile's target titles must not count"
+        assert direction["measured"] is False
+
+
+def test_a_brand_new_account_has_nothing_measured_yet(engine) -> None:
+    """Every dimension used to fall back to an invented 25-35% floor, so an
+    account with no applications showed "30% application momentum". No
+    evidence means 0 and an explanation that says it is unmeasured."""
+    with Session(engine) as session:
+        user = _user(session)
+        brief = build_morning_brief(session, user)
+        for dimension in brief["career_health"]["dimensions"]:
+            assert dimension["score"] == 0
+            assert dimension["measured"] is False
+            assert dimension["explanation"].startswith("Not measured yet")
+        assert brief["career_health"]["score"] == 0
 
 
 def test_career_health_is_the_average_of_its_own_dimensions(engine) -> None:
     with Session(engine) as session:
         user = _user(session)
+        session.add(CareerProfile(user_id=user.id, name="Live", target_titles=["Staff Engineer"]))
+        session.commit()
         brief = build_morning_brief(session, user)
         dims = brief["career_health"]["dimensions"]
+        direction = next(d for d in dims if d["label"] == "Direction")
+        assert direction["measured"] is True and direction["score"] == 72
         assert brief["career_health"]["score"] == round(sum(d["score"] for d in dims) / len(dims))

@@ -52,6 +52,18 @@ export function updateOpportunityState(id: number, state: OpportunityState): Pro
   return apiRequest<TrackedOpportunity>(`/opportunities/${id}`, { method: 'PATCH', body: { state } });
 }
 
-export function runDiscovery(profileId: number): Promise<{ jobs_collected: number; jobs_created: number; matches_created: number }> {
-  return apiRequest(`/discovery/run/${profileId}`, { method: 'POST' });
+export type DiscoveryRun = {
+  jobs_collected: number;
+  jobs_created: number;
+  matches_created: number;
+  status: string;
+  errors: string[];
+};
+
+export function runDiscovery(profileId: number, intent = ''): Promise<DiscoveryRun> {
+  const trimmed = intent.trim();
+  return apiRequest(`/discovery/run/${profileId}`, {
+    method: 'POST',
+    body: trimmed ? { intent: trimmed } : {},
+  });
 }

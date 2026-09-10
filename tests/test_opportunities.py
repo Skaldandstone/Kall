@@ -109,6 +109,61 @@ async def test_run_discovery_populates_the_tracked_opportunity_inbox(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_run_discovery_ingests_hidden_market_web_results_without_any_configured_board(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A manual search used to read only the company boards someone had
+    configured by hand -- a new account has none, so "Find fresh matches"
+    reported 0 collected and the feed stayed empty. The same per-site web
+    search the browser workspace runs now feeds the same ingestion path."""
+    captured = {}
+
+    async def fake_aggregate(queries):
+        captured["queries"] = queries
+        return {
+            "enabled": True,
+            "results": [
+                {"title": "Job Application for Senior Environment Artist at Example Games", "url": "https://boards.greenhouse.io/examplegames/jobs/77", "snippet": "Build worlds with Unreal Engine.", "provider": "Greenhouse", "domain": "boards.greenhouse.io"},
+                {"title": "Environment Artist - Other Studio | Remote OK", "url": "https://remoteok.com/remote-jobs/123", "snippet": "Unreal", "provider": "Remote OK", "domain": "remoteok.com"},
+                {"title": "", "url": "https://remoteok.com/blank", "snippet": "", "provider": "Remote OK", "domain": "remoteok.com"},
+            ],
+            "sites_searched": len(queries), "sites_failed": 0,
+        }
+
+    monkeypatch.setattr("kall.services.discovery.aggregate_job_search", fake_aggregate)
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="web@example.com", full_name="Web Test", hashed_password="x")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        profile = CareerProfile(user_id=user.id, name="Art", target_titles=["Environment Artist"], include_keywords=["Unreal"])
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+
+        run = await run_discovery(session, user, profile)
+
+        assert run.status == "completed", run.errors
+        assert "ats_search" in run.providers_requested
+        assert run.jobs_collected == 2 and run.matches_created == 2
+        jobs = {job.url: job for job in session.exec(select(Job))}
+        greenhouse = jobs["https://boards.greenhouse.io/examplegames/jobs/77"]
+        assert greenhouse.source == "ats_search"
+        assert greenhouse.company == "Examplegames"
+        assert greenhouse.title == "Senior Environment Artist"
+        remote = jobs["https://remoteok.com/remote-jobs/123"]
+        assert (remote.company, remote.title) == ("Other Studio", "Environment Artist")
+        assert len(list(session.exec(select(Opportunity).where(Opportunity.user_id == user.id)))) == 2
+
+        # Extra terms replace the profile boolean in every per-site query and
+        # are recorded as what the run searched for.
+        run = await run_discovery(session, user, profile, intent='"Lead Artist"')
+        assert run.ats_search_query == '"Lead Artist"'
+        assert all('"Lead Artist"' in item["query"] and item["query"].startswith("site:") for item in captured["queries"])
+
+
+@pytest.mark.asyncio
 async def test_run_discovery_records_the_actual_query_it_searched_for(monkeypatch: pytest.MonkeyPatch) -> None:
     """build_ats_queries() was called but its return value discarded, so
     "ATS Search records the broader hidden-market query in run history" was

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -147,6 +147,40 @@ export default function ConsultingScreen({ navigation }: Props) {
   }, []);
   useFocusEffect(useCallback(() => void load(), [load]));
 
+  const discoverLeads = useCallback(async (selectedProfileId: number, selectedFocus: string, announce: boolean) => {
+    setDiscovering(true);
+    try {
+      const plan = await fetchConsultingDiscoveryPlan(selectedProfileId, selectedFocus);
+      setDiscovery(plan);
+      if (announce) {
+        setMessage(
+          plan.results.length
+            ? `Found ${plan.results.length} public ${plan.results.length === 1 ? "opening" : "openings"} for this direction.`
+            : plan.search_enabled
+              ? "No public openings matched right now. Add a specialty above or start with people you know."
+              : "Kall prepared searches and qualification questions for this direction.",
+        );
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Kall could not prepare consulting searches.",
+      );
+    } finally {
+      setDiscovering(false);
+    }
+  }, []);
+
+  // Lead with recommendations: the first time a profile is known, run the
+  // profile-only search rather than waiting for someone to type a focus.
+  useEffect(() => {
+    if (profileId !== null && discovery === null && !discovering) {
+      void discoverLeads(profileId, "", false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId]);
+
   const leads = useMemo(
     () =>
       workspace.leads.filter(
@@ -192,24 +226,12 @@ export default function ConsultingScreen({ navigation }: Props) {
     }
   }
 
-  async function discoverLeads() {
+  function refineLeads() {
     if (!profileId) {
       setMessage("Create a professional profile before asking Kall to find leads.");
       return;
     }
-    setDiscovering(true);
-    try {
-      setDiscovery(await fetchConsultingDiscoveryPlan(profileId, focus));
-      setMessage("Kall prepared public searches and qualification questions for this direction.");
-    } catch (error) {
-      setMessage(
-        error instanceof ApiError
-          ? error.message
-          : "Kall could not prepare consulting searches.",
-      );
-    } finally {
-      setDiscovering(false);
-    }
+    void discoverLeads(profileId, focus, true);
   }
 
   function toggleEngagementType(value: string) {
@@ -343,10 +365,10 @@ export default function ConsultingScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.assistantCard}>
-        <Text style={styles.cardTitle}>Ask Kall to find consulting leads</Text>
+        <Text style={styles.cardTitle}>Consulting openings for you</Text>
         <Text style={styles.cardBody}>
-          Choose a professional direction. Add an optional specialty, industry,
-          or problem you want to solve.
+          Kall searches the consulting marketplaces for your professional direction.
+          Narrow it with a specialty, industry, or problem you want to solve.
         </Text>
         <ScrollView
           horizontal
@@ -359,7 +381,10 @@ export default function ConsultingScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityState={{ selected: profileId === profile.id }}
               style={[styles.smallChip, profileId === profile.id && styles.smallChipActive]}
-              onPress={() => setProfileId(profile.id)}
+              onPress={() => {
+                setProfileId(profile.id);
+                void discoverLeads(profile.id, focus, false);
+              }}
             >
               <Text style={[styles.smallChipText, profileId === profile.id && styles.smallChipTextActive]}>
                 {profile.name}
@@ -374,17 +399,19 @@ export default function ConsultingScreen({ navigation }: Props) {
           placeholder="Example: release readiness for health tech"
           placeholderTextColor={theme.textMuted}
           style={styles.input}
+          returnKeyType="search"
+          onSubmitEditing={refineLeads}
         />
         <Pressable
           accessibilityRole="button"
           style={[styles.primary, profiles.length === 0 && styles.disabled]}
           disabled={profiles.length === 0 || discovering}
-          onPress={() => void discoverLeads()}
+          onPress={refineLeads}
         >
           {discovering ? (
             <ActivityIndicator color={theme.accentInk} />
           ) : (
-            <Text style={styles.primaryText}>Find lead paths</Text>
+            <Text style={styles.primaryText}>{discovery ? "Search again" : "Find openings"}</Text>
           )}
         </Pressable>
         {profiles.length === 0 ? (
@@ -396,7 +423,38 @@ export default function ConsultingScreen({ navigation }: Props) {
 
       {discovery ? (
         <View style={styles.discovery}>
-          <Text style={styles.sectionTitle}>Your search brief</Text>
+          <Text style={styles.sectionTitle}>Open consulting work</Text>
+          {discovery.results.length === 0 ? (
+            <Text style={styles.cardBody}>
+              {discovery.search_enabled
+                ? "No public openings matched this direction right now. Narrow or broaden the focus above, or start with people you know below."
+                : "Live search is unavailable right now. Use the searches below in your browser."}
+            </Text>
+          ) : null}
+          {discovery.results.map((result) => (
+            <View style={styles.card} key={result.url}>
+              <Text style={styles.pill}>{result.provider}</Text>
+              <Text style={styles.cardTitle}>{result.title}</Text>
+              {result.snippet ? <Text style={styles.cardBody} numberOfLines={3}>{result.snippet}</Text> : null}
+              <View style={styles.actions}>
+                <Action label="Open" onPress={() => void Linking.openURL(result.url)} />
+                <Action
+                  label="Track as a lead"
+                  onPress={() =>
+                    openEditor("lead", undefined, {
+                      organization: result.provider,
+                      title: result.title,
+                      details: "Confirm the business problem, decision maker, outcome, timeline, and budget.",
+                      segment: result.suggested_segment,
+                      source: result.url,
+                    })
+                  }
+                />
+              </View>
+            </View>
+          ))}
+
+          <Text style={styles.subheading}>Your search brief</Text>
           <Text style={styles.positioning}>{discovery.positioning}</Text>
           <Text style={styles.subheading}>Qualify each lead</Text>
           {discovery.qualification_questions.map((question, index) => (
@@ -434,7 +492,7 @@ export default function ConsultingScreen({ navigation }: Props) {
             </>
           ) : null}
 
-          <Text style={styles.subheading}>Search public demand</Text>
+          <Text style={styles.subheading}>Search these yourself</Text>
           {discovery.searches.map((search) => (
             <View style={styles.card} key={search.provider}>
               <Text style={styles.cardTitle}>{search.provider}</Text>

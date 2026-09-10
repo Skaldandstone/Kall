@@ -72,6 +72,14 @@ export type ConsultingDiscoveryPlan = {
     rationale: string;
     suggested_segment: string;
   }>;
+  search_enabled: boolean;
+  results: Array<{
+    title: string;
+    url: string;
+    snippet: string;
+    provider: string;
+    suggested_segment: string;
+  }>;
   warm_lead_prompts: Array<{
     contact_id: number;
     name: string;

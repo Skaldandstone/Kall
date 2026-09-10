@@ -100,6 +100,18 @@ export function importResource(planId: number, url: string, title: string, descr
   return apiRequest<Resource>(`/growth/plans/${planId}/resources`, { method: 'POST', body: { url, title, description } });
 }
 
+export type ResourceHit = {
+  title: string;
+  url: string;
+  snippet: string;
+  category: string;
+  saved: boolean;
+};
+
+export function searchPlanResources(planId: number, category?: string): Promise<{ enabled: boolean; results: ResourceHit[] }> {
+  return apiRequest(`/growth/plans/${planId}/search`, { method: 'POST', body: category ? { category } : {} });
+}
+
 export function pinResource(resourceId: number, saved: boolean): Promise<Resource> {
   return apiRequest<Resource>(`/growth/resources/${resourceId}`, { method: 'PATCH', body: { saved } });
 }

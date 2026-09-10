@@ -20,6 +20,7 @@ from kall.models import (
     User,
 )
 from kall.services.growth_ai import analyze_skills, generate_ai_plan
+from kall.services.job_search_aggregation import aggregate_job_search
 from kall.services.quota import assert_ai_allowed, record_ai_action
 
 router = APIRouter()
@@ -285,6 +286,50 @@ def import_resource(plan_id: int, payload: ResourceImportRequest, current_user: 
     session.commit()
     session.refresh(resource)
     return resource
+
+
+class ResourceSearchRequest(BaseModel):
+    #: One of the plan's GrowthSearchQuery categories (roles, learning,
+    #: portfolio, community). None runs every query the plan holds.
+    category: str | None = Field(default=None, max_length=40)
+
+
+@router.post("/growth/plans/{plan_id}/search")
+async def search_plan_resources(
+    plan_id: int,
+    payload: ResourceSearchRequest = ResourceSearchRequest(),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Run the plan's own learning-resource searches server-side and hand
+    back the hits, so a phone can save one with a tap instead of opening a
+    browser and retyping the URL and title into a form."""
+    plan = session.get(CareerGrowthPlan, plan_id)
+    if not plan or plan.user_id != current_user.id:
+        raise HTTPException(404, "Growth plan not found")
+    statement = select(GrowthSearchQuery).where(GrowthSearchQuery.growth_plan_id == plan.id)
+    if payload.category:
+        statement = statement.where(GrowthSearchQuery.category == payload.category)
+    searches = list(session.exec(statement))
+    aggregated = await aggregate_job_search([
+        {"provider": item.category, "domain": "", "query": item.query} for item in searches
+    ])
+    saved_urls = {
+        row.url for row in session.exec(select(GrowthResource).where(GrowthResource.growth_plan_id == plan.id))
+    }
+    return {
+        "enabled": aggregated["enabled"],
+        "results": [
+            {
+                "title": result["title"],
+                "url": result["url"],
+                "snippet": result["snippet"],
+                "category": result["provider"],
+                "saved": result["url"] in saved_urls,
+            }
+            for result in aggregated["results"]
+        ],
+    }
 
 
 @router.patch("/growth/resources/{resource_id}", response_model=GrowthResource)
