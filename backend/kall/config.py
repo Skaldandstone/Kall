@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     revenuecat_google_premium_product_id: str | None = None
     revenuecat_apple_plus_product_id: str | None = None
     revenuecat_apple_premium_product_id: str | None = None
+    #: RevenueCat secret (server) API key. Only the staff portal's Google Play
+    #: refund path uses it; unset means that action reports not configured.
+    revenuecat_secret_api_key: str | None = None
     sensitive_data_encryption_key: str | None = None
 
     #: Shared secret for the Adminhelper Worker's machine-to-machine calls to

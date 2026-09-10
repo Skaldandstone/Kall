@@ -141,6 +141,7 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert "- Name: REVENUECAT_ENABLED\n              Value: !Ref EnableRevenueCatNative" in api_task
     assert "REVENUECAT_WEBHOOK_AUTHORIZATION" in api_task
     assert "REVENUECAT_WEBHOOK_SIGNING_SECRET" in api_task
+    assert "ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_SECRET_API_KEY::'" in api_task
     assert "Value: 'false'\n            - Name: MONITORING_ENABLED" not in api_task
     assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in api_task
     assert "price_1UAZ" not in template

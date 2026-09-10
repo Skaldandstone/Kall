@@ -212,6 +212,91 @@ def test_portal_refund_lists_charges_and_refunds_once_within_cap(client, admin_t
         assert action.detail["reason"] == "duplicate charge"
 
 
+def test_portal_google_play_refund_revokes_through_revenuecat(client, admin_token, engine, monkeypatch):
+    """Play rows are refundable once through RevenueCat's revoke call; Apple rows
+    are refused with the customer-facing guidance; entitlement is recomputed."""
+    from datetime import timedelta
+
+    from kall.clock import utcnow
+    from kall.models import StoreSubscription, User
+    from kall.models.core import AdminAction
+    from kall.services import native_refunds
+    from sqlmodel import Session, select
+
+    headers = {"X-Admin-Token": admin_token}
+    user_id = client.user_id  # type: ignore[attr-defined]
+    settings = get_settings()
+    monkeypatch.setattr(settings, "revenuecat_enabled", True)
+    monkeypatch.setattr(settings, "revenuecat_secret_api_key", "sk_test_revenuecat")
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(native_refunds, "revenuecat_post", lambda path, key: calls.append((path, key)) or {})
+
+    later = utcnow() + timedelta(days=20)
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        user.plan = "premium"
+        session.add(user)
+        session.add(StoreSubscription(user_id=user_id, store="PLAY_STORE", environment="PRODUCTION",
+                                      original_transaction_id="GPA.1", product_id="kall_premium_monthly:monthly",
+                                      plan="premium", status="active", active_until=later, will_renew=True,
+                                      last_event_at=utcnow(), last_provider_event_id="evt_g1"))
+        session.add(StoreSubscription(user_id=user_id, store="APP_STORE", environment="PRODUCTION",
+                                      original_transaction_id="1000000", product_id="com.skaldandstone.kall.plus.monthly",
+                                      plan="plus", status="active", active_until=later, will_renew=True,
+                                      last_event_at=utcnow() - timedelta(days=1), last_provider_event_id="evt_a1"))
+        session.commit()
+
+    resp = client.get(f"/api/admin/portal/users/{user_id}/store-subscriptions", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["google_refunds_configured"] is True
+    rows = {r["store"]: r for r in body["subscriptions"]}
+    assert rows["PLAY_STORE"]["refundable"] is True
+    assert rows["APP_STORE"]["refundable"] is False
+
+    play_id, apple_id = rows["PLAY_STORE"]["id"], rows["APP_STORE"]["id"]
+    payload = {"subscription_id": apple_id, "reason": "customer request", "staff_actor": "grace@skaldandstone.com"}
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund", json=payload, headers=headers)
+    assert resp.status_code == 409
+    assert "reportaproblem.apple.com" in resp.json()["detail"]
+    assert calls == []
+
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": play_id, "reason": ""}, headers=headers)
+    assert resp.status_code == 422
+
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": play_id}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["subscription"]["status"] == "refunded"
+    assert resp.json()["plan_after"] == "plus"  # the Apple plan remains
+    assert calls == [("/subscribers/user_test_fixture/subscriptions/kall_premium_monthly/revoke", "sk_test_revenuecat")]
+
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": play_id}, headers=headers)
+    assert resp.status_code == 409
+    assert len(calls) == 1
+
+    with Session(engine) as session:
+        action = session.exec(select(AdminAction).where(AdminAction.action == "portal_store_refund")).one()
+        assert action.actor_email == "grace@skaldandstone.com"
+        assert action.detail["store"] == "PLAY_STORE"
+        assert action.detail["plan_after"] == "plus"
+        assert session.get(User, user_id).plan == "plus"
+
+    monkeypatch.setattr(settings, "revenuecat_secret_api_key", None)
+    with Session(engine) as session:
+        session.add(StoreSubscription(user_id=user_id, store="PLAY_STORE", environment="PRODUCTION",
+                                      original_transaction_id="GPA.2", product_id="kall_plus_monthly:monthly",
+                                      plan="plus", status="active", active_until=later, will_renew=True,
+                                      last_event_at=utcnow(), last_provider_event_id="evt_g2"))
+        session.commit()
+        second = session.exec(select(StoreSubscription).where(StoreSubscription.original_transaction_id == "GPA.2")).one().id
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": second}, headers=headers)
+    assert resp.status_code == 503
+
+
 def test_portal_unknown_user_404s(client, admin_token):
     headers = {"X-Admin-Token": admin_token}
     assert client.get("/api/admin/portal/users/999999", headers=headers).status_code == 404

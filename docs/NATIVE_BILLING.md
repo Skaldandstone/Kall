@@ -45,7 +45,13 @@ Google Play Console and App Store Connect before submission.
    service account, import the products, create Plus and Premium entitlements,
    and publish a current offering containing both packages.
 3. Create a strong random webhook Authorization value and a separate signing
-   secret. Store them only in the production secret record. Configure the exact
+   secret. Store them only in the production secret record, as JSON keys
+   `REVENUECAT_WEBHOOK_AUTHORIZATION` and `REVENUECAT_WEBHOOK_SIGNING_SECRET`,
+   alongside `REVENUECAT_SECRET_API_KEY`, the RevenueCat secret API key the
+   staff portal uses to refund and revoke Google Play subscriptions
+   (`/api/admin/portal/users/{id}/store-refund`, via RevenueCat's revoke
+   call). Apple refunds are never issued by Kall; the portal shows the
+   customer-facing steps instead. Configure the exact
    webhook URL `https://kall.skaldandstone.com/api/billing/revenuecat/webhook`.
 4. Deploy migration `20260908_0034`. Enable native billing in the production
    stack with the two Google product IDs and accepted environments
@@ -97,8 +103,15 @@ prohibit pointing an app at an external checkout for a digital subscription.
   tracking.
 - Google Cloud has Android Publisher, Play Developer Reporting, and Pub/Sub APIs
   enabled and a dedicated `kall-revenuecat` service account with Pub/Sub Editor
-  and Monitoring Viewer. Organization policy blocks creation of its JSON key,
-  so the Google Play connection remains incomplete.
+  and Monitoring Viewer. On 10 September 2026 a temporary project-scoped
+  override of `iam.managed.disableServiceAccountKeyCreation` allowed one JSON
+  key (ID `068415d4ee256b20a5f89984d8a9e26683311046`, no expiry) to be created
+  for it; the override was reverted the same session and the project reads
+  Enforced again. The service account is invited to Play Console with app-level
+  view-app-information, view-financial-data, and manage-orders permissions on
+  Kall only. RevenueCat validates the credentials. Real-time developer
+  notifications are enabled in Play Console Monetization setup on
+  `projects/kall-production/topics/Play-Store-Notifications`.
 - Clerk production has both Android and iOS native applications registered. The
   Apple Services ID and callback domain exist, but Apple sign-in remains disabled
   until the exposed one-time Apple key is revoked and replaced safely.

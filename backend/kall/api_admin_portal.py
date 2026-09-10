@@ -35,7 +35,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models.core import AdminAction, Application, Job, JobMatch, User
 from kall.models.enums import SubscriptionPlan
-from kall.services import quota, stripe_billing
+from kall.services import native_refunds, quota, stripe_billing
 
 router = APIRouter(prefix="/admin/portal", tags=["admin-portal"])
 
@@ -122,6 +122,12 @@ class ResetUsagePayload(BaseModel):
 
 class RefundPayload(BaseModel):
     charge_id: str
+    reason: str = ""
+    staff_actor: str | None = None
+
+
+class StoreRefundPayload(BaseModel):
+    subscription_id: int
     reason: str = ""
     staff_actor: str | None = None
 
@@ -295,6 +301,41 @@ def refund_payment(
         action="portal_refund",
         target_user_id=user.id,
         detail={**result, "reason": payload.reason},
+    )
+    return result
+
+
+@router.get("/users/{user_id}/store-subscriptions", dependencies=[Depends(require_admin_token)])
+def store_subscriptions(user_id: int, session: Session = Depends(get_session)) -> dict:
+    """Google Play and App Store subscriptions RevenueCat has reported for the account."""
+    _target(session, user_id)
+    settings = get_settings()
+    return {
+        "subscriptions": native_refunds.list_store_subscriptions(session, user_id),
+        "google_refunds_configured": bool(settings.revenuecat_enabled and settings.revenuecat_secret_api_key),
+        "apple_guidance": native_refunds.APPLE_GUIDANCE,
+    }
+
+
+@router.post("/users/{user_id}/store-refund", dependencies=[Depends(require_admin_token)])
+def store_refund(
+    user_id: int, payload: StoreRefundPayload, session: Session = Depends(get_session)
+) -> dict:
+    """Refund and revoke one Google Play subscription through RevenueCat (admin tier)."""
+    user = _target(session, user_id)
+    if not payload.reason.strip():
+        raise HTTPException(status_code=422, detail="A reason is required for a refund")
+    actor = payload.staff_actor or "adminhelper-portal"
+    result = native_refunds.refund_store_subscription(
+        session, user, payload.subscription_id, reason=payload.reason, actor=actor
+    )
+    _log(
+        session, payload.staff_actor,
+        action="portal_store_refund",
+        target_user_id=user.id,
+        detail={"store": result["subscription"]["store"], "product_id": result["subscription"]["product_id"],
+                "subscription_id": payload.subscription_id, "plan_after": result["plan_after"],
+                "reason": payload.reason},
     )
     return result
 

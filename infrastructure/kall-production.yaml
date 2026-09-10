@@ -1084,6 +1084,11 @@ Resources:
               - Name: REVENUECAT_WEBHOOK_SIGNING_SECRET
                 ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_WEBHOOK_SIGNING_SECRET::'
               - !Ref AWS::NoValue
+            - !If
+              - RevenueCatNativeEnabled
+              - Name: REVENUECAT_SECRET_API_KEY
+                ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_SECRET_API_KEY::'
+              - !Ref AWS::NoValue
             - Name: ALPHA_ALLOWED_EMAILS
               ValueFrom: !Sub '${ProductionAccessSecretArn}:ALPHA_ALLOWED_EMAILS::'
             - !If
