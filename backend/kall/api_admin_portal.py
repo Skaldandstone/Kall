@@ -299,6 +299,33 @@ def refund_payment(
     return result
 
 
+class PortalActionRow(BaseModel):
+    id: int
+    occurred_at: str
+    actor_email: str | None
+    action: str
+    detail: dict
+
+
+@router.get("/users/{user_id}/actions", dependencies=[Depends(require_admin_token)])
+def recent_actions(user_id: int, session: Session = Depends(get_session)) -> list[PortalActionRow]:
+    """Every recorded staff action on this account, newest first.
+
+    Covers both the portal's actor-less rows and the Clerk-session console's
+    rows, so support sees one history regardless of which surface acted.
+    """
+    _target(session, user_id)
+    rows = session.exec(
+        select(AdminAction).where(AdminAction.target_user_id == user_id)
+        .order_by(AdminAction.occurred_at.desc(), AdminAction.id.desc()).limit(50)
+    ).all()
+    return [
+        PortalActionRow(id=a.id, occurred_at=a.occurred_at.isoformat(), actor_email=a.actor_email,
+                        action=a.action, detail=a.detail or {})
+        for a in rows
+    ]
+
+
 @router.get("/users/{user_id}/applications", dependencies=[Depends(require_admin_token)])
 def recent_applications(user_id: int, session: Session = Depends(get_session)) -> list[PortalApplicationRow]:
     _target(session, user_id)

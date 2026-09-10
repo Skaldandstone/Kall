@@ -143,6 +143,17 @@ def test_portal_support_actions_change_plan_exemption_and_usage(client, admin_to
         assert actions[0].detail == {"from": "free", "to": "premium", "reason": "comped"}
         assert actions[2].detail["cleared"] == {"applications": 3}
 
+    # The same history is readable back through the portal, newest first.
+    resp = client.get(f"/api/admin/portal/users/{user_id}/actions", headers=headers)
+    assert resp.status_code == 200
+    history = resp.json()
+    assert [h["action"] for h in history] == [
+        "portal_reset_usage", "portal_set_billing_exempt", "portal_set_plan",
+    ]
+    assert history[-1]["actor_email"] == "grace@skaldandstone.com"
+    assert history[-1]["detail"] == {"from": "free", "to": "premium", "reason": "comped"}
+    assert client.get("/api/admin/portal/users/999999/actions", headers=headers).status_code == 404
+
 
 def test_portal_refund_lists_charges_and_refunds_once_within_cap(client, admin_token, engine, stripe_gateway):
     """Refunds go through Stripe against the user's bound customer only, are
