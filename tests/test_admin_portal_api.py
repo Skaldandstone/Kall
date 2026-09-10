@@ -144,6 +144,63 @@ def test_portal_support_actions_change_plan_exemption_and_usage(client, admin_to
         assert actions[2].detail["cleared"] == {"applications": 3}
 
 
+def test_portal_refund_lists_charges_and_refunds_once_within_cap(client, admin_token, engine, stripe_gateway):
+    """Refunds go through Stripe against the user's bound customer only, are
+    single-use, respect the cap, and leave an audit row naming the staff actor."""
+    from kall.models.core import AdminAction
+    from sqlmodel import Session, select
+
+    headers = {"X-Admin-Token": admin_token}
+    user_id = client.user_id  # type: ignore[attr-defined]
+
+    # No billing customer yet: nothing to list, nothing to refund.
+    resp = client.get(f"/api/admin/portal/users/{user_id}/payments", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"charges": [], "refund_cap_cents": 20000}
+
+    stripe_gateway.bind(engine, user_id)
+    stripe_gateway.charge("cus_local", charge_id="ch_ok", amount=1500)
+    stripe_gateway.charge("cus_local", charge_id="ch_big", amount=25000)
+    stripe_gateway.charge("cus_other", charge_id="ch_theirs", amount=900)
+
+    resp = client.get(f"/api/admin/portal/users/{user_id}/payments", headers=headers)
+    assert resp.status_code == 200
+    assert [c["id"] for c in resp.json()["charges"]] == ["ch_ok", "ch_big"]
+
+    resp = client.post(f"/api/admin/portal/users/{user_id}/refund",
+                       json={"charge_id": "ch_ok", "staff_actor": "grace@skaldandstone.com"}, headers=headers)
+    assert resp.status_code == 422  # reason required
+
+    body = {"charge_id": "ch_ok", "reason": "duplicate charge", "staff_actor": "grace@skaldandstone.com"}
+    resp = client.post(f"/api/admin/portal/users/{user_id}/refund", json=body, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["amount_cents"] == 1500
+    assert resp.json()["status"] == "succeeded"
+
+    # Second attempt on the same charge is refused, and Stripe saw one refund.
+    resp = client.post(f"/api/admin/portal/users/{user_id}/refund", json=body, headers=headers)
+    assert resp.status_code == 409
+    assert len(stripe_gateway.refunds) == 1
+    assert stripe_gateway.calls[-1][0] != "refund.create"
+
+    resp = client.post(f"/api/admin/portal/users/{user_id}/refund",
+                       json={**body, "charge_id": "ch_big"}, headers=headers)
+    assert resp.status_code == 422
+    resp = client.post(f"/api/admin/portal/users/{user_id}/refund",
+                       json={**body, "charge_id": "ch_theirs"}, headers=headers)
+    assert resp.status_code == 404
+
+    resp = client.get(f"/api/admin/portal/users/{user_id}/payments", headers=headers)
+    refunded = [c for c in resp.json()["charges"] if c["id"] == "ch_ok"][0]
+    assert refunded["refunded"] is True and refunded["amount_refunded_cents"] == 1500
+
+    with Session(engine) as session:
+        action = session.exec(select(AdminAction).where(AdminAction.action == "portal_refund")).one()
+        assert action.actor_email == "grace@skaldandstone.com"
+        assert action.detail["charge_id"] == "ch_ok"
+        assert action.detail["reason"] == "duplicate charge"
+
+
 def test_portal_unknown_user_404s(client, admin_token):
     headers = {"X-Admin-Token": admin_token}
     assert client.get("/api/admin/portal/users/999999", headers=headers).status_code == 404

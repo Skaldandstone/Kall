@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     #: the human CS console at /admin, which is Clerk-session gated instead.
     #: Unset by default, which closes the portal router entirely.
     admin_api_token: str | None = None
+    #: Hard ceiling, in cents, for a single portal-issued Stripe refund. A
+    #: larger refund is refused outright rather than partially issued.
+    refund_cap_cents: int = 20000
 
     # Clerk owns identity: sign-in, sign-up, sessions, MFA, passkeys and social
     # connections. The backend only verifies the session token Clerk issues and

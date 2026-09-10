@@ -33,6 +33,7 @@ class FakeStripe:
         self.livemode = livemode
         self.customers, self.subscriptions, self.checkouts = {}, {}, {}
         self.customer_keys, self.checkout_keys, self.calls = {}, {}, []
+        self.charges, self.refunds, self.refund_keys = {}, {}, {}
         self.prices = {f"price_{plan}": price(plan, livemode=livemode) for plan in ("plus", "premium")}
         self.configuration = {"id": "bpc_kall", "active": True, "livemode": livemode,
                               "features": {"subscription_update": {"enabled": True, "products": [
@@ -49,7 +50,38 @@ class FakeStripe:
             billing_portal=SimpleNamespace(
                 configurations=SimpleNamespace(retrieve=lambda key: deepcopy(self.configuration)),
                 sessions=SimpleNamespace(create=self.create_portal)),
+            charges=SimpleNamespace(list=self.list_charges, retrieve=self.retrieve_charge),
+            refunds=SimpleNamespace(create=self.create_refund),
         )
+
+    def charge(self, customer_id, *, charge_id="ch_local_1", amount=1500, status="succeeded", refunded=False):
+        self.charges[charge_id] = {"id": charge_id, "object": "charge", "customer": customer_id, "amount": amount,
+                                   "amount_refunded": amount if refunded else 0, "currency": "usd",
+                                   "status": status, "refunded": refunded, "created": 1800000000,
+                                   "description": "Kall Premium", "invoice": f"in_{charge_id}",
+                                   "receipt_url": f"https://pay.stripe.com/receipts/{charge_id}"}
+        return charge_id
+
+    def list_charges(self, params):
+        self.calls.append(("charge.list", deepcopy(params)))
+        rows = [deepcopy(c) for c in self.charges.values() if c["customer"] == params.get("customer")]
+        return {"object": "list", "data": rows[: params.get("limit", 10)]}
+
+    def retrieve_charge(self, key):
+        self.calls.append(("charge.retrieve", key))
+        return deepcopy(self.charges[key])
+
+    def create_refund(self, params, options):
+        self.calls.append(("refund.create", deepcopy(params), options))
+        key = options["idempotency_key"]
+        if key not in self.refund_keys:
+            charge = self.charges[params["charge"]]
+            refund_id = f"re_local_{len(self.refunds) + 1}"
+            self.refunds[refund_id] = {"id": refund_id, "object": "refund", "charge": charge["id"],
+                                       "amount": charge["amount"], "status": "succeeded"}
+            charge["refunded"], charge["amount_refunded"] = True, charge["amount"]
+            self.refund_keys[key] = refund_id
+        return deepcopy(self.refunds[self.refund_keys[key]])
 
     def create_customer(self, params, options):
         self.calls.append(("customer.create", deepcopy(params), options))

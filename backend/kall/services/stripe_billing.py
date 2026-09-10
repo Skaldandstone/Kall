@@ -363,6 +363,78 @@ def reconcile_event(session: Session, event: dict) -> bool:
     return True
 
 
+def _charge_summary(charge: dict) -> dict:
+    return {
+        "id": charge.get("id"),
+        "created": charge.get("created"),
+        "amount_cents": charge.get("amount"),
+        "amount_refunded_cents": charge.get("amount_refunded") or 0,
+        "currency": charge.get("currency"),
+        "status": charge.get("status"),
+        "refunded": bool(charge.get("refunded")),
+        "description": charge.get("description"),
+        "invoice": object_id(charge.get("invoice")) if charge.get("invoice") else None,
+        "receipt_url": charge.get("receipt_url"),
+    }
+
+
+def list_customer_charges(session: Session, user_id: int, limit: int = 10) -> list[dict]:
+    """Recent Stripe charges for a user's bound customer, newest first.
+
+    Support reads this before refunding; it is scoped to the customer this
+    deployment bound, so a charge id from another product or environment is
+    never listed and therefore never refundable through the portal.
+    """
+    row = bound_row(session, user_id)
+    if not row.provider_customer_id:
+        return []
+    client = stripe_client()
+    checked_customer(client, row)
+    page = provider_call(client.v1.charges.list, {"customer": row.provider_customer_id, "limit": limit})
+    return [_charge_summary(c) for c in page.get("data") or []]
+
+
+def refund_charge(session: Session, user_id: int, charge_id: str, *, reason: str, actor: str) -> dict:
+    """Refund one charge in full through Stripe (staff action).
+
+    Guardrails: the charge must belong to the user's bound customer, must be
+    a succeeded charge with nothing refunded yet, and must not exceed the
+    configured cap. The Stripe call carries an idempotency key derived from
+    the charge, so a double-click or retry can never refund twice. The
+    entitlement is deliberately left alone: a refunded subscription invoice
+    does not cancel the subscription, which stays a separate decision.
+    """
+    row = bound_row(session, user_id)
+    if not row.provider_customer_id:
+        raise HTTPException(409, "This account has no billing customer")
+    client = stripe_client()
+    checked_customer(client, row)
+    charge = provider_call(client.v1.charges.retrieve, charge_id)
+    if charge.get("id") != charge_id or object_id(charge.get("customer")) != row.provider_customer_id:
+        raise HTTPException(404, "Charge not found for this account")
+    if charge.get("status") != "succeeded":
+        raise HTTPException(409, "Only a succeeded charge can be refunded")
+    if charge.get("refunded") or (charge.get("amount_refunded") or 0) > 0:
+        raise HTTPException(409, "This charge has already been refunded")
+    amount = int(charge.get("amount") or 0)
+    cap = get_settings().refund_cap_cents
+    if amount <= 0 or amount > cap:
+        raise HTTPException(422, f"Refund of {amount} cents exceeds the portal cap of {cap} cents")
+    scope = get_settings().stripe_billing_scope or ""
+    refund = provider_call(
+        client.v1.refunds.create,
+        {
+            "charge": charge_id,
+            "reason": "requested_by_customer",
+            "metadata": {"kall_user_id": str(user_id), "kall_billing_scope": scope,
+                         "staff_actor": actor[:100], "staff_reason": reason[:200]},
+        },
+        {"idempotency_key": f"portal-refund:{scope}:{charge_id}"},
+    )
+    return {"refund_id": refund.get("id"), "charge_id": charge_id, "amount_cents": refund.get("amount", amount),
+            "status": refund.get("status")}
+
+
 def cancel_at_period_end(session: Session, user_id: int) -> str | None:
     """Stop `user_id`'s subscription renewing, leaving paid access to run out.
 

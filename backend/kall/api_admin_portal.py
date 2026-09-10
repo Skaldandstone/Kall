@@ -35,7 +35,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models.core import AdminAction, Application, Job, JobMatch, User
 from kall.models.enums import SubscriptionPlan
-from kall.services import quota
+from kall.services import quota, stripe_billing
 
 router = APIRouter(prefix="/admin/portal", tags=["admin-portal"])
 
@@ -116,6 +116,12 @@ class BillingExemptPayload(BaseModel):
 
 
 class ResetUsagePayload(BaseModel):
+    reason: str = ""
+    staff_actor: str | None = None
+
+
+class RefundPayload(BaseModel):
+    charge_id: str
     reason: str = ""
     staff_actor: str | None = None
 
@@ -264,6 +270,33 @@ def reset_user_usage(
         detail={"cleared": cleared, "reason": payload.reason},
     )
     return {"cleared": cleared, "usage": quota.snapshot(session, user)}
+
+
+@router.get("/users/{user_id}/payments", dependencies=[Depends(require_admin_token)])
+def recent_payments(user_id: int, session: Session = Depends(get_session)) -> dict:
+    """Recent Stripe charges for the account, plus the refund cap the portal enforces."""
+    _target(session, user_id)
+    return {"charges": stripe_billing.list_customer_charges(session, user_id),
+            "refund_cap_cents": get_settings().refund_cap_cents}
+
+
+@router.post("/users/{user_id}/refund", dependencies=[Depends(require_admin_token)])
+def refund_payment(
+    user_id: int, payload: RefundPayload, session: Session = Depends(get_session)
+) -> dict:
+    """Refund one Stripe charge in full (admin-tier support action)."""
+    user = _target(session, user_id)
+    if not payload.reason.strip():
+        raise HTTPException(status_code=422, detail="A reason is required for a refund")
+    actor = payload.staff_actor or "adminhelper-portal"
+    result = stripe_billing.refund_charge(session, user.id, payload.charge_id, reason=payload.reason, actor=actor)
+    _log(
+        session, payload.staff_actor,
+        action="portal_refund",
+        target_user_id=user.id,
+        detail={**result, "reason": payload.reason},
+    )
+    return result
 
 
 @router.get("/users/{user_id}/applications", dependencies=[Depends(require_admin_token)])
