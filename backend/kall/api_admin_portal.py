@@ -335,7 +335,7 @@ def store_refund(
         target_user_id=user.id,
         detail={"store": result["subscription"]["store"], "product_id": result["subscription"]["product_id"],
                 "subscription_id": payload.subscription_id, "plan_after": result["plan_after"],
-                "reason": payload.reason},
+                "revenuecat_identifier": result["revenuecat_identifier"], "reason": payload.reason},
     )
     return result
 

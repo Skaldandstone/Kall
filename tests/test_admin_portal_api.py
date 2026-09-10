@@ -229,7 +229,16 @@ def test_portal_google_play_refund_revokes_through_revenuecat(client, admin_toke
     monkeypatch.setattr(settings, "revenuecat_enabled", True)
     monkeypatch.setattr(settings, "revenuecat_secret_api_key", "sk_test_revenuecat")
     calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(native_refunds, "revenuecat_post", lambda path, key: calls.append((path, key)) or {})
+
+    def fake_post(path, key):
+        # RevenueCat keys subscriptions by its own product identifier (the
+        # colon form for these Google products); the bare id is unknown.
+        calls.append((path, key))
+        if "/subscriptions/kall_premium_monthly/" in path:
+            raise native_refunds.RevenueCatRefused(404)
+        return {}
+
+    monkeypatch.setattr(native_refunds, "revenuecat_post", fake_post)
 
     later = utcnow() + timedelta(days=20)
     with Session(engine) as session:
@@ -270,7 +279,8 @@ def test_portal_google_play_refund_revokes_through_revenuecat(client, admin_toke
     assert resp.status_code == 200
     assert resp.json()["subscription"]["status"] == "refunded"
     assert resp.json()["plan_after"] == "plus"  # the Apple plan remains
-    assert calls == [("/subscribers/user_test_fixture/subscriptions/kall_premium_monthly/revoke", "sk_test_revenuecat")]
+    assert calls == [("/subscribers/user_test_fixture/subscriptions/kall_premium_monthly:monthly/revoke", "sk_test_revenuecat")]
+    assert resp.json()["revenuecat_identifier"] == "kall_premium_monthly:monthly"
 
     resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
                        json={**payload, "subscription_id": play_id}, headers=headers)
@@ -282,7 +292,45 @@ def test_portal_google_play_refund_revokes_through_revenuecat(client, admin_toke
         assert action.actor_email == "grace@skaldandstone.com"
         assert action.detail["store"] == "PLAY_STORE"
         assert action.detail["plan_after"] == "plus"
+        assert action.detail["revenuecat_identifier"] == "kall_premium_monthly:monthly"
         assert session.get(User, user_id).plan == "plus"
+
+    # Fallback: when RevenueCat rejects the stored form as unknown (404) the
+    # bare Google subscription id is tried; if both are unknown the refund is
+    # refused without touching local state.
+    with Session(engine) as session:
+        for tx, product in (("GPA.3", "kall_plus_monthly:monthly"), ("GPA.4", "kall_plus_monthly:monthly")):
+            session.add(StoreSubscription(user_id=user_id, store="PLAY_STORE", environment="PRODUCTION",
+                                          original_transaction_id=tx, product_id=product,
+                                          plan="plus", status="active", active_until=later, will_renew=True,
+                                          last_event_at=utcnow(), last_provider_event_id=f"evt_{tx}"))
+        session.commit()
+        third = session.exec(select(StoreSubscription).where(StoreSubscription.original_transaction_id == "GPA.3")).one().id
+        fourth = session.exec(select(StoreSubscription).where(StoreSubscription.original_transaction_id == "GPA.4")).one().id
+
+    def fallback_post(path, key):
+        calls.append((path, key))
+        if path.endswith("/subscriptions/kall_plus_monthly:monthly/revoke"):
+            raise native_refunds.RevenueCatRefused(404)
+        return {}
+
+    monkeypatch.setattr(native_refunds, "revenuecat_post", fallback_post)
+    del calls[:]
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": third}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["revenuecat_identifier"] == "kall_plus_monthly"
+    assert [c[0].rsplit("/subscriptions/", 1)[1] for c in calls] == [
+        "kall_plus_monthly:monthly/revoke", "kall_plus_monthly/revoke",
+    ]
+
+    monkeypatch.setattr(native_refunds, "revenuecat_post",
+                        lambda path, key: (_ for _ in ()).throw(native_refunds.RevenueCatRefused(404)))
+    resp = client.post(f"/api/admin/portal/users/{user_id}/store-refund",
+                       json={**payload, "subscription_id": fourth}, headers=headers)
+    assert resp.status_code == 409
+    with Session(engine) as session:
+        assert session.get(StoreSubscription, fourth).status == "active"
 
     monkeypatch.setattr(settings, "revenuecat_secret_api_key", None)
     with Session(engine) as session:
