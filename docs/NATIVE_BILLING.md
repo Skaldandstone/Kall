@@ -127,7 +127,16 @@ prohibit pointing an app at an external checkout for a digital subscription.
   view-app-information, view-financial-data, and manage-orders permissions on
   Kall only. RevenueCat validates the credentials. Real-time developer
   notifications are enabled in Play Console Monetization setup on
-  `projects/kall-production/topics/Play-Store-Notifications`.
+  `projects/kall-production/topics/Play-Store-Notifications`, and RevenueCat
+  is connected to that topic through its own subscription
+  `RevenueCat-Subscriber-app10586f4c48kall-production`.
+- RevenueCat's Play Store app has both products imported as
+  `kall_plus_monthly:monthly` and `kall_premium_monthly:monthly` (published,
+  backwards compatible), attached to the `plus` and `premium` entitlements,
+  and offering `default` ("Kall plans", `ofrng567f288b22`) with packages
+  `plus` and `premium`. The Google Play side of RevenueCat is complete; what
+  remains before enabling native billing is the secret rewrite and the stack
+  and EAS activation described in the activation order above.
 - Clerk production has both Android and iOS native applications registered. The
   Apple Services ID and callback domain exist, but Apple sign-in remains disabled
   until the exposed one-time Apple key is revoked and replaced safely.
