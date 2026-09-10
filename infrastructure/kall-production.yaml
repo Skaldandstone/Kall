@@ -81,6 +81,14 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/serper-[A-Za-z0-9]+$'
+  AdminSecretArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:secretsmanager:us-east-2:051722405355:secret:prod/kall/admin-[A-Za-z0-9]+$'
+    Description: >-
+      ARN of the production admin secret JSON containing ADMIN_API_TOKEN, the
+      shared token the grok-adminhelper staff portal presents as X-Admin-Token.
+      Leave empty to keep every /api/admin/* route closed.
   StripePlusPriceId:
     Type: String
     Default: ''
@@ -220,6 +228,7 @@ Rules:
 Conditions:
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
   HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, '']]
+  HasAdminSecret: !Not [!Equals [!Ref AdminSecretArn, '']]
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   RevenueCatNativeEnabled: !Equals [!Ref EnableRevenueCatNative, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
@@ -364,6 +373,12 @@ Resources:
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
                   Resource: !Ref SerperSecretArn
+                - !Ref AWS::NoValue
+              - !If
+                - HasAdminSecret
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref AdminSecretArn
                 - !Ref AWS::NoValue
 
   BootstrapExecutionRole:
@@ -1080,6 +1095,11 @@ Resources:
               - HasSerperSecret
               - Name: SERPER_API_KEY
                 ValueFrom: !Sub '${SerperSecretArn}:SERPER_API_KEY::'
+              - !Ref AWS::NoValue
+            - !If
+              - HasAdminSecret
+              - Name: ADMIN_API_TOKEN
+                ValueFrom: !Sub '${AdminSecretArn}:ADMIN_API_TOKEN::'
               - !Ref AWS::NoValue
           LogConfiguration:
             LogDriver: awslogs

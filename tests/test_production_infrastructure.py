@@ -265,6 +265,29 @@ def test_sentry_dsns_are_optional_plaintext_parameters_not_secrets() -> None:
         assert "SENTRY" not in secrets
 
 
+def test_admin_portal_token_is_optional_secret_scoped_to_the_api_task() -> None:
+    """The staff portal token opens /api/admin/*, so it must be opt-in, live in
+    Secrets Manager under the prod/kall prefix, and reach only the API task."""
+    template = _template()
+    parameters = _section(template, "Parameters:\n", "Rules:\n")
+    conditions = _section(template, "Conditions:\n", "Resources:\n")
+    api_execution = _section(template, "  ApiExecutionRole:\n", "  BootstrapExecutionRole:\n")
+    api_task = _section(template, "  ApiTaskDefinition:\n", "  BootstrapTaskDefinition:\n")
+    web_task = _section(template, "  WebTaskDefinition:\n", "  ApiService:\n")
+
+    parameter = _section(parameters, "  AdminSecretArn:\n", "    Description:")
+    assert "Default: ''" in parameter
+    assert "secret:prod/kall/admin-" in parameter
+    assert "HasAdminSecret: !Not [!Equals [!Ref AdminSecretArn, '']]" in conditions
+    assert "Resource: !Ref AdminSecretArn" in api_execution
+    assert "ValueFrom: !Sub '${AdminSecretArn}:ADMIN_API_TOKEN::'" in api_task
+    assert "ADMIN_API_TOKEN" not in web_task
+    assert "MigrationTaskDefinition" in template
+    assert "ADMIN_API_TOKEN" not in _section(
+        template, "  MigrationTaskDefinition:\n", "  WebTaskDefinition:\n"
+    )
+
+
 def test_production_guard_covers_release_critical_invariants() -> None:
     guard = GUARD.read_text()
 
