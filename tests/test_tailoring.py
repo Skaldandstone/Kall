@@ -150,3 +150,30 @@ def test_created_proposal_survives_session_close() -> None:
     assert proposal.id == proposal_id
     assert proposal.status == "review_required"
     assert proposal.job_id == job_id
+
+
+def test_summary_paragraph_reflows_word_per_line_extraction_and_drops_the_contact_header() -> None:
+    """Regression test: a designed PDF came out of pypdf as one word per
+    line with single newlines, so the whole header plus summary was a single
+    "paragraph" and the mobile review showed "James / Shattuck / 360-809-2664
+    / • / Vancouver, ..." one word to a row as the text to improve."""
+    words = (
+        ["James", "Shattuck", "360-809-2664", "•", "Vancouver,", "WA", "•", "jdshattuck@gmail.com"]
+        + [""]
+        + ["Strategic", "Director", "of", "Software", "Quality", "Engineering", "with", "over", "15", "years", "of", "experience", "delivering", "high-impact", "quality", "strategies."]
+    )
+    text = "\n".join(words)
+    summary = _find_summary_paragraph(text)
+    assert summary.startswith("Strategic Director of Software Quality Engineering")
+    assert "\n" not in summary
+    assert "jdshattuck" not in summary
+
+
+def test_summary_paragraph_strips_a_contact_header_sharing_the_paragraph() -> None:
+    text = (
+        "James Shattuck 360-809-2664 • Vancouver, WA • jdshattuck@gmail.com • Strategic Director of Software "
+        "Quality Engineering with over 15 years of experience."
+    )
+    assert _find_summary_paragraph(text) == (
+        "Strategic Director of Software Quality Engineering with over 15 years of experience."
+    )

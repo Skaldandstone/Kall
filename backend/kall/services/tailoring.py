@@ -11,6 +11,7 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
+from kall.services.resume import reflow_extracted_text
 from sqlmodel import Session, select
 
 IMMUTABLE_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?%\b|\$\d[\d,]*(?:\.\d+)?[KMB]?\b", re.I)
@@ -43,14 +44,44 @@ def _looks_like_header_noise(paragraph: str) -> bool:
     return bool(_EMAIL_PATTERN.search(paragraph) or _PHONE_PATTERN.search(paragraph))
 
 
+_CONTACT_PATTERN = re.compile(rf"(?:{_EMAIL_PATTERN.pattern}|{_PHONE_PATTERN.pattern})")
+_SEPARATOR_PATTERN = re.compile(r"^[\s•●▪‣|·,\-]+")
+
+
+def _strip_contact_header(paragraph: str) -> str:
+    """Drop a contact header that shares a paragraph with the summary --
+    "James Shattuck 360-809-2664 • Vancouver, WA • james@x.com Strategic
+    Director..." -- by cutting through the last contact token that appears
+    in the opening stretch, then any separator glyphs after it. Everything
+    before the first sentence of real prose is header, never summary."""
+    head = paragraph[:240]
+    last = None
+    for match in _CONTACT_PATTERN.finditer(head):
+        last = match
+    if not last:
+        return paragraph
+    remainder = _SEPARATOR_PATTERN.sub("", paragraph[last.end():])
+    # A trailing location fragment ("Vancouver, WA") can follow the last
+    # contact token; skip it when the prose clearly starts after a separator.
+    if len(remainder.split()) >= _MIN_SUMMARY_WORDS:
+        return remainder
+    return paragraph
+
+
 def _find_summary_paragraph(text: str) -> str:
+    text = reflow_extracted_text(text)
     paragraphs = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
     for paragraph in paragraphs:
         if not _looks_like_header_noise(paragraph):
             return paragraph[:800]
-    # Every paragraph looked like header noise (e.g. a resume with no
-    # distinct summary section) -- fall back to whatever came first rather
-    # than proposing a change against empty text.
+    # No paragraph is clean prose: either the header and summary landed in
+    # one block (strip the header out of it) or the resume simply has no
+    # summary -- in which case whatever came first is still the honest
+    # target rather than empty text.
+    for paragraph in paragraphs:
+        stripped = _strip_contact_header(paragraph)
+        if stripped != paragraph and not _looks_like_header_noise(stripped):
+            return stripped[:800]
     return (paragraphs[0] if paragraphs else "")[:800]
 
 
