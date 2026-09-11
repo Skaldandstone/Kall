@@ -68,8 +68,10 @@ def test_store_releases_wait_for_compiled_native_smoke_tests() -> None:
     assert ios.index("native-e2e-ios.yml") < ios.index("release:ios -- --non-interactive")
     for body in (android, ios):
         assert "--non-interactive --wait" in body
-        assert "apps/mobile/.eas/**" in body
-        assert "apps/mobile/.maestro/**" in body
+        # Store builds are manual-only (#207): they queue real EAS builds and
+        # an automatic store submission, so nothing may trigger them on push.
+        assert "workflow_dispatch" in body
+        assert "  push:" not in body
 
 
 def test_installed_update_resets_private_cache_and_rechecks_on_resume() -> None:
