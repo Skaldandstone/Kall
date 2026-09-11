@@ -26,6 +26,7 @@ from kall.models import (
 )
 from kall.models.enums import ApplicationStatus
 from kall.services import quota
+from kall.services.applications import application_stage
 from kall.services.interview_prep import generate_interview_prep, grade_quiz_answers
 
 router = APIRouter()
@@ -56,19 +57,7 @@ _STAGE_STATUS = {
 
 
 def _stage(application: Application) -> str:
-    if application.status == ApplicationStatus.FAILED and application.failure_reason == "Rejected by employer":
-        return "rejected"
-    if application.status in {ApplicationStatus.FAILED, ApplicationStatus.WITHDRAWN}:
-        return "closed"
-    if application.status == ApplicationStatus.SUBMITTED and application.interview_scheduled_at:
-        return "interview"
-    return {
-        ApplicationStatus.DISCOVERED: "preparing",
-        ApplicationStatus.PREPARING: "preparing",
-        ApplicationStatus.REVIEW_REQUIRED: "review",
-        ApplicationStatus.APPROVED: "approved",
-        ApplicationStatus.SUBMITTED: "submitted",
-    }.get(application.status, "preparing")
+    return application_stage(application)
 
 
 def _iso(value: datetime | None) -> str | None:

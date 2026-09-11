@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { prepareApplication } from "../api/applications";
+import { checkExistingApplication, prepareApplication, type ExistingApplication } from "../api/applications";
 import { ApiError } from "../api/client";
 import { suppressResult } from "../api/search";
 import { trackExternalApplication } from "../api/submissions";
@@ -107,10 +107,38 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
     void Linking.openURL(item.url);
   }
 
-  async function trackApplied() {
+  function openExisting(existing: ExistingApplication) {
+    const tabs = navigation.getParent() as { navigate: (name: string, params: object) => void } | undefined;
+    tabs?.navigate("ApplicationsTab", {
+      screen: "ApplicationDetail",
+      params: { applicationId: existing.id, company: existing.company ?? item.company, role: existing.title ?? item.title, stage: existing.stage },
+    });
+  }
+
+  function describeExisting(existing: ExistingApplication) {
+    const when = existing.submitted_at ?? existing.created_at;
+    const date = when ? new Date(when).toLocaleDateString() : "earlier";
+    return existing.completed
+      ? `You applied to this role on ${date}.`
+      : `You already started this application on ${date}; it is in ${existing.stage.replace(/_/g, " ")}.`;
+  }
+
+  async function trackApplied(markAnyway = false) {
     setBusy(true);
     try {
-      await trackExternalApplication({ url: item.url, title: item.title, source: "mobile", professional_profile_id: profileId });
+      if (!markAnyway) {
+        const { application: existing } = await checkExistingApplication({ job_id: item.job_id, url: item.url }).catch(() => ({ application: null }));
+        if (existing && !existing.completed) {
+          setBusy(false);
+          Alert.alert("Finish it in Kall?", `${describeExisting(existing)} Continue it, or record it as applied anyway.`, [
+            { text: "Cancel", style: "cancel" },
+            { text: "Applied anyway", onPress: () => void trackApplied(true) },
+            { text: "Continue", onPress: () => openExisting(existing) },
+          ]);
+          return;
+        }
+      }
+      await trackExternalApplication({ url: item.url, title: item.title, source: "mobile", professional_profile_id: profileId, mark_submitted_anyway: markAnyway });
       await suppressResult(item.url, item.title, "applied_external").catch(() => undefined);
       setMessage("Recorded in your pipeline as submitted.");
     } catch (e) {
@@ -177,8 +205,21 @@ export default function OpportunityDetailScreen({ route, navigation }: Props) {
   }
   async function prepare() {
     setBusy(true);
-    setMessage("Preparing your application...");
+    setMessage("Checking your pipeline...");
     try {
+      // Never start a second application for the same link: if one exists,
+      // offer to pick it up where it stopped (or open it, if it was sent).
+      const { application: existing } = await checkExistingApplication({ job_id: item.job_id, url: item.url }).catch(() => ({ application: null }));
+      if (existing) {
+        setBusy(false);
+        setMessage("");
+        Alert.alert(existing.completed ? "Already applied" : "Continue your application?", describeExisting(existing), [
+          { text: "Cancel", style: "cancel" },
+          { text: existing.completed ? "Open it" : "Continue", onPress: () => openExisting(existing) },
+        ]);
+        return;
+      }
+      setMessage("Preparing your application...");
       const app = await prepareApplication({
         job_id: item.job_id,
         professional_profile_id: profileId,

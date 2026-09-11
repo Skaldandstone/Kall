@@ -101,6 +101,27 @@ export function confirmReview(
 
 export type PreparedApplication = { id: number; status: string };
 
+export type ExistingApplication = {
+  id: number;
+  status: string;
+  stage: string;
+  completed: boolean;
+  created_at: string | null;
+  submitted_at: string | null;
+  company: string | null;
+  title: string | null;
+  job_url: string | null;
+};
+
+/** Whether an application already exists for this posting (by job or by
+ * any spelling of its link), so the app can offer to continue it. */
+export function checkExistingApplication(query: { job_id?: number; url?: string }): Promise<{ exists: boolean; application: ExistingApplication | null }> {
+  const params = new URLSearchParams();
+  if (query.job_id != null) params.set("job_id", String(query.job_id));
+  if (query.url) params.set("url", query.url);
+  return apiRequest(`/me/applications/existing?${params.toString()}`);
+}
+
 export function prepareApplication(body: {
   job_id: number;
   professional_profile_id: number;

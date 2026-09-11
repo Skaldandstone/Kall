@@ -60,4 +60,6 @@ export const trackExternalApplication = (body: {
   snippet?: string | null;
   source: string;
   professional_profile_id: number;
+  /** Record it as applied even though an in-progress application exists. */
+  mark_submitted_anyway?: boolean;
 }) => apiRequest<{ id: number; status: string }>("/applications/track-external", { method: "POST", body });

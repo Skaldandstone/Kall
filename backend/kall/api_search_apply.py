@@ -19,7 +19,12 @@ from kall.models import (
 from kall.models.enums import ApplicationStatus
 from kall.schemas import ExternalJobImportRequest, PrepareApplicationRequest
 from kall.services import quota
-from kall.services.applications import prepare_application
+from kall.services.applications import (
+    COMPLETED_STATUSES,
+    existing_application_summary,
+    find_existing_application,
+    prepare_application,
+)
 from kall.services.matching import deterministic_match
 from kall.services.opportunities import upsert_opportunity
 from kall.services.suppression import VALID_REASONS, normalize_url
@@ -38,6 +43,9 @@ class RestoreResultRequest(BaseModel):
 
 
 class TrackExternalApplicationRequest(BaseModel):
+    #: Set when the person chose to record an in-progress application as
+    #: applied outside Kall anyway.
+    mark_submitted_anyway: bool = False
     url: HttpUrl
     title: str
     snippet: str | None = None
@@ -136,6 +144,22 @@ def capture_job(
     return upsert_opportunity(session, user_id=current_user.id, profile_id=profile.id, job=job, match_score=score)
 
 
+@router.get("/me/applications/existing")
+def existing_application(
+    job_id: int | None = None,
+    url: str | None = None,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Whether this person already has an application for a posting -- by
+    job or by link -- so the client can offer to continue it instead of
+    starting a second one."""
+    if job_id is None and not url:
+        raise HTTPException(422, "Provide job_id or url")
+    found = find_existing_application(session, current_user.id, job_id=job_id, url=url)
+    return {"exists": found is not None, "application": existing_application_summary(session, found) if found else None}
+
+
 @router.post("/applications/track-external", response_model=Application)
 def track_external_application(
     payload: TrackExternalApplicationRequest,
@@ -147,9 +171,19 @@ def track_external_application(
         raise HTTPException(404, "Professional profile not found")
 
     job = _import_job(session, str(payload.url), payload.title, payload.snippet, payload.source)
-    existing = session.exec(
-        select(Application).where(Application.user_id == current_user.id, Application.job_id == job.id)
-    ).first()
+    existing = find_existing_application(session, current_user.id, job_id=job.id, url=job.url)
+    if existing and existing.status not in COMPLETED_STATUSES and not payload.mark_submitted_anyway:
+        # An application is already under way in Kall for this link. Ask the
+        # person to finish it rather than silently closing it as submitted.
+        summary = existing_application_summary(session, existing)
+        raise HTTPException(
+            409,
+            {
+                "code": "application_in_progress",
+                "message": f"You already started this application in Kall ({summary['stage']}). Continue it, or record it as applied anyway.",
+                "application": summary,
+            },
+        )
     if existing:
         # Only a first transition to SUBMITTED counts; re-tracking the same
         # posting must not spend a second allowance.

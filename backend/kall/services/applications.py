@@ -14,8 +14,63 @@ from kall.services.autofill import autofill_payload_sections
 from kall.services.intelligence import analyze_job
 from kall.services.match_intelligence import rank_resumes
 from kall.services.quota import assert_application_allowed
+from kall.services.suppression import match_keys
 from kall.services.tailoring import create_tailoring_proposal
 from sqlmodel import Session, select
+
+COMPLETED_STATUSES = {ApplicationStatus.SUBMITTED, ApplicationStatus.WITHDRAWN, ApplicationStatus.FAILED}
+
+
+def application_stage(application: Application) -> str:
+    """The pipeline stage the product shows for an application."""
+    if application.status == ApplicationStatus.FAILED and application.failure_reason == "Rejected by employer":
+        return "rejected"
+    if application.status in {ApplicationStatus.FAILED, ApplicationStatus.WITHDRAWN}:
+        return "closed"
+    if application.status == ApplicationStatus.SUBMITTED and application.interview_scheduled_at:
+        return "interview"
+    return {
+        ApplicationStatus.DISCOVERED: "preparing",
+        ApplicationStatus.PREPARING: "preparing",
+        ApplicationStatus.REVIEW_REQUIRED: "review",
+        ApplicationStatus.APPROVED: "approved",
+        ApplicationStatus.SUBMITTED: "submitted",
+    }.get(application.status, "preparing")
+
+
+def find_existing_application(session: Session, user_id: int, *, job_id: int | None = None, url: str | None = None) -> Application | None:
+    """The application this person already has for a posting, by job row or
+    by any spelling of its link (query string kept or stripped), so a
+    listing reached through a second URL does not get a second application."""
+    if job_id is not None:
+        found = session.exec(select(Application).where(Application.user_id == user_id, Application.job_id == job_id)).first()
+        if found:
+            return found
+        job = session.get(Job, job_id)
+        url = url or (job.url if job else None)
+    if not url:
+        return None
+    keys = match_keys(url)
+    rows = session.exec(select(Application, Job).join(Job, Job.id == Application.job_id).where(Application.user_id == user_id)).all()
+    for application, job in rows:
+        if match_keys(job.url) & keys:
+            return application
+    return None
+
+
+def existing_application_summary(session: Session, application: Application) -> dict:
+    job = session.get(Job, application.job_id)
+    return {
+        "id": application.id,
+        "status": str(application.status),
+        "stage": application_stage(application),
+        "completed": application.status in COMPLETED_STATUSES,
+        "created_at": application.created_at.isoformat() if application.created_at else None,
+        "submitted_at": application.submitted_at.isoformat() if application.submitted_at else None,
+        "company": job.company if job else None,
+        "title": job.title if job else None,
+        "job_url": job.url if job else None,
+    }
 
 
 def _ensure_requirement_analysis(session: Session, job: Job) -> JobRequirementAnalysis:
@@ -56,9 +111,7 @@ def prepare_application(
     second row for the same role, the same "existing wins" rule
     track_external_application already applies for the external-tracking path.
     """
-    existing = session.exec(
-        select(Application).where(Application.user_id == user.id, Application.job_id == job.id)
-    ).first()
+    existing = find_existing_application(session, user.id, job_id=job.id, url=job.url)
     if existing:
         return existing
 

@@ -113,6 +113,22 @@ function NewApplicationForm() {
     setMessage('Importing the role and preparing your application…');
     try {
       const jobId = await resolveJobId();
+      // Never start a second application for the same link: if one exists,
+      // send the person back to it (to finish it, or to see what was sent).
+      const check = await fetchKall(`/me/applications/existing?job_id=${jobId}${externalUrl ? `&url=${encodeURIComponent(externalUrl)}` : ''}`);
+      if (check.ok) {
+        const { application: existing } = await check.json() as { exists: boolean; application: { id: number; stage: string; completed: boolean; created_at: string | null; submitted_at: string | null } | null };
+        if (existing) {
+          const when = existing.submitted_at ?? existing.created_at;
+          const date = when ? new Date(when).toLocaleDateString() : 'earlier';
+          const text = existing.completed
+            ? `You applied to this role on ${date}. Opening that application.`
+            : `You already started this application on ${date} (${existing.stage.replace(/_/g, ' ')}). Picking it up where you left off.`;
+          showToast(text, 'success');
+          router.push(`/applications/${existing.id}`);
+          return;
+        }
+      }
       const response = await fetchKall(`/applications/prepare-options`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

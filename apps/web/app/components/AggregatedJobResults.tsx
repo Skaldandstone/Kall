@@ -20,6 +20,20 @@ async function trackExternalApplication(posting: { url: string; title: string; s
     showToast('Select a professional profile before marking this job as applied.', 'error');
     return false;
   }
+  // An application already under way in Kall for this link should be
+  // finished there, not silently closed as applied; ask first.
+  let markSubmittedAnyway = false;
+  const check = await fetch(`${API}/me/applications/existing?url=${encodeURIComponent(posting.url)}`).catch(() => null);
+  if (check?.ok) {
+    const { application: existing } = await check.json() as { application: { id: number; stage: string; completed: boolean } | null };
+    if (existing && !existing.completed) {
+      const finishInKall = window.confirm(`You already started this application in Kall (${existing.stage.replace(/_/g, ' ')}).
+
+OK opens it so you can finish it. Cancel records it as applied anyway.`);
+      if (finishInKall) { window.location.assign(`/applications/${existing.id}`); return false; }
+      markSubmittedAnyway = true;
+    }
+  }
   const response = await fetch(`${API}/applications/track-external`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -29,6 +43,7 @@ async function trackExternalApplication(posting: { url: string; title: string; s
       snippet: posting.snippet,
       professional_profile_id: Number(posting.profileId),
       source: 'google_custom_search',
+      mark_submitted_anyway: markSubmittedAnyway,
     }),
   });
   if (response.status === 401) { window.location.replace('/sign-in'); return false; }
