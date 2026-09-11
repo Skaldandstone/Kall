@@ -208,18 +208,6 @@ export async function firstProfileId(page: Page): Promise<number> {
 export async function completeDocumentsReview(page: Page) {
   if (await page.getByText('Using your original resume as-is.').isVisible().catch(() => false)) return;
 
-  // Decision buttons disappear once a change is decided, so the button
-  // count is what converges to zero here.
-  async function clickUntilGone(name: string) {
-    while (true) {
-      const buttons = page.getByRole('button', { name });
-      const count = await buttons.count();
-      if (count === 0) break;
-      await buttons.first().click();
-      await expect(buttons).toHaveCount(count - 1, { timeout: 10_000 });
-    }
-  }
-
   const continueToLook = page.getByRole('button', { name: 'Continue to pick a look' });
   await expect(continueToLook).toBeVisible({ timeout: 15_000 });
   // The proposed changes arrive via a second fetch, after the one that
@@ -227,14 +215,18 @@ export async function completeDocumentsReview(page: Page) {
   // settles reads as "nothing to accept" rather than "not loaded yet".
   await expect(page.getByText('Loading the proposed changes…')).toHaveCount(0, { timeout: 15_000 });
   // The panel asks one question at a time; answer whichever is on screen
-  // until the walk is over. The order of kinds is not assumed.
+  // until the walk is over. The order of kinds is not assumed. Waiting for
+  // the clicked button itself to detach (rather than a fixed sleep) is what
+  // makes this converge regardless of how fast the next question renders --
+  // a fixed sleep either wastes time when the app is fast or races the
+  // click against a not-yet-updated DOM when the app is slow.
   const approve = page.getByRole('button', { name: /^(Yes, add it|Use this summary|Keep it|Accept)$/ });
   for (let guard = 0; guard < 60 && !(await continueToLook.isEnabled()); guard += 1) {
-    await expect(approve.first()).toBeVisible({ timeout: 10_000 });
-    await approve.first().click();
-    await page.waitForTimeout(150);
+    const button = approve.first();
+    await expect(button).toBeVisible({ timeout: 10_000 });
+    await button.click();
+    await expect(button).not.toBeVisible({ timeout: 10_000 });
   }
-  void clickUntilGone;
   await expect(continueToLook).toBeEnabled();
   await continueToLook.click();
   await expect(page.getByText('Your answers are in.')).toBeVisible({ timeout: 15_000 });
