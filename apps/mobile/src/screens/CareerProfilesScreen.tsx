@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import {
   createCareerProfile,
   fetchCareerProfiles,
   fetchFunctionalAreas,
+  fetchRelatedTitles,
   fetchResumeStudio,
   markOnboardingComplete,
   saveCareerProfile,
@@ -24,6 +25,7 @@ import {
   uploadResume,
   type CareerProfile,
   type CareerProfileInput,
+  type FunctionalArea,
   type Resume,
 } from "../api/workspace";
 import { countryNames, regionsForCountries } from "../lib/locationData";
@@ -152,11 +154,12 @@ function ChoiceField({ label, values, suggestions = [], presets = [], labels, pl
 /** A pick-from-a-long-list field: the selected values as chips, a search
  * box, and the closest matches from `options`. Free text is still allowed
  * when the list is missing something. */
-function SearchChoiceField({ label, values, options, placeholder, emptyHint, onChange }: {
-  label: string; values: string[]; options: string[]; placeholder: string; emptyHint?: string; onChange: (values: string[]) => void;
+function SearchChoiceField({ label, values, options, suggestions = [], placeholder, emptyHint, onChange }: {
+  label: string; values: string[]; options: string[]; suggestions?: string[]; placeholder: string; emptyHint?: string; onChange: (values: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
   const trimmed = query.trim();
+  const offered = suggestions.filter((value, index, all) => value && all.findIndex((item) => same(item, value)) === index && !values.some((item) => same(item, value)));
   const matches = useMemo(() => {
     if (!trimmed) return [];
     const needle = trimmed.toLocaleLowerCase();
@@ -173,6 +176,12 @@ function SearchChoiceField({ label, values, options, placeholder, emptyHint, onC
   return <View style={styles.choiceField}>
     <Text style={styles.label}>{label}</Text>
     <ValueChips values={values} onRemove={(value) => onChange(values.filter((item) => item !== value))} />
+    {offered.length ? <>
+      <Text style={styles.hint}>Suggested from your resume and roles. Tap to approve.</Text>
+      <View style={styles.choiceWrap}>{offered.map((option) => <Pressable key={option} accessibilityRole="button" accessibilityLabel={`Approve ${option}`} style={styles.choiceButton} onPress={() => add(option)}>
+        <Text style={styles.choiceButtonText}>+ {option}</Text>
+      </Pressable>)}</View>
+    </> : null}
     {options.length === 0 && emptyHint ? <Text style={styles.hint}>{emptyHint}</Text> : null}
     <TextInput accessibilityLabel={`Search ${label}`} style={styles.input} value={query} onChangeText={setQuery} onSubmitEditing={() => add(matches[0] ?? trimmed)} returnKeyType="done" placeholder={placeholder} placeholderTextColor={theme.textMuted} autoCorrect={false} />
     {matches.length ? <View style={styles.choiceWrap}>{matches.map((option) => <Pressable key={option} accessibilityRole="button" style={styles.choiceButton} onPress={() => add(option)}>
@@ -187,7 +196,11 @@ function SearchChoiceField({ label, values, options, placeholder, emptyHint, onC
 export default function CareerProfilesScreen() {
   const [profiles, setProfiles] = useState<CareerProfile[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
-  const [functionalAreas, setFunctionalAreas] = useState<string[]>([]);
+  const [functionalAreaOptions, setFunctionalAreaOptions] = useState<FunctionalArea[]>([]);
+  const functionalAreas = useMemo(() => functionalAreaOptions.map((area) => area.name), [functionalAreaOptions]);
+  // Titles the related-titles lookup has already been asked about, so the
+  // same approved set is not re-sent on every render.
+  const relatedAskedFor = useRef<string>("");
   const [editing, setEditing] = useState<CareerProfile | null>(null);
   const [draft, setDraft] = useState<Draft>(blank);
   const [step, setStep] = useState<number | null>(null);
@@ -207,7 +220,7 @@ export default function CareerProfilesScreen() {
       ]);
       setProfiles(profileData.profiles);
       setResumes(resumeData.resumes);
-      setFunctionalAreas(areaData.areas.map((area) => area.name));
+      setFunctionalAreaOptions(areaData.areas);
       setMessage("");
     } catch {
       setMessage("Unable to load your career profile workspace.");
@@ -221,34 +234,83 @@ export default function CareerProfilesScreen() {
     setEditing(profile || null);
     setDraft(profile ? profileDraft(profile) : { ...blank });
     setSuggestedLists({});
+    relatedAskedFor.current = "";
     setStep(0);
     setMessage(profile ? "Review each answer. Kall keeps anything unfinished visible." : "Start with a resume for suggestions, or answer one question at a time.");
+    // Editing an existing direction still deserves suggestions: read the
+    // resume it is based on (or the only one there is) for lists to offer,
+    // without touching the answers already confirmed.
+    const source = profile
+      ? resumes.find((resume) => resume.id === profile.default_resume_id) ?? (resumes.length === 1 ? resumes[0] : undefined)
+      : undefined;
+    if (source) void suggestFromResume(source, { listsOnly: true });
   }
 
-  async function suggestFromResume(resume: Resume) {
+  const mergeSuggestions = useCallback((incoming: SuggestedLists) => {
+    setSuggestedLists((current) => {
+      const next: SuggestedLists = { ...current };
+      for (const [key, values] of Object.entries(incoming) as Array<[ListKey, string[] | undefined]>) {
+        const existing = next[key] ?? [];
+        next[key] = [...existing, ...(values ?? []).filter((value) => value && !existing.some((item) => same(item, value)))];
+      }
+      return next;
+    });
+  }, []);
+
+  async function suggestFromResume(resume: Resume, options: { listsOnly?: boolean } = {}) {
     setSuggesting(true);
-    setMessage("Reading your resume and preparing suggestions for review.");
+    if (!options.listsOnly) setMessage("Reading your resume and preparing suggestions for review.");
     try {
       const { suggestion } = await suggestCareerStrategy(resume.id);
-      setDraft((current) => ({
-        ...current,
-        name: suggestion?.profile_name || current.name,
-        pay_basis: suggestion?.pay_basis === "hourly" ? "hourly" : suggestion?.pay_basis === "salary" ? "salary" : current.pay_basis,
-        minimum_base: suggestion?.suggested_salary_min?.toString() || current.minimum_base,
-        target_base: suggestion?.suggested_salary_max?.toString() || current.target_base,
-        default_resume_id: resume.id,
-      }));
-      setSuggestedLists(suggestion ? {
-        target_titles: suggestion.target_titles || [], industries: suggestion.industries || [],
-        include_keywords: suggestion.keywords || [], work_types: suggestion.work_types || [],
+      if (!options.listsOnly) {
+        setDraft((current) => ({
+          ...current,
+          name: suggestion?.profile_name || current.name,
+          pay_basis: suggestion?.pay_basis === "hourly" ? "hourly" : suggestion?.pay_basis === "salary" ? "salary" : current.pay_basis,
+          minimum_base: suggestion?.suggested_salary_min?.toString() || current.minimum_base,
+          target_base: suggestion?.suggested_salary_max?.toString() || current.target_base,
+          default_resume_id: resume.id,
+        }));
+      }
+      mergeSuggestions(suggestion ? {
+        target_titles: suggestion.target_titles || [], functional_areas: suggestion.functional_areas || [],
+        industries: suggestion.industries || [], include_keywords: suggestion.keywords || [], work_types: suggestion.work_types || [],
       } : {});
-      setMessage(suggestion ? "Suggestions are ready. Tap the ones you approve as you move through the questions." : "That resume did not provide enough detail, so the questions remain open.");
+      if (!options.listsOnly) {
+        setMessage(suggestion ? "Suggestions are ready. Tap the ones you approve as you move through the questions." : "That resume did not provide enough detail, so the questions remain open.");
+      }
     } catch (error) {
-      setMessage(error instanceof ApiError ? error.message : "Kall could not prepare suggestions from that resume.");
+      if (!options.listsOnly) setMessage(error instanceof ApiError ? error.message : "Kall could not prepare suggestions from that resume.");
     } finally {
       setSuggesting(false);
     }
   }
+
+  // Each approved title surfaces the next spellings boards use for it, so
+  // the list of suggestions grows with the answer instead of staying fixed.
+  const onTitlesQuestion = step === 1;
+  const approvedTitles = draft.target_titles;
+  useEffect(() => {
+    if (!onTitlesQuestion || approvedTitles.length === 0) return;
+    const signature = approvedTitles.map((title) => title.toLocaleLowerCase()).sort().join("|");
+    if (signature === relatedAskedFor.current) return;
+    const handle = setTimeout(() => {
+      relatedAskedFor.current = signature;
+      fetchRelatedTitles(approvedTitles, suggestedLists.target_titles ?? [])
+        .then(({ titles }) => { if (titles.length) mergeSuggestions({ target_titles: titles }); })
+        .catch(() => undefined);
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [onTitlesQuestion, approvedTitles, suggestedLists.target_titles, mergeSuggestions]);
+
+  // Functions implied by the approved titles (via the vocabulary's related
+  // roles) join the resume's own suggestions on the functions question.
+  const impliedAreas = useMemo(() => {
+    const haystack = draft.target_titles.map((title) => title.toLocaleLowerCase());
+    return functionalAreaOptions
+      .filter((area) => [area.name, ...area.related_roles].some((phrase) => haystack.some((title) => title.includes(phrase.toLocaleLowerCase()))))
+      .map((area) => area.name);
+  }, [draft.target_titles, functionalAreaOptions]);
 
   async function uploadAndSuggest() {
     const result = await DocumentPicker.getDocumentAsync({
@@ -404,7 +466,7 @@ export default function CareerProfilesScreen() {
             <Text style={styles.label}>Minimum {payLabel}</Text><TextInput accessibilityLabel={`Minimum ${payLabel}`} keyboardType="number-pad" style={styles.input} value={draft.minimum_base} onChangeText={(minimum_base) => setDraft({ ...draft, minimum_base })} placeholder={draft.pay_basis === "hourly" ? "60" : "120000"} placeholderTextColor={theme.textMuted} />
             <Text style={styles.label}>Target {payLabel}</Text><TextInput accessibilityLabel={`Target ${payLabel}`} keyboardType="number-pad" style={styles.input} value={draft.target_base} onChangeText={(target_base) => setDraft({ ...draft, target_base })} placeholder={draft.pay_basis === "hourly" ? "85" : "150000"} placeholderTextColor={theme.textMuted} />
           </> : question.key === "name" ? <TextInput accessibilityLabel={question.title} style={styles.input} value={draft.name} onChangeText={(name) => setDraft({ ...draft, name })} returnKeyType="done" placeholder={question.placeholder} placeholderTextColor={theme.textMuted} />
-          : question.key === "functional_areas" ? <SearchChoiceField label="functions" values={draft.functional_areas} options={functionalAreas} placeholder={question.placeholder ?? ""} onChange={(functional_areas) => setDraft({ ...draft, functional_areas })} />
+          : question.key === "functional_areas" ? <SearchChoiceField label="functions" values={draft.functional_areas} options={functionalAreas} suggestions={[...(suggestedLists.functional_areas ?? []), ...impliedAreas]} placeholder={question.placeholder ?? ""} onChange={(functional_areas) => setDraft({ ...draft, functional_areas })} />
           : <ChoiceField
               key={question.key}
               label={question.key === "target_titles" ? "roles" : question.key === "include_keywords" ? "strengths" : question.key === "exclude_keywords" ? "phrases to exclude" : question.key === "work_types" ? "work settings" : question.key === "employment_types" ? "arrangements" : "industries"}

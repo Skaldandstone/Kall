@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useAuth } from "@clerk/expo";
 import Constants from "expo-constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../theme";
 import NavigationIcon from "../components/NavigationIcon";
 import LoginScreen from "../screens/LoginScreen";
@@ -220,6 +221,11 @@ function tabIcon(name: "today" | "work" | "apply" | "growth" | "profile") {
 function AppNavigator() {
   const { fontScale, width } = useWindowDimensions();
   const compact = width < 390 || fontScale > 1.1;
+  // Edge-to-edge Android draws the system navigation bar over the app, and
+  // on tablets with three-button navigation that bar is tall enough to
+  // cover the tab labels entirely. Grow the bar by the bottom inset so the
+  // tabs sit above it instead of under it.
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       initialRouteName="BriefTab"
@@ -229,9 +235,9 @@ function AppNavigator() {
           backgroundColor: theme.backgroundSoft,
           borderTopColor: theme.border,
           borderTopWidth: 0,
-          height: compact ? 70 : 76,
+          height: (compact ? 70 : 76) + insets.bottom,
           paddingTop: 9,
-          paddingBottom: 8,
+          paddingBottom: 8 + insets.bottom,
           shadowColor: "#000000",
           shadowOpacity: 0.24,
           shadowRadius: 18,

@@ -26,3 +26,7 @@
 .actions{display:flex;align-items:center;gap:12px}
 .message{margin:0;color:var(--text-secondary);font-size:12px}
 @media(max-width:760px){.guideSource,.two,.guideReview dl{grid-template-columns:1fr}.guideStatus,.profileHeader{flex-direction:column}}
+.suggestions{display:grid;gap:8px}
+.suggestions>span{color:var(--text-secondary);font-size:13px}
+.suggestion{display:inline-flex;align-items:center;min-height:32px;padding:5px 12px;border:1px dashed var(--accent);border-radius:999px;background:transparent;color:var(--text);font-size:13px;line-height:1.25;cursor:pointer}
+.suggestion:hover,.suggestion:focus-visible{background:var(--surface-raised);outline:2px solid var(--accent);outline-offset:1px}

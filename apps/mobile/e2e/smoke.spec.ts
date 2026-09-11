@@ -371,6 +371,9 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await page.getByLabel("Add roles").fill("QA Director");
       await page.getByRole("button", { name: "Confirm roles entry" }).click();
       await expect(page.getByText("QA Director", { exact: true })).toBeVisible();
+      // Approving a title asks the API for the spellings boards use for it;
+      // the rules-based expansion answers without any AI key.
+      await expect(page.getByText("+ Head of QA", { exact: true })).toBeVisible({ timeout: 10_000 });
       await page.getByLabel("Add roles").fill("Head of Quality");
       await page.getByRole("button", { name: "Confirm roles entry" }).click();
       await expect(page.getByText("Head of Quality", { exact: true })).toBeVisible();

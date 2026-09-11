@@ -5,6 +5,7 @@ from sqlmodel import Session, delete, select
 
 from kall.auth import get_current_user
 from kall.clock import utcnow
+from kall.config import get_settings
 from kall.db import get_session
 from kall.models import (
     Application,
@@ -21,8 +22,38 @@ from kall.models import (
 )
 from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
 from kall.services.profile_suggestions import suggest_empty_fields
+from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.title_suggestions import ai_related_titles, related_titles
 
 router = APIRouter()
+
+
+class RelatedTitlesRequest(BaseModel):
+    titles: list[str] = Field(default_factory=list, max_length=20)
+    exclude: list[str] = Field(default_factory=list, max_length=100)
+
+
+@router.post("/me/career-profiles/related-titles")
+def related_title_suggestions(
+    payload: RelatedTitlesRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Close variants of titles the person has already approved, so each
+    confirmed title can surface the next few spellings job boards use. The
+    rules-based set always answers; the model adds to it when configured and
+    the account has AI actions left."""
+    titles = [value.strip() for value in payload.titles if value and value.strip()]
+    exclude = [value.strip() for value in payload.exclude if value and value.strip()]
+    suggestions = related_titles(titles, exclude) if titles else []
+    ai_enabled = bool(get_settings().openai_api_key)
+    if titles and ai_enabled:
+        assert_ai_allowed(session, current_user)
+        extra = ai_related_titles(titles, [*exclude, *suggestions])
+        if extra:
+            record_ai_action(session, current_user)
+            suggestions.extend(extra)
+    return {"titles": suggestions[:12], "ai_enabled": ai_enabled}
 
 _SUGGESTABLE_FIELDS = [
     "target_titles", "industries", "functional_areas", "work_types", "countries",

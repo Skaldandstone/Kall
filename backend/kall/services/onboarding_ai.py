@@ -1,5 +1,6 @@
 
 from kall.config import get_settings
+from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES, functional_area_evidence
 from kall.services.intelligence import parse_resume
 from kall.services.openai_json import ask_for_json
 
@@ -9,6 +10,7 @@ _STRATEGY_SCHEMA = {
         "summary": {"type": "string"},
         "profile_name": {"type": "string"},
         "target_titles": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
+        "functional_areas": {"type": "array", "maxItems": 4, "items": {"type": "string"}},
         "industries": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
         "keywords": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
         "work_types": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
@@ -20,6 +22,7 @@ _STRATEGY_SCHEMA = {
         "summary",
         "profile_name",
         "target_titles",
+        "functional_areas",
         "industries",
         "keywords",
         "work_types",
@@ -57,6 +60,9 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         "if the resume supports 'Director of Quality Engineering', also include 'Director of QE' and "
         "'Director of Quality Assurance' if that is a real equivalent in their field, since a job board search "
         "matches on exact title text and postings phrase the same role differently.\n\n"
+        "functional_areas are the job functions this person's work falls under. Choose only from this "
+        f"list, up to four, most relevant first: {', '.join(FUNCTIONAL_AREA_ALIASES)}. Return an empty list "
+        "if none of them fit.\n\n"
         "industries must each be a short, canonical, widely-recognized industry name (1-3 words, e.g. 'SaaS', "
         "'FinTech', 'Healthcare', 'E-Commerce', 'Manufacturing') -- never a descriptive phrase or sentence "
         "fragment. These are compared as literal substrings against real job posting text to confirm a match, "
@@ -74,12 +80,37 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         "vague resume just to fill the field.\n\n"
         f"RESUME:\n{text[:30000]}"
     )
-    return ask_for_json(
+    result = ask_for_json(
         prompt,
         schema_name="career_strategy_suggestion",
         schema=_STRATEGY_SCHEMA,
         purpose="career strategy suggestion",
     )
+    if result is not None:
+        # Keep the model inside the vocabulary the search actually expands on,
+        # and fall back to the evidence-based read when it offered nothing.
+        known = {label.casefold(): label for label in FUNCTIONAL_AREA_ALIASES}
+        chosen = [known[str(value).casefold()] for value in result.get("functional_areas") or [] if str(value).casefold() in known]
+        result["functional_areas"] = list(dict.fromkeys(chosen)) or infer_functional_areas(text)
+    return result
+
+
+def infer_functional_areas(resume_text: str, limit: int = 4) -> list[str]:
+    """Functional areas whose known role phrases appear in the resume text,
+    most frequently mentioned first. Purely lexical: it offers the areas the
+    person can then approve or ignore, it never assigns them."""
+    text = (resume_text or "").strip()
+    if not text:
+        return []
+    scored: list[tuple[int, int, str]] = []
+    for index, label in enumerate(FUNCTIONAL_AREA_ALIASES):
+        hit = functional_area_evidence(text, [label])
+        if not hit:
+            continue
+        _, phrase = hit
+        count = text.casefold().count(phrase.casefold())
+        scored.append((-count, index, label))
+    return [label for _, _, label in sorted(scored)[:limit]]
 
 
 def deterministic_career_strategy(resume_text: str) -> dict | None:
@@ -100,12 +131,14 @@ def deterministic_career_strategy(resume_text: str) -> dict | None:
     parsed, _ = parse_resume(text)
     role_titles = parsed.get("role_titles") or []
     skills = parsed.get("skills") or []
-    if not role_titles and not skills:
+    areas = infer_functional_areas(text)
+    if not role_titles and not skills and not areas:
         return None
     return {
         "summary": "",
         "profile_name": role_titles[0] if role_titles else "",
         "target_titles": role_titles[:5],
+        "functional_areas": areas,
         "industries": [],
         "keywords": skills[:8],
         "work_types": [],

@@ -66,6 +66,7 @@ export type CareerStrategySuggestion = {
   summary?: string;
   profile_name?: string;
   target_titles?: string[];
+  functional_areas?: string[];
   industries?: string[];
   keywords?: string[];
   work_types?: string[];
@@ -125,8 +126,16 @@ export const saveCareerProfile = (id: number, body: CareerProfileInput) =>
     method: "PUT",
     body,
   });
+export type FunctionalArea = { name: string; related_roles: string[] };
 export const fetchFunctionalAreas = () =>
-  apiRequest<{ areas: Array<{ name: string; related_roles: string[] }> }>("/me/career-profiles/functional-areas");
+  apiRequest<{ areas: FunctionalArea[] }>("/me/career-profiles/functional-areas");
+/** Close variants of titles already approved -- the next spellings job
+ * boards use for the same role. `exclude` keeps already-offered ones out. */
+export const fetchRelatedTitles = (titles: string[], exclude: string[]) =>
+  apiRequest<{ titles: string[]; ai_enabled: boolean }>("/me/career-profiles/related-titles", {
+    method: "POST",
+    body: { titles, exclude },
+  });
 /** What the web onboarding wizard records when it finishes. The server
  * self-heals this from profile data too, so a failure here is harmless. */
 export const markOnboardingComplete = (withResume: boolean) =>
