@@ -1,23 +1,9 @@
 name: Build and submit iOS to TestFlight
 
+# Manual-only to conserve EAS build credits. Do not add a push trigger
+# back without owner approval -- this queues a real EAS build and an
+# automatic TestFlight submission.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/mobile-ios-submit.yml'
-      - 'apps/mobile/src/**'
-      - 'apps/mobile/assets/**'
-      - 'apps/mobile/plugins/**'
-      - 'apps/mobile/scripts/release-store.mjs'
-      - 'apps/mobile/App.tsx'
-      - 'apps/mobile/app.json'
-      - 'apps/mobile/app.config.js'
-      - 'apps/mobile/metro.config.js'
-      - 'apps/mobile/eas.json'
-      - 'apps/mobile/.eas/**'
-      - 'apps/mobile/.maestro/**'
-      - 'apps/mobile/package.json'
-      - 'apps/mobile/package-lock.json'
   workflow_dispatch: {}
 
 permissions:

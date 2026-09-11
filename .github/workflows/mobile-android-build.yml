@@ -1,23 +1,9 @@
 name: Build Android (production)
 
+# Manual-only to conserve EAS build credits. Do not add a push trigger
+# back without owner approval -- this queues real EAS builds and an
+# automatic store submission.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/mobile-android-build.yml'
-      - 'apps/mobile/src/**'
-      - 'apps/mobile/assets/**'
-      - 'apps/mobile/plugins/**'
-      - 'apps/mobile/scripts/release-store.mjs'
-      - 'apps/mobile/App.tsx'
-      - 'apps/mobile/app.json'
-      - 'apps/mobile/app.config.js'
-      - 'apps/mobile/metro.config.js'
-      - 'apps/mobile/eas.json'
-      - 'apps/mobile/.eas/**'
-      - 'apps/mobile/.maestro/**'
-      - 'apps/mobile/package.json'
-      - 'apps/mobile/package-lock.json'
   workflow_dispatch: {}
 
 jobs:
