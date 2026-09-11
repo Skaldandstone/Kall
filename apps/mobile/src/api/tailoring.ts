@@ -136,6 +136,11 @@ export const fetchTemplatePreview = (proposalId: number, templateKey: string) =>
 
 export const fetchDocumentPreview = (documentId: number) => apiDownload(`/documents/${documentId}/preview.png`);
 
+export type AtsCheckItem = { key: string; label: string; passed: boolean; detail: string };
+export type AtsReport = { passed: number; total: number; checks: AtsCheckItem[] };
+/** Pass/fail checks run against the rendered PDF itself. */
+export const fetchAtsCheck = (documentId: number) => apiRequest<AtsReport>(`/documents/${documentId}/ats-check`);
+
 export const saveDocumentToProfile = (documentId: number) =>
   apiRequest<{ resume: { id: number; name: string } }>(`/documents/${documentId}/save-to-profile`, { method: "POST" });
 

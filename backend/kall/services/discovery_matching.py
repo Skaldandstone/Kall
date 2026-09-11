@@ -10,6 +10,7 @@ from kall.services.normalization import normalize_discovered
 from kall.services.opportunities import upsert_opportunity
 from kall.services.opportunity_sources import belongs_to_source, refresh_representative
 from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 
@@ -51,6 +52,29 @@ def refresh_discovered_job_match(
     return None if reason else match
 
 
+def _insert_or_reuse_job(session: Session, normalized: dict) -> tuple[Job, bool]:
+    """Insert the posting, or adopt the row another run inserted first.
+
+    Two discovery runs for the same account can overlap (a tap in the app
+    while the monitoring schedule fires), and both pass the URL lookup
+    before either commits. The unique index on job.url then rejects the
+    second insert -- which used to surface as a 500 for the whole run
+    (KALL-API-2). A savepoint keeps the failed insert from poisoning the
+    session, and the row that won is used instead.
+    """
+    try:
+        with session.begin_nested():
+            job = Job(**normalized)
+            session.add(job)
+            session.flush()
+        return job, True
+    except IntegrityError:
+        existing = session.exec(select(Job).where(Job.url == normalized["url"])).first()
+        if existing is None:
+            raise
+        return existing, False
+
+
 def ingest_discovered_jobs(
     session: Session,
     user: User,
@@ -87,10 +111,9 @@ def ingest_discovered_jobs(
             continue
         job = session.exec(select(Job).where(Job.url == normalized["url"])).first()
         if job is None:
-            job = Job(**normalized)
-            session.add(job)
-            session.flush()
-            result["jobs_created"] += 1
+            job, created = _insert_or_reuse_job(session, normalized)
+            if created:
+                result["jobs_created"] += 1
         else:
             changed = False
             for key, value in normalized.items():

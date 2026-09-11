@@ -203,3 +203,39 @@ def test_stale_canonical_alias_cannot_absorb_a_new_posting(engine, changed_ident
         assert len(new_opportunity.source_records) == 2
         assert original.state == "apply" and len(original.source_records) == 1
         assert len(session.exec(select(Opportunity)).all()) == 2
+
+
+def test_a_posting_inserted_by_a_concurrent_run_is_adopted_not_a_500(engine, monkeypatch: pytest.MonkeyPatch):
+    """Regression test for KALL-API-2: two overlapping discovery runs both
+    missed the URL lookup, and the second insert hit the unique index on
+    job.url and failed the whole run. The insert now falls back to the row
+    the other run created."""
+    from kall.services import discovery_matching
+
+    with Session(engine) as session:
+        user, profile = setup(session)
+        # Another run has already stored this URL.
+        session.add(Job(source="ats_search", company="FlexJobs", title="Entry Level Jobs",
+                        description="listing", url="https://www.flexjobs.com/remote-jobs/usa/ma/chelsea/entry-level"))
+        session.commit()
+
+        real_exec = session.exec
+        calls = {"lookups": 0}
+
+        def exec_missing_first(statement, *args, **kwargs):
+            # Make the pre-insert lookup miss once, the way an uncommitted
+            # concurrent insert is invisible to it.
+            text = str(statement)
+            if "FROM job" in text and "job.url" in text and calls["lookups"] == 0:
+                calls["lookups"] += 1
+                return real_exec(select(Job).where(Job.url == "never-matches"))
+            return real_exec(statement, *args, **kwargs)
+
+        monkeypatch.setattr(session, "exec", exec_missing_first)
+        result = ingest_discovered_jobs(session, user, profile, [posting(
+            source="ats_search", external_id=None, company="FlexJobs", title="Entry Level Jobs",
+            url="https://www.flexjobs.com/remote-jobs/usa/ma/chelsea/entry-level",
+        )])
+        assert result["jobs_created"] == 0
+        assert session.exec(select(Job).where(Job.url == "https://www.flexjobs.com/remote-jobs/usa/ma/chelsea/entry-level")).one()
+        assert discovery_matching  # imported for the module-level reference only

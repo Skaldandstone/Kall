@@ -33,6 +33,26 @@ from reportlab.platypus import (
 
 Layout = dict[str, object]
 
+# The built-in Type1 faces carry no Unicode map, so a bullet drawn with them
+# extracts as a control character in some parsers (pypdf reads U+007F) --
+# an ATS would see garbage on every line of every job. Bullet glyphs are
+# drawn from an embedded TrueType face instead; body text keeps the
+# classic typefaces, whose letters and dashes extract correctly.
+_BULLET_FONT = "KallBullet"
+
+
+def _ensure_bullet_font() -> str:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    if _BULLET_FONT not in pdfmetrics.getRegisteredFontNames():
+        import os
+
+        import reportlab
+
+        pdfmetrics.registerFont(TTFont(_BULLET_FONT, os.path.join(os.path.dirname(reportlab.__file__), "fonts", "Vera.ttf")))
+    return _BULLET_FONT
+
 
 class Treatment:
     """The visual decisions one template makes."""
@@ -132,17 +152,19 @@ def render_pdf(layout: Layout, template_key: str) -> bytes:
     if layout.get("name"):
         story.append(Paragraph(escape(str(layout["name"])), name_style))
     if layout.get("contact"):
-        story.append(Paragraph(escape("  •  ".join(str(part) for part in layout["contact"])), contact_style))
+        story.append(Paragraph(escape("  ·  ".join(str(part) for part in layout["contact"])), contact_style))
     story.append(Spacer(1, 6))
 
     # The frame pads 6pt on each side; size rules and tables to the text
     # column so they align with the paragraphs rather than overhanging it.
     width = LETTER[0] - 1.5 * inch - 12
 
+    bullet_font = _ensure_bullet_font()
+
     def bullets(items: list[object]) -> ListFlowable:
         return ListFlowable(
             [ListItem(Paragraph(escape(str(item)), bullet_style), leftIndent=12) for item in items],
-            bulletType="bullet", bulletFontSize=t.body_size - 2, leftIndent=12, bulletOffsetY=-1,
+            bulletType="bullet", bulletFontName=bullet_font, bulletFontSize=t.body_size - 2, leftIndent=12, bulletOffsetY=-1,
         )
 
     for section in ordered_sections(layout, t):

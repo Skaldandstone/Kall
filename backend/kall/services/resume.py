@@ -23,18 +23,46 @@ def _looks_word_per_line(lines: list[str]) -> bool:
     return short / len(filled) >= _WORD_PER_LINE_SHARE
 
 
+#: Headings a resume uses to open a section. When word-per-line output has
+#: lost every real line break, a title-case token equal to one of these,
+#: right after the end of a sentence, is the only paragraph boundary left.
+_SECTION_HEADINGS = {
+    "Summary", "Profile", "Experience", "Employment", "Skills", "Education", "Certifications",
+    "Awards", "Publications", "Projects", "Leadership", "Languages", "Patents", "Interests",
+}
+
+
+def _paragraphs_from_tokens(tokens: list[str]) -> list[str]:
+    paragraphs: list[list[str]] = [[]]
+    for index, token in enumerate(tokens):
+        previous = tokens[index - 1] if index else ""
+        opens_section = token in _SECTION_HEADINGS and (index == 0 or previous.endswith((".", ":", "!", "?")))
+        if opens_section and paragraphs[-1]:
+            paragraphs.append([])
+        paragraphs[-1].append(token)
+    return [" ".join(part) for part in paragraphs if part]
+
+
 def reflow_extracted_text(text: str) -> str:
     """Join word-per-line extraction back into paragraphs.
 
-    Blank lines still mark paragraph breaks; a lone bullet glyph on its own
-    line is kept as a separator inside the paragraph. Text that already has
-    real lines is returned unchanged (apart from trailing whitespace), so
-    this is safe to apply to every upload.
+    Two shapes come out of pypdf for designed resumes: one word per line,
+    with blank lines marking paragraph breaks; and one word per line with a
+    blank line between *every* word, where blank lines mean nothing. In the
+    second shape the only paragraph boundaries left are section headings
+    after a sentence end. Text that already has real lines is returned
+    unchanged (apart from trailing whitespace), so this is safe to apply to
+    every upload.
     """
     normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
     lines = normalized.split("\n")
     if not _looks_word_per_line(lines):
         return "\n".join(line.rstrip() for line in lines).strip()
+    filled = sum(1 for line in lines if line.strip())
+    blank = sum(1 for line in lines if not line.strip())
+    if filled and blank >= 0.5 * filled:
+        tokens = [line.strip() for line in lines if line.strip()]
+        return "\n\n".join(_paragraphs_from_tokens(tokens)).strip()
     paragraphs: list[str] = []
     current: list[str] = []
     for raw in lines:

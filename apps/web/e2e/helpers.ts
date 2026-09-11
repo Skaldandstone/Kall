@@ -226,16 +226,15 @@ export async function completeDocumentsReview(page: Page) {
   // reveals this section at all -- querying pending count before that
   // settles reads as "nothing to accept" rather than "not loaded yet".
   await expect(page.getByText('Loading the proposed changes…')).toHaveCount(0, { timeout: 15_000 });
-  // Per-role suggestions in bulk, then the summary rewrite and any
-  // verified achievements one by one.
-  const approveAllRoles = page.getByRole('button', { name: /^Approve all \d+$/ });
-  if (await approveAllRoles.isVisible().catch(() => false)) {
-    await approveAllRoles.click();
-    await expect(approveAllRoles).toHaveCount(0, { timeout: 15_000 });
+  // The panel asks one question at a time; answer whichever is on screen
+  // until the walk is over. The order of kinds is not assumed.
+  const approve = page.getByRole('button', { name: /^(Yes, add it|Use this summary|Keep it|Accept)$/ });
+  for (let guard = 0; guard < 60 && !(await continueToLook.isEnabled()); guard += 1) {
+    await expect(approve.first()).toBeVisible({ timeout: 10_000 });
+    await approve.first().click();
+    await page.waitForTimeout(150);
   }
-  await clickUntilGone('Yes, add it');
-  await clickUntilGone('Accept');
-  await clickUntilGone('Keep');
+  void clickUntilGone;
   await expect(continueToLook).toBeEnabled();
   await continueToLook.click();
   await expect(page.getByText('Your answers are in.')).toBeVisible({ timeout: 15_000 });

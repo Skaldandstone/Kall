@@ -24,6 +24,7 @@ import {
   downloadDocument,
   fetchApplication,
   fetchCoverLetter,
+  fetchAtsCheck,
   fetchDocument,
   fetchDocumentPreview,
   fetchProposal,
@@ -37,6 +38,7 @@ import {
   type ApplicationRecord,
   type Artifact,
   type ArtifactFormat,
+  type AtsReport,
   type CoverLetterChange,
   type CoverLetterProposal,
   type DocumentDetail,
@@ -81,6 +83,8 @@ export default function TailoringScreen({ route }: Props) {
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [savedResume, setSavedResume] = useState<string | null>(null);
+  const [ats, setAts] = useState<AtsReport | null>(null);
+  const [showAnswered, setShowAnswered] = useState(false);
   const { width } = useWindowDimensions();
 
   const load = useCallback(async () => {
@@ -131,11 +135,14 @@ export default function TailoringScreen({ route }: Props) {
   }, [proposal, finalizedForPreviews]);
 
   useEffect(() => {
-    if (!document) { setFinalPreview(null); return; }
+    if (!document) { setFinalPreview(null); setAts(null); return; }
     let cancelled = false;
     const documentId = document.document.id;
     fetchDocumentPreview(documentId)
       .then(({ bytes }) => { if (!cancelled) setFinalPreview(cacheImage(bytes, `document-${documentId}.png`)); })
+      .catch(() => undefined);
+    fetchAtsCheck(documentId)
+      .then((report) => { if (!cancelled) setAts(report); })
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [document]);
@@ -257,61 +264,14 @@ export default function TailoringScreen({ route }: Props) {
   const finalized = proposal?.status === "finalized";
   const letterPending = coverLetter?.changes.filter((change) => change.status === "pending").length ?? 0;
   const letterFinalized = coverLetter?.proposal.status === "finalized";
-  const summaryChanges = changes.filter((change) => change.section === "summary");
-  const achievementChanges = changes.filter((change) => !change.section.startsWith(ROLE_SECTION_PREFIX) && change.section !== "summary");
-  const roleChanges = changes.filter((change) => change.section.startsWith(ROLE_SECTION_PREFIX));
-  const rolePending = roleChanges.filter((change) => change.status === "pending").length;
-  const roleGroups = Object.values(
-    roleChanges.reduce<Record<string, { key: string; title: string; employer: string; changes: TailoringChange[] }>>((groups, change) => {
-      const group = groups[change.section] ?? { key: change.section, title: String(change.evidence[0]?.title ?? "Role"), employer: String(change.evidence[0]?.employer ?? ""), changes: [] };
-      group.changes.push(change);
-      groups[change.section] = group;
-      return groups;
-    }, {}),
-  );
-
-  function renderChange(change: TailoringChange, heading: string) {
-    const working = busy === `change-${change.id}`;
-    return (
-      <View key={change.id} style={styles.card}>
-        <View style={styles.changeTop}>
-          <Text style={styles.pill}>{heading}</Text>
-          <Text style={[styles.status, change.status === "rejected" && styles.statusRejected, (change.status === "accepted" || change.status === "edited") && styles.statusAccepted]}>{label(change.status)}</Text>
-        </View>
-        <Text style={styles.reason}>{change.reason}</Text>
-        {change.original_text ? (<><Text style={styles.sectionLabel}>Original</Text><Text style={styles.original}>{change.original_text}</Text></>) : null}
-        <Text style={styles.sectionLabel}>Proposed</Text>
-        {change.status === "rejected" ? (
-          <Text style={[styles.proposed, styles.struck]}>{change.edited_text || change.proposed_text}</Text>
-        ) : (
-          <TextInput
-            accessibilityLabel={`Proposed text for ${heading}`}
-            multiline
-            style={styles.editor}
-            value={drafts[change.id] ?? ""}
-            onChangeText={(value) => setDrafts((current) => ({ ...current, [change.id]: value }))}
-            editable={!working && change.status === "pending"}
-          />
-        )}
-        {change.evidence.some((item) => item.text) ? (
-          <Text style={styles.evidence}>Evidence: {change.evidence.map((item) => item.text).filter(Boolean).join(" · ")}</Text>
-        ) : null}
-        {change.status === "pending" ? (
-          <View style={styles.actions}>
-            <Pressable accessibilityRole="button" disabled={working} style={[styles.button, working && styles.disabled]} onPress={() => decide(change, "accepted")}>
-              {working ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Accept</Text>}
-            </Pressable>
-            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "edited")}>
-              <Text style={styles.secondaryButtonText}>Save edit</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "rejected")}>
-              <Text style={styles.rejectText}>Reject</Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-    );
-  }
+  // One question at a time: every job's gaps first (the posting's asks,
+  // role by role), then the opening summary, then verified achievements.
+  const rank = (change: TailoringChange) => (change.section.startsWith(ROLE_SECTION_PREFIX) ? 0 : change.section === "summary" ? 1 : 2);
+  const ordered = [...changes].sort((a, b) => rank(a) - rank(b) || a.id - b.id);
+  const decided = ordered.filter((change) => change.status !== "pending");
+  const answered = decided.length;
+  const current = ordered.find((change) => change.status === "pending") ?? null;
+  const currentKind = current ? (current.section.startsWith(ROLE_SECTION_PREFIX) ? "role" : current.section === "summary" ? "summary" : "achievement") : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
@@ -347,81 +307,88 @@ export default function TailoringScreen({ route }: Props) {
             ) : null}
           </View>
 
-          {!finalized ? (
-            <>
-              {summaryChanges.map((change) => renderChange(change, "Opening summary"))}
-
-              {roleGroups.length > 0 ? (
-                <View style={styles.card}>
-                  <Text style={styles.cardLabel}>What each role is missing</Text>
-                  <Text style={styles.body}>
-                    For every job on your record, Kall lists what this posting asks for that the job does not show yet, and drafts a bullet you could add. Approve only what is true. Where you see [X], put in the real figure.
-                  </Text>
-                  {rolePending > 0 ? (
-                    <View style={styles.actions}>
-                      <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.button, busy !== null && styles.disabled]} onPress={() => reviewAll("accepted", ROLE_SECTION_PREFIX)}>
-                        {busy === "all-accepted" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Approve all {rolePending}</Text>}
-                      </Pressable>
-                      <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.secondaryButton, busy !== null && styles.disabled]} onPress={() => reviewAll("rejected", ROLE_SECTION_PREFIX)}>
-                        <Text style={styles.rejectText}>Skip all</Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
+          {!finalized && current ? (
+            <View style={styles.card}>
+              <View style={styles.changeTop}>
+                <Text style={styles.pill}>Question {answered + 1} of {changes.length}</Text>
+                <Text style={styles.status}>{currentKind === "role" ? String(current.evidence[0]?.requirement ?? "Requirement") : currentKind === "summary" ? "Opening summary" : "Verified achievement"}</Text>
+              </View>
+              <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round((answered / Math.max(1, changes.length)) * 100)}%` }]} /></View>
+              {currentKind === "role" ? (
+                <>
+                  <Text style={styles.wizardContext}>{String(current.evidence[0]?.title ?? "This role")}{current.evidence[0]?.employer ? ` at ${String(current.evidence[0].employer)}` : ""}</Text>
+                  <Text style={styles.reason}>{current.reason}</Text>
+                  <Text style={styles.sectionLabel}>If yes, here is a bullet you could add — edit it so it is true and specific</Text>
+                </>
+              ) : currentKind === "summary" ? (
+                <>
+                  <Text style={styles.reason}>Kall can align your opening summary with this posting without adding claims.</Text>
+                  {current.original_text ? (<><Text style={styles.sectionLabel}>Your current summary</Text><Text style={styles.original}>{current.original_text}</Text></>) : null}
+                  <Text style={styles.sectionLabel}>Proposed summary — edit freely</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.reason}>{current.reason}</Text>
+                  <Text style={styles.sectionLabel}>Include this achievement?</Text>
+                </>
+              )}
+              <TextInput
+                accessibilityLabel={currentKind === "role" ? "Suggested bullet" : currentKind === "summary" ? "Proposed summary" : "Achievement text"}
+                multiline
+                style={styles.editor}
+                value={drafts[current.id] ?? ""}
+                onChangeText={(value) => setDrafts((prev) => ({ ...prev, [current.id]: value }))}
+                editable={busy === null}
+              />
+              {current.evidence.some((item) => item.text) ? (
+                <Text style={styles.evidence}>Evidence: {current.evidence.map((item) => item.text).filter(Boolean).join(" · ")}</Text>
+              ) : null}
+              <View style={styles.actions}>
+                <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.button, busy !== null && styles.disabled]} onPress={() => decide(current, (drafts[current.id] ?? "").trim() !== current.proposed_text ? "edited" : "accepted")}>
+                  {busy === `change-${current.id}` ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{currentKind === "role" ? "Yes, add it" : currentKind === "summary" ? "Use this summary" : "Keep it"}</Text>}
+                </Pressable>
+                <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.secondaryButton, busy !== null && styles.disabled]} onPress={() => decide(current, "rejected")}>
+                  <Text style={styles.rejectText}>{currentKind === "role" ? "Not in this role" : currentKind === "summary" ? "Keep my original" : "Leave it out"}</Text>
+                </Pressable>
+              </View>
+              {pending > 1 ? (
+                <View style={styles.actions}>
+                  <Pressable accessibilityRole="button" disabled={busy !== null} style={styles.textButton} onPress={() => reviewAll("accepted")}>
+                    <Text style={styles.textButtonText}>{busy === "all-accepted" ? "Approving…" : `Approve the remaining ${pending}`}</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" disabled={busy !== null} style={styles.textButton} onPress={() => reviewAll("rejected")}>
+                    <Text style={styles.textButtonText}>Skip the rest</Text>
+                  </Pressable>
                 </View>
               ) : null}
+            </View>
+          ) : null}
 
-              {roleGroups.map((group) => (
-                <View key={group.key} style={styles.card}>
-                  <Text style={styles.cardLabel}>{group.title}{group.employer ? ` · ${group.employer}` : ""}</Text>
-                  {group.changes.map((change, index) => {
-                    const working = busy === `change-${change.id}`;
-                    const decided = change.status !== "pending";
-                    return (
-                      <View key={change.id} style={[styles.suggestion, index > 0 && styles.suggestionDivider]}>
-                        <View style={styles.changeTop}>
-                          <Text style={styles.pill}>{String(change.evidence[0]?.requirement ?? "Requirement")}</Text>
-                          <Text style={[styles.status, change.status === "rejected" && styles.statusRejected, (change.status === "accepted" || change.status === "edited") && styles.statusAccepted]}>{change.status === "pending" ? "Needs your answer" : change.status === "rejected" ? "Skipped" : "Approved"}</Text>
-                        </View>
-                        <Text style={styles.reason}>{change.reason}</Text>
-                        <Text style={styles.sectionLabel}>Suggested bullet</Text>
-                        {decided ? (
-                          <Text style={[styles.proposed, change.status === "rejected" && styles.struck]}>{change.edited_text || change.proposed_text}</Text>
-                        ) : (
-                          <TextInput
-                            accessibilityLabel={`Suggested bullet for ${String(change.evidence[0]?.requirement ?? "this requirement")}`}
-                            multiline
-                            style={styles.editor}
-                            value={drafts[change.id] ?? ""}
-                            onChangeText={(value) => setDrafts((current) => ({ ...current, [change.id]: value }))}
-                            editable={!working}
-                          />
-                        )}
-                        {!decided ? (
-                          <View style={styles.actions}>
-                            <Pressable accessibilityRole="button" disabled={working} style={[styles.button, working && styles.disabled]} onPress={() => decide(change, (drafts[change.id] ?? "").trim() !== change.proposed_text ? "edited" : "accepted")}>
-                              {working ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Yes, add it</Text>}
-                            </Pressable>
-                            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "rejected")}>
-                              <Text style={styles.rejectText}>Not true, skip</Text>
-                            </Pressable>
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  })}
+          {!finalized && answered > 0 ? (
+            <View style={styles.card}>
+              <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAnswered }} style={styles.changeTop} onPress={() => setShowAnswered((value) => !value)}>
+                <Text style={styles.cardLabel}>Answered ({answered})</Text>
+                <Text style={styles.textButtonText}>{showAnswered ? "Hide" : "Show"}</Text>
+              </Pressable>
+              {showAnswered ? decided.map((change) => (
+                <View key={change.id} style={styles.answeredRow}>
+                  <Text style={styles.answeredLabel} numberOfLines={2}>
+                    {change.section.startsWith(ROLE_SECTION_PREFIX) ? `${String(change.evidence[0]?.requirement ?? "Requirement")} · ${String(change.evidence[0]?.employer ?? "")}` : change.section === "summary" ? "Opening summary" : "Achievement"}
+                  </Text>
+                  <Text style={[styles.status, change.status === "rejected" ? styles.statusRejected : styles.statusAccepted]}>{change.status === "rejected" ? "Skipped" : "Approved"}</Text>
                 </View>
-              ))}
+              )) : null}
+            </View>
+          ) : null}
 
-              {achievementChanges.map((change) => renderChange(change, "Verified achievement"))}
-            </>
-          ) : (
+          {finalized ? (
             <View style={styles.card}>
               <Text style={styles.cardLabel}>Approved changes</Text>
               <Text style={styles.body}>
                 {changes.filter((change) => change.status !== "rejected").length} approved, {changes.filter((change) => change.status === "rejected").length} skipped. The files are built from those answers.
               </Text>
             </View>
-          )}
+          ) : null}
 
           {!finalized ? (
             <Pressable
@@ -431,7 +398,7 @@ export default function TailoringScreen({ route }: Props) {
               disabled={pending > 0 || busy === "finalize"}
               onPress={finalize}
             >
-              {busy === "finalize" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{pending > 0 ? `Answer ${pending} more to continue` : "Continue to pick a look"}</Text>}
+              {busy === "finalize" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{pending > 0 ? `${pending} question${pending === 1 ? "" : "s"} left` : "Continue to pick a look"}</Text>}
             </Pressable>
           ) : (
             <>
@@ -475,6 +442,21 @@ export default function TailoringScreen({ route }: Props) {
                     </Text>
                     {finalPreview ? (
                       <Image source={{ uri: finalPreview }} style={styles.finalPreview} resizeMode="contain" accessibilityLabel="First page of your new resume" accessibilityIgnoresInvertColors />
+                    ) : null}
+                    {ats ? (
+                      <View style={styles.atsBox} accessible accessibilityLabel={`ATS check: ${ats.passed} of ${ats.total} passed`}>
+                        <Text style={[styles.atsTitle, ats.passed === ats.total ? styles.statusAccepted : styles.atsWarn]}>ATS check · {ats.passed} of {ats.total} passed</Text>
+                        <Text style={styles.evidence}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</Text>
+                        {ats.checks.map((check) => (
+                          <View key={check.key} style={styles.atsRow}>
+                            <Text style={[styles.atsMark, check.passed ? styles.statusAccepted : styles.atsWarn]}>{check.passed ? "✓" : "!"}</Text>
+                            <View style={styles.atsCopy}>
+                              <Text style={styles.atsLabel}>{check.label}</Text>
+                              {!check.passed ? <Text style={styles.atsDetail}>{check.detail}</Text> : null}
+                            </View>
+                          </View>
+                        ))}
+                      </View>
                     ) : null}
                     <View style={styles.actions}>
                       {document.artifacts.filter((artifact) => artifact.format !== "txt").map((artifact) => (
@@ -648,4 +630,17 @@ const styles = StyleSheet.create({
   previewImage: { width: "100%", aspectRatio: 0.773, borderRadius: 6, backgroundColor: "#FFFFFF", marginBottom: 8 },
   previewPlaceholder: { alignItems: "center", justifyContent: "center", backgroundColor: theme.surfaceRaised },
   finalPreview: { width: "100%", aspectRatio: 0.773, borderRadius: 8, backgroundColor: "#FFFFFF", marginTop: 12, borderColor: theme.border, borderWidth: 1 },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: theme.border, marginTop: 10, overflow: "hidden" },
+  progressFill: { height: 4, backgroundColor: theme.accent },
+  wizardContext: { color: theme.textSecondary, fontSize: 13, fontWeight: "600", marginTop: 12 },
+  answeredRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, paddingVertical: 8, borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth },
+  answeredLabel: { flex: 1, color: theme.textSecondary, fontSize: 13 },
+  atsBox: { marginTop: 14, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceRaised },
+  atsTitle: { fontSize: 15, fontWeight: "800" },
+  atsWarn: { color: theme.warning },
+  atsRow: { flexDirection: "row", gap: 10, marginTop: 8 },
+  atsMark: { width: 16, fontWeight: "800", fontSize: 14 },
+  atsCopy: { flex: 1 },
+  atsLabel: { color: theme.text, fontSize: 13 },
+  atsDetail: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
 });

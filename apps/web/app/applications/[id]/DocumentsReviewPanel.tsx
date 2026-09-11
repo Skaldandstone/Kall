@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { showToast } from '../../components/ToastHost';
 
 const API = '/api/kall';
@@ -117,6 +117,8 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string | null>(null);
+  const [ats, setAts] = useState<{ passed: number; total: number; checks: Array<{ key: string; label: string; passed: boolean; detail: string }> } | null>(null);
+  const [showAnswered, setShowAnswered] = useState(false);
 
   // React 18 Strict Mode (development only) double-invokes this effect on
   // mount, firing two overlapping load() calls. Without a sequence guard,
@@ -199,27 +201,26 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   }, [readyForPreviews, payload?.tailoring_proposal_id]);
 
   useEffect(() => {
-    if (!document_) { setFinalPreview(null); return; }
+    if (!document_) { setFinalPreview(null); setAts(null); return; }
     let cancelled = false;
     let url: string | null = null;
     fetch(`${API}/documents/${document_.document.id}/preview.png`)
       .then(async (response) => { if (response.ok && !cancelled) { url = URL.createObjectURL(await response.blob()); setFinalPreview(url); } })
       .catch(() => undefined);
+    fetch(`${API}/documents/${document_.document.id}/ats-check`)
+      .then(async (response) => { if (response.ok && !cancelled) setAts(await response.json()); })
+      .catch(() => undefined);
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
   }, [document_]);
 
-  const roleGroups = useMemo(() => {
-    const groups: Record<string, { key: string; title: string; employer: string; changes: TailoringChange[] }> = {};
-    for (const change of tailoringChanges) {
-      if (!change.section.startsWith(ROLE_PREFIX)) continue;
-      const group = groups[change.section] ?? { key: change.section, title: String(change.evidence[0]?.title ?? 'Role'), employer: String(change.evidence[0]?.employer ?? ''), changes: [] };
-      group.changes.push(change);
-      groups[change.section] = group;
-    }
-    return Object.values(groups);
-  }, [tailoringChanges]);
-  const otherChanges = tailoringChanges.filter((change) => !change.section.startsWith(ROLE_PREFIX));
-  const rolePending = tailoringChanges.filter((change) => change.section.startsWith(ROLE_PREFIX) && change.status === 'pending').length;
+  // One question at a time: every job's gaps first, then the opening
+  // summary, then verified achievements.
+  const rank = (change: TailoringChange) => (change.section.startsWith(ROLE_PREFIX) ? 0 : change.section === 'summary' ? 1 : 2);
+  const ordered = [...tailoringChanges].sort((a, b) => rank(a) - rank(b) || a.id - b.id);
+  const decided = ordered.filter((change) => change.status !== 'pending');
+  const current = ordered.find((change) => change.status === 'pending') ?? null;
+  const currentKind = current ? (current.section.startsWith(ROLE_PREFIX) ? 'role' : current.section === 'summary' ? 'summary' : 'achievement') : null;
+  const pendingCount = ordered.length - decided.length;
 
   async function reviewAll(status: 'accepted' | 'rejected', prefix?: string) {
     if (!payload?.tailoring_proposal_id) return;
@@ -360,68 +361,45 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
         <h2 style={{ marginTop: 16 }}>{tailoringStatus === 'finalized' ? 'Your answers are in.' : 'Step 1 of 3 · Answer what each role is missing.'}</h2>
         {tailoringStatus === 'finalized' ? <p className="notice">{tailoringChanges.filter((change) => change.status !== 'rejected').length} approved, {tailoringChanges.filter((change) => change.status === 'rejected').length} skipped. Nothing was written into your resume without your approval.</p> : (
           <div className="stack" style={{ marginTop: 16 }}>
-            {otherChanges.filter((change) => change.section === 'summary').map((change) => (
-              <article className="card" key={change.id}>
-                <span className="pill">Opening summary</span>
-                <h3 style={{ marginTop: 12 }}>{change.reason}</h3>
-                <div className="two">
-                  <div><h4>Original</h4><p>{change.original_text}</p></div>
-                  <div><h4>Proposed</h4><textarea className="input" id={`app-tailoring-${change.id}`} defaultValue={change.edited_text || change.proposed_text} rows={6} disabled={busy || change.status !== 'pending'} /></div>
+            {current && (
+              <article className="card" aria-live="polite">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span className="pill">Question {decided.length + 1} of {ordered.length}</span>
+                  <span className="notice">{currentKind === 'role' ? String(current.evidence[0]?.requirement ?? 'Requirement') : currentKind === 'summary' ? 'Opening summary' : 'Verified achievement'}</span>
                 </div>
-                {change.status === 'pending' ? <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="button" disabled={busy} onClick={() => void decideTailoring(change, 'accepted')}>Accept</button>
-                  <button className="button secondary" disabled={busy} onClick={() => void decideTailoring(change, 'edited', (window.document.getElementById(`app-tailoring-${change.id}`) as HTMLTextAreaElement).value)}>Save edit</button>
-                  <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(change, 'rejected')}>Reject</button>
-                </div> : <p className="notice">Status: {change.status}</p>}
-              </article>
-            ))}
-
-            {roleGroups.length > 0 && (
-              <article className="card">
-                <span className="pill">What each role is missing</span>
-                <p style={{ marginTop: 12 }}>For every job on your record, Kall lists what this posting asks for that the job does not show yet, and drafts a bullet you could add. Approve only what is true. Where you see [X], put in the real figure.</p>
-                {rolePending > 0 && <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="button" disabled={busy} onClick={() => void reviewAll('accepted', ROLE_PREFIX)}>Approve all {rolePending}</button>
-                  <button className="button ghost" disabled={busy} onClick={() => void reviewAll('rejected', ROLE_PREFIX)}>Skip all</button>
-                </div>}
+                <div aria-hidden style={{ height: 4, borderRadius: 2, background: 'var(--border)', margin: '10px 0', overflow: 'hidden' }}><div style={{ height: 4, width: `${Math.round((decided.length / Math.max(1, ordered.length)) * 100)}%`, background: 'var(--accent)' }} /></div>
+                {currentKind === 'role' ? <>
+                  <p style={{ margin: '4px 0', color: 'var(--text-secondary)', fontWeight: 600 }}>{String(current.evidence[0]?.title ?? 'This role')}{current.evidence[0]?.employer ? ` at ${String(current.evidence[0].employer)}` : ''}</p>
+                  <h3 style={{ marginTop: 4 }}>{current.reason}</h3>
+                  <h4>If yes, here is a bullet you could add — edit it so it is true and specific</h4>
+                </> : currentKind === 'summary' ? <>
+                  <h3 style={{ marginTop: 8 }}>Kall can align your opening summary with this posting without adding claims.</h3>
+                  {current.original_text && <><h4>Your current summary</h4><p>{current.original_text}</p></>}
+                  <h4>Proposed summary — edit freely</h4>
+                </> : <>
+                  <h3 style={{ marginTop: 8 }}>{current.reason}</h3>
+                  <h4>Include this achievement?</h4>
+                </>}
+                <textarea className="input" id={`app-tailoring-${current.id}`} key={current.id} defaultValue={current.edited_text || current.proposed_text} rows={4} disabled={busy} aria-label={currentKind === 'role' ? 'Suggested bullet' : currentKind === 'summary' ? 'Proposed summary' : 'Achievement text'} />
+                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button className="button" disabled={busy} onClick={() => { const value = (window.document.getElementById(`app-tailoring-${current.id}`) as HTMLTextAreaElement).value; void decideTailoring(current, value.trim() !== current.proposed_text ? 'edited' : 'accepted', value); }}>{currentKind === 'role' ? 'Yes, add it' : currentKind === 'summary' ? 'Use this summary' : 'Keep it'}</button>
+                  <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(current, 'rejected')}>{currentKind === 'role' ? 'Not in this role' : currentKind === 'summary' ? 'Keep my original' : 'Leave it out'}</button>
+                  {pendingCount > 1 && <>
+                    <button className="button secondary" disabled={busy} onClick={() => void reviewAll('accepted')}>Approve the remaining {pendingCount}</button>
+                    <button className="button ghost" disabled={busy} onClick={() => void reviewAll('rejected')}>Skip the rest</button>
+                  </>}
+                </div>
               </article>
             )}
-
-            {roleGroups.map((group) => (
-              <article className="card" key={group.key}>
-                <span className="pill">{group.title}{group.employer ? ` · ${group.employer}` : ''}</span>
-                {group.changes.map((change) => (
-                  <div key={change.id} style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><strong>{String(change.evidence[0]?.requirement ?? 'Requirement')}</strong><span className="notice">{change.status === 'pending' ? 'Needs your answer' : change.status === 'rejected' ? 'Skipped' : 'Approved'}</span></div>
-                    <p style={{ margin: '6px 0' }}>{change.reason}</p>
-                    <h4>Suggested bullet</h4>
-                    {change.status === 'pending'
-                      ? <textarea className="input" id={`app-tailoring-${change.id}`} defaultValue={change.edited_text || change.proposed_text} rows={3} disabled={busy} />
-                      : <p style={{ textDecoration: change.status === 'rejected' ? 'line-through' : undefined, color: change.status === 'rejected' ? 'var(--text-secondary)' : undefined }}>{change.edited_text || change.proposed_text}</p>}
-                    {change.status === 'pending' && <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-                      <button className="button" disabled={busy} onClick={() => { const value = (window.document.getElementById(`app-tailoring-${change.id}`) as HTMLTextAreaElement).value; void decideTailoring(change, value.trim() !== change.proposed_text ? 'edited' : 'accepted', value); }}>Yes, add it</button>
-                      <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(change, 'rejected')}>Not true, skip</button>
-                    </div>}
-                  </div>
-                ))}
+            {decided.length > 0 && (
+              <article className="card">
+                <button type="button" className="text-link" aria-expanded={showAnswered} onClick={() => setShowAnswered((value) => !value)}>Answered ({decided.length}) · {showAnswered ? 'hide' : 'show'}</button>
+                {showAnswered && <ul style={{ marginTop: 10 }}>{decided.map((change) => <li key={change.id}>{change.section.startsWith(ROLE_PREFIX) ? `${String(change.evidence[0]?.requirement ?? 'Requirement')} · ${String(change.evidence[0]?.employer ?? '')}` : change.section === 'summary' ? 'Opening summary' : 'Achievement'} — {change.status === 'rejected' ? 'skipped' : 'approved'}</li>)}</ul>}
               </article>
-            ))}
-
-            {otherChanges.filter((change) => change.section !== 'summary').map((change) => (
-              <article className="card" key={change.id}>
-                <span className="pill">{change.section}</span>
-                <h3 style={{ marginTop: 12 }}>{change.reason}</h3>
-                <p>{change.edited_text || change.proposed_text}</p>
-                {change.status === 'pending' ? <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="button" disabled={busy} onClick={() => void decideTailoring(change, 'accepted')}>Keep</button>
-                  <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(change, 'rejected')}>Leave out</button>
-                </div> : <p className="notice">Status: {change.status}</p>}
-              </article>
-            ))}
-
+            )}
             <button className="button" disabled={busy || !tailoringChangesLoaded || tailoringChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeTailoring()}>Continue to pick a look</button>
             {!tailoringChangesLoaded && <p className="notice">Loading the proposed changes…</p>}
-            {tailoringChangesLoaded && tailoringChanges.some((change) => change.status === 'pending') && <p className="notice">Answer every suggestion above first — approve, edit, or skip.</p>}
+            {tailoringChangesLoaded && pendingCount > 0 && <p className="notice">{pendingCount} question{pendingCount === 1 ? '' : 's'} left.</p>}
           </div>
         )}
       </section>
@@ -478,6 +456,11 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
           <>
             <h2 style={{ marginTop: 16 }}>Read exactly what will be sent.</h2>
             {finalPreview && <img src={finalPreview} alt="First page of your new resume" style={{ width: '100%', maxWidth: 560, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', display: 'block', marginTop: 12 }} />}
+            {ats && <section aria-label={`ATS check: ${ats.passed} of ${ats.total} passed`} style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
+              <strong style={{ color: ats.passed === ats.total ? 'var(--success, inherit)' : 'var(--warning, inherit)' }}>ATS check · {ats.passed} of {ats.total} passed</strong>
+              <p className="notice" style={{ margin: '4px 0 8px' }}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</p>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>{ats.checks.map((check) => <li key={check.key}>{check.passed ? '✓' : '!'} {check.label}{!check.passed && <span className="notice"> — {check.detail}</span>}</li>)}</ul>
+            </section>}
             {document_.document.content_json.layout ? <ResumePreview layout={document_.document.content_json.layout} /> : (
               <div className="stack" style={{ marginTop: 12 }}>
                 {document_.document.content_json.sections.map((section, index) => (

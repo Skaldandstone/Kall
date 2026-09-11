@@ -16,6 +16,7 @@ from kall.models import (
     User,
 )
 from kall.services import quota
+from kall.services.ats_check import ats_report
 from kall.services.documents import (
     ARTIFACT_FORMATS,
     RESUME_TEMPLATE_KEYS,
@@ -100,6 +101,23 @@ def preview_document(
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
     return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
+
+
+@router.get("/documents/{document_id}/ats-check")
+def ats_check(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Pass/fail checks run against the rendered PDF itself."""
+    document = session.get(GeneratedDocument, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(404, "Document not found")
+    layout = document.content_json.get("layout")
+    if not layout:
+        raise HTTPException(404, "This document has no layout to check")
+    pdf = ensure_artifact(session, document, "pdf")
+    return ats_report(layout, get_storage().read(pdf.file_path))
 
 
 @router.post("/documents/{document_id}/save-to-profile")
