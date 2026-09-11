@@ -17,9 +17,12 @@ from kall.models import (
     Job,
     JobRequirementAnalysis,
     KeywordCoverageReport,
+    ResumeDocument,
     TailoringChange,
     TailoringProposal,
 )
+from kall.services.resume_assembly import assemble_resume, layout_text
+from kall.services.resume_render import render_docx, render_pdf
 from kall.services.storage import get_storage
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import getSampleStyleSheet
@@ -98,6 +101,83 @@ def finalized_resume_content(session: Session, proposal: TailoringProposal) -> l
         for change in changes
         if (text := _accepted_text(change))
     ]
+
+
+def draft_resume_content(session: Session, proposal: TailoringProposal) -> list[dict[str, str]]:
+    """The tailored sections as they stand right now -- accepted and edited
+    changes only, pending ones left out -- so a look can be previewed before
+    the review is finished."""
+    changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id == proposal.id).order_by(TailoringChange.id)))
+    return [{"section": change.section, "text": text} for change in changes if (text := _accepted_text(change))]
+
+
+def preview_layout(session: Session, proposal: TailoringProposal, template_key: str) -> dict:
+    sections = _ordered_sections(draft_resume_content(session, proposal), template_key)
+    return assemble_resume(session, proposal.user_id, sections, session.get(ResumeDocument, proposal.resume_id))
+
+
+def render_preview_png(layout: dict, template_key: str, dpi: int = 96) -> bytes:
+    """First page of the PDF as a PNG, for choosing a look on screen."""
+    import pymupdf
+
+    pdf = render_pdf(layout, template_key)
+    with pymupdf.open(stream=pdf, filetype="pdf") as document:
+        return document[0].get_pixmap(dpi=dpi).tobytes("png")
+
+
+def ensure_preview(session: Session, proposal: TailoringProposal, template_key: str) -> bytes:
+    """Rendered on demand and cached by content, so re-opening the picker
+    costs nothing and a review decision invalidates the old image."""
+    layout = preview_layout(session, proposal, template_key)
+    digest = _sha(json.dumps({"layout": layout, "template": template_key}, sort_keys=True).encode())[:24]
+    key = f"previews/{proposal.user_id}/proposal-{proposal.id}/{template_key}-{digest}.png"
+    storage = get_storage()
+    if storage.exists(key):
+        return storage.read(key)
+    data = render_preview_png(layout, template_key)
+    storage.save(key, data)
+    return data
+
+
+def document_preview_png(session: Session, document: GeneratedDocument) -> bytes:
+    layout = document.content_json.get("layout")
+    if not layout:
+        raise ValueError("This document has no layout to preview")
+    key = f"previews/{document.user_id}/document-{document.id}.png"
+    storage = get_storage()
+    if storage.exists(key):
+        return storage.read(key)
+    data = render_preview_png(layout, document.template_key)
+    storage.save(key, data)
+    return data
+
+
+def save_document_to_profile(session: Session, document: GeneratedDocument, job: Job | None) -> ResumeDocument:
+    """File the generated resume in the person's resume library as its own
+    document, so it can be selected for future applications and appears in
+    the studio like an upload would."""
+    layout = document.content_json.get("layout") or {}
+    pdf = ensure_artifact(session, document, "pdf")
+    storage = get_storage()
+    data = storage.read(pdf.file_path)
+    label = f"{job.company} – {job.title}" if job else f"Tailored resume {document.id}"
+    key = f"uploads/{document.user_id}/tailored-{document.id}.pdf"
+    storage.save(key, data)
+    resume = ResumeDocument(
+        user_id=document.user_id,
+        name=f"{label} (tailored).pdf",
+        file_path=key,
+        mime_type="application/pdf",
+        byte_size=len(data),
+        tags=["tailored", document.template_key],
+        target_titles=[job.title] if job else [],
+        extracted_text=layout_text(layout) if layout else "\n\n".join(item["text"] for item in document.content_json.get("sections", [])),
+    )
+    session.add(resume)
+    session.add(DocumentGenerationAudit(user_id=document.user_id, generated_document_id=document.id, event="saved_to_profile", details={"resume_name": resume.name}))
+    session.commit()
+    session.refresh(resume)
+    return resume
 
 
 def keyword_report(
@@ -196,8 +276,12 @@ def generate_resume_documents(
     template_key: str = "standard",
 ) -> GeneratedDocument:
     sections = _ordered_sections(finalized_resume_content(session, proposal), template_key)
-    content_text = "\n\n".join(item["text"] for item in sections)
-    canonical = json.dumps(sections, sort_keys=True).encode()
+    # The tailored sections are what changed; the layout is the whole
+    # resume they are applied to (header, every job, skills, education) --
+    # the document a person actually sends.
+    layout = assemble_resume(session, proposal.user_id, sections, session.get(ResumeDocument, proposal.resume_id))
+    content_text = "\n\n".join([layout_text(layout), *(item["text"] for item in sections)])
+    canonical = json.dumps({"sections": sections, "layout": layout}, sort_keys=True).encode()
     generated = GeneratedDocument(
         user_id=proposal.user_id,
         proposal_id=proposal.id,
@@ -205,7 +289,7 @@ def generate_resume_documents(
         resume_id=proposal.resume_id,
         document_type="resume",
         template_key=template_key,
-        content_json={"sections": sections},
+        content_json={"sections": sections, "layout": layout},
         checksum=_sha(canonical),
         # finalized_at was already set here; status defaulted to "generated"
         # and nothing anywhere ever advanced it. build_preview() (in
@@ -359,6 +443,13 @@ def render_artifact(document: GeneratedDocument, file_format: str) -> bytes:
     if file_format not in ARTIFACT_FORMATS:
         raise ValueError(f"Unsupported format: {file_format}")
     sections = document.content_json.get("sections", [])
+    layout = document.content_json.get("layout") if document.document_type == "resume" else None
+    if layout:
+        if file_format == "txt":
+            return layout_text(layout).encode("utf-8")
+        if file_format == "docx":
+            return _normalize_zip(render_docx(layout, document.template_key))
+        return render_pdf(layout, document.template_key)
     if file_format == "txt":
         return "\n\n".join(item["text"] for item in sections).encode("utf-8")
     title = _document_title(document)

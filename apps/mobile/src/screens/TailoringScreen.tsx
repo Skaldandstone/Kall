@@ -1,20 +1,23 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError } from "../api/client";
-import { safeFileName, saveAndShare } from "../lib/files";
+import { cacheImage, safeFileName, saveAndShare } from "../lib/files";
 import {
   RESUME_TEMPLATES,
+  ROLE_SECTION_PREFIX,
   createCoverLetter,
   decideChange,
   decideCoverLetterChange,
@@ -22,11 +25,15 @@ import {
   fetchApplication,
   fetchCoverLetter,
   fetchDocument,
+  fetchDocumentPreview,
   fetchProposal,
+  fetchTemplatePreview,
   finalizeCoverLetter,
   finalizeProposal,
   generateDocument,
   linkGeneratedDocuments,
+  reviewAllChanges,
+  saveDocumentToProfile,
   type ApplicationRecord,
   type Artifact,
   type ArtifactFormat,
@@ -71,6 +78,10 @@ export default function TailoringScreen({ route }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [finalPreview, setFinalPreview] = useState<string | null>(null);
+  const [savedResume, setSavedResume] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
 
   const load = useCallback(async () => {
     try {
@@ -96,6 +107,38 @@ export default function TailoringScreen({ route }: Props) {
   }, [applicationId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+
+  // Once the text is final, show each layout as the person's own first page
+  // so the choice is between real documents rather than descriptions.
+  const finalizedForPreviews = proposal?.status === "finalized" && !document;
+  useEffect(() => {
+    if (!proposal || !finalizedForPreviews) return;
+    let cancelled = false;
+    const proposalId = proposal.id;
+    (async () => {
+      for (const template of RESUME_TEMPLATES) {
+        if (cancelled) return;
+        try {
+          const { bytes } = await fetchTemplatePreview(proposalId, template.key);
+          const uri = cacheImage(bytes, `preview-${proposalId}-${template.key}.png`);
+          if (!cancelled) setPreviews((current) => ({ ...current, [template.key]: uri }));
+        } catch {
+          // A missing thumbnail leaves the text card; the choice still works.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [proposal, finalizedForPreviews]);
+
+  useEffect(() => {
+    if (!document) { setFinalPreview(null); return; }
+    let cancelled = false;
+    const documentId = document.document.id;
+    fetchDocumentPreview(documentId)
+      .then(({ bytes }) => { if (!cancelled) setFinalPreview(cacheImage(bytes, `document-${documentId}.png`)); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [document]);
 
   async function run(key: string, work: () => Promise<void>, fallback: string) {
     setBusy(key);
@@ -127,6 +170,24 @@ export default function TailoringScreen({ route }: Props) {
       setProposal(await finalizeProposal(proposal.id));
       setMessage("Resume changes finalized. Choose a layout to generate the files.");
     }, "Unable to finalize the proposal.");
+  }
+
+  function reviewAll(status: "accepted" | "rejected", sectionPrefix?: string) {
+    if (!proposal) return;
+    void run(`all-${status}`, async () => {
+      const result = await reviewAllChanges(proposal.id, status, sectionPrefix);
+      setChanges((current) => current.map((item) => result.changes.find((updated) => updated.id === item.id) ?? item));
+      setMessage(status === "accepted" ? `Approved ${result.reviewed} suggestion${result.reviewed === 1 ? "" : "s"}.` : `Skipped ${result.reviewed} suggestion${result.reviewed === 1 ? "" : "s"}.`);
+    }, "Unable to update those suggestions.");
+  }
+
+  function saveToProfile() {
+    if (!document) return;
+    void run("save-profile", async () => {
+      const { resume } = await saveDocumentToProfile(document.document.id);
+      setSavedResume(resume.name);
+      setMessage(`Saved to your resumes as ${resume.name}.`);
+    }, "Unable to save this resume to your profile.");
   }
 
   function generate() {
@@ -196,6 +257,61 @@ export default function TailoringScreen({ route }: Props) {
   const finalized = proposal?.status === "finalized";
   const letterPending = coverLetter?.changes.filter((change) => change.status === "pending").length ?? 0;
   const letterFinalized = coverLetter?.proposal.status === "finalized";
+  const summaryChanges = changes.filter((change) => change.section === "summary");
+  const achievementChanges = changes.filter((change) => !change.section.startsWith(ROLE_SECTION_PREFIX) && change.section !== "summary");
+  const roleChanges = changes.filter((change) => change.section.startsWith(ROLE_SECTION_PREFIX));
+  const rolePending = roleChanges.filter((change) => change.status === "pending").length;
+  const roleGroups = Object.values(
+    roleChanges.reduce<Record<string, { key: string; title: string; employer: string; changes: TailoringChange[] }>>((groups, change) => {
+      const group = groups[change.section] ?? { key: change.section, title: String(change.evidence[0]?.title ?? "Role"), employer: String(change.evidence[0]?.employer ?? ""), changes: [] };
+      group.changes.push(change);
+      groups[change.section] = group;
+      return groups;
+    }, {}),
+  );
+
+  function renderChange(change: TailoringChange, heading: string) {
+    const working = busy === `change-${change.id}`;
+    return (
+      <View key={change.id} style={styles.card}>
+        <View style={styles.changeTop}>
+          <Text style={styles.pill}>{heading}</Text>
+          <Text style={[styles.status, change.status === "rejected" && styles.statusRejected, (change.status === "accepted" || change.status === "edited") && styles.statusAccepted]}>{label(change.status)}</Text>
+        </View>
+        <Text style={styles.reason}>{change.reason}</Text>
+        {change.original_text ? (<><Text style={styles.sectionLabel}>Original</Text><Text style={styles.original}>{change.original_text}</Text></>) : null}
+        <Text style={styles.sectionLabel}>Proposed</Text>
+        {change.status === "rejected" ? (
+          <Text style={[styles.proposed, styles.struck]}>{change.edited_text || change.proposed_text}</Text>
+        ) : (
+          <TextInput
+            accessibilityLabel={`Proposed text for ${heading}`}
+            multiline
+            style={styles.editor}
+            value={drafts[change.id] ?? ""}
+            onChangeText={(value) => setDrafts((current) => ({ ...current, [change.id]: value }))}
+            editable={!working && change.status === "pending"}
+          />
+        )}
+        {change.evidence.some((item) => item.text) ? (
+          <Text style={styles.evidence}>Evidence: {change.evidence.map((item) => item.text).filter(Boolean).join(" · ")}</Text>
+        ) : null}
+        {change.status === "pending" ? (
+          <View style={styles.actions}>
+            <Pressable accessibilityRole="button" disabled={working} style={[styles.button, working && styles.disabled]} onPress={() => decide(change, "accepted")}>
+              {working ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Accept</Text>}
+            </Pressable>
+            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "edited")}>
+              <Text style={styles.secondaryButtonText}>Save edit</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "rejected")}>
+              <Text style={styles.rejectText}>Reject</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
@@ -217,11 +333,11 @@ export default function TailoringScreen({ route }: Props) {
       ) : (
         <>
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Proposed changes</Text>
+            <Text style={styles.cardLabel}>{finalized ? "Your answers are in" : "Step 1 of 3 · Answer what's missing"}</Text>
             <Text style={styles.body}>
               {finalized
-                ? "Every change has been reviewed and the resume text is final."
-                : `${changes.length - pending} of ${changes.length} reviewed. Kall only proposes wording it can back with evidence from your resume; dates and figures are never changed.`}
+                ? "Choose how the resume should look, then build it."
+                : `${changes.length - pending} of ${changes.length} answered. Nothing is written into your resume until you approve it; dates and figures are never changed.`}
             </Text>
             {proposal.unsupported_requirements.length > 0 ? (
               <View style={styles.unsupported}>
@@ -231,49 +347,81 @@ export default function TailoringScreen({ route }: Props) {
             ) : null}
           </View>
 
-          {changes.map((change) => {
-            const working = busy === `change-${change.id}`;
-            return (
-              <View key={change.id} style={styles.card}>
-                <View style={styles.changeTop}>
-                  <Text style={styles.pill}>{label(change.section)}</Text>
-                  <Text style={[styles.status, change.status === "rejected" && styles.statusRejected, (change.status === "accepted" || change.status === "edited") && styles.statusAccepted]}>{label(change.status)}</Text>
+          {!finalized ? (
+            <>
+              {summaryChanges.map((change) => renderChange(change, "Opening summary"))}
+
+              {roleGroups.length > 0 ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardLabel}>What each role is missing</Text>
+                  <Text style={styles.body}>
+                    For every job on your record, Kall lists what this posting asks for that the job does not show yet, and drafts a bullet you could add. Approve only what is true. Where you see [X], put in the real figure.
+                  </Text>
+                  {rolePending > 0 ? (
+                    <View style={styles.actions}>
+                      <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.button, busy !== null && styles.disabled]} onPress={() => reviewAll("accepted", ROLE_SECTION_PREFIX)}>
+                        {busy === "all-accepted" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Approve all {rolePending}</Text>}
+                      </Pressable>
+                      <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.secondaryButton, busy !== null && styles.disabled]} onPress={() => reviewAll("rejected", ROLE_SECTION_PREFIX)}>
+                        <Text style={styles.rejectText}>Skip all</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
-                <Text style={styles.reason}>{change.reason}</Text>
-                <Text style={styles.sectionLabel}>Original</Text>
-                <Text style={styles.original}>{change.original_text}</Text>
-                <Text style={styles.sectionLabel}>Proposed</Text>
-                {finalized || change.status === "rejected" ? (
-                  <Text style={styles.proposed}>{change.edited_text || change.proposed_text}</Text>
-                ) : (
-                  <TextInput
-                    accessibilityLabel={`Proposed text for ${label(change.section)}`}
-                    multiline
-                    style={styles.editor}
-                    value={drafts[change.id] ?? ""}
-                    onChangeText={(value) => setDrafts((current) => ({ ...current, [change.id]: value }))}
-                    editable={!working}
-                  />
-                )}
-                {change.evidence.length > 0 ? (
-                  <Text style={styles.evidence}>Evidence: {change.evidence.map((item) => item.text).join(" · ")}</Text>
-                ) : null}
-                {!finalized ? (
-                  <View style={styles.actions}>
-                    <Pressable accessibilityRole="button" disabled={working} style={[styles.button, working && styles.disabled]} onPress={() => decide(change, "accepted")}>
-                      {working ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Accept</Text>}
-                    </Pressable>
-                    <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "edited")}>
-                      <Text style={styles.secondaryButtonText}>Save edit</Text>
-                    </Pressable>
-                    <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "rejected")}>
-                      <Text style={styles.rejectText}>Reject</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
+              ) : null}
+
+              {roleGroups.map((group) => (
+                <View key={group.key} style={styles.card}>
+                  <Text style={styles.cardLabel}>{group.title}{group.employer ? ` · ${group.employer}` : ""}</Text>
+                  {group.changes.map((change, index) => {
+                    const working = busy === `change-${change.id}`;
+                    const decided = change.status !== "pending";
+                    return (
+                      <View key={change.id} style={[styles.suggestion, index > 0 && styles.suggestionDivider]}>
+                        <View style={styles.changeTop}>
+                          <Text style={styles.pill}>{String(change.evidence[0]?.requirement ?? "Requirement")}</Text>
+                          <Text style={[styles.status, change.status === "rejected" && styles.statusRejected, (change.status === "accepted" || change.status === "edited") && styles.statusAccepted]}>{change.status === "pending" ? "Needs your answer" : change.status === "rejected" ? "Skipped" : "Approved"}</Text>
+                        </View>
+                        <Text style={styles.reason}>{change.reason}</Text>
+                        <Text style={styles.sectionLabel}>Suggested bullet</Text>
+                        {decided ? (
+                          <Text style={[styles.proposed, change.status === "rejected" && styles.struck]}>{change.edited_text || change.proposed_text}</Text>
+                        ) : (
+                          <TextInput
+                            accessibilityLabel={`Suggested bullet for ${String(change.evidence[0]?.requirement ?? "this requirement")}`}
+                            multiline
+                            style={styles.editor}
+                            value={drafts[change.id] ?? ""}
+                            onChangeText={(value) => setDrafts((current) => ({ ...current, [change.id]: value }))}
+                            editable={!working}
+                          />
+                        )}
+                        {!decided ? (
+                          <View style={styles.actions}>
+                            <Pressable accessibilityRole="button" disabled={working} style={[styles.button, working && styles.disabled]} onPress={() => decide(change, (drafts[change.id] ?? "").trim() !== change.proposed_text ? "edited" : "accepted")}>
+                              {working ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Yes, add it</Text>}
+                            </Pressable>
+                            <Pressable accessibilityRole="button" disabled={working} style={[styles.secondaryButton, working && styles.disabled]} onPress={() => decide(change, "rejected")}>
+                              <Text style={styles.rejectText}>Not true, skip</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+
+              {achievementChanges.map((change) => renderChange(change, "Verified achievement"))}
+            </>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>Approved changes</Text>
+              <Text style={styles.body}>
+                {changes.filter((change) => change.status !== "rejected").length} approved, {changes.filter((change) => change.status === "rejected").length} skipped. The files are built from those answers.
+              </Text>
+            </View>
+          )}
 
           {!finalized ? (
             <Pressable
@@ -283,31 +431,40 @@ export default function TailoringScreen({ route }: Props) {
               disabled={pending > 0 || busy === "finalize"}
               onPress={finalize}
             >
-              {busy === "finalize" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{pending > 0 ? `Review ${pending} more to finalize` : "Finalize resume changes"}</Text>}
+              {busy === "finalize" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{pending > 0 ? `Answer ${pending} more to continue` : "Continue to pick a look"}</Text>}
             </Pressable>
           ) : (
             <>
               <View style={styles.card}>
-                <Text style={styles.cardLabel}>Resume files</Text>
+                <Text style={styles.cardLabel}>{document ? "Step 3 of 3 · Your new resume" : "Step 2 of 3 · Pick a look"}</Text>
                 {!document ? (
                   <>
-                    <Text style={styles.body}>Choose an ATS-readable layout. Single column, standard headings, selectable text.</Text>
-                    <View style={styles.templates}>
-                      {RESUME_TEMPLATES.map((template) => (
-                        <Pressable
-                          key={template.key}
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked: templateKey === template.key }}
-                          style={[styles.template, templateKey === template.key && styles.templateActive]}
-                          onPress={() => setTemplateKey(template.key)}
-                        >
-                          <Text style={[styles.templateTitle, templateKey === template.key && styles.templateTitleActive]}>{template.label}</Text>
-                          <Text style={styles.templateUse}>{template.use}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
+                    <Text style={styles.body}>Each sample is your own resume, with the approved changes, in that layout. All are single column and ATS-readable.</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+                      {RESUME_TEMPLATES.map((template) => {
+                        const active = templateKey === template.key;
+                        return (
+                          <Pressable
+                            key={template.key}
+                            accessibilityRole="radio"
+                            accessibilityLabel={`${template.label}. ${template.use}`}
+                            accessibilityState={{ checked: active }}
+                            style={[styles.previewCard, active && styles.previewCardActive, { width: Math.min(220, width * 0.62) }]}
+                            onPress={() => setTemplateKey(template.key)}
+                          >
+                            {previews[template.key] ? (
+                              <Image source={{ uri: previews[template.key] }} style={styles.previewImage} resizeMode="cover" accessibilityIgnoresInvertColors />
+                            ) : (
+                              <View style={[styles.previewImage, styles.previewPlaceholder]}><ActivityIndicator color={theme.textMuted} /></View>
+                            )}
+                            <Text style={[styles.templateTitle, active && styles.templateTitleActive]}>{template.label}</Text>
+                            <Text style={styles.templateUse} numberOfLines={2}>{template.use}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
                     <Pressable accessibilityRole="button" disabled={busy === "generate"} style={[styles.button, styles.primary, busy === "generate" && styles.disabled]} onPress={generate}>
-                      {busy === "generate" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Generate files</Text>}
+                      {busy === "generate" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>Build my resume in this look</Text>}
                     </Pressable>
                   </>
                 ) : (
@@ -316,8 +473,11 @@ export default function TailoringScreen({ route }: Props) {
                       {RESUME_TEMPLATES.find((template) => template.key === document.document.template_key)?.label ?? label(document.document.template_key)} layout.
                       {document.coverage ? ` Covers ${document.coverage.required_percent}% of required and ${document.coverage.preferred_percent}% of preferred requirements.` : ""}
                     </Text>
+                    {finalPreview ? (
+                      <Image source={{ uri: finalPreview }} style={styles.finalPreview} resizeMode="contain" accessibilityLabel="First page of your new resume" accessibilityIgnoresInvertColors />
+                    ) : null}
                     <View style={styles.actions}>
-                      {document.artifacts.map((artifact) => (
+                      {document.artifacts.filter((artifact) => artifact.format !== "txt").map((artifact) => (
                         <Pressable
                           key={artifact.format}
                           accessibilityRole="button"
@@ -326,12 +486,15 @@ export default function TailoringScreen({ route }: Props) {
                           style={[styles.secondaryButton, busy === `download-${artifact.format}` && styles.disabled]}
                           onPress={() => share(artifact)}
                         >
-                          {busy === `download-${artifact.format}` ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>Save {artifact.format.toUpperCase()}</Text>}
+                          {busy === `download-${artifact.format}` ? <ActivityIndicator color={theme.text} /> : <Text style={styles.secondaryButtonText}>Export {artifact.format === "docx" ? "Word" : artifact.format.toUpperCase()}</Text>}
                         </Pressable>
                       ))}
+                      <Pressable accessibilityRole="button" disabled={busy === "save-profile" || savedResume !== null} style={[styles.button, (busy === "save-profile" || savedResume !== null) && styles.disabled]} onPress={saveToProfile}>
+                        {busy === "save-profile" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{savedResume ? "Saved to my resumes" : "Save to my resumes"}</Text>}
+                      </Pressable>
                     </View>
-                    <Pressable accessibilityRole="button" style={styles.textButton} onPress={() => setDocument(null)}>
-                      <Text style={styles.textButtonText}>Generate with a different layout</Text>
+                    <Pressable accessibilityRole="button" style={styles.textButton} onPress={() => { setDocument(null); setSavedResume(null); }}>
+                      <Text style={styles.textButtonText}>Try a different look</Text>
                     </Pressable>
                   </>
                 )}
@@ -477,4 +640,12 @@ const styles = StyleSheet.create({
   chipTextActive: { color: theme.accentInk },
   paragraph: { borderTopColor: theme.border, borderTopWidth: 1, marginTop: 12, paddingTop: 12 },
   footer: { color: theme.textMuted, fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: 8 },
+  suggestion: { marginTop: 4 },
+  suggestionDivider: { borderTopColor: theme.border, borderTopWidth: 1, marginTop: 14, paddingTop: 12 },
+  previewRow: { gap: 12, paddingVertical: 12 },
+  previewCard: { borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 10, backgroundColor: theme.background },
+  previewCardActive: { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+  previewImage: { width: "100%", aspectRatio: 0.773, borderRadius: 6, backgroundColor: "#FFFFFF", marginBottom: 8 },
+  previewPlaceholder: { alignItems: "center", justifyContent: "center", backgroundColor: theme.surfaceRaised },
+  finalPreview: { width: "100%", aspectRatio: 0.773, borderRadius: 8, backgroundColor: "#FFFFFF", marginTop: 12, borderColor: theme.border, borderWidth: 1 },
 });

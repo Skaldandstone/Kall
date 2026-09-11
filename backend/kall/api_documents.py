@@ -15,14 +15,19 @@ from kall.models import (
     TailoringProposal,
     User,
 )
+from kall.services import quota
 from kall.services.documents import (
     ARTIFACT_FORMATS,
+    RESUME_TEMPLATE_KEYS,
+    document_preview_png,
     ensure_artifact,
+    ensure_preview,
     finalize_cover_letter,
     generate_resume_documents,
     offered_artifacts,
     propose_cover_letter,
     review_cover_letter_change,
+    save_document_to_profile,
 )
 from kall.services.storage import get_storage
 
@@ -64,6 +69,54 @@ def generate_documents(
         return generate_resume_documents(session, proposal, payload.template_key)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/tailoring/{proposal_id}/previews/{template_key}.png")
+def preview_template(
+    proposal_id: int,
+    template_key: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    """The person's own resume, as it currently stands, in one look -- so
+    picking a template is a choice between real pages, not swatches."""
+    proposal = _owned_tailoring(session, proposal_id, current_user.id)
+    if template_key not in RESUME_TEMPLATE_KEYS:
+        raise HTTPException(404, "Unknown resume layout")
+    return Response(content=ensure_preview(session, proposal, template_key), media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
+
+
+@router.get("/documents/{document_id}/preview.png")
+def preview_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    document = session.get(GeneratedDocument, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(404, "Document not found")
+    try:
+        data = document_preview_png(session, document)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
+
+
+@router.post("/documents/{document_id}/save-to-profile")
+def save_to_profile(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    document = session.get(GeneratedDocument, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(404, "Document not found")
+    if document.document_type != "resume":
+        raise HTTPException(422, "Only resumes can be saved to your profile")
+    pdf = ensure_artifact(session, document, "pdf")
+    quota.check(session, current_user, "storage_bytes", amount=pdf.byte_size)
+    resume = save_document_to_profile(session, document, session.get(Job, document.job_id) if document.job_id else None)
+    return {"resume": resume}
 
 
 @router.get("/documents")

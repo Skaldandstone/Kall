@@ -277,7 +277,20 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await page.route("**/api/documents/9", (route) =>
         route.fulfill({
           json: {
-            document: { id: 9, template_key: "executive", checksum: "abc", document_type: "resume", content_json: { sections: [{ section: "summary", text: "Led QA for federal health platforms." }, { section: "experience", text: "Director of QA, 2019-2026." }] } },
+            document: {
+              id: 9, template_key: "executive", checksum: "abc", document_type: "resume",
+              content_json: {
+                sections: [{ section: "summary", text: "Led QA for federal health platforms." }, { section: "experience", text: "Director of QA, 2019-2026." }],
+                layout: {
+                  name: "Test Candidate",
+                  contact: ["test@example.com", "Vancouver, WA"],
+                  sections: [
+                    { key: "summary", title: "Summary", paragraphs: ["Led QA for federal health platforms."] },
+                    { key: "experience", title: "Experience", entries: [{ title: "Director of QA", organization: "VetsEZ", location: "Remote", dates: "Mar 2019 – Present", bullets: ["Built the FedRAMP test program."] }] },
+                  ],
+                },
+              },
+            },
             artifacts: [{ id: 1, format: "pdf", mime_type: "application/pdf", byte_size: 1024 }, { id: null, format: "docx", mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", byte_size: null }],
             coverage: null,
           },
@@ -309,10 +322,14 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(page.getByText("QA leadership resume", { exact: true })).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText(/Tailoring finalized: 1 change kept, 1 rejected/)).toBeVisible();
       await expect(page.getByText("Led QA for federal health platforms.").first()).toBeVisible();
+      await expect(page.getByText("Test Candidate", { exact: true }).first()).toBeVisible();
+      await page.getByRole("button", { name: /Read the whole resume/ }).click();
+      await expect(page.getByText("Director of QA", { exact: true })).toBeVisible();
+      await expect(page.getByText("Mar 2019 – Present")).toBeVisible();
       await expect(page.getByRole("button", { name: "Open PDF" })).toBeVisible();
       await expect(page.getByText("I have led quality organizations through FedRAMP audits.")).toBeVisible();
       await expect(page.getByText("This paragraph was cut.")).toHaveCount(0);
-      await expect(page.getByText("Test Candidate", { exact: true })).toBeVisible();
+      await expect(page.getByText("Test Candidate", { exact: true }).nth(1)).toBeVisible();
       await expect(page.getByText("Sensitive fields you have allowed")).toBeVisible();
       await expect(page.getByText("Street address: Not allowed for autofill")).toBeVisible();
       await expect(page.getByText("Authorized to work in the United States")).toBeVisible();
@@ -320,6 +337,27 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await expect(page.getByLabel("Documents reviewed")).toBeEnabled();
       await expect(page.getByText("Finish the resume and cover letter above first.")).toHaveCount(0);
       await expectNoSeriousAccessibilityViolations(page, "Application review");
+
+      await test.step("the tailoring screen walks from answers to a look to the files", async () => {
+        await page.route("**/api/documents/9/preview.png", (route) => route.fulfill({ status: 404, body: "" }));
+        await page.route("**/api/tailoring/5/previews/*.png", (route) => route.fulfill({ status: 404, body: "" }));
+        await page.getByRole("button", { name: "Open tailored resume" }).click();
+        await expect(page.getByText("Your answers are in")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByText("Step 3 of 3 · Your new resume")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Export PDF" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Save to my resumes" })).toBeVisible();
+        await page.getByRole("button", { name: "Try a different look" }).click();
+        await expect(page.getByText("Step 2 of 3 · Pick a look")).toBeVisible();
+        await expect(page.getByRole("radio", { name: /Leadership and impact/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Build my resume in this look" })).toBeVisible();
+        // Browser history is not the navigation stack, so leave the nested
+        // screen by reloading the app root: the session persists and the
+        // tab bar is back where the following steps expect it.
+        await page.goto("/");
+        await expect(page.getByText("Today", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+        await page.unroute("**/api/documents/9/preview.png");
+        await page.unroute("**/api/tailoring/5/previews/*.png");
+      });
 
       for (const pattern of [
         "**/api/me/applications", "**/api/applications/41/review", "**/api/applications/41", "**/api/me/resume-studio",

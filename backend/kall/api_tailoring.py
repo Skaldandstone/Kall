@@ -6,7 +6,17 @@ from kall.auth import get_current_user
 from kall.db import get_session
 from kall.models import Job, TailoringChange, TailoringProposal, User
 from kall.services.resume import reflow_extracted_text
-from kall.services.tailoring import create_tailoring_proposal, finalize_proposal, review_change
+from kall.services.tailoring import (
+    create_tailoring_proposal,
+    finalize_proposal,
+    review_all,
+    review_change,
+)
+
+
+class ReviewAllRequest(BaseModel):
+    status: str
+    section_prefix: str | None = None
 
 router = APIRouter(prefix="/tailoring", tags=["tailoring"])
 
@@ -83,6 +93,23 @@ def decide_change(
         return review_change(session, change, payload.status, payload.edited_text)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/proposals/{proposal_id}/review-all")
+def review_every_change(
+    proposal_id: int,
+    payload: ReviewAllRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    proposal = session.get(TailoringProposal, proposal_id)
+    if not proposal or proposal.user_id != current_user.id:
+        raise HTTPException(404, "Proposal not found")
+    try:
+        touched = review_all(session, proposal, payload.status, payload.section_prefix)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"reviewed": len(touched), "changes": touched}
 
 
 @router.post("/proposals/{proposal_id}/finalize", response_model=TailoringProposal)

@@ -138,6 +138,7 @@ export default function PackageReview({ applicationId, company, onOpenTailoring,
     .filter((change) => change.status !== "rejected")
     .sort((a, b) => a.position - b.position);
   const sections = document?.document.content_json?.sections ?? [];
+  const layout = document?.document.content_json?.layout ?? null;
   const alwaysFields = pack?.fields.filter((field) => field.tier === "always") ?? [];
   const optInFields = pack?.fields.filter((field) => field.tier === "opt_in") ?? [];
   const attestationFields = pack?.fields.filter((field) => field.tier === "always_confirm") ?? [];
@@ -175,8 +176,38 @@ export default function PackageReview({ applicationId, company, onOpenTailoring,
 
         {!nothingRequested && document ? (
           <>
-            <Text style={styles.subheading}>Final resume text</Text>
-            {sections.length === 0 ? (
+            <Text style={styles.subheading}>Final resume</Text>
+            {layout ? (
+              <>
+                <View style={styles.preview}>
+                  <Text style={styles.previewName}>{layout.name}</Text>
+                  {layout.contact.length ? <Text style={styles.previewContact}>{layout.contact.join("  •  ")}</Text> : null}
+                  {(showResumeText ? layout.sections : layout.sections.slice(0, 1)).map((section) => (
+                    <View key={section.key} style={styles.section}>
+                      <Text style={styles.previewHeading}>{section.title.toUpperCase()}</Text>
+                      {(section.paragraphs ?? []).map((paragraph, index) => <Text key={index} style={styles.sectionText}>{paragraph}</Text>)}
+                      {(section.bullets ?? []).map((item, index) => <Text key={index} style={styles.sectionText}>•  {item}</Text>)}
+                      {(section.groups ?? []).map((group) => <Text key={group.label} style={styles.sectionText}><Text style={styles.previewStrong}>{group.label}: </Text>{group.items.join(", ")}</Text>)}
+                      {(section.entries ?? []).map((entry, index) => (
+                        <View key={index} style={styles.entry}>
+                          <View style={styles.entryRow}>
+                            <Text style={[styles.sectionText, styles.previewStrong, styles.entryTitle]}>{entry.title}</Text>
+                            {entry.dates ? <Text style={styles.entryDates}>{entry.dates}</Text> : null}
+                          </View>
+                          {entry.organization || entry.location ? <Text style={styles.entryMeta}>{[entry.organization, entry.location].filter(Boolean).join(" — ")}</Text> : null}
+                          {entry.bullets.map((item, bulletIndex) => <Text key={bulletIndex} style={styles.sectionText}>•  {item}</Text>)}
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+                {layout.sections.length > 1 ? (
+                  <Pressable accessibilityRole="button" onPress={() => setShowResumeText((value) => !value)} style={styles.link}>
+                    <Text style={styles.linkText}>{showResumeText ? "Show less" : `Read the whole resume (${layout.sections.length} sections)`}</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : sections.length === 0 ? (
               <Text style={styles.copy}>Generated as {document.document.template_key} layout.</Text>
             ) : (
               <>
@@ -302,6 +333,16 @@ const styles = StyleSheet.create({
   sectionTitle: { color: theme.text, fontSize: 13, fontWeight: "700" },
   sectionText: { color: theme.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 4 },
   pendingText: { fontStyle: "italic" },
+  preview: { marginTop: 8, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceRaised },
+  previewName: { color: theme.text, fontSize: 18, fontWeight: "800" },
+  previewContact: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  previewHeading: { color: theme.accent, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, marginTop: 12, marginBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.accent, paddingBottom: 2 },
+  previewStrong: { fontWeight: "700", color: theme.text },
+  entry: { marginTop: 6 },
+  entryRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  entryTitle: { flex: 1, marginTop: 0 },
+  entryDates: { color: theme.textMuted, fontSize: 12, marginTop: 4 },
+  entryMeta: { color: theme.textSecondary, fontSize: 13, fontStyle: "italic" },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   link: { marginTop: 8 },
   linkText: { color: theme.accent, fontWeight: "600" },

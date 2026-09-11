@@ -26,7 +26,8 @@ export type TailoringChange = {
   proposed_text: string;
   edited_text: string | null;
   reason: string;
-  evidence: Array<{ type?: string; id?: number; text: string }>;
+  /** Role suggestions carry the job asked about instead of a text quote. */
+  evidence: Array<{ type?: string; id?: number; text?: string; employer?: string; title?: string; requirement?: string; source?: string }>;
   immutable_tokens: string[];
   status: "pending" | "accepted" | "edited" | "rejected" | string;
 };
@@ -57,13 +58,27 @@ export type Coverage = {
   unsupported: string[];
 };
 
+/** The whole assembled resume the files are rendered from. */
+export type ResumeLayout = {
+  name: string;
+  contact: string[];
+  sections: Array<{
+    key: string;
+    title: string;
+    paragraphs?: string[];
+    bullets?: string[];
+    groups?: Array<{ label: string; items: string[] }>;
+    entries?: Array<{ title: string; organization: string; location: string; dates: string; bullets: string[] }>;
+  }>;
+};
+
 export type DocumentDetail = {
   document: {
     id: number;
     template_key: string;
     checksum: string;
     document_type: string;
-    content_json?: { sections?: Array<{ section: string; text: string }> };
+    content_json?: { sections?: Array<{ section: string; text: string }>; layout?: ResumeLayout };
   };
   artifacts: Artifact[];
   coverage: Coverage | null;
@@ -106,6 +121,25 @@ export const decideChange = (changeId: number, status: "accepted" | "edited" | "
     method: "PATCH",
     body: { status, edited_text: editedText ?? null },
   });
+
+/** Approve or skip every pending change at once; `sectionPrefix` limits it
+ * to one family, e.g. "role:" for every per-role suggestion. */
+export const reviewAllChanges = (proposalId: number, status: "accepted" | "rejected", sectionPrefix?: string) =>
+  apiRequest<{ reviewed: number; changes: TailoringChange[] }>(`/tailoring/proposals/${proposalId}/review-all`, {
+    method: "POST",
+    body: { status, section_prefix: sectionPrefix ?? null },
+  });
+
+/** PNG of the person's own resume in one layout, as it currently stands. */
+export const fetchTemplatePreview = (proposalId: number, templateKey: string) =>
+  apiDownload(`/tailoring/${proposalId}/previews/${templateKey}.png`);
+
+export const fetchDocumentPreview = (documentId: number) => apiDownload(`/documents/${documentId}/preview.png`);
+
+export const saveDocumentToProfile = (documentId: number) =>
+  apiRequest<{ resume: { id: number; name: string } }>(`/documents/${documentId}/save-to-profile`, { method: "POST" });
+
+export const ROLE_SECTION_PREFIX = "role:";
 
 export const finalizeProposal = (proposalId: number) =>
   apiRequest<TailoringProposal>(`/tailoring/proposals/${proposalId}/finalize`, { method: "POST" });

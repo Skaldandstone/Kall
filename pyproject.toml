@@ -20,6 +20,7 @@ dependencies = [
   "python-docx>=1.2,<2",
   "pypdf>=6,<7",
   "reportlab>=4.4,<5",
+  "pymupdf>=1.24,<2",
   "openai>=1.99,<2",
   "stripe==15.6.0",
   "email-validator>=2.2,<3",

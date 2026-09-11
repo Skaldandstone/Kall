@@ -3,6 +3,7 @@ import re
 from kall.clock import utcnow
 from kall.models import (
     Achievement,
+    Employment,
     Job,
     JobRequirementAnalysis,
     ResumeDocument,
@@ -12,6 +13,7 @@ from kall.models import (
     TailoringProposal,
 )
 from kall.services.resume import reflow_extracted_text
+from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
 
 IMMUTABLE_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?%\b|\$\d[\d,]*(?:\.\d+)?[KMB]?\b", re.I)
@@ -168,11 +170,81 @@ def create_tailoring_proposal(
             )
         )
     changes[0].proposal_id = proposal.id
+    changes.extend(_role_gap_changes(session, proposal, job, user_id, required + preferred, verified, resume.extracted_text or ""))
     session.add_all(changes)
     session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_created", details={"provider": "deterministic"}))
     session.commit()
     session.refresh(proposal)
     return proposal
+
+
+ROLE_SECTION_PREFIX = "role:"
+
+
+def role_section(employment_id: int) -> str:
+    return f"{ROLE_SECTION_PREFIX}{employment_id}"
+
+
+def _role_gap_changes(
+    session: Session,
+    proposal: TailoringProposal,
+    job: Job,
+    user_id: int,
+    requirements: list[str],
+    verified: list[Achievement],
+    resume_text: str,
+) -> list[TailoringChange]:
+    """One pending change per (role, missing requirement): the question to
+    answer and the bullet to use if the answer is yes."""
+    employment = list(session.exec(select(Employment).where(Employment.user_id == user_id)))
+    if not employment or not requirements:
+        return []
+    employment.sort(key=lambda row: (not row.is_current, -(row.start_date.toordinal() if row.start_date else 0)))
+    roles = []
+    for row in employment:
+        linked = [a.achievement_text for a in verified if a.employer and row.employer and a.employer.casefold() == row.employer.casefold()]
+        dates = " – ".join(value for value in (row.start_date.strftime("%b %Y") if row.start_date else "", "Present" if row.is_current else (row.end_date.strftime("%b %Y") if row.end_date else "")) if value)
+        roles.append(RoleContext(employment_id=row.id or 0, employer=row.employer, title=row.job_title, dates=dates, text=row.description or "", bullets=linked))
+    gaps = find_gaps(roles, list(dict.fromkeys(requirements)), resume_text)
+    changes = []
+    for gap in suggest_role_gaps(job.title, job.company, roles, gaps):
+        changes.append(
+            TailoringChange(
+                proposal_id=proposal.id,
+                section=role_section(gap.employment_id),
+                original_text="",
+                proposed_text=gap.suggestion,
+                reason=gap.prompt,
+                evidence=[{"type": "employment", "id": gap.employment_id, "employer": gap.employer, "title": gap.title, "requirement": gap.requirement, "source": gap.source}],
+                immutable_tokens=[],
+                confidence=0.6 if gap.source == "model" else 0.4,
+            )
+        )
+    return changes
+
+
+def review_all(session: Session, proposal: TailoringProposal, status: str, section_prefix: str | None = None) -> list[TailoringChange]:
+    """Approve or reject every pending change at once (optionally only those
+    in one section family, e.g. every role suggestion)."""
+    if status not in {"accepted", "rejected"}:
+        raise ValueError("Bulk review accepts or rejects")
+    changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id == proposal.id)))
+    touched = []
+    for change in changes:
+        if change.status != "pending":
+            continue
+        if section_prefix and not change.section.startswith(section_prefix):
+            continue
+        change.status = status
+        change.edited_text = None
+        change.reviewed_at = utcnow()
+        session.add(change)
+        touched.append(change)
+    session.add(TailoringAudit(proposal_id=proposal.id, event="changes_reviewed_in_bulk", details={"status": status, "count": len(touched), "section_prefix": section_prefix}))
+    session.commit()
+    for change in touched:
+        session.refresh(change)
+    return touched
 
 
 def review_change(session: Session, change: TailoringChange, status: str, edited_text: str | None) -> TailoringChange:
