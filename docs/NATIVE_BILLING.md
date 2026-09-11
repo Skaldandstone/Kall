@@ -56,9 +56,11 @@ Google Play Console and App Store Connect before submission.
    The secret record must be a single JSON object holding all three keys: the
    API task definition reads each key with `ValueFrom <arn>:<KEY>::`, and a
    task that references a JSON key on a plain-string secret fails at secret
-   retrieval before the application starts. The current
-   `prod/kall/revenuecat-live20260908` value is a plain string and must be
-   rewritten as JSON before `RevenueCatSecretArn` points at it.
+   retrieval before the application starts. The production record is
+   `prod/kall/revenuecat` (the earlier `prod/kall/revenuecat-live20260908`
+   held the same JSON but its ARN cannot satisfy the template's
+   `RevenueCatSecretArn` pattern, which allows only one hyphen after
+   `revenuecat`).
 4. Deploy migration `20260908_0034`. Enable native billing in the production
    stack with the two Google product IDs and accepted environments
    `PRODUCTION,SANDBOX` for closed testing. The product ID parameters take the
@@ -134,9 +136,17 @@ prohibit pointing an app at an external checkout for a digital subscription.
   `kall_plus_monthly:monthly` and `kall_premium_monthly:monthly` (published,
   backwards compatible), attached to the `plus` and `premium` entitlements,
   and offering `default` ("Kall plans", `ofrng567f288b22`) with packages
-  `plus` and `premium`. The Google Play side of RevenueCat is complete; what
-  remains before enabling native billing is the secret rewrite and the stack
-  and EAS activation described in the activation order above.
+  `plus` and `premium`. The Google Play side of RevenueCat is complete.
+- Native billing is enabled in the production stack as of 11 September 2026
+  (00:10 UTC): `EnableRevenueCatNative=true`, `RevenueCatSecretArn` →
+  `prod/kall/revenuecat` (JSON with the webhook authorization, signing secret,
+  and the V1 secret API key `kall-portal` used by the staff portal),
+  `RevenueCatGooglePlusProductId=kall_plus_monthly:monthly`,
+  `RevenueCatGooglePremiumProductId=kall_premium_monthly:monthly`,
+  `RevenueCatAcceptedEnvironments=PRODUCTION,SANDBOX`. Apple product IDs stay
+  empty until the App Store side is ready. EAS production carries
+  `KALL_MOBILE_PURCHASES_ENABLED=1`; the first purchases-enabled Android build
+  goes to the closed alpha track for license-tester verification.
 - Clerk production has both Android and iOS native applications registered. The
   Apple Services ID and callback domain exist, but Apple sign-in remains disabled
   until the exposed one-time Apple key is revoked and replaced safely.
