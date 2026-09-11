@@ -9,7 +9,6 @@ from sqlmodel import Session, select
 from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
-from kall.services.job_search_aggregation import aggregate_job_search
 from kall.models import (
     CareerPage,
     CareerProfile,
@@ -21,6 +20,7 @@ from kall.models import (
     Contact,
     User,
 )
+from kall.services.job_search_aggregation import aggregate_job_search
 
 router = APIRouter(prefix="/me/consulting", tags=["consulting"])
 
