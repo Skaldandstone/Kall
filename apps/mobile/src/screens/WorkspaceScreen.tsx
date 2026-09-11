@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
   fetchResumeStudio,
 } from "../api/workspace";
 import type { ProfileStackParamList } from "../navigation/types";
+import { WEB_BASE_URL } from "../lib/web";
 import { theme } from "../theme";
 import { Card, PageHeader, StatusMessage } from "../components/ui";
 
@@ -154,6 +156,36 @@ export default function WorkspaceScreen({ navigation }: Props) {
           </Pressable>
         ))}
       </View>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Sign-in and security. Email address, password, two-step verification, connected accounts"
+        accessibilityHint="Opens your Kall account settings in your browser"
+        style={styles.row}
+        onPress={() => void Linking.openURL(`${WEB_BASE_URL}/account`).catch(() => undefined)}
+      >
+        <View style={styles.rowCopy}>
+          <Text style={styles.rowTitle}>Sign-in and security</Text>
+          <Text style={styles.rowDetail}>Email, password, two-step verification, connected accounts</Text>
+        </View>
+        <Text accessible={false} style={styles.chevron}>
+          ↗
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Get help. Email support, privacy requests, and security reports"
+        accessibilityHint="Opens Kall support in your browser"
+        style={styles.row}
+        onPress={() => void Linking.openURL(`${WEB_BASE_URL}/support`).catch(() => undefined)}
+      >
+        <View style={styles.rowCopy}>
+          <Text style={styles.rowTitle}>Get help</Text>
+          <Text style={styles.rowDetail}>Email support, privacy requests, security reports</Text>
+        </View>
+        <Text accessible={false} style={styles.chevron}>
+          ↗
+        </Text>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         style={styles.signOut}

@@ -20,6 +20,7 @@ import {
   type ReviewData,
 } from "../api/applications";
 import { ApiError } from "../api/client";
+import PackageReview from "../components/PackageReview";
 import SubmissionSection from "../components/SubmissionSection";
 import { theme } from "../theme";
 import type { ApplicationsStackParamList } from "../navigation/types";
@@ -43,6 +44,14 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<number, string>>({});
+  const [documentsReady, setDocumentsReady] = useState(false);
+
+  const openSensitiveDetails = useCallback(() => {
+    const tabs = navigation.getParent() as
+      | { navigate: (name: string, params: object) => void }
+      | undefined;
+    tabs?.navigate("ProfileTab", { screen: "SensitiveDetails" });
+  }, [navigation]);
 
   const load = useCallback(async () => {
     try {
@@ -169,9 +178,24 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {review && inReview && review.questions.length > 0 ? (
+      {inReview ? (
+        <PackageReview
+          applicationId={applicationId}
+          company={company}
+          onOpenTailoring={() => navigation.navigate("Tailoring", { applicationId, company, role })}
+          onOpenSensitiveDetails={openSensitiveDetails}
+          onDocumentsReady={setDocumentsReady}
+        />
+      ) : null}
+
+      {review && inReview ? (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Application answers</Text>
+          <Text style={styles.cardLabel}>Screening answers</Text>
+          {review.questions.length === 0 ? (
+            <Text style={styles.issue}>
+              This posting has no screening questions Kall could detect. Any the employer asks will be on their form.
+            </Text>
+          ) : null}
           {review.questions.map((question) => {
             const answer = review.answers.find(
               (item) => item.question_id === question.id,
@@ -208,21 +232,31 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
               ["sensitive_fields_confirmed", "Sensitive fields checked"],
               ["attestations_confirmed", "Attestations confirmed"],
             ] as const
-          ).map(([key, label]) => (
-            <View key={key} style={styles.confirmRow}>
-              <Text style={styles.confirmLabel}>{label}</Text>
-              <Switch
-                value={Boolean(review.review[key])}
-                onValueChange={(value) =>
-                  setReview({
-                    ...review,
-                    review: { ...review.review, [key]: value },
-                  })
-                }
-                trackColor={{ false: theme.border, true: theme.accent }}
-              />
-            </View>
-          ))}
+          ).map(([key, label]) => {
+            const locked = key === "documents_confirmed" && !documentsReady;
+            return (
+              <View key={key} style={styles.confirmRow}>
+                <View style={styles.confirmCopy}>
+                  <Text style={styles.confirmLabel}>{label}</Text>
+                  {locked ? (
+                    <Text style={styles.confirmHint}>Finish the resume and cover letter above first.</Text>
+                  ) : null}
+                </View>
+                <Switch
+                  accessibilityLabel={label}
+                  disabled={locked}
+                  value={Boolean(review.review[key])}
+                  onValueChange={(value) =>
+                    setReview({
+                      ...review,
+                      review: { ...review.review, [key]: value },
+                    })
+                  }
+                  trackColor={{ false: theme.border, true: theme.accent }}
+                />
+              </View>
+            );
+          })}
           <Pressable
             accessibilityRole="button"
             style={styles.secondaryButton}
@@ -234,25 +268,25 @@ export default function ApplicationDetailScreen({ route, navigation }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Tailored resume and documents</Text>
-        <Text style={styles.readiness}>Review Kall's proposed changes</Text>
-        <Text style={styles.issue}>
-          Accept, edit, or reject each change, then generate the resume as a
-          PDF or Word file and draft a cover letter.
-        </Text>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate("Tailoring", { applicationId, company, role })}
-          accessibilityRole="button"
-        >
-          <Text style={styles.secondaryButtonText}>Open tailored resume</Text>
-        </Pressable>
-      </View>
+      {!inReview ? (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Tailored resume and documents</Text>
+          <Text style={styles.issue}>
+            The resume, cover letter, and generated files for this application.
+          </Text>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate("Tailoring", { applicationId, company, role })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryButtonText}>Open tailored resume</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {!canApprove && inReview ? (
         <Text style={styles.guidance} accessibilityRole="summary">
-          Complete the review checklist and required answers before approval.
+          Read the package above, then confirm each checklist item and save the review before approval.
         </Text>
       ) : null}
 
@@ -400,5 +434,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  confirmLabel: { flex: 1, color: theme.text, fontSize: 14, fontWeight: "600" },
+  confirmCopy: { flex: 1 },
+  confirmLabel: { color: theme.text, fontSize: 14, fontWeight: "600" },
+  confirmHint: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
 });

@@ -166,7 +166,8 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       );
       await page.getByRole("tab", { name: "Consulting", exact: true }).click();
       await expect(page.getByText("Find work, then build the pipeline.")).toBeVisible();
-      await expect(page.getByText("Ask Kall to find consulting leads")).toBeVisible();
+      await expect(page.getByText("Consulting openings for you")).toBeVisible();
+      await expect(page.getByText("Set up your consulting offer")).toBeVisible();
       await page.getByRole("tab", { name: "Job search", exact: true }).click();
       await expect(
         page.getByText("Kall scans your sources and brings the strongest matches here."),
@@ -194,6 +195,138 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
         page.getByText("No applications yet", { exact: true }),
       ).toBeVisible();
       await expectNoSeriousAccessibilityViolations(page, "Applications");
+    });
+
+    await test.step("An application in review shows the package it will be sent with", async () => {
+      const application = {
+        id: 41,
+        status: "review_required",
+        job_id: 7,
+        career_profile_id: 3,
+        base_resume_id: 12,
+        prepared_payload: {
+          company: "VetsEZ",
+          title: "Technical Director of Quality Assurance",
+          tailoring_proposal_id: 5,
+          cover_letter_proposal_id: 6,
+          generated_document_id: 9,
+          customize_resume: true,
+          generate_cover_letter: true,
+        },
+      };
+      await page.route("**/api/me/applications", (route) =>
+        route.fulfill({
+          json: {
+            summary: { total: 1, active: 1, needs_review: 1, submitted: 0, best_match: 88 },
+            stages: [
+              {
+                key: "review",
+                label: "Needs review",
+                count: 1,
+                items: [{ id: 41, status: "review_required", stage: "review", company: "VetsEZ", role: "Technical Director of Quality Assurance" }],
+              },
+            ],
+            next_decision: null,
+            generated_at: new Date().toISOString(),
+          },
+        }),
+      );
+      await page.route("**/api/applications/41/review", (route) =>
+        route.fulfill({
+          json: {
+            application,
+            review: {
+              status: "review_required",
+              readiness_issues: ["Confirm final resume and cover letter"],
+              documents_confirmed: false,
+              answers_confirmed: false,
+              sensitive_fields_confirmed: false,
+              attestations_confirmed: false,
+            },
+            questions: [],
+            answers: [],
+          },
+        }),
+      );
+      await page.route("**/api/applications/41", (route) => route.fulfill({ json: application }));
+      await page.route("**/api/me/resume-studio", (route) =>
+        route.fulfill({ json: { resumes: [{ id: 12, name: "QA leadership resume", version: 3, tags: [], industries: [], target_titles: [], is_default: true, updated_at: "2026-09-01T00:00:00Z", readiness: { score: 90, strengths: [], gaps: [], explanation: "" } }], profiles: [] } }),
+      );
+      await page.route("**/api/tailoring/proposals/5", (route) =>
+        route.fulfill({
+          json: {
+            proposal: { id: 5, job_id: 7, resume_id: 12, status: "finalized", unsupported_requirements: [], finalized_at: "2026-09-10T00:00:00Z" },
+            changes: [
+              { id: 1, section: "summary", original_text: "Led QA.", proposed_text: "Led QA for federal health platforms.", edited_text: null, reason: "Match the posting", evidence: [], immutable_tokens: [], status: "accepted" },
+              { id: 2, section: "skills", original_text: "Jira", proposed_text: "Jira, Xray", edited_text: null, reason: "Tooling", evidence: [], immutable_tokens: [], status: "rejected" },
+            ],
+          },
+        }),
+      );
+      await page.route("**/api/cover-letters/6", (route) =>
+        route.fulfill({
+          json: {
+            proposal: { id: 6, status: "finalized", emphasis: "balanced", tone: "formal", length: "standard" },
+            changes: [
+              { id: 61, position: 0, proposed_text: "I have led quality organizations through FedRAMP audits.", edited_text: null, status: "accepted" },
+              { id: 62, position: 1, proposed_text: "This paragraph was cut.", edited_text: null, status: "rejected" },
+            ],
+          },
+        }),
+      );
+      await page.route("**/api/documents/9", (route) =>
+        route.fulfill({
+          json: {
+            document: { id: 9, template_key: "executive", checksum: "abc", document_type: "resume", content_json: { sections: [{ section: "summary", text: "Led QA for federal health platforms." }, { section: "experience", text: "Director of QA, 2019-2026." }] } },
+            artifacts: [{ id: 1, format: "pdf", mime_type: "application/pdf", byte_size: 1024 }, { id: null, format: "docx", mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", byte_size: null }],
+            coverage: null,
+          },
+        }),
+      );
+      await page.route("**/api/applications/41/autofill-pack", (route) =>
+        route.fulfill({
+          json: {
+            application_id: 41,
+            job: { company: "VetsEZ", title: "Technical Director of Quality Assurance", url: "https://jobs.example.com/vetsez/qa" },
+            provider: "manual",
+            fields: [
+              { path: "identity.legal_name", label: "Legal name", value: "Test Candidate", tier: "always", requires_confirmation: false },
+              { path: "identity.phone", label: "Phone", value: "555-0100", tier: "opt_in", requires_confirmation: false },
+              { path: "work_authorization.authorized", label: "Authorized to work in the United States", value: true, tier: "always_confirm", requires_confirmation: true },
+            ],
+            resume: null,
+            screening_answers: [],
+            omitted: [{ path: "identity.address", label: "Street address", reason: "Not allowed for autofill" }],
+          },
+        }),
+      );
+      await page.route("**/api/submissions", (route) => route.fulfill({ json: [] }));
+
+      await page.getByRole("tab", { name: "Today" }).click();
+      await page.getByRole("tab", { name: "Applications" }).click();
+      await page.getByText("Technical Director of Quality Assurance", { exact: true }).first().click();
+
+      await expect(page.getByText("QA leadership resume", { exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/Tailoring finalized: 1 change kept, 1 rejected/)).toBeVisible();
+      await expect(page.getByText("Led QA for federal health platforms.").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Open PDF" })).toBeVisible();
+      await expect(page.getByText("I have led quality organizations through FedRAMP audits.")).toBeVisible();
+      await expect(page.getByText("This paragraph was cut.")).toHaveCount(0);
+      await expect(page.getByText("Test Candidate", { exact: true })).toBeVisible();
+      await expect(page.getByText("Sensitive fields you have allowed")).toBeVisible();
+      await expect(page.getByText("Street address: Not allowed for autofill")).toBeVisible();
+      await expect(page.getByText("Authorized to work in the United States")).toBeVisible();
+      await expect(page.getByText(/no screening questions Kall could detect/)).toBeVisible();
+      await expect(page.getByLabel("Documents reviewed")).toBeEnabled();
+      await expect(page.getByText("Finish the resume and cover letter above first.")).toHaveCount(0);
+      await expectNoSeriousAccessibilityViolations(page, "Application review");
+
+      for (const pattern of [
+        "**/api/me/applications", "**/api/applications/41/review", "**/api/applications/41", "**/api/me/resume-studio",
+        "**/api/tailoring/proposals/5", "**/api/cover-letters/6", "**/api/documents/9", "**/api/applications/41/autofill-pack", "**/api/submissions",
+      ]) {
+        await page.unroute(pattern);
+      }
     });
 
     await test.step("Growth tab renders", async () => {
@@ -242,10 +375,19 @@ test("sign in as an invited user, browse every tab, and sign out", async ({
       await page.getByRole("button", { name: "Confirm roles entry" }).click();
       await expect(page.getByText("Head of Quality", { exact: true })).toBeVisible();
       await page.getByText("Keep this answer", { exact: true }).click();
-      for (let question = 2; question < 7; question += 1) {
-        await page.getByText("Leave open for now", { exact: true }).click();
+      // Ten questions as of the guided-profile rewrite: required ones offer
+      // "Leave open for now", optional ones offer "Skip this" instead. Walk
+      // whichever is on screen until the review step appears.
+      const review = page.getByText("Review your direction");
+      for (let guard = 0; guard < 12 && !(await review.isVisible()); guard += 1) {
+        const leaveOpen = page.getByText("Leave open for now", { exact: true });
+        const skip = page.getByText("Skip this", { exact: true });
+        await expect(leaveOpen.or(skip).or(review)).toBeVisible();
+        if (await review.isVisible()) break;
+        if (await leaveOpen.isVisible()) await leaveOpen.click();
+        else await skip.click();
       }
-      await expect(page.getByText("Review your direction")).toBeVisible();
+      await expect(review).toBeVisible();
       await page.getByText("Create this profile", { exact: true }).click();
       await expect.poll(() => createdProfile).toMatchObject({
         name: "Quality leadership",

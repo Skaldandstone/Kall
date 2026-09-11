@@ -58,7 +58,13 @@ export type Coverage = {
 };
 
 export type DocumentDetail = {
-  document: { id: number; template_key: string; checksum: string; document_type: string };
+  document: {
+    id: number;
+    template_key: string;
+    checksum: string;
+    document_type: string;
+    content_json?: { sections?: Array<{ section: string; text: string }> };
+  };
   artifacts: Artifact[];
   coverage: Coverage | null;
 };
