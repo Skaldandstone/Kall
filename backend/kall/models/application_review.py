@@ -67,7 +67,7 @@ class InterviewPrep(TimestampMixin, table=True):
     #: Deprecated in favor of question_bank; kept populated (question text
     #: only) so nothing reading the old shape breaks.
     questions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    #: {likely_product, likely_tech_stack: list[str], summary}
+    #: {likely_product, likely_tools_or_systems: list[str], summary}
     company_context: dict = Field(default_factory=dict, sa_column=Column(JSON))
     #: [{question, category, answer_prompt, resources: list[str]}, ...]
     question_bank: list[dict] = Field(default_factory=list, sa_column=Column(JSON))

@@ -34,6 +34,24 @@ You will lead quality strategy across the organization.
     assert result["inferred_signals"]
 
 
+def test_job_analyzer_recognizes_non_software_skills() -> None:
+    """Regression test: SKILL_TERMS was entirely software/cloud/QA vocabulary,
+    so a retail, hospitality, or healthcare posting -- with no Python or AWS
+    anywhere in it -- returned empty required/preferred skills even when the
+    posting clearly named real, matchable requirements."""
+    result = analyze_job(
+        """Restaurant Shift Lead
+Required: Food Safety certification and Point of Sale experience.
+Preferred: ServSafe and prior Guest Service experience.
+You will lead the team during busy service periods.
+"""
+    )
+    assert "food safety" in result["required_skills"]
+    assert "point of sale" in result["required_skills"]
+    assert "servsafe" in result["preferred_skills"]
+    assert "guest service" in result["preferred_skills"]
+
+
 def test_parser_does_not_invent_metrics() -> None:
     parsed, _ = parse_resume("Improved release quality across the platform.")
     assert parsed["achievements"] == []

@@ -63,6 +63,37 @@ SKILL_VOCABULARY: tuple[str, ...] = (
     # Office and finance
     "Microsoft Excel", "Microsoft Word", "Microsoft PowerPoint", "Salesforce",
     "SAP", "QuickBooks", "Financial Modeling", "Forecasting",
+    # Retail, food service, and hospitality
+    "Point of Sale Systems", "Cash Handling", "Inventory Management",
+    "Merchandising", "Loss Prevention", "Visual Merchandising", "Upselling",
+    "Guest Services", "Food Safety", "ServSafe", "Food Handler Certification",
+    "Menu Planning", "Line Cooking", "Bartending", "Barista", "Catering",
+    "Banquet Service", "Housekeeping", "Front Desk Operations",
+    "Reservation Systems", "Concierge Services", "Event Coordination",
+    # Skilled trades and industrial
+    "Forklift Operation", "OSHA Compliance", "Blueprint Reading",
+    "Electrical Wiring", "Plumbing", "HVAC", "Welding", "Carpentry",
+    "Machining", "Equipment Maintenance", "Preventive Maintenance",
+    "Quality Control", "Lean Manufacturing", "Six Sigma", "Supply Chain",
+    "Logistics", "Warehouse Operations", "Commercial Driver's License",
+    "DOT Compliance", "Route Planning",
+    # Aviation
+    "Commercial Pilot License", "Airline Transport Pilot", "Instrument Rating",
+    "Multi-Engine Rating", "Flight Instruction", "Aircraft Maintenance",
+    "A&P Certification", "Air Traffic Control", "Crew Resource Management",
+    "FAA Regulations", "Preflight Inspection",
+    # Healthcare
+    "Patient Care", "Electronic Health Records", "HIPAA Compliance",
+    "Phlebotomy", "CPR Certification", "BLS Certification", "ACLS Certification",
+    "Medical Coding", "Medical Billing", "Clinical Documentation",
+    "Vital Signs Monitoring", "Case Management", "Triage",
+    # Sales and customer service
+    "Customer Service", "Client Relations", "Cold Calling", "Lead Generation",
+    "Account Management", "Retail Sales", "Territory Management",
+    "CRM Software", "Conflict Resolution", "De-escalation",
+    # Education and childcare
+    "Curriculum Development", "Classroom Management", "Lesson Planning",
+    "Child Development", "Special Education", "Tutoring",
 )
 
 _BY_FOLDED = {name.casefold(): name for name in SKILL_VOCABULARY}

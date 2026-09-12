@@ -57,7 +57,10 @@ def test_production_secrets_are_isolated_retained_and_least_privilege() -> None:
         template, "  BootstrapExecutionRole:\n", "  MigrationExecutionRole:\n"
     )
     migration_execution = _section(
-        template, "  MigrationExecutionRole:\n", "  WebExecutionRole:\n"
+        template, "  MigrationExecutionRole:\n", "  JobRunnerExecutionRole:\n"
+    )
+    jobrunner_execution = _section(
+        template, "  JobRunnerExecutionRole:\n", "  JobRunnerTaskRole:\n"
     )
 
     for secret in (app_secret, sensitive_secret, runtime_secret, migrator_secret):
@@ -75,6 +78,11 @@ def test_production_secrets_are_isolated_retained_and_least_privilege() -> None:
     assert "!Ref MigratorDatabaseSecret" in migration_execution
     assert "RuntimeDatabaseSecret" not in migration_execution
     assert "MasterUserSecret" not in migration_execution
+    # The scheduled-job runner (kall.jobs.*) shares the API's runtime database
+    # role, same as the API service itself -- never the migrator or master.
+    assert "!Ref RuntimeDatabaseSecret" in jobrunner_execution
+    assert "MigratorDatabaseSecret" not in jobrunner_execution
+    assert "MasterUserSecret" not in jobrunner_execution
     assert "secret:prod/kall/clerk-" in template
     assert "secret:prod/kall/access-" in template
     assert "secret:dev/kall" not in template

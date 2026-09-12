@@ -33,7 +33,7 @@ _MAX_GRADED_ANSWERS = 8
 _FALLBACK_PREP = {
     "company_context": {
         "likely_product": "Not available",
-        "likely_tech_stack": [],
+        "likely_tools_or_systems": [],
         "summary": "Company-specific context needs an OpenAI key configured -- these are generic prompts instead.",
     },
     "question_bank": [
@@ -55,8 +55,8 @@ _FALLBACK_PREP = {
     "questions_to_ask": [
         {"stage": "phone screen", "question": "What does a typical day in this role look like?"},
         {"stage": "phone screen", "question": "What made you decide to open this role now?"},
-        {"stage": "technical/onsite", "question": "How is the team structured, and who would I work with most closely?"},
-        {"stage": "technical/onsite", "question": "What are the biggest challenges the team is facing right now?"},
+        {"stage": "in-person", "question": "How is the team structured, and who would I work with most closely?"},
+        {"stage": "in-person", "question": "What are the biggest challenges the team is facing right now?"},
         {"stage": "final round", "question": "What does success look like in the first 90 days?"},
         {"stage": "final round", "question": "How is performance evaluated on this team?"},
     ],
@@ -79,10 +79,10 @@ _SCHEMA = {
             "type": "object",
             "properties": {
                 "likely_product": {"type": "string"},
-                "likely_tech_stack": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
+                "likely_tools_or_systems": {"type": "array", "maxItems": 8, "items": {"type": "string"}},
                 "summary": {"type": "string"},
             },
-            "required": ["likely_product", "likely_tech_stack", "summary"],
+            "required": ["likely_product", "likely_tools_or_systems", "summary"],
             "additionalProperties": False,
         },
         "question_bank": {
@@ -130,9 +130,14 @@ def generate_interview_prep(job: Job, analysis: JobRequirementAnalysis | None) -
 
     prompt = (
         "You are helping a candidate prepare for an interview. Using only the job posting details below, "
-        "infer the company's likely product and tech stack, generate a mixed behavioral/technical question "
-        "bank, and suggest good questions for the candidate to ask back at different interview stages "
-        "(e.g. phone screen, technical/onsite, final round).\n\n"
+        "infer the company's likely product or service and the tools, systems, or equipment the role likely "
+        "involves (software for an office role, a POS or kitchen equipment for food service, aircraft type "
+        "and avionics for aviation, an EHR system for healthcare, and so on -- infer from what the posting "
+        "actually describes, never assume a software/office job by default). Generate a mixed behavioral and "
+        "role-specific question bank, and suggest good questions for the candidate to ask back at different "
+        "interview stages, naming those stages from what the posting itself implies (e.g. phone screen, "
+        "in-person or hands-on assessment, final round -- not necessarily 'technical'/'onsite' if this isn't "
+        "an office job).\n\n"
         "Be explicit in company_context.summary that this is your best inference from the posting, not "
         "verified research -- the candidate should still look the company up themselves. For each question "
         "in question_bank, answer_prompt should guide HOW to structure a strong answer (e.g. which "

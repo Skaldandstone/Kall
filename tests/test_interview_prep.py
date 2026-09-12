@@ -7,7 +7,7 @@ contract (openai_api_key unset -> fallback), not by mocking a live call.
 """
 
 from kall.models import Application, CareerProfile, InterviewPrep, Job
-from kall.services.interview_prep import _FALLBACK_PREP
+from kall.services.interview_prep import _FALLBACK_PREP, generate_interview_prep
 from sqlmodel import Session, select
 
 API = "/api/me/applications"
@@ -28,6 +28,29 @@ def _application(engine, user_id: int) -> int:
         session.commit()
         session.refresh(application)
         return application.id
+
+
+def test_fallback_prep_does_not_assume_a_software_interview_pipeline() -> None:
+    """Regression test: the no-AI-key fallback used "technical/onsite" as a
+    stage label and the schema's field was literally named
+    likely_tech_stack -- both assumed a software company's hiring pipeline,
+    which reads oddly for a retail, hospitality, trades, or healthcare
+    application."""
+    assert "likely_tools_or_systems" in _FALLBACK_PREP["company_context"]
+    assert "likely_tech_stack" not in _FALLBACK_PREP["company_context"]
+    stages = {item["stage"] for item in _FALLBACK_PREP["questions_to_ask"]}
+    assert not any("technical" in stage for stage in stages)
+
+
+def test_generate_interview_prep_returns_the_renamed_field_without_a_key(engine) -> None:
+    with Session(engine) as session:
+        job = Job(source="test", company="Acme", title="Line Cook", description="Prep and cook food to order.", url="https://x/1")
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        prep, used_ai = generate_interview_prep(job, None)
+    assert used_ai is False
+    assert "likely_tools_or_systems" in prep["company_context"]
 
 
 def test_first_view_generates_a_fallback_prep(client, engine) -> None:
@@ -106,7 +129,7 @@ def test_a_real_ai_generation_consumes_the_ai_actions_quota(client, engine, monk
     from kall.services.quota import snapshot
 
     payload = {
-        "company_context": {"likely_product": "Widgets", "likely_tech_stack": ["Python"], "summary": "Inferred from the posting."},
+        "company_context": {"likely_product": "Widgets", "likely_tools_or_systems": ["Python"], "summary": "Inferred from the posting."},
         "question_bank": [{"question": "What drew you to this role?", "category": "general", "answer_prompt": "Be specific.", "resources": []}],
         "questions_to_ask": [{"stage": "phone screen", "question": "What does success look like?"}],
     }

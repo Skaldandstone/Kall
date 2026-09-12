@@ -33,6 +33,22 @@ SKILL_TERMS = {
     "docker", "kubernetes", "terraform", "jenkins", "github", "gitlab", "selenium",
     "playwright", "cypress", "appium", "pytest", "sql", "api", "ci/cd", "devops",
     "saas", "security", "quality engineering", "machine learning", "artificial intelligence",
+    # Retail, food service, and hospitality -- multi-word or distinctive enough
+    # not to collide with unrelated substrings, matching this set's existing
+    # "small and unambiguous" constraint (see skill_vocabulary.py's much
+    # larger whole-term vocabulary for the broader, exact-match list).
+    "point of sale", "cash handling", "inventory management", "food safety",
+    "servsafe", "guest service", "housekeeping",
+    # Skilled trades and industrial
+    "forklift", "osha", "hvac", "welding", "blueprint reading",
+    "commercial driver's license", "warehouse operations", "supply chain",
+    # Aviation
+    "commercial pilot license", "instrument rating", "faa", "air traffic control",
+    # Healthcare
+    "patient care", "hipaa", "phlebotomy", "medical billing", "medical coding",
+    "electronic health records",
+    # Sales and customer service
+    "customer service", "lead generation", "account management", "crm",
 }
 LEADERSHIP_TERMS = {"director", "head", "manager", "lead", "strategy", "organization", "team", "executive"}
 

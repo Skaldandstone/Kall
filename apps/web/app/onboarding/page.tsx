@@ -361,7 +361,7 @@ export default function Onboarding() {
                 <ChipsInput
                   name="industries"
                   label="Industries"
-                  placeholder="SaaS, FinTech"
+                  placeholder="Hospitality, Healthcare, Retail"
                   defaultValue={suggestion?.industries || []}
                   helpText="Short, specific industry names work best -- they're matched as exact text against job postings."
                 />

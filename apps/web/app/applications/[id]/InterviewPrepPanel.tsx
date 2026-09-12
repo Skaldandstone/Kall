@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 const API = '/api/kall';
 const QUIZ_SIZE = 5;
 
-type CompanyContext = { likely_product: string; likely_tech_stack: string[]; summary: string };
+type CompanyContext = { likely_product: string; likely_tools_or_systems: string[]; summary: string };
 type QuestionBankItem = { question: string; category: string; answer_prompt: string; resources: string[] };
 type QuestionToAsk = { stage: string; question: string };
 type Prep = {
@@ -205,9 +205,9 @@ export default function InterviewPrepPanel({ applicationId, interviewStage }: { 
       {prep.company_context.likely_product && prep.company_context.likely_product !== 'Not available' && (
         <p style={{ marginTop: 6 }}><strong>Likely product:</strong> {prep.company_context.likely_product}</p>
       )}
-      {prep.company_context.likely_tech_stack.length > 0 && (
+      {prep.company_context.likely_tools_or_systems.length > 0 && (
         <div className="tags" style={{ marginTop: 8 }}>
-          {prep.company_context.likely_tech_stack.map((tech) => <span className="tag" key={tech}>{tech}</span>)}
+          {prep.company_context.likely_tools_or_systems.map((tech) => <span className="tag" key={tech}>{tech}</span>)}
         </div>
       )}
 

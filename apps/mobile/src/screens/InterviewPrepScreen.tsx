@@ -240,9 +240,9 @@ export default function InterviewPrepScreen({ route }: Props) {
         {prep.company_context.likely_product && prep.company_context.likely_product !== 'Not available' && (
           <Text style={[styles.body, styles.spaceTop]}><Text style={styles.bulletStrong}>Likely product: </Text>{prep.company_context.likely_product}</Text>
         )}
-        {prep.company_context.likely_tech_stack.length > 0 && (
+        {prep.company_context.likely_tools_or_systems.length > 0 && (
           <View style={styles.chipRow}>
-            {prep.company_context.likely_tech_stack.map((tech) => (
+            {prep.company_context.likely_tools_or_systems.map((tech) => (
               <View style={styles.chip} key={tech}>
                 <Text style={styles.chipText}>{tech}</Text>
               </View>

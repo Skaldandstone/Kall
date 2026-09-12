@@ -28,6 +28,20 @@ def test_a_known_skill_is_never_flagged(typed: str) -> None:
     assert canonical_skill(typed) is not None
 
 
+@pytest.mark.parametrize(
+    "typed",
+    ["Food Safety", "ServSafe", "Forklift Operation", "Patient Care",
+     "Commercial Pilot License", "Customer Service", "HVAC"],
+)
+def test_non_software_skills_are_recognized(typed: str) -> None:
+    """Regression test: the vocabulary was entirely software/tech terms, so
+    every retail, hospitality, trades, aviation, and healthcare skill a
+    person actually typed was treated as unrecognized rather than known --
+    silently worse spellcheck coverage for anyone outside software."""
+    assert canonical_skill(typed) is not None
+    assert suggest_skill(typed) is None
+
+
 @pytest.mark.parametrize("typed", ["Elm", "Go", "R", "Rsut"])
 def test_short_terms_are_left_alone(typed: str) -> None:
     """Elm and Helm score 0.86 against each other and are both real skills.

@@ -1,6 +1,6 @@
 import { apiRequest } from './client';
 
-export type CompanyContext = { likely_product: string; likely_tech_stack: string[]; summary: string };
+export type CompanyContext = { likely_product: string; likely_tools_or_systems: string[]; summary: string };
 export type QuestionBankItem = { question: string; category: string; answer_prompt: string; resources: string[] };
 export type QuestionToAsk = { stage: string; question: string };
 export type InterviewPrep = {
