@@ -49,6 +49,28 @@ def test_summary_paragraph_falls_back_to_the_first_block_when_nothing_else_quali
     assert _find_summary_paragraph(text) == "James"
 
 
+def test_summary_paragraph_skips_a_skills_and_education_inventory_block() -> None:
+    """Regression test: a resume's "Languages & Tools" list followed by an
+    education block reads as long, contact-free prose by word count alone,
+    so the header-noise check waved it through as "the summary" -- producing
+    a garbled proposal that mashed a skills list into an education GPA line
+    instead of touching the real narrative summary below it."""
+    text = (
+        "James Shattuck\n\n"
+        "Languages & Tools: Java, JavaScript, TypeScript, Python, React, Node.js, "
+        "AWS, Docker, Kubernetes, PostgreSQL, Terraform. Education: B.S. Computer "
+        "Science, State University, GPA: 3.7\n\n"
+        "Head of Quality Engineering with a decade of experience scaling test "
+        "strategies for SaaS, FinTech, and IoT platforms.\n\n"
+        "Experience\n\n"
+        "Led the platform team at Acme."
+    )
+    assert _find_summary_paragraph(text) == (
+        "Head of Quality Engineering with a decade of experience scaling test "
+        "strategies for SaaS, FinTech, and IoT platforms."
+    )
+
+
 def test_summary_paragraph_handles_empty_text() -> None:
     assert _find_summary_paragraph("") == ""
 

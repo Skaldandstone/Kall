@@ -30,6 +30,7 @@ from kall.models import (
 )
 from kall.security import decrypt_sensitive
 from kall.services.intelligence import parse_resume
+from kall.services.resume import reflow_extracted_text
 from sqlmodel import Session, select
 
 Layout = dict[str, object]
@@ -108,7 +109,13 @@ def _tailored(sections: list[dict[str, str]], *keys: str) -> list[str]:
 def _parsed_fallback(resume: ResumeDocument | None) -> dict[str, list[str]]:
     if not resume or not (resume.extracted_text or "").strip():
         return {}
-    parsed, _ = parse_resume(resume.extracted_text or "")
+    # extracted_text is reflowed at upload time (services/resume.py), but a
+    # resume uploaded before that shipped still has the old, un-reflowed
+    # bytes on disk -- nothing ever repairs a ResumeDocument row itself.
+    # Reflowing here on every read means an old upload renders correctly
+    # without a migration, the same way the tailoring proposal GET repairs
+    # stale TailoringChange rows.
+    parsed, _ = parse_resume(reflow_extracted_text(resume.extracted_text or ""))
     return parsed.get("sections", {})
 
 

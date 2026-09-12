@@ -40,10 +40,37 @@ _PHONE_PATTERN = re.compile(r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b")
 _MIN_SUMMARY_WORDS = 5
 
 
+#: A resume's skills/tools/education block reads as real prose by word
+#: count and has no contact info in it, so the header-noise check alone
+#: waved it through as "the summary" -- concretely, a paragraph opening
+#: "Languages & Tools: Java, JavaScript, ... Education: ... GPA: 3.7" is an
+#: inventory, not a narrative summary, and proposing changes against it
+#: produces a "summary" that is really a copy of someone's skill list.
+_LIST_LABEL_PATTERN = re.compile(
+    r"^\s*(languages?(?:\s*&\s*|\s+and\s+)?tools?|tech(?:nical)?\s*(?:stack|skills)?|"
+    r"skills?|tools?|technologies|core competenc(?:y|ies)|certifications?|education)\s*:",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_list_block(paragraph: str) -> bool:
+    if _LIST_LABEL_PATTERN.match(paragraph):
+        return True
+    # Untagged inventories still read as a run of short comma-separated
+    # tokens with little real sentence structure -- many commas, almost no
+    # sentence-ending punctuation relative to length.
+    words = paragraph.split()
+    commas = paragraph.count(",")
+    sentences = len(re.findall(r"[.!?](?:\s|$)", paragraph))
+    return len(words) >= 8 and commas >= 6 and sentences <= 1
+
+
 def _looks_like_header_noise(paragraph: str) -> bool:
     if len(paragraph.split()) < _MIN_SUMMARY_WORDS:
         return True
-    return bool(_EMAIL_PATTERN.search(paragraph) or _PHONE_PATTERN.search(paragraph))
+    if _EMAIL_PATTERN.search(paragraph) or _PHONE_PATTERN.search(paragraph):
+        return True
+    return _looks_like_list_block(paragraph)
 
 
 _CONTACT_PATTERN = re.compile(rf"(?:{_EMAIL_PATTERN.pattern}|{_PHONE_PATTERN.pattern})")

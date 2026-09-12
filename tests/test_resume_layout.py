@@ -81,6 +81,32 @@ def test_layout_falls_back_to_the_parsed_resume_when_the_record_is_empty() -> No
     assert "QA Lead at Acme 2015 - 2020" in experience["paragraphs"]
 
 
+def test_layout_reflows_word_per_line_extraction_before_falling_back() -> None:
+    """Regression test: a resume uploaded before extracted_text was reflowed
+    at upload time still has the old pypdf word-per-line bytes on disk --
+    nothing repairs that row in place. Parsing it unreflowed put a single
+    word ("Led") in as the whole experience entry and dropped the rest of
+    the sentence, exactly like the "Experience" section that rendered one
+    word per line in production."""
+    with _session() as session:
+        user = User(email="stale@example.com", full_name="Stale Upload")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        resume = ResumeDocument(
+            user_id=user.id, name="r.pdf", file_path="x", mime_type="application/pdf", byte_size=1,
+            extracted_text=(
+                "Summary\n\nSeasoned\ntester\nwith\nyears\nof\nexperience.\n\n"
+                "Experience\n\nLed\nthe\nplatform\nteam\nat\nAcme.\n"
+            ),
+        )
+        session.add(resume)
+        session.commit()
+        layout = assemble_resume(session, user.id, [], resume)
+    experience = next(section for section in layout["sections"] if section["key"] == "experience")
+    assert experience["paragraphs"] == ["Led the platform team at Acme."]
+
+
 def test_every_template_renders_a_real_document_deterministically() -> None:
     with _session() as session:
         user = _user_with_record(session)
