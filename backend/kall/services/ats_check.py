@@ -29,6 +29,7 @@ class AtsCheck:
     label: str
     passed: bool
     detail: str
+    fix_href: str | None = None
 
 
 def _extract(pdf: bytes) -> tuple[list[str], int, list[str], int]:
@@ -60,15 +61,17 @@ def run_ats_checks(layout: dict, pdf: bytes) -> list[AtsCheck]:
     email = _EMAIL.search(flat)
     phone = _PHONE.search(flat)
     checks.append(AtsCheck("contact", "Email and phone can be read from the header", bool(email and phone),
-                           "Email and phone both extract." if email and phone else ("Email found, phone missing." if email else "No email address found in the header.")))
+                           "Email and phone both extract." if email and phone else ("Email found, phone missing." if email else "No email address found in the header."),
+                           fix_href=None if email and phone else "/settings/identity#identity-phone"))
 
     headings_present = [s for s in layout.get("sections", []) if str(s.get("title", "")).casefold() in STANDARD_HEADINGS]
     nonstandard = [str(s.get("title")) for s in layout.get("sections", []) if str(s.get("title", "")).casefold() not in STANDARD_HEADINGS]
     checks.append(AtsCheck("headings", "Section headings use standard names", not nonstandard,
                            "All headings are ones parsers recognise." if not nonstandard else f"Non-standard heading(s): {', '.join(nonstandard)}."))
-    checks.append(AtsCheck("core_sections", "Experience and skills sections are present",
-                           any(str(s.get("key")) == "experience" for s in layout.get("sections", [])) and any(str(s.get("key")) == "skills" for s in layout.get("sections", [])),
-                           "Both present." if headings_present else "Add work history and skills to the professional record."))
+    core_sections_ok = any(str(s.get("key")) == "experience" for s in layout.get("sections", [])) and any(str(s.get("key")) == "skills" for s in layout.get("sections", []))
+    checks.append(AtsCheck("core_sections", "Experience and skills sections are present", core_sections_ok,
+                           "Both present." if headings_present else "Add work history and skills to the professional record.",
+                           fix_href=None if core_sections_ok else "/profiles"))
 
     # Reading order: within each section, entries must extract in the order
     # they are listed -- a multi-column or table-mangled PDF scrambles this.

@@ -28,7 +28,7 @@ from kall.schemas import (
     ResumeMetadataUpdate,
     SearchSourceCreate,
 )
-from kall.security import encrypt_sensitive
+from kall.security import decrypt_sensitive, encrypt_sensitive
 from kall.services import quota
 from kall.services.account_deletion import delete_account
 from kall.services.admin import is_admin
@@ -104,6 +104,7 @@ def get_identity(current_user: User = Depends(get_current_user), session: Sessio
         email=current_user.email,
         full_name=current_user.full_name,
         preferred_name=(profile.preferred_name if profile else None) or current_user.full_name,
+        phone=decrypt_sensitive(profile.phone_encrypted) if profile and profile.phone_encrypted else None,
         city=profile.city if profile else None,
         state_region=(profile.state_region if profile else None) or current_user.state_region,
         country=(profile.country if profile else None) or current_user.country,

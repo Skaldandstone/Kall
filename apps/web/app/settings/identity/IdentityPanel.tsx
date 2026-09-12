@@ -7,6 +7,7 @@ type IdentityProfile = {
   email: string;
   full_name: string;
   preferred_name: string | null;
+  phone: string | null;
   city: string | null;
   state_region: string | null;
   country: string | null;
@@ -22,6 +23,7 @@ const emptyProfile: IdentityProfile = {
   email: '',
   full_name: '',
   preferred_name: '',
+  phone: '',
   city: '',
   state_region: '',
   country: '',
@@ -97,7 +99,7 @@ export default function IdentityPanel() {
           },
         body: JSON.stringify({
           preferred_name: profile.preferred_name || null,
-          phone: null,
+          phone: profile.phone || null,
           address: null,
           city: profile.city || null,
           state_region: profile.state_region || null,
@@ -137,15 +139,28 @@ export default function IdentityPanel() {
             <input className="input" type="email" value={profile.email} readOnly />
           </label>
         </div>
-        <label>
-          Preferred name
-          <input
-            className="input"
-            name="preferred_name"
-            value={profile.preferred_name ?? ''}
-            onChange={(event) => updateField('preferred_name', event.target.value)}
-          />
-        </label>
+        <div className="two">
+          <label>
+            Preferred name
+            <input
+              className="input"
+              name="preferred_name"
+              value={profile.preferred_name ?? ''}
+              onChange={(event) => updateField('preferred_name', event.target.value)}
+            />
+          </label>
+          <label>
+            Phone
+            <input
+              className="input"
+              id="identity-phone"
+              name="phone"
+              type="tel"
+              value={profile.phone ?? ''}
+              onChange={(event) => updateField('phone', event.target.value)}
+            />
+          </label>
+        </div>
         <div className="two">
           <label>
             Country
