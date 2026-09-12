@@ -22,6 +22,7 @@
     "expo-secure-store": "~57.0.3",
     "expo-sharing": "~57.0.18",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.22",
     "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -49,7 +50,9 @@
     "web": "expo start --web",
     "test:e2e": "playwright test",
     "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs",
-    "validate:android-play": "node scripts/validate-android-play.mjs"
+    "validate:android-play": "node scripts/validate-android-play.mjs",
+    "update:preview": "eas update --channel preview",
+    "update:production": "eas update --channel production"
   },
   "private": true
 }

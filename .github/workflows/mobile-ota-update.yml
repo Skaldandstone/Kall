@@ -1,0 +1,58 @@
+name: Publish mobile OTA update
+
+# Manual-only, matching the other mobile release workflows -- a person
+# should choose when a channel's installed builds pick up new JS, not have
+# it happen on every push. Unlike a native build, this does not consume EAS
+# build credits and does not go through app review; it only reaches
+# binaries already on the target channel's build profile (see
+# apps/mobile/README.md's "OTA updates (EAS Update)" section for which
+# profile maps to which channel, and what an OTA update cannot cover).
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Channel to publish to"
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+      message:
+        description: "Update message (shown in EAS Update history)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kall-mobile-ota-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+      - run: npm ci
+      - name: Publish update
+        run: |
+          eas update --channel "${{ inputs.channel }}" --non-interactive \
+            ${{ inputs.message != '' && format('--message "{0}"', inputs.message) || '' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

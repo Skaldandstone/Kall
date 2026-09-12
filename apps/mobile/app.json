@@ -30,6 +30,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fc23feb0-611d-40d5-bb41-a02b69ba24cb"
+    },
     "plugins": [
       "expo-secure-store",
       [
