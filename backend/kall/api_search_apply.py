@@ -1,9 +1,10 @@
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 from sqlmodel import Session, select
 
+from kall import db as kall_db
 from kall.auth import get_current_user
 from kall.clock import utcnow
 from kall.db import get_session
@@ -18,7 +19,7 @@ from kall.models import (
 )
 from kall.models.enums import ApplicationStatus
 from kall.schemas import ExternalJobImportRequest, PrepareApplicationRequest
-from kall.services import quota
+from kall.services import job_posting_schema, quota
 from kall.services.applications import (
     COMPLETED_STATUSES,
     existing_application_summary,
@@ -71,7 +72,38 @@ def _company_from_url(url: str) -> str:
     return host.replace("-", " ").title()
 
 
-def _import_job(session: Session, url: str, title: str, snippet: str | None, source: str) -> Job:
+#: What a job gets when nothing better is available -- checked below so a
+#: later enrichment never overwrites real content someone already supplied
+#: (the browser extension's own page scrape, say) with something worse.
+_PLACEHOLDER_DESCRIPTION = "Imported from Google Programmable Search. Open the original posting for complete requirements."
+
+
+def _enrich_job_description(job_id: int) -> None:
+    """Runs after the response is already sent (see BackgroundTasks below):
+    an outbound fetch to the posting's own page has no business making an
+    "add this application" click wait on a stranger's server. Only ever
+    upgrades a still-placeholder or still-snippet-thin description -- never
+    overwrites real content, and any failure (timeout, no embedded schema,
+    site blocks the request) leaves the row exactly as it was.
+    """
+    # Module-qualified rather than `from kall.db import engine` at the top of
+    # this file -- this runs after the response via BackgroundTasks, outside
+    # any request-scoped session, so it must see the *current* engine
+    # (a test's per-test database monkeypatches kall.db.engine; a plain
+    # top-level import would have already captured the real one instead).
+    with Session(kall_db.engine) as session:
+        job = session.get(Job, job_id)
+        if not job or job.description != _PLACEHOLDER_DESCRIPTION:
+            return
+        description = job_posting_schema.fetch_job_posting_description(job.url)
+        if not description:
+            return
+        job.description = description
+        session.add(job)
+        session.commit()
+
+
+def _import_job(session: Session, url: str, title: str, snippet: str | None, source: str, background_tasks: BackgroundTasks | None = None) -> Job:
     existing = session.exec(select(Job).where(Job.url == url)).first()
     if existing:
         return existing
@@ -80,24 +112,27 @@ def _import_job(session: Session, url: str, title: str, snippet: str | None, sou
         external_id=url,
         company=_company_from_url(url),
         title=title,
-        description=snippet or "Imported from Google Programmable Search. Open the original posting for complete requirements.",
+        description=snippet or _PLACEHOLDER_DESCRIPTION,
         url=url,
         metadata_json={"imported_from": "google_programmable_search"},
     )
     session.add(row)
     session.commit()
     session.refresh(row)
+    if background_tasks is not None:
+        background_tasks.add_task(_enrich_job_description, row.id)
     return row
 
 
 @router.post("/jobs/import-search-result", response_model=Job)
 def import_search_result(
     payload: ExternalJobImportRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> Job:
     del current_user
-    row = _import_job(session, str(payload.url), payload.title, payload.snippet, payload.source)
+    row = _import_job(session, str(payload.url), payload.title, payload.snippet, payload.source, background_tasks)
     if payload.company and row.company != payload.company:
         row.company = payload.company
         session.add(row)
@@ -109,11 +144,12 @@ def import_search_result(
 @router.post("/jobs/capture", response_model=Opportunity)
 def capture_job(
     payload: CaptureJobRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> Opportunity:
     """Save a job the browser extension scraped off of any site (LinkedIn,
-    Indeed, a company careers page -- not just the three ATS providers
+    Indeed, a company careers page -- not just the ATS providers
     discovery.py already knows how to search) directly into the tracked
     opportunity inbox.
 
@@ -127,7 +163,7 @@ def capture_job(
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Professional profile not found")
 
-    job = _import_job(session, str(payload.url), payload.title, payload.description, "browser_extension")
+    job = _import_job(session, str(payload.url), payload.title, payload.description, "browser_extension", background_tasks)
     changed = False
     if payload.company and job.company != payload.company:
         job.company = payload.company
@@ -163,6 +199,7 @@ def existing_application(
 @router.post("/applications/track-external", response_model=Application)
 def track_external_application(
     payload: TrackExternalApplicationRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> Application:
@@ -170,7 +207,7 @@ def track_external_application(
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Professional profile not found")
 
-    job = _import_job(session, str(payload.url), payload.title, payload.snippet, payload.source)
+    job = _import_job(session, str(payload.url), payload.title, payload.snippet, payload.source, background_tasks)
     existing = find_existing_application(session, current_user.id, job_id=job.id, url=job.url)
     if existing and existing.status not in COMPLETED_STATUSES and not payload.mark_submitted_anyway:
         # An application is already under way in Kall for this link. Ask the
