@@ -116,6 +116,36 @@ def _find_summary_paragraph(text: str) -> str:
     return (paragraphs[0] if paragraphs else "")[:800]
 
 
+#: Common words that would otherwise dominate the fallback keyword list below
+#: without meaning anything as a matching signal.
+_KEYWORD_STOPWORDS = {
+    "the", "and", "for", "with", "you", "your", "our", "this", "that", "are",
+    "have", "will", "from", "must", "required", "preferred", "minimum",
+    "qualification", "qualifications", "experience", "years", "ability",
+    "able", "strong", "excellent", "working", "knowledge", "skills",
+    "including", "other", "such", "also", "role", "team", "work",
+}
+
+
+def _requirement_keywords(lines: list[str]) -> list[str]:
+    """Significant words pulled straight from the posting's own requirement
+    lines -- a fallback matching signal for when a posting's text doesn't
+    contain any word from intelligence.SKILL_TERMS. That vocabulary is
+    deliberately small and curated (see its own docstring), so a posting
+    phrased in plain, non-software language can legitimately match none of
+    it; without this fallback, JobRequirementAnalysis.required_skills and
+    preferred_skills both come back empty and create_tailoring_proposal
+    silently generates zero achievement matches and zero role-gap
+    suggestions -- only ever the summary change ever gets proposed."""
+    words: list[str] = []
+    for line in lines:
+        for word in re.findall(r"[A-Za-z][A-Za-z0-9+/#.'-]{3,}", line):
+            lowered = word.casefold()
+            if lowered not in _KEYWORD_STOPWORDS:
+                words.append(lowered)
+    return list(dict.fromkeys(words))
+
+
 _SUMMARY_SCHEMA = {
     "type": "object",
     "properties": {"summary": {"type": "string"}},
@@ -196,6 +226,13 @@ def create_tailoring_proposal(
     ).first()
     required = analysis.required_skills if analysis else []
     preferred = analysis.preferred_skills if analysis else []
+    requirement_terms = required + preferred
+    if not requirement_terms and analysis and analysis.explicit_requirements:
+        # required_skills/preferred_skills matched nothing from the curated
+        # SKILL_TERMS vocabulary -- fall back to keywords straight from the
+        # posting's own requirement lines rather than silently proposing
+        # nothing but a summary rewrite.
+        requirement_terms = _requirement_keywords(analysis.explicit_requirements)
     verified = list(
         session.exec(
             select(Achievement).where(
@@ -222,10 +259,10 @@ def create_tailoring_proposal(
     session.commit()
     session.refresh(proposal)
 
-    changes = [_summary_change(resume, job, required + preferred)]
+    changes = [_summary_change(resume, job, requirement_terms)]
     relevant = [
         a for a in verified
-        if any(skill.lower() in (a.achievement_text + " " + " ".join(a.skills)).lower() for skill in required + preferred)
+        if any(skill.lower() in (a.achievement_text + " " + " ".join(a.skills)).lower() for skill in requirement_terms)
     ]
     for achievement in relevant[:6]:
         changes.append(
@@ -240,7 +277,7 @@ def create_tailoring_proposal(
             )
         )
     changes[0].proposal_id = proposal.id
-    changes.extend(_role_gap_changes(session, proposal, job, user_id, required + preferred, verified, resume.extracted_text or ""))
+    changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or ""))
     session.add_all(changes)
     session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_created", details={"provider": "deterministic"}))
     session.commit()

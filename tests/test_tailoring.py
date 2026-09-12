@@ -1,6 +1,9 @@
 import pytest
 from kall.models import (
+    Achievement,
+    Employment,
     Job,
+    JobRequirementAnalysis,
     ResumeDocument,
     ResumeSelection,
     TailoringChange,
@@ -11,12 +14,13 @@ from kall.services.documents import finalized_resume_content
 from kall.services.tailoring import (
     _drafted_summary,
     _find_summary_paragraph,
+    _requirement_keywords,
     create_tailoring_proposal,
     finalize_proposal,
     preserves_immutable_facts,
     review_change,
 )
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 
 def test_summary_paragraph_skips_a_pdf_header_block_split_across_blank_lines() -> None:
@@ -213,3 +217,87 @@ def test_summary_paragraph_strips_a_contact_header_sharing_the_paragraph() -> No
     assert _find_summary_paragraph(text) == (
         "Strategic Director of Software Quality Engineering with over 15 years of experience."
     )
+
+
+def test_requirement_keywords_drops_boilerplate_and_dedupes() -> None:
+    lines = [
+        "3+ years of experience required in warehouse fulfillment operations",
+        "Must have a valid warehouse fulfillment operations certificate",
+    ]
+    keywords = _requirement_keywords(lines)
+    assert "warehouse" in keywords
+    assert "fulfillment" in keywords
+    assert "operations" in keywords
+    assert "required" not in keywords
+    assert "experience" not in keywords
+    # Deduped: "warehouse" only appears once even though both lines have it.
+    assert keywords.count("warehouse") == 1
+
+
+def test_proposal_still_drafts_achievement_and_role_gap_changes_when_the_posting_has_no_skill_terms_words() -> None:
+    """Regression test: JobRequirementAnalysis.required_skills/preferred_skills
+    are matched against intelligence.SKILL_TERMS, a small curated vocabulary --
+    a real posting phrased in language that vocabulary doesn't cover (common
+    outside software roles) came back with both fields empty, which silently
+    skipped achievement-matching and role-gap generation entirely and left
+    only the summary change. ("The ai drafted resume copy only does summary
+    and then stops.") explicit_requirements has no such vocabulary limit, so
+    it must be used as a fallback matching signal instead of nothing."""
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="no-skill-terms@example.com", full_name="No Skillterms User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        job = Job(
+            source="test",
+            company="Riverside Logistics",
+            title="Warehouse Fulfillment Lead",
+            description="Coordinate warehouse fulfillment operations across three shifts.",
+            url="https://example.com/warehouse-fulfillment-lead",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
+        # None of these words appear in intelligence.SKILL_TERMS.
+        session.add(
+            JobRequirementAnalysis(
+                job_id=job.id,
+                required_skills=[],
+                preferred_skills=[],
+                explicit_requirements=[
+                    "3+ years of experience required coordinating warehouse fulfillment operations",
+                ],
+            )
+        )
+
+        resume = ResumeDocument(
+            user_id=user.id, name="resume.txt", file_path="uploads/1/resume.txt",
+            mime_type="text/plain", extracted_text="Led shift scheduling and inventory accuracy programs.",
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
+
+        session.add(Employment(user_id=user.id, employer="Acme Distribution", job_title="Shift Supervisor", is_current=True))
+
+        session.add(
+            Achievement(
+                user_id=user.id,
+                employer="Acme Distribution",
+                achievement_text="Coordinated warehouse fulfillment operations across a 40-person shift.",
+                verification_status="verified",
+            )
+        )
+        session.commit()
+
+        proposal = create_tailoring_proposal(session, user.id, job, 1)
+        changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id == proposal.id)))
+
+    sections = [change.section for change in changes]
+    assert "summary" in sections
+    assert "achievements" in sections, "A verified achievement matching the posting's own requirement text must still be proposed"
