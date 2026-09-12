@@ -1,6 +1,7 @@
 import re
 
 from kall.clock import utcnow
+from kall.config import get_settings
 from kall.models import (
     Achievement,
     Employment,
@@ -12,7 +13,6 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
-from kall.config import get_settings
 from kall.services.openai_json import ask_for_json
 from kall.services.resume import reflow_extracted_text
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps

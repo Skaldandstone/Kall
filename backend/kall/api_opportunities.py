@@ -22,11 +22,11 @@ from kall.models import (
 from kall.models.monitoring import PublicBoardFeed, ScheduleBoardState
 from kall.providers.board_feed import feed_key
 from kall.services import work_claims
+from kall.services.applications import existing_application_summary, find_existing_application
 from kall.services.ats_web_search import build_ats_queries, build_search_intent
 from kall.services.job_search_aggregation import aggregate_job_search
 from kall.services.matching import is_out_of_scope
 from kall.services.monitoring import continuous_schedules, sources_for, validate_capacity
-from kall.services.applications import existing_application_summary, find_existing_application
 from kall.services.opportunities import mark_state
 from kall.services.opportunity_notifications import OPPORTUNITY_KINDS
 from kall.services.suppression import VIEW_HIDDEN_REASONS, is_suppressed, suppressed_urls

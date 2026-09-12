@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 from docx import Document
 from kall.clock import utcnow
+from kall.config import get_settings
 from kall.models import (
     CoverLetterChange,
     CoverLetterProposal,
@@ -21,7 +22,6 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
-from kall.config import get_settings
 from kall.services.openai_json import ask_for_json
 from kall.services.resume_assembly import assemble_resume, layout_text
 from kall.services.resume_render import render_docx, render_pdf

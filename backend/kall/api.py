@@ -32,7 +32,12 @@ from kall.security import decrypt_sensitive, encrypt_sensitive
 from kall.services import quota
 from kall.services.account_deletion import delete_account
 from kall.services.admin import is_admin
-from kall.services.applications import approve_application, existing_application_summary, find_existing_application, prepare_application
+from kall.services.applications import (
+    approve_application,
+    existing_application_summary,
+    find_existing_application,
+    prepare_application,
+)
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.opportunity_sources import opportunity_ids_by_source
