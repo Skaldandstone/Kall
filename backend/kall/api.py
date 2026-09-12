@@ -32,13 +32,13 @@ from kall.security import decrypt_sensitive, encrypt_sensitive
 from kall.services import quota
 from kall.services.account_deletion import delete_account
 from kall.services.admin import is_admin
-from kall.services.applications import approve_application, prepare_application
+from kall.services.applications import approve_application, existing_application_summary, find_existing_application, prepare_application
 from kall.services.discovery import run_discovery
 from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.opportunity_sources import opportunity_ids_by_source
 from kall.services.resume import extract_resume_text
 from kall.services.storage import get_storage
-from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
+from kall.services.suppression import VIEW_HIDDEN_REASONS, is_suppressed, suppressed_urls
 
 router = APIRouter()
 
@@ -300,11 +300,11 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
     if not profile or profile.user_id != current_user.id:
         raise HTTPException(404, "Professional profile not found")
     rows = session.exec(select(JobMatch, Job).join(Job, JobMatch.job_id == Job.id).where(JobMatch.user_id == current_user.id, JobMatch.career_profile_id == professional_profile_id, JobMatch.score >= min_score).order_by(JobMatch.score.desc())).all()
-    # Marking a posting dead_link (search workspace, "not real anymore") only
+    # Marking a posting dead_link or not_relevant (search workspace) only
     # ever blocked future ingestion (see discovery.py) -- a JobMatch created
-    # before that flag existed had nothing re-checking it, so a dead posting
-    # kept showing up in this feed forever.
-    blocked = suppressed_urls(session, current_user.id, reasons=DISCOVERY_BLOCKING_REASONS)
+    # before that flag existed had nothing re-checking it, so a dead or
+    # wrong-category posting kept showing up in this feed forever.
+    blocked = suppressed_urls(session, current_user.id, reasons=VIEW_HIDDEN_REASONS)
     opportunity_ids, legacy_opportunity_ids = opportunity_ids_by_source(
         session,
         user_id=current_user.id,
@@ -313,6 +313,15 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
     feed = []
     for match, job in rows:
         if is_suppressed(job.url, blocked) or is_out_of_scope(job, profile):
+            continue
+        # A posting already fully applied to (here or tracked as applied
+        # elsewhere) has nothing left to decide -- showing it again just
+        # invites a second, redundant application for the same listing.
+        # One still in progress should offer to pick it back up instead of
+        # "Prepare application" starting a duplicate.
+        existing = find_existing_application(session, current_user.id, job_id=job.id, url=job.url)
+        existing_summary = existing_application_summary(session, existing) if existing else None
+        if existing_summary and existing_summary["completed"]:
             continue
         feed.append({
             "match_id": match.id,
@@ -330,6 +339,7 @@ def jobs_feed(professional_profile_id: int, min_score: int = 0, current_user: Us
             "salary_max": job.salary_max,
             "url": job.url,
             "source": job.source,
+            "existing_application": existing_summary,
         })
     return feed
 
