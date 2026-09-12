@@ -12,6 +12,8 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
+from kall.config import get_settings
+from kall.services.openai_json import ask_for_json
 from kall.services.resume import reflow_extracted_text
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
@@ -114,10 +116,51 @@ def _find_summary_paragraph(text: str) -> str:
     return (paragraphs[0] if paragraphs else "")[:800]
 
 
+_SUMMARY_SCHEMA = {
+    "type": "object",
+    "properties": {"summary": {"type": "string"}},
+    "required": ["summary"],
+    "additionalProperties": False,
+}
+
+
+def _rules_based_summary(original: str, job: Job, focus: str) -> str:
+    """A plain fallback summary that still reads as resume prose -- not a
+    "Role focus: X at Y, emphasizing Z" annotation describing what was
+    changed, which is what this produced before and read as leftover
+    scaffolding rather than something a person would put on their resume."""
+    if not original:
+        return f"{job.title} candidate with a background in {focus}."
+    return f"{original} Well-positioned for {job.title} at {job.company}, with strengths in {focus}."
+
+
+def _drafted_summary(original: str, job: Job, focus: str) -> str:
+    """A single model call rewrites the summary as flowing prose that
+    naturally works the posting's own focus areas in, when a key is
+    configured -- otherwise the rules-based sentence above stands in. Either
+    way the result must preserve every immutable fact from the original;
+    a model rewrite that drops one falls back to the deterministic sentence
+    rather than risk producing a proposal review_change would refuse to let
+    the person accept."""
+    if get_settings().openai_api_key:
+        prompt = (
+            f"Rewrite this resume summary so it naturally emphasizes fit for '{job.title}' at {job.company}, "
+            f"weaving in these skills where true to the original: {focus}. Two to four sentences, professional "
+            "resume voice -- not a description of what changed or why. Preserve every date, percentage, dollar "
+            f"amount, and other number from the original exactly. Never invent new facts, employers, or credentials."
+            f"\n\nOriginal summary: {original or '(no existing summary)'}"
+        )
+        result = ask_for_json(prompt, schema_name="tailored_summary", schema=_SUMMARY_SCHEMA, purpose="summary rewrite")
+        candidate = str((result or {}).get("summary", "")).strip()
+        if candidate and preserves_immutable_facts(original, candidate):
+            return candidate
+    return _rules_based_summary(original, job, focus)
+
+
 def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
     original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
-    proposed = f"{original}\n\nRole focus: {job.title} at {job.company}, emphasizing {focus}.".strip()
+    proposed = _drafted_summary(original, job, focus)
     return TailoringChange(
         section="summary",
         original_text=original,

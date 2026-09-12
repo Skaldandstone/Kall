@@ -9,6 +9,7 @@ from kall.models import (
 )
 from kall.services.documents import finalized_resume_content
 from kall.services.tailoring import (
+    _drafted_summary,
     _find_summary_paragraph,
     create_tailoring_proposal,
     finalize_proposal,
@@ -73,6 +74,19 @@ def test_summary_paragraph_skips_a_skills_and_education_inventory_block() -> Non
 
 def test_summary_paragraph_handles_empty_text() -> None:
     assert _find_summary_paragraph("") == ""
+
+
+def test_drafted_summary_reads_as_resume_prose_not_meta_commentary() -> None:
+    """Regression test: the no-AI-key fallback used to append "Role focus:
+    Head of Quality Engineering at Siftstack, emphasizing the role's
+    documented requirements" -- a sentence describing what the tool did,
+    not something a person would put on their own resume."""
+    job = Job(source="test", company="Siftstack", title="Head of Quality Engineering", description="...", url="https://x/1")
+    summary = _drafted_summary("Seasoned QA leader with a decade of experience.", job, "test automation, leadership")
+    assert not summary.startswith("Role focus:")
+    assert "Role focus" not in summary
+    assert "Seasoned QA leader with a decade of experience." in summary
+    assert preserves_immutable_facts("Seasoned QA leader with a decade of experience.", summary)
 
 
 def test_immutable_metrics_and_dates_are_preserved() -> None:
