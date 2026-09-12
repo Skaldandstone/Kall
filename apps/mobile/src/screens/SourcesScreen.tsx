@@ -12,6 +12,7 @@ const PROVIDERS = [
   { value: "greenhouse", label: "Greenhouse", hint: "boards.greenhouse.io/<slug>" },
   { value: "lever", label: "Lever", hint: "jobs.lever.co/<slug>" },
   { value: "ashby", label: "Ashby", hint: "jobs.ashbyhq.com/<slug>" },
+  { value: "workday", label: "Workday", hint: "<company>.wdN.myworkdayjobs.com/<site> -- paste the address bar URL" },
 ] as const;
 
 const CADENCES = [
@@ -21,9 +22,13 @@ const CADENCES = [
   { value: "continuous", label: "Continuous" },
 ] as const;
 
-// Same rule providers/board_feed.py's feed_key enforces, checked here so a
-// pasted URL is caught before it silently breaks a scheduled poll.
+// Same rule providers/board_feed.py's feed_key enforces for the three
+// simple-slug providers, checked here so a pasted URL is caught before it
+// silently breaks a scheduled poll. Workday's board key is deliberately a
+// URL-shaped host+site path instead of a bare slug (see providers/
+// workday.py's _parse_board_key), so it gets its own, more permissive check.
 const SLUG_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
+const WORKDAY_BOARD_KEY_PATTERN = /^(?:https?:\/\/)?[A-Za-z0-9.-]+\.myworkdayjobs\.com\/[A-Za-z0-9_-]+\/?$/;
 const REASON_LABELS: Record<string, string> = { dead_link: "Dead link", applied_external: "Applied on their site", applied_kall: "Applied through Kall" };
 
 function deviceTimezone() {
@@ -105,7 +110,12 @@ export default function SourcesScreen() {
   function submitSource() {
     const slug = source.board_key.trim();
     if (!source.company_name.trim()) { setMessage("Give the board a company name."); return; }
-    if (!SLUG_PATTERN.test(slug)) { setMessage("Use the board's slug, not a URL: letters, numbers, dashes or underscores only."); return; }
+    if (source.provider === "workday") {
+      if (!WORKDAY_BOARD_KEY_PATTERN.test(slug)) { setMessage("Paste the company's Workday careers URL, e.g. acme.wd5.myworkdayjobs.com/External."); return; }
+    } else if (!SLUG_PATTERN.test(slug)) {
+      setMessage("Use the board's slug, not a URL: letters, numbers, dashes or underscores only.");
+      return;
+    }
     void run("add-source", async () => {
       await addSearchSource({ provider: source.provider, company_name: source.company_name.trim(), board_key: slug });
       setSource({ provider: source.provider, company_name: "", board_key: "" });

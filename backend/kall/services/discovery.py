@@ -7,6 +7,7 @@ from kall.providers.ashby import AshbyProvider
 from kall.providers.greenhouse import GreenhouseProvider
 from kall.providers.jobs import DiscoveredJob
 from kall.providers.lever import LeverProvider
+from kall.providers.workday import WorkdayProvider
 from kall.services.ats_web_search import build_ats_queries, build_search_intent
 from kall.services.discovery_matching import ingest_discovered_jobs
 from kall.services.job_search_aggregation import aggregate_job_search
@@ -16,6 +17,7 @@ PROVIDERS={
     "greenhouse": GreenhouseProvider,
     "lever": LeverProvider,
     "ashby": AshbyProvider,
+    "workday": WorkdayProvider,
 }
 
 #: Job-board pages title their postings "Role - Company", "Role at Company",

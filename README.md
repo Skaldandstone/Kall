@@ -2,7 +2,7 @@
 
 Kall is a privacy-first career identity, job discovery, application preparation, and application tracking platform.
 
-This repository is a production-oriented MVP containing identity profiles, professional profiles, Resume Studio, Greenhouse/Lever/Ashby discovery, matching, application preparation, field-level privacy, and subscription foundations.
+This repository is a production-oriented MVP containing identity profiles, professional profiles, Resume Studio, Greenhouse/Lever/Ashby/Workday discovery, matching, application preparation, field-level privacy, and subscription foundations.
 
 ## Safety rule
 

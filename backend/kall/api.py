@@ -38,7 +38,7 @@ from kall.services.applications import (
     find_existing_application,
     prepare_application,
 )
-from kall.services.discovery import run_discovery
+from kall.services.discovery import PROVIDERS, run_discovery
 from kall.services.matching import deterministic_match, is_out_of_scope
 from kall.services.opportunity_sources import opportunity_ids_by_source
 from kall.services.resume import extract_resume_text
@@ -211,7 +211,7 @@ def update_resume_metadata(resume_id: int, payload: ResumeMetadataUpdate, curren
 
 @router.post("/me/search-sources", response_model=SearchSource)
 def add_search_source(payload: SearchSourceCreate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> SearchSource:
-    if payload.provider not in {"greenhouse", "lever", "ashby"}:
+    if payload.provider not in PROVIDERS:
         raise HTTPException(422, "Unsupported provider")
     row = SearchSource(user_id=current_user.id, **payload.model_dump())
     session.add(row)

@@ -6,9 +6,17 @@ const API = '/api/kall';
 
 type Source = { id: number; provider: string; company_name: string; board_key: string };
 
+const BOARD_KEY_HINT: Record<string, string> = {
+  greenhouse: 'The short board token from the company\'s Greenhouse URL, e.g. "acme" from boards.greenhouse.io/acme.',
+  lever: 'The short board token from the company\'s Lever URL, e.g. "acme" from jobs.lever.co/acme.',
+  ashby: 'The short board token from the company\'s Ashby URL, e.g. "acme" from jobs.ashbyhq.com/acme.',
+  workday: 'The company\'s Workday careers URL, e.g. "acme.wd5.myworkdayjobs.com/External" -- paste it as it appears in your browser\'s address bar.',
+};
+
 export default function SourcesTab() {
   const [rows, setRows] = useState<Source[]>([]);
   const [message, setMessage] = useState('');
+  const [provider, setProvider] = useState('greenhouse');
 
   async function load() {
     const response = await fetch(`${API}/me/search-sources`);
@@ -38,13 +46,18 @@ export default function SourcesTab() {
       <article className="card">
         <h2>Add a company job board</h2>
         <form className="form" onSubmit={submit}>
-          <label><span className="muted">Job board provider</span><select className="input" name="provider">
+          <label><span className="muted">Job board provider</span><select className="input" name="provider" value={provider} onChange={(event) => setProvider(event.target.value)}>
             <option value="greenhouse">Greenhouse</option>
             <option value="lever">Lever</option>
             <option value="ashby">Ashby</option>
+            <option value="workday">Workday</option>
           </select></label>
           <label><span className="muted">Company name</span><input className="input" name="company" required /></label>
-          <label><span className="muted">Board key or slug</span><input className="input" name="board_key" required /></label>
+          <label>
+            <span className="muted">Board key or slug</span>
+            <input className="input" name="board_key" required />
+            <small className="muted" style={{ display: 'block', marginTop: 4 }}>{BOARD_KEY_HINT[provider]}</small>
+          </label>
           <button className="button" type="submit">Add source</button>
         </form>
         <p className="notice" aria-live="polite">{message}</p>
