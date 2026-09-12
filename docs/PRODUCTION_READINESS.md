@@ -32,6 +32,28 @@ and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
 catalogs, credentials, and sandbox acceptance are complete.
 
+> **12 September 2026, web-only release:** the deployed web image and
+> `WebImage` parameter were out of date here even before this release (the
+> live stack had already moved to `sha256:ac4396bba34cd9173a51ee5dd1ce55c318a221557db146249db1e8c7c80bdef2`
+> by an earlier, undocumented update) - this doc's digests above are historical,
+> not current. This release is source commit `8edc4ae0cafba3302142eb98daca91c626a048fa`
+> (shrinks the trademark mark in the authenticated app nav to a small
+> superscript, matching the fix already shipped on the Studio, Vaettir, and
+> Savortome web frontends); reviewed-snapshot manifest
+> `454019fea20b89dfe15e9914f5394277649fe0d05ed41cc6a0eeb8ede054f502`. Built via
+> a `kall-web-build` CodeBuild run with the source, manifest hash, and image
+> tag (`release-8edc4ae`) all overridden per-build rather than mutating the
+> project's stored configuration, so its persisted `SOURCE_SHA256` still
+> reflects its original reviewed baseline. New web image
+> `sha256:a88a4c2c87206ae716e9a6848463882344d4c75d246ec56a4725907d514b01ba`,
+> ECR Basic scan completed with zero findings. Applied through a CloudFormation
+> change set on `kall-production` touching only the `WebImage` parameter -
+> `WebTaskDefinition` (new revision) and `WebService` (points at it) were the
+> only two resources in the change set, confirmed before executing. The API
+> image, migrations, secrets, and every other parameter were left untouched
+> (`UsePreviousValue`). Post-release: stack `UPDATE_COMPLETE`, both target
+> groups healthy, public root and `/api/kall/health` both return 200.
+
 Production startup now fails closed unless all of the following are true:
 
 - PostgreSQL uses `verify-full` with a readable CA bundle;
