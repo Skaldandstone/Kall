@@ -21,6 +21,8 @@ from kall.models import (
     TailoringChange,
     TailoringProposal,
 )
+from kall.config import get_settings
+from kall.services.openai_json import ask_for_json
 from kall.services.resume_assembly import assemble_resume, layout_text
 from kall.services.resume_render import render_docx, render_pdf
 from kall.services.storage import get_storage
@@ -326,6 +328,130 @@ def generate_resume_documents(
     return generated
 
 
+#: Achievements mentioning these read as leadership/scope, not hands-on
+#: delivery -- used to pick which evidence an "executive" emphasis leads
+#: with, since the professional record doesn't tag achievements by kind.
+_LEADERSHIP_WORDS = ("led", "lead", "manage", "managed", "director", "strategy", "team", "organization", "executive")
+
+_TONE_OPENERS = {
+    "formal": "I am writing to apply for the {title} role at {company}.",
+    "conversational": "I'd love to be considered for the {title} opening at {company}.",
+}
+_TONE_CLOSERS = {
+    "formal": "I would welcome the opportunity to discuss how my experience can support the team.",
+    "conversational": "I'd love to talk more about how I could help the team.",
+}
+
+_COVER_LETTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "paragraphs": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 4,
+            "items": {"type": "string"},
+        }
+    },
+    "required": ["paragraphs"],
+    "additionalProperties": False,
+}
+
+
+def _matched_requirements(analysis: JobRequirementAnalysis | None, resume_text: str) -> list[str]:
+    if not analysis:
+        return []
+    lowered = resume_text.lower()
+    matched = [term for term in [*analysis.required_skills, *analysis.preferred_skills] if term.lower() in lowered]
+    return list(dict.fromkeys(matched))[:4]
+
+
+def _select_evidence(achievements: list[str], summary: str, emphasis: str, analysis: JobRequirementAnalysis | None, limit: int) -> list[str]:
+    pool = achievements or ([summary] if summary else [])
+    if not pool:
+        return []
+    if emphasis == "technical" and analysis:
+        skills = {s.lower() for s in [*analysis.required_skills, *analysis.preferred_skills]}
+        ranked = sorted(pool, key=lambda text: -sum(1 for skill in skills if skill in text.lower()))
+    elif emphasis == "executive":
+        ranked = sorted(pool, key=lambda text: -sum(1 for word in _LEADERSHIP_WORDS if word in text.lower()))
+    else:
+        ranked = pool
+    return ranked[:limit]
+
+
+def _rules_based_paragraphs(
+    job: Job | None,
+    analysis: JobRequirementAnalysis | None,
+    sections: list[dict[str, str]],
+    emphasis: str,
+    tone: str,
+    length: str,
+    company_interest_notes: str | None,
+) -> list[str]:
+    achievements = [item["text"].strip() for item in sections if item["section"] == "achievement" and item["text"].strip()]
+    summary = next((item["text"].strip() for item in sections if item["section"] == "summary"), "")
+    resume_text = " ".join(item["text"] for item in sections if item["text"].strip())
+    matched = _matched_requirements(analysis, resume_text)
+
+    opener = _TONE_OPENERS.get(tone, _TONE_OPENERS["formal"]).format(
+        title=job.title if job else "this position", company=job.company if job else "your organization"
+    )
+    if matched:
+        opener += f" The posting's emphasis on {', '.join(matched)} lines up directly with my background."
+
+    lead_count = 1 if length == "concise" else 2
+    evidence = _select_evidence(achievements, summary, emphasis, analysis, lead_count)
+    paragraphs = [
+        opener,
+        " ".join(evidence) if evidence else "My verified experience aligns with the responsibilities described in the role.",
+    ]
+    if length != "concise" and len(achievements) > lead_count:
+        extra = [text for text in achievements if text not in evidence][:1]
+        if extra:
+            paragraphs.append(extra[0])
+    paragraphs.append(company_interest_notes or _TONE_CLOSERS.get(tone, _TONE_CLOSERS["formal"]))
+    return paragraphs
+
+
+def _drafted_paragraphs(
+    job: Job | None,
+    analysis: JobRequirementAnalysis | None,
+    sections: list[dict[str, str]],
+    emphasis: str,
+    tone: str,
+    length: str,
+    company_interest_notes: str | None,
+) -> list[str]:
+    """Grounded in the actual posting and the person's own finalized resume
+    content when a model is configured; a rules-based letter that still
+    reflects the emphasis/tone/length choices otherwise. Neither path
+    invents experience -- the model is only given the finalized resume text
+    to draw evidence from, the same "never invent" boundary role_gaps.py
+    enforces for resume bullets."""
+    if get_settings().openai_api_key and job:
+        resume_text = layout_text({"name": "", "contact": [], "sections": [
+            {"key": item["section"], "title": item["section"], "paragraphs": [item["text"]]} for item in sections if item["text"].strip()
+        ]})
+        all_requirements = (analysis.required_skills if analysis else []) + (analysis.preferred_skills if analysis else [])
+        requirements = ", ".join(all_requirements[:10]) or "not specified"
+        prompt = (
+            f"Write a cover letter for '{job.title}' at {job.company}.\n"
+            f"Job description: {job.description[:3000]}\n"
+            f"Key requirements: {requirements}\n"
+            f"The applicant's finalized, verified resume content (do not claim anything beyond this):\n{resume_text[:3000]}\n"
+            f"Emphasis: {emphasis}. Tone: {tone}. Length: {length} ('concise' means 3 short paragraphs, otherwise 3-4).\n"
+            + (f"The applicant specifically wants to mention: {company_interest_notes}\n" if company_interest_notes else "")
+            + "Return an opening paragraph naming the role and company, one or two body paragraphs citing specific, "
+            "true evidence from the resume content tied to the posting's own requirements, and a closing paragraph. "
+            "Never invent metrics, employers, titles, or skills not present in the resume content above."
+        )
+        result = ask_for_json(prompt, schema_name="cover_letter", schema=_COVER_LETTER_SCHEMA, purpose="cover letter draft")
+        paragraphs = [str(p).strip() for p in (result or {}).get("paragraphs", []) if str(p).strip()]
+        if len(paragraphs) >= 3:
+            return paragraphs
+    return _rules_based_paragraphs(job, analysis, sections, emphasis, tone, length, company_interest_notes)
+
+
 def propose_cover_letter(
     session: Session,
     proposal: TailoringProposal,
@@ -337,8 +463,8 @@ def propose_cover_letter(
     if proposal.status != "finalized":
         raise ValueError("Finalize the resume tailoring proposal first")
     job = session.get(Job, proposal.job_id)
+    analysis = session.exec(select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == proposal.job_id)).first()
     sections = finalized_resume_content(session, proposal)
-    evidence = [item["text"] for item in sections if item["section"] == "achievement"][:2]
     letter = CoverLetterProposal(
         user_id=proposal.user_id,
         job_id=proposal.job_id,
@@ -351,11 +477,7 @@ def propose_cover_letter(
     session.add(letter)
     session.commit()
     session.refresh(letter)
-    paragraphs = [
-        f"I am applying for the {job.title if job else 'position'} at {job.company if job else 'your organization'}.",
-        " ".join(evidence) if evidence else "My verified experience aligns with the responsibilities described in the role.",
-        company_interest_notes or "I would welcome the opportunity to discuss how my experience can support the team.",
-    ]
+    paragraphs = _drafted_paragraphs(job, analysis, sections, emphasis, tone, length, company_interest_notes)
     for position, text in enumerate(paragraphs):
         session.add(
             CoverLetterChange(
