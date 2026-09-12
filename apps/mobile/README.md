@@ -236,6 +236,31 @@ pin an exact `KALL_MOBILE_E2E_VERSION` against a known backend specifically
 so a run is reproducible. Wiring a channel in would let a mid-run OTA fetch
 silently swap the JS bundle a test is exercising.
 
+#### Keeping native builds rare
+
+A native build costs real EAS build minutes and forces every user through
+a store update, so treat crossing the fingerprint boundary above as a real
+cost when it's avoidable, not a routine step:
+
+- Before adding a library, check whether it needs a native module/config
+  plugin at all, or whether a pure-JS alternative covers the need. Prefer
+  the latter when the difference doesn't matter for the feature.
+- Don't add a new Android permission or iOS capability speculatively "for
+  later" -- add it in the same change that actually uses it, and expect
+  that change to need a real build + store submission regardless of how
+  small the rest of the diff is.
+- When a native-forcing change is genuinely needed, batch it with any
+  other pending native-forcing changes into one build rather than shipping
+  them one at a time -- each one is a full store-review cycle no matter
+  how small.
+- `app.json` native fields (icons, splash, `expo-build-properties`,
+  `android`/`ios` blocks) and anything under `plugins` all cross the
+  fingerprint boundary. Everything else in this file (`extra`, `updates`,
+  `runtimeVersion` itself) does not.
+- If a change is store-listing-only (screenshots, description, keywords),
+  it never needs a build at all -- that's a Play Console / App Store
+  Connect edit, independent of the app binary.
+
 ## Structure
 
 ```
