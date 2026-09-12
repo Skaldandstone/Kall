@@ -58,6 +58,19 @@
         "buildConfiguration": "Release"
       }
     },
+    "android-screenshots": {
+      "withoutCredentials": true,
+      "distribution": "internal",
+      "environment": "production",
+      "env": {
+        "API_BASE_URL": "http://127.0.0.1:8421/api",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_Y2hhcm1pbmctbW9jY2FzaW4tODc0OC5jbGVyay5hY2NvdW50cy5kZXYk",
+        "KALL_MOBILE_ALLOW_REGISTRATION": "1"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "android-e2e": {
       "withoutCredentials": true,
       "distribution": "internal",
@@ -97,6 +110,12 @@
       },
       "ios": {
         "ascAppId": "6809954928"
+      }
+    },
+    "google-play-production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed"
       }
     },
     "internal-qa": {
