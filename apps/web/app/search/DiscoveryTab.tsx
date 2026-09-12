@@ -2,8 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
+import { showToast } from '../components/ToastHost';
 
 const API = '/api/kall';
+
+type ExistingApplication = { id: number; stage: string; completed: boolean };
 
 type JobResult = {
   match_id: number;
@@ -20,6 +23,7 @@ type JobResult = {
   salary_max?: number | null;
   url: string;
   source: string;
+  existing_application?: ExistingApplication | null;
 };
 
 type SearchRun = {
@@ -259,6 +263,25 @@ export default function DiscoveryTab() {
     }
   }
 
+  async function dismissResult(result: JobResult, reason: 'not_relevant' | 'hidden') {
+    try {
+      const response = await authenticatedFetch(`${API}/search/suppressed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: result.url, title: result.title, reason }),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response, 'Unable to update that result.'));
+      setResults((current) => current.filter((item) => item.match_id !== result.match_id));
+      await loadOpportunities();
+      showToast(
+        reason === 'not_relevant' ? "Marked not relevant. It won't come back in future searches." : 'Hidden from this feed.',
+        'success',
+      );
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to update that result.', 'error');
+    }
+  }
+
   function formatSalary(result: JobResult) {
     if (!result.salary_min && !result.salary_max) return 'Salary not listed';
     const low = result.salary_min || result.salary_max || 0;
@@ -321,10 +344,21 @@ export default function DiscoveryTab() {
               {result.strengths.length > 0 && <p style={{ marginTop: 18 }}><strong style={{ color: 'var(--text)' }}>Strengths:</strong> {result.strengths.slice(0, 4).join(' · ')}</p>}
               {result.gaps.length > 0 && <p style={{ marginTop: 10 }}><strong style={{ color: 'var(--text)' }}>Gaps:</strong> {result.gaps.slice(0, 4).join(' · ')}</p>}
               <p className="muted" style={{ marginTop: 10 }}>Source: {result.source}</p>
+              {result.existing_application && (
+                <p className="notice" style={{ marginTop: 10 }}>
+                  You already started this one ({result.existing_application.stage.replace(/_/g, ' ')}).
+                </p>
+              )}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
                 <a className="button secondary" href={result.url} target="_blank" rel="noreferrer">View role</a>
-                <a className="button" href={`/applications/new?job=${result.job_id}&profile=${profileId}`}>Prepare application</a>
+                {result.existing_application ? (
+                  <a className="button" href={`/applications/${result.existing_application.id}`}>Continue application</a>
+                ) : (
+                  <a className="button" href={`/applications/new?job=${result.job_id}&profile=${profileId}`}>Prepare application</a>
+                )}
                 <a className="button ghost" href={`/job-intelligence?job=${result.job_id}&profile=${profileId}`}>Analyze match</a>
+                <button type="button" className="button ghost" title="Wrong kind of role for this search -- stop showing this and similar postings" onClick={() => void dismissResult(result, 'not_relevant')}>Not relevant</button>
+                <button type="button" className="button ghost" title="Hide this one result -- it may still resurface if it changes" onClick={() => void dismissResult(result, 'hidden')}>Hide</button>
               </div>
             </article>
           ))}

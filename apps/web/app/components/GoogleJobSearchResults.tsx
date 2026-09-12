@@ -157,7 +157,29 @@ function decorateResults(container: HTMLElement, profileId?: string, mode: 'jobs
         showToast('Flagged as a dead link. Undo from "Restore hidden results".', 'success');
       };
 
-      actions.append(primary, view, dead);
+      const notRelevant = document.createElement('button');
+      notRelevant.type = 'button';
+      notRelevant.className = 'button ghost';
+      notRelevant.textContent = 'Not relevant';
+      notRelevant.title = 'Wrong kind of role for this search -- stop showing this and similar postings';
+      notRelevant.onclick = () => {
+        hideSearchResult(posting.url, posting.title, 'not_relevant');
+        result.remove();
+        showToast('Marked not relevant. Undo from "Restore hidden results".', 'success');
+      };
+
+      const hide = document.createElement('button');
+      hide.type = 'button';
+      hide.className = 'button ghost';
+      hide.textContent = 'Hide';
+      hide.title = 'Hide this one result -- it may still resurface if it changes';
+      hide.onclick = () => {
+        hideSearchResult(posting.url, posting.title, 'hidden');
+        result.remove();
+        showToast('Hidden. Undo from "Restore hidden results".', 'success');
+      };
+
+      actions.append(primary, view, dead, notRelevant, hide);
       result.appendChild(actions);
     }
 

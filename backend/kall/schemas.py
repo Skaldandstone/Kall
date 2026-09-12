@@ -44,6 +44,7 @@ class IdentityProfileResponse(BaseModel):
     email: EmailStr
     full_name: str
     preferred_name: str | None = None
+    phone: str | None = None
     city: str | None = None
     state_region: str | None = None
     country: str | None = None

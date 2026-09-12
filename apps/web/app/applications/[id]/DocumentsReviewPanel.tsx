@@ -117,7 +117,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string | null>(null);
-  const [ats, setAts] = useState<{ passed: number; total: number; checks: Array<{ key: string; label: string; passed: boolean; detail: string }> } | null>(null);
+  const [ats, setAts] = useState<{ passed: number; total: number; checks: Array<{ key: string; label: string; passed: boolean; detail: string; fix_href?: string | null }> } | null>(null);
   const [showAnswered, setShowAnswered] = useState(false);
 
   // React 18 Strict Mode (development only) double-invokes this effect on
@@ -411,7 +411,14 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
         <h2 style={{ marginTop: 16 }}>Review each paragraph before it's used.</h2>
         {!payload.cover_letter_proposal_id ? (
           <button className="button" disabled={busy} onClick={() => void draftCoverLetter()}>Draft cover letter</button>
-        ) : coverLetterStatus === 'finalized' ? <p className="notice">Cover letter finalized.</p> : (
+        ) : coverLetterStatus === 'finalized' ? (
+          <div style={{ marginTop: 12, padding: '20px 24px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
+            <p className="notice" style={{ marginTop: 0 }}>Cover letter finalized. This is exactly what will be sent.</p>
+            {[...coverLetterChanges].sort((a, b) => a.position - b.position).map((change) => (
+              <p key={change.id} style={{ margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>{change.edited_text || change.proposed_text}</p>
+            ))}
+          </div>
+        ) : (
           <div className="stack" style={{ marginTop: 16 }}>
             {coverLetterChanges.map((change) => (
               <article className="card" key={change.id}>
@@ -459,7 +466,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
             {ats && <section aria-label={`ATS check: ${ats.passed} of ${ats.total} passed`} style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
               <strong style={{ color: ats.passed === ats.total ? 'var(--success, inherit)' : 'var(--warning, inherit)' }}>ATS check · {ats.passed} of {ats.total} passed</strong>
               <p className="notice" style={{ margin: '4px 0 8px' }}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</p>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>{ats.checks.map((check) => <li key={check.key}>{check.passed ? '✓' : '!'} {check.label}{!check.passed && <span className="notice"> — {check.detail}</span>}</li>)}</ul>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>{ats.checks.map((check) => <li key={check.key}>{check.passed ? '✓' : '!'} {check.label}{!check.passed && <span className="notice"> — {check.detail} {check.fix_href && <a href={check.fix_href} target="_blank" rel="noreferrer">Fix this</a>}</span>}</li>)}</ul>
             </section>}
             {document_.document.content_json.layout ? <ResumePreview layout={document_.document.content_json.layout} /> : (
               <div className="stack" style={{ marginTop: 12 }}>

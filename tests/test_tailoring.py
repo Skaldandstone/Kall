@@ -9,6 +9,7 @@ from kall.models import (
 )
 from kall.services.documents import finalized_resume_content
 from kall.services.tailoring import (
+    _drafted_summary,
     _find_summary_paragraph,
     create_tailoring_proposal,
     finalize_proposal,
@@ -49,8 +50,43 @@ def test_summary_paragraph_falls_back_to_the_first_block_when_nothing_else_quali
     assert _find_summary_paragraph(text) == "James"
 
 
+def test_summary_paragraph_skips_a_skills_and_education_inventory_block() -> None:
+    """Regression test: a resume's "Languages & Tools" list followed by an
+    education block reads as long, contact-free prose by word count alone,
+    so the header-noise check waved it through as "the summary" -- producing
+    a garbled proposal that mashed a skills list into an education GPA line
+    instead of touching the real narrative summary below it."""
+    text = (
+        "James Shattuck\n\n"
+        "Languages & Tools: Java, JavaScript, TypeScript, Python, React, Node.js, "
+        "AWS, Docker, Kubernetes, PostgreSQL, Terraform. Education: B.S. Computer "
+        "Science, State University, GPA: 3.7\n\n"
+        "Head of Quality Engineering with a decade of experience scaling test "
+        "strategies for SaaS, FinTech, and IoT platforms.\n\n"
+        "Experience\n\n"
+        "Led the platform team at Acme."
+    )
+    assert _find_summary_paragraph(text) == (
+        "Head of Quality Engineering with a decade of experience scaling test "
+        "strategies for SaaS, FinTech, and IoT platforms."
+    )
+
+
 def test_summary_paragraph_handles_empty_text() -> None:
     assert _find_summary_paragraph("") == ""
+
+
+def test_drafted_summary_reads_as_resume_prose_not_meta_commentary() -> None:
+    """Regression test: the no-AI-key fallback used to append "Role focus:
+    Head of Quality Engineering at Siftstack, emphasizing the role's
+    documented requirements" -- a sentence describing what the tool did,
+    not something a person would put on their own resume."""
+    job = Job(source="test", company="Siftstack", title="Head of Quality Engineering", description="...", url="https://x/1")
+    summary = _drafted_summary("Seasoned QA leader with a decade of experience.", job, "test automation, leadership")
+    assert not summary.startswith("Role focus:")
+    assert "Role focus" not in summary
+    assert "Seasoned QA leader with a decade of experience." in summary
+    assert preserves_immutable_facts("Seasoned QA leader with a decade of experience.", summary)
 
 
 def test_immutable_metrics_and_dates_are_preserved() -> None:

@@ -101,6 +101,17 @@ def test_api_build_fails_closed_on_unreviewed_openssl_packages() -> None:
     assert "sed 's/^libcrypto3-/" not in dockerfile
 
 
+def test_api_installs_libstdc_for_pymupdf_native_previews() -> None:
+    """Regression test: pymupdf's native extension (used to rasterize resume
+    previews to PNG) is a manylinux/glibc build that dynamically links
+    libstdc++.so.6 at import time. Alpine's base image doesn't ship it, so
+    every preview render 500'd in production (Sentry KALL-API-3) until it
+    was installed explicitly."""
+    dockerfile = (ROOT / "Dockerfile.api").read_text()
+
+    assert "apk add --no-cache libstdc++" in dockerfile
+
+
 def test_api_upgrades_the_affected_util_linux_runtime_library() -> None:
     dockerfile = (ROOT / "Dockerfile.api").read_text()
 

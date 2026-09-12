@@ -3,6 +3,14 @@ FROM python:3.12.14-alpine3.24@sha256:d81968c559557b881aa557ff6d1200acec8e72a2c8
 # This API base contains the reviewed Alpine OpenSSL successor. Require its
 # exact version so a future base refresh cannot be accepted silently.
 ARG ALPINE_OPENSSL_APPROVED_VERSION
+# libstdc++ is not part of the base Alpine image. pymupdf's native
+# extension (_extra.so, used to rasterize a resume preview to PNG -- see
+# services/documents.py::render_preview_png) is a manylinux/glibc build
+# that dynamically links libstdc++.so.6 at import time; without it every
+# preview render 500s (Sentry KALL-API-3, first seen the day native
+# previews shipped). Alpine's own libstdc++ package provides a
+# musl-compatible libstdc++.so.6, which satisfies the import.
+RUN apk add --no-cache libstdc++
 RUN set -eu; \
     apk add --no-cache --upgrade libuuid=2.42.3-r1; \
     apk info --exists "libuuid=2.42.3-r1"; \

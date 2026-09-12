@@ -22,13 +22,14 @@ from kall.models import (
 from kall.models.monitoring import PublicBoardFeed, ScheduleBoardState
 from kall.providers.board_feed import feed_key
 from kall.services import work_claims
+from kall.services.applications import existing_application_summary, find_existing_application
 from kall.services.ats_web_search import build_ats_queries, build_search_intent
 from kall.services.job_search_aggregation import aggregate_job_search
 from kall.services.matching import is_out_of_scope
 from kall.services.monitoring import continuous_schedules, sources_for, validate_capacity
 from kall.services.opportunities import mark_state
 from kall.services.opportunity_notifications import OPPORTUNITY_KINDS
-from kall.services.suppression import DISCOVERY_BLOCKING_REASONS, is_suppressed, suppressed_urls
+from kall.services.suppression import VIEW_HIDDEN_REASONS, is_suppressed, suppressed_urls
 
 router = APIRouter(tags=["opportunities"])
 
@@ -261,12 +262,22 @@ def list_opportunities(state: str | None = None, current: User = Depends(get_cur
         statement = statement.where(Opportunity.state == state)
     rows = session.exec(statement.order_by(Opportunity.match_score.desc(), Opportunity.last_seen_at.desc())).all()
     # An opportunity can be created by one discovery run and only later
-    # flagged dead_link -- suppressing a URL blocks future ingestion (see
-    # discovery.py) but does nothing to a row that already exists. Without
-    # this, a posting the user has explicitly said is dead keeps sitting in
-    # their tracked inbox forever.
-    blocked = suppressed_urls(session, current.id, reasons=DISCOVERY_BLOCKING_REASONS)
-    return [opportunity for opportunity, job, profile in rows if not is_suppressed(job.url, blocked) and not is_out_of_scope(job, profile)]
+    # flagged dead_link or not_relevant -- suppressing a URL blocks future
+    # ingestion (see discovery.py) but does nothing to a row that already
+    # exists. Without this, a posting the user has explicitly dismissed
+    # keeps sitting in their tracked inbox forever.
+    blocked = suppressed_urls(session, current.id, reasons=VIEW_HIDDEN_REASONS)
+    eligible = [(opportunity, job) for opportunity, job, profile in rows if not is_suppressed(job.url, blocked) and not is_out_of_scope(job, profile)]
+    # A posting already fully applied to (here or tracked as applied
+    # elsewhere) has nothing left to decide -- drop it rather than leave a
+    # dead end sitting in the inbox inviting a second application.
+    result = []
+    for opportunity, job in eligible:
+        existing = find_existing_application(session, current.id, job_id=job.id, url=job.url)
+        if existing and existing_application_summary(session, existing)["completed"]:
+            continue
+        result.append(opportunity)
+    return result
 
 
 @router.patch("/opportunities/{opportunity_id}", response_model=Opportunity)

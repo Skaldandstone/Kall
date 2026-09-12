@@ -26,6 +26,7 @@ import {
   type TrackedOpportunity,
 } from "../api/opportunities";
 import { ApiError } from "../api/client";
+import { suppressResult, type SuppressionReason } from "../api/search";
 import OpportunityTrackSwitch from "../components/OpportunityTrackSwitch";
 import { theme } from "../theme";
 import { EmptyState, PageHeader, SectionHeader, StagePill, StatusMessage } from "../components/ui";
@@ -182,6 +183,16 @@ export default function OpportunitiesScreen({ navigation }: Props) {
     }
   }
 
+  async function dismiss(item: JobFeedItem, reason: SuppressionReason) {
+    try {
+      await suppressResult(item.url, item.title, reason);
+      setFeed((current) => current.filter((row) => row.match_id !== item.match_id));
+      setTracked(await fetchOpportunities());
+    } catch (err) {
+      setMessage(err instanceof ApiError ? err.message : "Unable to update that result.");
+    }
+  }
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -316,26 +327,51 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                       Strengths: {item.strengths.slice(0, 3).join(" · ")}
                     </Text>
                   )}
+                  {item.existing_application && (
+                    <Text style={styles.detail}>
+                      You already started this one ({item.existing_application.stage.replace(/_/g, " ")}).
+                    </Text>
+                  )}
 
                   <View style={styles.actions}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Review ${item.title} at ${item.company}, ${item.score} percent match`}
-                      style={styles.actionButtonPrimary}
-                      onPress={() =>
-                        navigation.navigate("OpportunityDetail", {
-                          item,
-                          profileId: profileId!,
-                          opportunityId: item.opportunity_id ?? trackedItem?.id,
-                          state: trackedItem?.state,
-                        })
-                      }
-                    >
-                      <Text style={styles.actionButtonPrimaryText}>
-                        View fit
-                      </Text>
-                      <Ionicons name="arrow-forward" size={16} color={theme.accentInk} />
-                    </Pressable>
+                    {item.existing_application ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Continue your application for ${item.title} at ${item.company}`}
+                        style={styles.actionButtonPrimary}
+                        onPress={() => {
+                          const tabs = navigation.getParent() as { navigate: (name: string, params: object) => void } | undefined;
+                          tabs?.navigate("ApplicationsTab", {
+                            screen: "ApplicationDetail",
+                            params: { applicationId: item.existing_application!.id, company: item.company, role: item.title, stage: item.existing_application!.stage },
+                          });
+                        }}
+                      >
+                        <Text style={styles.actionButtonPrimaryText}>
+                          Continue application
+                        </Text>
+                        <Ionicons name="arrow-forward" size={16} color={theme.accentInk} />
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Review ${item.title} at ${item.company}, ${item.score} percent match`}
+                        style={styles.actionButtonPrimary}
+                        onPress={() =>
+                          navigation.navigate("OpportunityDetail", {
+                            item,
+                            profileId: profileId!,
+                            opportunityId: item.opportunity_id ?? trackedItem?.id,
+                            state: trackedItem?.state,
+                          })
+                        }
+                      >
+                        <Text style={styles.actionButtonPrimaryText}>
+                          View fit
+                        </Text>
+                        <Ionicons name="arrow-forward" size={16} color={theme.accentInk} />
+                      </Pressable>
+                    )}
                     <Pressable
                       accessibilityRole="button"
                       accessibilityState={{ disabled: busy }}
@@ -344,6 +380,22 @@ export default function OpportunitiesScreen({ navigation }: Props) {
                       onPress={() => void setState(item, "saved")}
                     >
                       <Text style={styles.actionButtonText}>Save</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Not relevant -- wrong kind of role for this search"
+                      style={styles.actionButton}
+                      onPress={() => void dismiss(item, "not_relevant")}
+                    >
+                      <Text style={styles.actionButtonText}>Not relevant</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Hide this result"
+                      style={styles.actionButton}
+                      onPress={() => void dismiss(item, "hidden")}
+                    >
+                      <Text style={styles.actionButtonText}>Hide</Text>
                     </Pressable>
                   </View>
                 </View>

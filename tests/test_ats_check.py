@@ -19,7 +19,19 @@ def test_every_template_passes_the_structural_ats_checks() -> None:
         # what these two checks are meant to surface.
         assert not checks["contact"].passed
         assert "phone missing" in checks["contact"].detail
+        assert checks["contact"].fix_href == "/settings/identity#identity-phone"
         assert not checks["substance"].passed
+        assert checks["core_sections"].fix_href is None
+
+
+def test_missing_core_sections_points_to_the_professional_record() -> None:
+    with _session() as session:
+        user = _user_with_record(session)
+        layout = assemble_resume(session, user.id, TAILORED)
+    layout["sections"] = [section for section in layout["sections"] if section["key"] != "experience"]
+    checks = {check.key: check for check in run_ats_checks(layout, render_pdf(layout, "standard"))}
+    assert not checks["core_sections"].passed
+    assert checks["core_sections"].fix_href == "/profiles"
 
 
 def test_a_scrambled_document_fails_reading_order() -> None:

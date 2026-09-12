@@ -195,6 +195,47 @@ References: [automatic submission](https://docs.expo.dev/build/automate-submissi
 [Android setup](https://docs.expo.dev/submit/android/),
 [iOS setup](https://docs.expo.dev/submit/ios/).
 
+### OTA updates (EAS Update)
+
+A JS/asset-only change (a screen, an API call, styling -- everything in this
+session's applications feed work, for instance) does not need a new store
+submission. `expo-updates` is configured with `runtimeVersion.policy:
+"fingerprint"` (`app.json`), so a build's compatibility with an update is
+computed from what's actually native about it rather than a hand-maintained
+version number.
+
+Two channels, matching the two places builds already go:
+
+| Channel      | Build profiles                               | Reaches                              |
+| ------------ | --------------------------------------------- | ------------------------------------- |
+| `preview`    | `ios-simulator-alpha`, `ios-device-alpha`     | Alpha testers, before it's trusted    |
+| `production` | `android-production`, `production`            | Everyone on the current store release |
+
+Publish with:
+
+```bash
+npm run update:preview      # or: npm run update:production
+```
+
+This ships to everyone on that channel's installed build within the app's
+next foreground check -- no store review, typically live in minutes.
+
+**What this does NOT cover.** Anything that changes the native fingerprint --
+a new native module, a changed permission, an `app.json`/`expo-build-properties`
+change, a bumped native dependency -- changes `runtimeVersion` under the
+fingerprint policy, so a build on the old fingerprint will not even offer
+that update to itself; a new build (and, for a permission or capability
+change, a new store submission) is required regardless. Apple's and Google's
+rules also prohibit using an OTA update to change what the app fundamentally
+does -- this is for fixes and JS-level features, not a way around review for
+anything that would otherwise need one.
+
+`android-e2e` and `ios-e2e` deliberately have **no** channel: `expo-updates`
+only checks for an update when a channel is configured, and these builds
+pin an exact `KALL_MOBILE_E2E_VERSION` against a known backend specifically
+so a run is reproducible. Wiring a channel in would let a mid-run OTA fetch
+silently swap the JS bundle a test is exercising.
+
 ## Structure
 
 ```

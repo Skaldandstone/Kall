@@ -22,3 +22,17 @@ def test_partial_identity_update_preserves_omitted_sensitive_fields(client, engi
         assert profile.phone_encrypted == "preserve-phone"
         assert profile.address_encrypted == "preserve-address"
         assert profile.postal_code_encrypted == "preserve-postal"
+
+
+def test_identity_returns_and_updates_the_phone_number(client) -> None:
+    """Regression test: the profile page had no way to enter a phone number
+    at all, so every generated resume's ATS "contact" check failed on
+    "phone missing" with no way to fix it -- update_identity accepted a
+    phone but get_identity never returned it back for the form to show."""
+    response = client.put("/api/me/identity", json={"phone": "360-809-2664"})
+    assert response.status_code == 200
+    assert response.json()["phone"] == "360-809-2664"
+
+    response = client.get("/api/me/identity")
+    assert response.status_code == 200
+    assert response.json()["phone"] == "360-809-2664"

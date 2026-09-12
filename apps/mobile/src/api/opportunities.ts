@@ -10,6 +10,8 @@ export function fetchCareerProfiles(): Promise<{ profiles: CareerProfile[] }> {
   return apiRequest<{ profiles: CareerProfile[] }>('/me/career-profiles');
 }
 
+export type ExistingApplicationSummary = { id: number; stage: string; completed: boolean };
+
 export type JobFeedItem = {
   match_id: number;
   job_id: number;
@@ -26,6 +28,7 @@ export type JobFeedItem = {
   salary_max?: number | null;
   url: string;
   source: string;
+  existing_application?: ExistingApplicationSummary | null;
 };
 
 export function fetchJobsFeed(profileId: number, minScore = 0): Promise<JobFeedItem[]> {

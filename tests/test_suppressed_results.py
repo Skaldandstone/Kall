@@ -183,6 +183,79 @@ async def test_flagging_a_posting_dead_after_it_was_already_matched_removes_it_f
 
 
 @pytest.mark.anyio
+async def test_not_relevant_blocks_discovery_the_same_way_dead_link_does(client, engine, monkeypatch) -> None:
+    """A posting from the wrong category entirely (Mechanical Engineering QA
+    surfacing under a Software Engineering search) should stop coming back
+    even with the same industry/profile filters applied -- not just get
+    dismissed once. "not_relevant" is a discovery-blocking reason exactly
+    like "dead_link", not merely a lighter-touch hide."""
+    from kall.services import discovery
+
+    monkeypatch.setitem(discovery.PROVIDERS, "greenhouse", _StubProvider)
+    url = "https://boards.example.com/acme/jobs/1?gh_jid=1"
+
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        profile = CareerProfile(user_id=user.id, name="Engineer")
+        session.add(profile)
+        session.add(SearchSource(user_id=user.id, provider="greenhouse", company_name="Acme", board_key="acme"))
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+
+    with Session(engine) as session:
+        await run_discovery(session, session.get(User, client.user_id), session.get(CareerProfile, profile_id))
+
+    client.post(API, json={"url": url, "reason": "not_relevant"})
+
+    feed_after = client.get(f"/api/jobs/feed?professional_profile_id={profile_id}")
+    assert feed_after.json() == []
+    inbox_after = client.get("/api/opportunities")
+    assert inbox_after.json() == []
+
+    with Session(engine) as session:
+        run = await run_discovery(session, session.get(User, client.user_id), session.get(CareerProfile, profile_id))
+        assert run.jobs_skipped == 1
+        assert run.jobs_created == 0
+
+
+@pytest.mark.anyio
+async def test_hidden_removes_from_view_without_blocking_future_discovery(client, engine, monkeypatch) -> None:
+    """"Hide" is the lighter-touch action: it removes the posting from the
+    feed and inbox the person is looking at right now, but -- unlike
+    "not_relevant" or "dead_link" -- does not claim the posting is wrong or
+    broken, so discovery may keep refreshing it in the background."""
+    from kall.services import discovery
+
+    monkeypatch.setitem(discovery.PROVIDERS, "greenhouse", _StubProvider)
+    url = "https://boards.example.com/acme/jobs/1?gh_jid=1"
+
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        profile = CareerProfile(user_id=user.id, name="Engineer")
+        session.add(profile)
+        session.add(SearchSource(user_id=user.id, provider="greenhouse", company_name="Acme", board_key="acme"))
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+
+    with Session(engine) as session:
+        await run_discovery(session, session.get(User, client.user_id), session.get(CareerProfile, profile_id))
+
+    client.post(API, json={"url": url, "reason": "hidden"})
+
+    feed_after = client.get(f"/api/jobs/feed?professional_profile_id={profile_id}")
+    assert feed_after.json() == []
+    inbox_after = client.get("/api/opportunities")
+    assert inbox_after.json() == []
+
+    with Session(engine) as session:
+        run = await run_discovery(session, session.get(User, client.user_id), session.get(CareerProfile, profile_id))
+        assert run.jobs_skipped == 0
+        assert run.jobs_created == 0  # already exists as a Job row -- just refreshed, not recreated
+
+
+@pytest.mark.anyio
 async def test_an_applied_flag_does_not_block_discovery(client, engine, monkeypatch) -> None:
     """Only dead links are withheld -- an application in flight must stay visible."""
     from kall.services import discovery

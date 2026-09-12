@@ -5,11 +5,23 @@ from urllib.parse import urlsplit, urlunsplit
 from kall.models import SuppressedResult
 from sqlmodel import Session, select
 
-# Only dead links are withheld from discovery. The "applied" reasons hide a
-# result in the search workspace but must still reach the opportunity inbox --
-# an application in flight is exactly what the user wants to keep seeing there.
-DISCOVERY_BLOCKING_REASONS = {"dead_link"}
-VALID_REASONS = {"dead_link", "applied_external", "applied_kall"}
+# Dead links and postings flagged as the wrong kind of role entirely (e.g. a
+# Mechanical Engineering QA posting under a Software Engineering search) are
+# withheld from discovery outright -- re-collecting the same wrong-category
+# posting on every future run, even with an industry filter set, is exactly
+# what "not relevant" means to stop. A plain "hidden" posting is lighter: the
+# person just doesn't want to see this one again, not a signal that it's
+# broken or miscategorized, so discovery may keep refreshing it quietly
+# underneath -- it is still kept out of every view below.
+#
+# The "applied" reasons hide a result in the search workspace but must still
+# reach the opportunity inbox -- an application in flight is exactly what the
+# user wants to keep seeing there.
+DISCOVERY_BLOCKING_REASONS = {"dead_link", "not_relevant"}
+VALID_REASONS = {"dead_link", "applied_external", "applied_kall", "not_relevant", "hidden"}
+#: Reasons that remove a posting from feeds and the opportunity inbox, not
+#: just future ingestion. Excludes "applied_*" for the reason above.
+VIEW_HIDDEN_REASONS = {"dead_link", "not_relevant", "hidden"}
 
 
 def normalize_url(url: str) -> str:
