@@ -29,7 +29,7 @@ export default function AppNav({current}:AppNavProps){
   return <>
     <a className="workspace-skip" href="#workspace-content">Skip to page content</a>
     <header className={styles.header}>
-      <a className={styles.brand} href="/" aria-label="Kall home"><KallMark size={30} />Kall™</a>
+      <a className={styles.brand} href="/" aria-label="Kall home"><KallMark size={30} />Kall<span className={styles.tm}>™</span></a>
       <nav className={styles.nav} aria-label="Primary navigation">
         {items.map(([key,label,href]) => <a key={key} href={href}
           className={`${styles.link} ${current===key?styles.active:''}`}
