@@ -1,4 +1,4 @@
-export type SuppressionReason = 'dead_link' | 'applied_external' | 'applied_kall';
+export type SuppressionReason = 'dead_link' | 'applied_external' | 'applied_kall' | 'not_relevant' | 'hidden';
 
 export type HiddenSearchResult = {
   url: string;

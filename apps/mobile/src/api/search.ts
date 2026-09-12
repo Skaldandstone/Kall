@@ -1,6 +1,6 @@
 import { apiRequest } from "./client";
 
-export type SuppressionReason = "dead_link" | "applied_external" | "applied_kall";
+export type SuppressionReason = "dead_link" | "applied_external" | "applied_kall" | "not_relevant" | "hidden";
 
 export type SuppressedResult = {
   id: number;
@@ -13,7 +13,9 @@ export type SuppressedResult = {
 export const fetchSuppressed = () => apiRequest<SuppressedResult[]>("/search/suppressed");
 
 /** Per-URL and permanent -- unlike an opportunity's "not interested", which
- * resurfaces if the posting changes. Only dead_link also blocks discovery. */
+ * resurfaces if the posting changes. dead_link and not_relevant also block
+ * discovery from re-collecting the same posting; hidden only clears it from
+ * the current feed/inbox. */
 export const suppressResult = (url: string, title: string | null, reason: SuppressionReason) =>
   apiRequest<SuppressedResult>("/search/suppressed", { method: "POST", body: { url, title, reason } });
 

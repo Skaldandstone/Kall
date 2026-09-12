@@ -104,6 +104,30 @@ function ResultCard({ result, profileId, onHide }: { result: JobResult; profileI
         >
           Dead link
         </button>
+        <button
+          type="button"
+          className="button ghost"
+          title="Wrong kind of role for this search -- stop showing this and similar postings"
+          onClick={() => {
+            hideSearchResult(result.url, result.title, 'not_relevant');
+            onHide(result.url);
+            showToast('Marked not relevant. Undo from "Restore hidden results".', 'success');
+          }}
+        >
+          Not relevant
+        </button>
+        <button
+          type="button"
+          className="button ghost"
+          title="Hide this one result -- it may still resurface if it changes"
+          onClick={() => {
+            hideSearchResult(result.url, result.title, 'hidden');
+            onHide(result.url);
+            showToast('Hidden. Undo from "Restore hidden results".', 'success');
+          }}
+        >
+          Hide
+        </button>
       </div>
       {showAppliedPrompt && (
         <div className="kall-applied-prompt">
