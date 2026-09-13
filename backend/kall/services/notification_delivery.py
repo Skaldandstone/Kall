@@ -390,7 +390,7 @@ def process_delivery(session: Session, delivery: NotificationDelivery, now: date
             if delivery.channel == "email":
                 message_id = service.send_email(user.email, subject, body, actions=[])
             else:
-                message_id = service.send_push(user.id, subject, body, actions=[])
+                message_id = service.send_push(session, user.id, subject, body, actions=[])
         except NotConfiguredError:
             delivery.status = "queued"
             delivery.last_error = "Delivery provider is not configured."

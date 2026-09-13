@@ -186,11 +186,11 @@ outbox (`NotificationPreference`/`DeviceRegistration`/`NotificationDelivery`,
 which already existed with nothing reading them); `services/notifications.py`
 sends email through SES once `SES_SENDER_EMAIL` is set to a verified address --
 until then, deliveries sit queued rather than failing, by design, so this
-merges and works correctly with zero provider configured. Picking and
-verifying the actual sender address is on you, see the setup runbook. Push
-notifications have nowhere to go regardless of that choice -- mobile push
-needs Firebase Cloud Messaging and APNs credentials/developer-account setup
-that do not exist in this repository at all.
+merges and works correctly with zero provider configured. The verified
+production sender and scheduled-worker activation are deployment settings
+covered by the production runbook. Mobile push now registers encrypted Expo
+device tokens and sends through Expo's FCM/APNs relay. Physical Android and iOS
+receipt testing remains a release gate for the next native binary.
 
 **No retention-specific notification was built, on purpose.** The original
 question was whether to notify someone before their rendered resume expires.

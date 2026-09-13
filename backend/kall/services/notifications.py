@@ -14,22 +14,26 @@ services/openai_json.py and services/account_deletion.py's Clerk call
 already follow: an unconfigured feature must look like "not configured," not
 like a silent success.
 
-Push is real plumbing with nowhere to send yet. Mobile push needs Firebase
-Cloud Messaging (Android) and APNs (iOS) credentials and developer-account
-setup that do not exist in this repository -- apps/mobile/README.md already
-says so. `send_push` raises NotConfiguredError naming exactly that, rather
-than faking a provider call that would look identical to a real one failing.
+Push uses Expo's device-token relay. The mobile build obtains a platform token
+through the signed Expo project and registers it encrypted. No FCM or APNs
+credential is stored in the Kall API container.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
+from html import unescape
 
+import httpx
 from botocore.config import Config
 from botocore.exceptions import ClientError, ConnectTimeoutError, EndpointConnectionError
 from kall.config import get_settings
+from kall.models import DeviceRegistration
+from kall.security import decrypt_sensitive
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
@@ -111,11 +115,65 @@ class NotificationService:
         return response["MessageId"]
 
     def send_push(
-        self, user_id: int, title: str, body: str, actions: list[NotificationAction]
-    ) -> None:
-        del user_id, title, body, actions
-        raise NotConfiguredError(
-            "No push provider is configured. Mobile push needs Firebase Cloud "
-            "Messaging (Android) and APNs (iOS) credentials that do not exist "
-            "in this deployment -- see apps/mobile/README.md."
+        self,
+        session: Session,
+        user_id: int,
+        title: str,
+        body: str,
+        actions: list[NotificationAction],
+    ) -> str:
+        rows = list(session.exec(select(DeviceRegistration).where(
+            DeviceRegistration.user_id == user_id,
+            DeviceRegistration.enabled.is_(True),
+        )))
+        registrations = [
+            (row, decrypt_sensitive(row.encrypted_token)) for row in rows
+        ]
+        registrations = [(row, token) for row, token in registrations if token]
+        if not registrations:
+            raise NotConfiguredError("No enabled mobile device is registered for push notifications.")
+
+        push_body = unescape(re.sub(r"<[^>]+>", " ", body))
+        push_body = " ".join(push_body.split())[:1000]
+        messages = []
+        for _row, token in registrations:
+            data = {"screen": "Opportunities"}
+            if actions:
+                data["url"] = actions[0].deep_link
+            messages.append({"to": token, "title": title[:100], "body": push_body, "data": data, "sound": "default"})
+        try:
+            response = httpx.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Accept": "application/json", "Accept-Encoding": "gzip, deflate"},
+                timeout=httpx.Timeout(10.0, connect=3.0),
+            )
+        except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+            raise RetryableDeliveryError("Could not connect to the push provider.") from error
+        if response.status_code == 429 or response.status_code >= 500:
+            raise RetryableDeliveryError(f"Push provider temporarily rejected the request ({response.status_code}).")
+        if response.status_code >= 400:
+            raise PermanentDeliveryError(f"Push provider rejected the request ({response.status_code}).")
+
+        payload = response.json()
+        tickets = payload.get("data", []) if isinstance(payload, dict) else []
+        if not isinstance(tickets, list) or len(tickets) != len(registrations):
+            raise RuntimeError("Push provider returned an unexpected receipt set.")
+        accepted: list[str] = []
+        permanent_errors: list[str] = []
+        for (row, _token), ticket in zip(registrations, tickets, strict=True):
+            if isinstance(ticket, dict) and ticket.get("status") == "ok" and ticket.get("id"):
+                accepted.append(str(ticket["id"]))
+                continue
+            details = ticket.get("details", {}) if isinstance(ticket, dict) else {}
+            code = details.get("error") if isinstance(details, dict) else None
+            if code == "DeviceNotRegistered":
+                row.enabled = False
+                session.add(row)
+            permanent_errors.append(str(code or "rejected"))
+        session.commit()
+        if accepted:
+            return ",".join(accepted)
+        raise PermanentDeliveryError(
+            "Push provider rejected every registered device (" + ", ".join(permanent_errors) + ")."
         )

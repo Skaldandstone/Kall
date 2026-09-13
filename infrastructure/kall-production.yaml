@@ -158,6 +158,21 @@ Parameters:
     AllowedValues: ['true', 'false']
     Default: 'false'
     Description: Keep false until database role bootstrap and migration-head verification succeed.
+  EnableScheduledJobs:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      Creates the hourly and daily EventBridge Scheduler targets for the one-shot
+      job runner. Keep false until the exact API image and database migration are
+      verified; disabling it removes the schedules without changing user data.
+  SesSenderEmail:
+    Type: String
+    AllowedValues: ['', support@skaldandstone.com]
+    Default: ''
+    Description: >-
+      Verified Kall transactional sender. Blank keeps email delivery queued and
+      grants the job task no SES permissions.
   EnablePublicSignup:
     Type: String
     AllowedValues: ['true', 'false']
@@ -232,6 +247,8 @@ Conditions:
   StripeLiveEnabled: !Equals [!Ref EnableStripeLive, 'true']
   RevenueCatNativeEnabled: !Equals [!Ref EnableRevenueCatNative, 'true']
   ApplicationServicesEnabled: !Equals [!Ref EnableApplicationServices, 'true']
+  ScheduledJobsEnabled: !Equals [!Ref EnableScheduledJobs, 'true']
+  HasSesSender: !Not [!Equals [!Ref SesSenderEmail, '']]
   PublicSignupEnabled: !Equals [!Ref EnablePublicSignup, 'true']
   PublicAliasAttached: !Equals [!Ref AttachPublicAlias, 'true']
 
@@ -488,8 +505,8 @@ Resources:
     Type: AWS::IAM::Role
     Metadata:
       com.aws.cloudformation.Context:
-        why: Explicit credential-free job-runner runtime role. Grant a specific job's own permissions (e.g. SES send, a future EmailConnection's own scoped access) here when that job is actually wired to a schedule, not before.
-        must: [No inline permissions until a specific scheduled job needs them]
+        why: Runtime role for periodic jobs, with SES access present only when the verified Kall sender parameter is configured.
+        must: [SES is scoped to the Kall domain identity, No secret-read or infrastructure-management permissions]
         mutable: change-with-constraints
     Properties:
       AssumeRolePolicyDocument:
@@ -499,6 +516,67 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
+
+  JobRunnerEmailPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasSesSender
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Allows the scheduled notification worker to send only from the verified Kall domain identity.
+        must: [Absent while sender is blank, No wildcard SES resource]
+        mutable: change-with-constraints
+    Properties:
+      PolicyName: kall-production-jobrunner-email
+      Roles: [!Ref JobRunnerTaskRole]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/skaldandstone.com
+
+  JobSchedulerRole:
+    Type: AWS::IAM::Role
+    Condition: ScheduledJobsEnabled
+    Metadata:
+      com.aws.cloudformation.Context:
+        why: Allows only this stack's two schedules to launch the reviewed one-shot ECS job task.
+        must: [Run only JobRunnerTaskDefinition, Pass only its task and execution roles]
+        mutable: change-with-constraints
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/${AWS::StackName}-jobs/*
+      Policies:
+        - PolicyName: kall-production-run-job-task
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecs:RunTask
+                Resource: !Ref JobRunnerTaskDefinition
+                Condition:
+                  ArnEquals:
+                    ecs:cluster: !Sub arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt JobRunnerExecutionRole.Arn
+                  - !GetAtt JobRunnerTaskRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
 
   WebExecutionRole:
     Type: AWS::IAM::Role
@@ -1107,7 +1185,9 @@ Resources:
             - Name: REVENUECAT_APPLE_PREMIUM_PRODUCT_ID
               Value: !Ref RevenueCatApplePremiumProductId
             - Name: MONITORING_ENABLED
-              Value: 'false'
+              Value: !Ref EnableScheduledJobs
+            - Name: SES_SENDER_EMAIL
+              Value: !If [HasSesSender, !Ref SesSenderEmail, '']
             - Name: SENTRY_DSN
               Value: !Ref SentryApiDsn
             - Name: SENTRY_ENVIRONMENT
@@ -1382,7 +1462,9 @@ Resources:
             - Name: OPENAI_MODEL
               Value: gpt-5.6-luna
             - Name: MONITORING_ENABLED
-              Value: 'false'
+              Value: !Ref EnableScheduledJobs
+            - Name: SES_SENDER_EMAIL
+              Value: !If [HasSesSender, !Ref SesSenderEmail, '']
             - Name: SENTRY_DSN
               Value: !Ref SentryApiDsn
             - Name: SENTRY_ENVIRONMENT
@@ -1418,6 +1500,69 @@ Resources:
               awslogs-stream-prefix: jobrunner
       Volumes:
         - Name: jobrunner-tmp
+
+  JobScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Condition: ScheduledJobsEnabled
+    Properties:
+      Name: !Sub ${AWS::StackName}-jobs
+
+  HourlyJobSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: ScheduledJobsEnabled
+    Properties:
+      Name: hourly
+      GroupName: !Ref JobScheduleGroup
+      Description: Kall hourly billing, brief, discovery, and notification delivery suite.
+      ScheduleExpression: rate(1 hour)
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: ENABLED
+      Target:
+        Arn: !Sub arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}
+        RoleArn: !GetAtt JobSchedulerRole.Arn
+        Input: '{"containerOverrides":[{"name":"kall-job-runner","command":["python","-m","kall.jobs.hourly"]}]}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 900
+          MaximumRetryAttempts: 0
+        EcsParameters:
+          TaskDefinitionArn: !Ref JobRunnerTaskDefinition
+          LaunchType: FARGATE
+          TaskCount: 1
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              AssignPublicIp: ENABLED
+              SecurityGroups: [!Ref ApiSecurityGroup]
+              Subnets: !Ref PublicSubnetIds
+
+  DailyJobSchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: ScheduledJobsEnabled
+    Properties:
+      Name: daily
+      GroupName: !Ref JobScheduleGroup
+      Description: Kall daily retention and career reminder suite.
+      ScheduleExpression: cron(30 6 * * ? *)
+      ScheduleExpressionTimezone: UTC
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: ENABLED
+      Target:
+        Arn: !Sub arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}
+        RoleArn: !GetAtt JobSchedulerRole.Arn
+        Input: '{"containerOverrides":[{"name":"kall-job-runner","command":["python","-m","kall.jobs.daily"]}]}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 900
+          MaximumRetryAttempts: 0
+        EcsParameters:
+          TaskDefinitionArn: !Ref JobRunnerTaskDefinition
+          LaunchType: FARGATE
+          TaskCount: 1
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              AssignPublicIp: ENABLED
+              SecurityGroups: [!Ref ApiSecurityGroup]
+              Subnets: !Ref PublicSubnetIds
 
   WebTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -1671,6 +1816,10 @@ Outputs:
     Value: !Ref MigrationTaskDefinition
   JobRunnerTaskDefinitionArn:
     Value: !Ref JobRunnerTaskDefinition
+  ScheduledJobsEnabled:
+    Value: !Ref EnableScheduledJobs
+  TransactionalEmailSender:
+    Value: !If [HasSesSender, !Ref SesSenderEmail, unconfigured]
   DatabaseAdminSecurityGroupId:
     Value: !Ref DatabaseAdminSecurityGroup
   ApplicationServicesEnabled:

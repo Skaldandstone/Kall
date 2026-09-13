@@ -151,7 +151,8 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert "REVENUECAT_WEBHOOK_SIGNING_SECRET" in api_task
     assert "ValueFrom: !Sub '${RevenueCatSecretArn}:REVENUECAT_SECRET_API_KEY::'" in api_task
     assert "Value: 'false'\n            - Name: MONITORING_ENABLED" not in api_task
-    assert "- Name: MONITORING_ENABLED\n              Value: 'false'" in api_task
+    assert "- Name: MONITORING_ENABLED\n              Value: !Ref EnableScheduledJobs" in api_task
+    assert "- Name: SES_SENDER_EMAIL" in api_task
     assert "price_1UAZ" not in template
     assert "prod_VAv" not in template
 
@@ -309,6 +310,8 @@ def test_production_guard_covers_release_critical_invariants() -> None:
         "production_documents_are_private_encrypted_and_versioned",
         "production_delivery_is_https_only",
         "alarms_publish_only_to_the_stack_topic",
+        "scheduled_jobs_are_explicit_and_scoped",
+        "jobrunner_email_is_domain_scoped",
     ):
         assert f"rule {rule} {{" in guard
 
@@ -316,4 +319,47 @@ def test_production_guard_covers_release_critical_invariants() -> None:
     assert "Parameters.EnablePublicSignup.Default == 'false'" in guard
     assert "Parameters.EnableStripeLive.Default == 'false'" in guard
     assert "Parameters.EnableApplicationServices.Default == 'false'" in guard
+    assert "Parameters.EnableScheduledJobs.Default == 'false'" in guard
     assert "'20260909_0035'" in guard
+
+
+def test_scheduled_jobs_are_opt_in_one_shot_tasks_with_no_automatic_replay() -> None:
+    template = _template()
+    parameters = _section(template, "Parameters:\n", "Rules:\n")
+    conditions = _section(template, "Conditions:\n", "Resources:\n")
+    role = _section(template, "  JobSchedulerRole:\n", "  WebExecutionRole:\n")
+    jobrunner = _section(template, "  JobRunnerTaskDefinition:\n", "  JobScheduleGroup:\n")
+    schedules = _section(template, "  JobScheduleGroup:\n", "  WebTaskDefinition:\n")
+
+    assert "  EnableScheduledJobs:\n" in parameters
+    assert "Default: 'false'" in _section(parameters, "  EnableScheduledJobs:\n", "  SesSenderEmail:\n")
+    assert "ScheduledJobsEnabled: !Equals [!Ref EnableScheduledJobs, 'true']" in conditions
+    assert "Condition: ScheduledJobsEnabled" in role
+    assert "Action: ecs:RunTask" in role
+    assert "Resource: !Ref JobRunnerTaskDefinition" in role
+    assert "iam:PassedToService: ecs-tasks.amazonaws.com" in role
+    assert "- Name: MONITORING_ENABLED\n              Value: !Ref EnableScheduledJobs" in jobrunner
+    assert schedules.count("Type: AWS::Scheduler::Schedule\n") == 2
+    assert "ScheduleExpression: rate(1 hour)" in schedules
+    assert "ScheduleExpression: cron(30 6 * * ? *)" in schedules
+    assert schedules.count("MaximumRetryAttempts: 0") == 2
+    assert "kall.jobs.hourly" in schedules
+    assert "kall.jobs.daily" in schedules
+
+
+def test_ses_sender_and_permission_fail_closed_and_stay_kall_scoped() -> None:
+    template = _template()
+    parameters = _section(template, "Parameters:\n", "Rules:\n")
+    email_policy = _section(template, "  JobRunnerEmailPolicy:\n", "  JobSchedulerRole:\n")
+    jobrunner = _section(template, "  JobRunnerTaskDefinition:\n", "  JobScheduleGroup:\n")
+
+    sender = _section(parameters, "  SesSenderEmail:\n", "  EnablePublicSignup:\n")
+    assert "AllowedValues: ['', support@skaldandstone.com]" in sender
+    assert "Default: ''" in sender
+    assert "Condition: HasSesSender" in email_policy
+    assert "ses:SendEmail" in email_policy
+    assert "ses:SendRawEmail" in email_policy
+    assert "identity/skaldandstone.com" in email_policy
+    assert "Resource: '*'" not in email_policy
+    assert "- Name: SES_SENDER_EMAIL" in jobrunner
+    assert "Value: !If [HasSesSender, !Ref SesSenderEmail, '']" in jobrunner

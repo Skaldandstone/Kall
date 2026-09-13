@@ -5,7 +5,8 @@ its own matching defaults when no row exists); this is what lets a person
 actually change them.
 """
 
-from kall.models.opportunities import NotificationPreference
+from kall.models.opportunities import DeviceRegistration, NotificationPreference
+from kall.security import decrypt_sensitive
 from sqlmodel import Session, select
 
 
@@ -47,3 +48,40 @@ def test_updating_twice_edits_the_same_row_rather_than_creating_a_second_one(cli
         ).all()
         assert len(rows) == 1
         assert rows[0].digest_hour_local == 21
+
+
+def test_registering_a_device_encrypts_token_and_never_returns_it(client, engine) -> None:
+    token = "ExponentPushToken[device-token-that-stays-private]"
+    response = client.post(
+        "/api/device-registrations",
+        json={"platform": "android", "token": token},
+    )
+
+    assert response.status_code == 200
+    assert token not in response.text
+    assert set(response.json()) == {"id", "platform", "enabled", "last_seen_at"}
+    with Session(engine) as session:
+        row = session.exec(select(DeviceRegistration)).one()
+        assert row.encrypted_token != token
+        assert decrypt_sensitive(row.encrypted_token) == token
+        assert row.token_hash != token
+
+
+def test_registering_the_same_device_refreshes_one_row(client, engine) -> None:
+    payload = {
+        "platform": "android",
+        "token": "ExponentPushToken[repeat-device-token-private]",
+    }
+    assert client.post("/api/device-registrations", json=payload).status_code == 200
+    assert client.post("/api/device-registrations", json=payload).status_code == 200
+
+    with Session(engine) as session:
+        assert len(session.exec(select(DeviceRegistration)).all()) == 1
+
+
+def test_device_registration_rejects_a_non_expo_token(client) -> None:
+    response = client.post(
+        "/api/device-registrations",
+        json={"platform": "android", "token": "plain-device-token-that-is-invalid"},
+    )
+    assert response.status_code == 422

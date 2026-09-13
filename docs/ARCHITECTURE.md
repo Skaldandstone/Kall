@@ -8,7 +8,7 @@
 - API: FastAPI
 - Data: SQLModel; SQLite for local MVP and PostgreSQL for hosted production
 - Billing: Stripe Checkout and Billing
-- Push: Firebase Cloud Messaging adapter
+- Push: Expo device-token relay to FCM and APNs
 - AI: optional OpenAI provider behind service boundaries
 
 ## Sensitive information

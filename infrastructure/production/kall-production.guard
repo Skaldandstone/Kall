@@ -1,6 +1,24 @@
 rule services_and_live_billing_default_disabled {
     Parameters.EnableApplicationServices.Default == 'false'
     Parameters.EnableStripeLive.Default == 'false'
+    Parameters.EnableScheduledJobs.Default == 'false'
+}
+
+rule scheduled_jobs_are_explicit_and_scoped {
+    Parameters.EnableScheduledJobs.AllowedValues == ['true', 'false']
+    Parameters.SesSenderEmail.AllowedValues == ['', 'support@skaldandstone.com']
+    Resources.HourlyJobSchedule.Condition == 'ScheduledJobsEnabled'
+    Resources.DailyJobSchedule.Condition == 'ScheduledJobsEnabled'
+    Resources.HourlyJobSchedule.Properties.Target.RetryPolicy.MaximumRetryAttempts == 0
+    Resources.DailyJobSchedule.Properties.Target.RetryPolicy.MaximumRetryAttempts == 0
+    Resources.HourlyJobSchedule.Properties.Target.EcsParameters.TaskDefinitionArn.Ref == 'JobRunnerTaskDefinition'
+    Resources.DailyJobSchedule.Properties.Target.EcsParameters.TaskDefinitionArn.Ref == 'JobRunnerTaskDefinition'
+}
+
+rule jobrunner_email_is_domain_scoped {
+    Resources.JobRunnerEmailPolicy.Condition == 'HasSesSender'
+    Resources.JobRunnerEmailPolicy.Properties.PolicyDocument.Statement[0].Action == ['ses:SendEmail', 'ses:SendRawEmail']
+    Resources.JobRunnerEmailPolicy.Properties.PolicyDocument.Statement[0].Resource.'Fn::Sub' == 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/skaldandstone.com'
 }
 
 rule public_signup_defaults_closed {

@@ -16,6 +16,7 @@ import {
   type NotificationPreferences,
 } from "../api/workspace";
 import { theme } from "../theme";
+import { ensurePushRegistration } from "../notifications/registerPush";
 
 export default function NotificationsScreen() {
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
@@ -41,6 +42,9 @@ export default function NotificationsScreen() {
     setSaving(true);
     setMessage("");
     try {
+      if (prefs.push_enabled) {
+        await ensurePushRegistration();
+      }
       setPrefs(
         await saveNotificationPreferences({
           ...prefs,
@@ -86,7 +90,7 @@ export default function NotificationsScreen() {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Text style={styles.title}>Notifications</Text>
-      <Text style={styles.subtitle}>Choose what Kall emails you and when.</Text>
+      <Text style={styles.subtitle}>Choose how Kall reaches you and when.</Text>
       {prefs.email_provider_status === "unconfigured" ? (
         <Text accessibilityRole="alert" style={styles.notice}>
           Email delivery is not configured. These preferences will still be
@@ -231,14 +235,18 @@ export default function NotificationsScreen() {
           </View>
         ) : null}
       </View>
-      <View style={[styles.switchRow, styles.disabledRow]}>
+      <View style={styles.switchRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>Push notifications</Text>
           <Text style={styles.rowDetail}>
-            Coming after mobile push credentials are enabled.
+            New matches and reminders on this device.
           </Text>
         </View>
-        <Switch disabled value={false} />
+        <Switch
+          value={prefs.push_enabled}
+          onValueChange={(v) => set("push_enabled", v)}
+          trackColor={{ false: theme.border, true: theme.accent }}
+        />
       </View>
       {message ? (
         <Text
