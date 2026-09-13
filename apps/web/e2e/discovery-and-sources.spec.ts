@@ -30,9 +30,10 @@ test('adding a search source and scheduling automatic discovery', async ({ page 
     await page.locator('input[name="board_key"]').fill('acmerobotics');
     await page.getByRole('button', { name: 'Add company board' }).click();
     await expect(page.getByText('Company board added. Kall can include it in monitored searches.')).toBeVisible();
-    await expect(page.getByText('Acme Robotics', { exact: true })).toBeVisible();
-    await expect(page.getByText('Greenhouse', { exact: true })).toBeVisible();
-    await expect(page.getByText('acmerobotics', { exact: true })).toBeVisible();
+    const savedBoard = page.getByRole('listitem').filter({ hasText: 'Acme Robotics' });
+    await expect(savedBoard.getByText('Acme Robotics', { exact: true })).toBeVisible();
+    await expect(savedBoard.getByText('Greenhouse', { exact: true })).toBeVisible();
+    await expect(savedBoard.getByText('acmerobotics', { exact: true })).toBeVisible();
   });
 
   await test.step('the tracked-opportunity inbox starts empty', async () => {
