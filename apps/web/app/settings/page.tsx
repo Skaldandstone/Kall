@@ -55,9 +55,12 @@ export default function SettingsPage(){
       setDeleting(false);
       setDeleteError(response.status===422?'That does not match your account email.':'Something went wrong. Please try again.');
     }catch{
-      if(await accountStillExists()){
+      const deletionStatus=await verifiedDeletionStatus();
+      if(deletionStatus!=='deleted'){
         setDeleting(false);
-        setDeleteError('Something went wrong. Please try again.');
+        setDeleteError(deletionStatus==='exists'
+          ? 'The account is still active. Please try again.'
+          : 'Kall could not confirm whether deletion finished. Please retry before leaving this page.');
         return;
       }
       // The request never delivered a response to this page, but the
@@ -66,14 +69,16 @@ export default function SettingsPage(){
       await finishDeletion();
     }
   }
-  async function accountStillExists(){
+  async function verifiedDeletionStatus():Promise<'deleted'|'exists'|'unknown'>{
     try{
-      const response=await fetch(`${API}/me`);
-      return response.ok;
+      const response=await fetch(`${API}/me/deletion-status`,{cache:'no-store'});
+      if(!response.ok)return 'unknown';
+      const data=await response.json() as {deleted?:unknown};
+      if(data.deleted===true)return 'deleted';
+      if(data.deleted===false)return 'exists';
+      return 'unknown';
     }catch{
-      // Couldn't reach the API to check either -- do not claim the account
-      // is gone on the strength of a second failed request.
-      return true;
+      return 'unknown';
     }
   }
   async function finishDeletion(){

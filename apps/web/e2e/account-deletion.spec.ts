@@ -60,6 +60,26 @@ test('a deletion that the browser never sees a response for still recovers, not 
   await expect(page).toHaveURL(/\/(sign-in)?$/, { timeout: 15000 });
 });
 
+test('a failed deletion is not claimed when verification is unavailable', async ({ page }) => {
+  await signInAsNewUser(page, 'Delete Unconfirmed');
+  const email = (await (await page.request.get('/api/kall/me')).json()).email as string;
+
+  await page.route('**/api/kall/me', (route) => {
+    if (route.request().method() === 'DELETE') return route.abort('failed');
+    return route.continue();
+  });
+  await page.route('**/api/kall/me/deletion-status', (route) => route.fulfill({ status: 503 }));
+
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.getByPlaceholder(email).fill(email);
+  await page.getByRole('button', { name: 'Permanently delete my account' }).click();
+
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole('alert')).toContainText('could not confirm whether deletion finished');
+  await expect(page.getByRole('button', { name: 'Permanently delete my account' })).toBeEnabled();
+});
+
 test('an unauthenticated request to a protected api route is a 404, not a 401', async ({ browser }) => {
   // Baseline for the assertion in the test above: this is Clerk's own
   // middleware convention for API-shaped requests to a protected route, not

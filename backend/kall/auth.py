@@ -187,3 +187,16 @@ def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Inactive user")
     return user
+
+
+def get_verified_clerk_user_id(authorization: str | None = Header(default=None)) -> str:
+    """Resolve only the verified Clerk subject, without creating a local user.
+
+    This is intentionally narrower than ``get_current_user`` so a browser can
+    verify an account-deletion tombstone after the local User row is gone.
+    """
+    claims = verify_clerk_token(bearer_token(authorization))
+    clerk_user_id = claims.get("sub")
+    if not clerk_user_id:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    return clerk_user_id

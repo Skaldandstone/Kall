@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from kall import db as kall_db
-from kall.auth import get_current_user
+from kall.auth import get_current_user, get_verified_clerk_user_id
 from kall.db import get_session
 from kall.main import app
 from kall.models import CandidateProfile, User
@@ -115,6 +115,7 @@ def client(engine, monkeypatch) -> Iterator[TestClient]:
 
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_verified_clerk_user_id] = lambda: "user_test_fixture"
     try:
         with TestClient(app) as client:
             client.user_id = user_id  # type: ignore[attr-defined]
@@ -122,3 +123,4 @@ def client(engine, monkeypatch) -> Iterator[TestClient]:
     finally:
         app.dependency_overrides.pop(get_session, None)
         app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_verified_clerk_user_id, None)

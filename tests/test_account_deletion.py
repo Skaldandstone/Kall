@@ -360,9 +360,12 @@ def test_delete_me_requires_the_account_email_to_match(client) -> None:
 
 
 def test_delete_me_removes_the_account(client) -> None:
+    assert client.get("/api/me/deletion-status").json() == {"deleted": False}
     email = client.get("/api/me").json()["email"]
     response = client.request("DELETE", "/api/me", json={"confirm_email": email.upper()})
     assert response.status_code == 204
+
+    assert client.get("/api/me/deletion-status").json() == {"deleted": True}
 
     # A request as a deleted user must read as unauthenticated, not succeed
     # as if nothing happened and not crash with an unrelated error either.

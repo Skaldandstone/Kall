@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
-from kall.auth import get_current_user
+from kall.auth import get_current_user, get_verified_clerk_user_id
 from kall.db import get_session
 from kall.models import (
     Application,
@@ -100,6 +100,24 @@ def delete_my_account(
     if payload.confirm_email.strip().lower() != (current_user.email or "").strip().lower():
         raise HTTPException(422, "That does not match the email on this account.")
     delete_account(session, current_user.id, reason="self_service", background_tasks=background_tasks)
+
+
+@router.get("/me/deletion-status")
+def account_deletion_status(
+    clerk_user_id: str = Depends(get_verified_clerk_user_id),
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    """Confirm deletion for the identity in a still-valid Clerk session.
+
+    The route does not accept an id and therefore cannot be used to probe
+    another person's account. It also does not recreate a deleted local user.
+    """
+    from kall.models import AccountDeletionRecord
+
+    deleted = session.exec(
+        select(AccountDeletionRecord).where(AccountDeletionRecord.clerk_user_id == clerk_user_id)
+    ).first()
+    return {"deleted": deleted is not None}
 
 
 @router.get("/me/identity", response_model=IdentityProfileResponse)
