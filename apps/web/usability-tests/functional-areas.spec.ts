@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 
+/** Mirrors e2e/helpers.ts addChip; these specs run without that fixture. */
+async function addChip(page: Page, label: string, value: string): Promise<void> {
+  const field = page.getByLabel(label);
+  await field.fill(value);
+  await field.press('Enter');
+}
+
 const initialProfile = {
   id: 7, name: 'Quality Leadership', target_titles: ['QA Director'], industries: ['SaaS'],
   functional_areas: ['Quality Engineering'], include_keywords: ['automation'], exclude_keywords: ['unpaid'],
@@ -27,6 +34,11 @@ async function syntheticProfileApi(page: Page) {
       return json(state.profile);
     }
     if (path === 'me/career-profiles') return json({ profiles: [state.profile] });
+    if (path === 'me/career-profiles/7/suggest-fields' && method === 'POST') return json({
+      enabled: true,
+      suggestions: { industries: ['Healthcare', 'Fintech'], minimum_total_comp: 210000 },
+      rationale: 'Drawn from your saved roles.',
+    });
     if (path === 'me/resume-studio') return json({ resumes: [] });
     if (path === 'me/professional-profiles' && method === 'POST') {
       state.created = route.request().postDataJSON();
@@ -41,11 +53,13 @@ test('targeting and zero values survive edits, pauses, reloads and save failures
   const state = await syntheticProfileApi(page);
   await page.goto('/profiles');
   await page.getByRole('button', { name: 'Edit profile' }).click();
+  // Chips now, with the comma-joined hidden input the save handler reads
+  // left unchanged -- so these value assertions still describe what is sent.
   await expect(page.locator('[name="functional_areas"]')).toHaveValue('Quality Engineering');
   await expect(page.locator('[name="exclude_keywords"]')).toHaveValue('unpaid');
   await expect(page.locator('[name="travel_max_percent"]')).toHaveValue('0');
-  await page.locator('[name="functional_areas"]').fill('Quality Engineering, Technical Writing');
-  await page.locator('[name="exclude_keywords"]').fill('unpaid, door-to-door');
+  await addChip(page, 'Functional areas', 'Technical Writing');
+  await addChip(page, 'Exclude keywords', 'door-to-door');
   await page.locator('[name="target_bonus_percent"]').fill('0');
   await page.locator('[name="minimum_base"]').fill('0');
   await page.screenshot({ path: info.outputPath(`functional-area-editor-${info.project.name}.png`), fullPage: true });
@@ -53,7 +67,7 @@ test('targeting and zero values survive edits, pauses, reloads and save failures
   state.failSave = true;
   await page.getByRole('button', { name: 'Save profile' }).click();
   await expect(page.getByText('Unable to update profile.')).toBeVisible();
-  await expect(page.locator('[name="functional_areas"]')).toHaveValue('Quality Engineering, Technical Writing');
+  await expect(page.locator('[name="functional_areas"]')).toHaveValue('Quality Engineering,Technical Writing');
   state.failSave = false;
   await page.getByRole('button', { name: 'Save profile' }).click();
   await expect(page.getByRole('heading', { name: 'Quality Leadership' })).toBeVisible();
@@ -83,7 +97,7 @@ test('onboarding submits custom areas, exclusions and zero compensation', async 
   await page.locator('[name="name"]').fill('Quality Leadership');
   await page.getByRole('textbox', { name: 'Target roles' }).fill('QA Director');
   await page.getByRole('textbox', { name: 'Target roles' }).press('Enter');
-  await page.locator('[name="functional_areas"]').fill('Quality Engineering, Technical Writing');
+  await addChip(page, 'Functional areas', 'Quality Engineering, Technical Writing');
   await page.getByRole('textbox', { name: 'Exclude keywords' }).fill('unpaid');
   await page.getByRole('textbox', { name: 'Exclude keywords' }).press('Enter');
   await page.getByRole('combobox', { name: 'Compensation range minimum' }).selectOption('0');
@@ -95,4 +109,52 @@ test('onboarding submits custom areas, exclusions and zero compensation', async 
   expect(state.created?.exclude_keywords).toEqual(['unpaid']);
   expect(state.created?.minimum_base).toBe(0);
   expect(state.created?.target_base).toBe(0);
+});
+
+
+test('a suggestion lands in the chip field it belongs to, not just the hidden input', async ({ page }) => {
+  // Suggestions used to be applied by assigning to a form element's .value.
+  // A chip field's value lives in React state behind a hidden input, so that
+  // assignment would change what is submitted without changing anything the
+  // person can see or remove before saving.
+  const state = await syntheticProfileApi(page);
+  state.profile.industries = [];
+  await page.goto('/profiles');
+  await page.getByRole('button', { name: 'Edit profile' }).click();
+
+  await page.getByRole('button', { name: 'Suggest empty fields' }).click();
+  await expect(page.getByText(/Review before saving/)).toBeVisible();
+
+  // Visible, removable, and reflected in what will be submitted.
+  await expect(page.getByRole('button', { name: 'Remove Healthcare' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Fintech' })).toBeVisible();
+  await expect(page.locator('[name="industries"]')).toHaveValue('Healthcare,Fintech');
+  // A plain number field still takes the suggestion the old way. A field
+  // already holding a real value -- including a deliberate 0 -- is skipped,
+  // which is why this uses one the fixture leaves unset.
+  await expect(page.locator('[name="minimum_total_comp"]')).toHaveValue('210000');
+  await expect(page.locator('[name="travel_max_percent"]')).toHaveValue('0');
+
+  await page.getByRole('button', { name: 'Remove Fintech' }).click();
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Quality Leadership' })).toBeVisible();
+  expect(state.profile.industries).toEqual(['Healthcare']);
+});
+
+test('work and employment types are chips with a fixed vocabulary', async ({ page }) => {
+  // These were free text, so "On-Site" and "on_site" were both storable for
+  // the same field depending on which screen was used.
+  const state = await syntheticProfileApi(page);
+  await page.goto('/profiles');
+  await page.getByRole('button', { name: 'Edit profile' }).click();
+
+  const workTypes = page.getByRole('group', { name: 'Work types' });
+  await expect(workTypes.getByRole('button', { name: 'Remote' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(workTypes.getByRole('button', { name: 'Hybrid' })).toHaveAttribute('aria-pressed', 'false');
+  await workTypes.getByRole('button', { name: 'Hybrid' }).click();
+  await expect(workTypes.getByRole('button', { name: 'Hybrid' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Quality Leadership' })).toBeVisible();
+  expect(state.profile.work_types).toEqual(['remote', 'hybrid']);
 });

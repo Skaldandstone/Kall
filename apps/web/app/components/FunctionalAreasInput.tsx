@@ -1,9 +1,17 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
+import ChipsInput from './ChipsInput';
 
+/**
+ * Functional areas as removable chips, suggested from the known set.
+ *
+ * This was a comma-separated text box, which on a phone means typing every
+ * area and its separators into a single line you cannot see the start of
+ * once the keyboard is up -- and a stray comma or a missing one silently
+ * changed what got stored.
+ */
 export default function FunctionalAreasInput({ defaultValue = '', className }: { defaultValue?: string; className?: string }) {
-  const id = useId();
   const [areas, setAreas] = useState<string[]>([]);
   useEffect(() => {
     const abort = new AbortController();
@@ -14,12 +22,14 @@ export default function FunctionalAreasInput({ defaultValue = '', className }: {
     return () => abort.abort();
   }, []);
   return (
-    <label>
-      Functional areas
-      <input className={className} name="functional_areas" defaultValue={defaultValue} list={`${id}-options`}
-        placeholder="Quality Engineering, Product Management" aria-describedby={`${id}-help`} />
-      <datalist id={`${id}-options`}>{areas.map((area) => <option value={area} key={area} />)}</datalist>
-      <small id={`${id}-help`}>Separate areas with commas. Related roles broaden your search and can add up to 10 match points. Missing an area never excludes a job.</small>
-    </label>
+    <ChipsInput
+      name="functional_areas"
+      label="Functional areas"
+      className={className}
+      placeholder="Quality Engineering, Product Management"
+      defaultValue={defaultValue.split(',').map((item) => item.trim()).filter(Boolean)}
+      suggestions={areas}
+      helpText="Related roles broaden your search and can add up to 10 match points. Missing an area never excludes a job."
+    />
   );
 }

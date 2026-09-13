@@ -1,8 +1,10 @@
 'use client';
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import ChipsInput from '../components/ChipsInput';
+import ChipsToggle from '../components/ChipsToggle';
 import FunctionalAreasInput from '../components/FunctionalAreasInput';
-import { optionalProfileNumber } from '../lib/profileForm';
+import { EMPLOYMENT_TYPE_OPTIONS, WORK_TYPE_OPTIONS, optionalProfileNumber } from '../lib/profileForm';
 import GuidedProfileBuilder from './GuidedProfileBuilder';
 import styles from './page.module.css';
 
@@ -48,6 +50,11 @@ const EQUITY_LABELS: Record<string, string> = {
 
 const csv = (value: FormDataEntryValue | null) =>
   String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+/** Fields rendered as chips rather than as a text box. */
+const CHIP_FIELDS = new Set([
+  'target_titles', 'industries', 'functional_areas',
+  'include_keywords', 'exclude_keywords', 'countries', 'states_regions',
+]);
 const money = (value: number | null) =>
   value !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value) : 'Not set';
 
@@ -58,6 +65,12 @@ export default function StrategyTab() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [uploadingProfileId, setUploadingProfileId] = useState<number | null>(null);
   const [suggestingId, setSuggestingId] = useState<number | null>(null);
+  // Chip fields keep their values in React state behind a hidden input, so a
+  // suggestion cannot be applied by assigning to the DOM node the way the
+  // plain text boxes allowed. Suggested values are held here and fed back in
+  // as new defaults; `suggestionRound` forces the remount that picks them up.
+  const [suggestedChips, setSuggestedChips] = useState<Record<string, string[]>>({});
+  const [suggestionRound, setSuggestionRound] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const formRefs = useRef<Record<number, HTMLFormElement | null>>({});
@@ -146,11 +159,22 @@ export default function StrategyTab() {
         return;
       }
       const suggested: string[] = [];
+      const chips: Record<string, string[]> = {};
       for (const [field, value] of Object.entries(data.suggestions)) {
         const input = form.elements.namedItem(field) as HTMLInputElement | null;
         if (!input || input.value) continue; // never overwrite something already entered
-        input.value = Array.isArray(value) ? value.join(', ') : String(value);
+        if (CHIP_FIELDS.has(field)) {
+          chips[field] = Array.isArray(value)
+            ? value.map(String)
+            : String(value).split(',').map((item) => item.trim()).filter(Boolean);
+        } else {
+          input.value = Array.isArray(value) ? value.join(', ') : String(value);
+        }
         suggested.push(field);
+      }
+      if (Object.keys(chips).length) {
+        setSuggestedChips((current) => ({ ...current, ...chips }));
+        setSuggestionRound((round) => round + 1);
       }
       setMessage(
         suggested.length
@@ -290,18 +314,50 @@ export default function StrategyTab() {
                       </button>
                     </div>
                     <label>Name<input name="name" defaultValue={profile.name} /></label>
-                    <label>Target titles<input name="target_titles" defaultValue={profile.target_titles.join(', ')} /></label>
-                    <label>Industries<input name="industries" defaultValue={profile.industries.join(', ')} /></label>
-                    <FunctionalAreasInput defaultValue={profile.functional_areas.join(', ')} />
-                    <label>Include keywords<input name="include_keywords" defaultValue={profile.include_keywords.join(', ')} /></label>
-                    <label>Exclude keywords<input name="exclude_keywords" defaultValue={profile.exclude_keywords.join(', ')} /><small>Separate phrases with commas. Jobs mentioning these phrases are excluded.</small></label>
+                    {/* Chips, matching onboarding. A comma-separated text box
+                        is worst exactly where it was used: on a phone, with
+                        the keyboard covering the line being typed into. */}
+                    <ChipsInput
+                      key={`target_titles-${suggestionRound}`}
+                      name="target_titles"
+                      label="Target titles"
+                      placeholder="Add a title and press Enter"
+                      defaultValue={suggestedChips.target_titles ?? profile.target_titles}
+                      helpText="Include close variants of the same title -- job boards phrase the same role differently."
+                    />
+                    <ChipsInput
+                      key={`industries-${suggestionRound}`}
+                      name="industries"
+                      label="Industries"
+                      placeholder="Add an industry"
+                      defaultValue={suggestedChips.industries ?? profile.industries}
+                    />
+                    <FunctionalAreasInput
+                      key={`functional_areas-${suggestionRound}`}
+                      defaultValue={(suggestedChips.functional_areas ?? profile.functional_areas).join(', ')}
+                    />
+                    <ChipsInput
+                      key={`include_keywords-${suggestionRound}`}
+                      name="include_keywords"
+                      label="Include keywords"
+                      placeholder="Add a skill or specialization"
+                      defaultValue={suggestedChips.include_keywords ?? profile.include_keywords}
+                    />
+                    <ChipsInput
+                      key={`exclude_keywords-${suggestionRound}`}
+                      name="exclude_keywords"
+                      label="Exclude keywords"
+                      placeholder="Add a phrase to exclude"
+                      defaultValue={suggestedChips.exclude_keywords ?? profile.exclude_keywords}
+                      helpText="Jobs mentioning these phrases are excluded."
+                    />
                     <div className={styles.two}>
-                      <label>Countries<input name="countries" defaultValue={profile.countries.join(', ')} /></label>
-                      <label>States or regions<input name="states_regions" defaultValue={profile.states_regions.join(', ')} /></label>
+                      <ChipsInput key={`countries-${suggestionRound}`} name="countries" label="Countries" placeholder="Add a country" defaultValue={suggestedChips.countries ?? profile.countries} />
+                      <ChipsInput key={`states_regions-${suggestionRound}`} name="states_regions" label="States or regions" placeholder="Add a state or region" defaultValue={suggestedChips.states_regions ?? profile.states_regions} />
                     </div>
                     <div className={styles.two}>
-                      <label>Work types<input name="work_types" defaultValue={profile.work_types.join(', ')} /></label>
-                      <label>Employment types<input name="employment_types" defaultValue={profile.employment_types.join(', ')} /></label>
+                      <ChipsToggle name="work_types" label="Work types" options={WORK_TYPE_OPTIONS} defaultValue={profile.work_types} />
+                      <ChipsToggle name="employment_types" label="Employment types" options={EMPLOYMENT_TYPE_OPTIONS} defaultValue={profile.employment_types} />
                     </div>
                     <div className={styles.two}>
                       <label>Minimum base<input type="number" name="minimum_base" defaultValue={profile.minimum_base ?? ''} /></label>
@@ -322,7 +378,7 @@ export default function StrategyTab() {
                     <label>Equity<select name="equity_preference" defaultValue={profile.equity_preference ?? ''}><option value="">Not specified</option><option value="not_important">Not important</option><option value="nice_to_have">Nice to have</option><option value="required">Required</option></select></label>
                     <div className={styles.actions}>
                       <button className="button">Save profile</button>
-                      <button className="button secondary" type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                      <button className="button secondary" type="button" onClick={() => { setSuggestedChips({}); setEditingId(null); }}>Cancel</button>
                     </div>
                   </form>
                 ) : (
@@ -330,7 +386,7 @@ export default function StrategyTab() {
                     <div className={styles.profileHeader}>
                       <div><p className="eyebrow">{profile.is_active ? 'Active profile' : 'Paused profile'}</p><h2>{profile.name}</h2></div>
                       <div className={styles.actions} style={{ marginTop: 0 }}>
-                        <button className="button secondary" onClick={() => setEditingId(profile.id)}>Edit profile</button>
+                        <button className="button secondary" onClick={() => { setSuggestedChips({}); setEditingId(profile.id); }}>Edit profile</button>
                         {profile.is_active ? (
                           <button className="button ghost" onClick={() => setActive(profile, false)}>Pause</button>
                         ) : (

@@ -8,7 +8,7 @@ import FunctionalAreasInput from '../components/FunctionalAreasInput';
 import ChipsInput from '../components/ChipsInput';
 import ChipsToggle from '../components/ChipsToggle';
 import SalaryRangeInput from '../components/SalaryRangeInput';
-import { optionalProfileNumber } from '../lib/profileForm';
+import { EMPLOYMENT_TYPE_OPTIONS, WORK_TYPE_OPTIONS, optionalProfileNumber } from '../lib/profileForm';
 
 const API = '/api/kall';
 const csv = (value: FormDataEntryValue | null) =>
@@ -19,20 +19,6 @@ const csv = (value: FormDataEntryValue | null) =>
 
 const selectedOptions = (element: HTMLSelectElement): string[] =>
   Array.from(element.selectedOptions, (option) => option.value);
-
-const WORK_TYPE_OPTIONS = [
-  { value: 'remote', label: 'Remote' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'on_site', label: 'On-Site' },
-];
-
-const EMPLOYMENT_TYPE_OPTIONS = [
-  { value: 'contract', label: 'Contract' },
-  { value: 'full_time', label: 'Full Time' },
-  { value: 'fractional', label: 'Fractional' },
-  { value: 'hourly', label: 'Hourly' },
-  { value: 'salaried', label: 'Salaried' },
-];
 
 type StrategySuggestion = {
   summary: string;

@@ -163,6 +163,11 @@ export async function addChip(page: Page, label: string, value: string): Promise
   await field.press('Enter');
 }
 
+/** Removes an already-added chip by its own remove button. */
+export async function removeChip(page: Page, value: string): Promise<void> {
+  await page.getByRole('button', { name: `Remove ${value}` }).click();
+}
+
 /**
  * Completes onboarding's resume-upload + career-strategy steps, which is
  * what actually creates the professional profile most other flows (search,

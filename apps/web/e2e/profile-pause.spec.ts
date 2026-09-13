@@ -1,4 +1,4 @@
-import { test, expect, signInAsNewUser, addChip } from './helpers';
+import { test, expect, signInAsNewUser, addChip, removeChip } from './helpers';
 
 /**
  * Pausing a career profile.
@@ -46,10 +46,15 @@ test('pausing and reactivating a profile actually persists, including through an
   await test.step('editing a paused profile does not silently reactivate it', async () => {
     await page.getByRole('button', { name: 'Edit profile' }).click();
     await page.locator('input[name="name"]').fill('Backend Leadership (updated)');
+    // These are chips now. The hidden input still carries the comma-joined
+    // value the save handler reads, so the stored shape is unchanged.
     await expect(page.locator('input[name="functional_areas"]')).toHaveValue('Software Engineering');
     await expect(page.locator('input[name="exclude_keywords"]')).toHaveValue('unpaid internship');
-    await page.locator('input[name="functional_areas"]').fill('Quality Engineering, Technical Writing');
-    await page.locator('input[name="exclude_keywords"]').fill('unpaid internship, door-to-door');
+    await removeChip(page, 'Software Engineering');
+    await addChip(page, 'Functional areas', 'Quality Engineering');
+    await addChip(page, 'Functional areas', 'Technical Writing');
+    await addChip(page, 'Exclude keywords', 'door-to-door');
+    await expect(page.locator('input[name="functional_areas"]')).toHaveValue('Quality Engineering,Technical Writing');
     await page.locator('input[name="travel_max_percent"]').fill('0');
     await page.locator('input[name="target_bonus_percent"]').fill('0');
     await page.getByRole('button', { name: 'Save profile' }).click();
@@ -81,7 +86,7 @@ test('onboarding stores functional areas and exclusions without discarding zero 
   await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.locator('input[name="name"]').fill('Quality Leadership');
   await addChip(page, 'Target roles', 'QA Director');
-  await page.locator('input[name="functional_areas"]').fill('Quality Engineering');
+  await addChip(page, 'Functional areas', 'Quality Engineering');
   await addChip(page, 'Exclude keywords', 'unpaid');
   await page.getByLabel('Compensation range minimum').selectOption('0');
   await page.getByRole('button', { name: 'Save strategy' }).click();
