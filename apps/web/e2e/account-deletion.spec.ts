@@ -76,7 +76,9 @@ test('a failed deletion is not claimed when verification is unavailable', async 
   await page.getByRole('button', { name: 'Permanently delete my account' }).click();
 
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByRole('alert')).toContainText('could not confirm whether deletion finished');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText(
+    'could not confirm whether deletion finished',
+  );
   await expect(page.getByRole('button', { name: 'Permanently delete my account' })).toBeEnabled();
 });
 
