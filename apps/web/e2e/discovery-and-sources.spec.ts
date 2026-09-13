@@ -41,6 +41,42 @@ test('adding a search source and scheduling automatic discovery', async ({ page 
     await expect(page.getByRole('heading', { name: 'No tracked opportunities yet' })).toBeVisible();
   });
 
+  await test.step('a running search replaces the empty state with its progress', async () => {
+    // The run is intercepted rather than allowed out: this asserts what the
+    // page shows while a search is open, and the comment at the top of this
+    // file explains why a real board sweep must not happen here.
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/kall/discovery/run/**', async (route) => {
+      await held;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 1, professional_profile_id: 1, started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(), providers_requested: ['greenhouse'],
+          jobs_collected: 0, jobs_created: 0, matches_created: 0, errors: [], status: 'completed',
+        }),
+      });
+    });
+
+    await expect(page.getByRole('heading', { name: 'No matching results yet' })).toBeVisible();
+    await page.getByRole('button', { name: 'Search now' }).click();
+
+    const progress = page.locator('.search-progress');
+    await expect(progress).toBeVisible();
+    await expect(progress.getByText('Search running')).toBeVisible();
+    await expect(progress.getByRole('heading', { name: 'Checking your configured company boards' })).toBeVisible();
+    await expect(progress.getByText(/10 to 30 seconds/)).toBeVisible();
+    // The stale "run a search" prompt must not sit underneath a running one.
+    await expect(page.getByRole('heading', { name: 'No matching results yet' })).toHaveCount(0);
+
+    release?.();
+    await expect(progress).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'No matching results yet' })).toBeVisible();
+    await page.unroute('**/api/kall/discovery/run/**');
+  });
+
   await test.step('save an automatic discovery schedule', async () => {
     await expect(page.getByRole('button', { name: 'Save schedule' })).toBeEnabled();
     await page.locator('select[name="cadence"]').selectOption('weekly');

@@ -693,6 +693,16 @@ label .muted,
 .template-sheet i { display: block; height: 3px; border-radius: 2px; background: #dbe3ea; }
 @media(max-width:640px){.template-preview{grid-template-columns:1fr}.template-sheet{width:150px}}
 
+/* The state a running search is in, shared by job search, company-board
+   discovery, and consulting lead discovery so all three read the same. */
+.search-empty-state { display: grid; gap: 10px; padding: 28px 24px; border: 1px dashed var(--border); border-radius: var(--radius-md); background: var(--surface-raised); text-align: center; }
+.search-empty-state h2 { margin: 10px 0 0; }
+.search-empty-state p { margin: 8px 0 0; }
+.search-empty-state .pill { justify-self: center; }
+.search-progress-track { height: 4px; overflow: hidden; border-radius: 2px; background: var(--border); }
+.search-progress-fill { height: 100%; background: var(--accent); transition: width .9s linear; }
+@media (prefers-reduced-motion: reduce) { .search-progress-fill { transition: none; } }
+
 /* The layout chooser. Each option is the person's own tailored resume
    rendered in that layout, so the choice is between real documents rather
    than between descriptions of them. Before a job is chosen there is no

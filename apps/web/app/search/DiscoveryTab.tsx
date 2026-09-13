@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
+import SearchProgress from '../components/SearchProgress';
 import { showToast } from '../components/ToastHost';
 
 const API = '/api/kall';
@@ -191,6 +192,18 @@ export default function DiscoveryTab() {
     [profileId, runs],
   );
 
+  // What a board sweep has actually cost this account, rather than a number
+  // written into the copy. Median, so one stalled provider does not set the
+  // expectation for every later run.
+  const estimateSeconds = useMemo(() => {
+    const durations = selectedRuns
+      .filter((run) => run.completed_at)
+      .map((run) => (new Date(run.completed_at as string).getTime() - new Date(run.started_at).getTime()) / 1000)
+      .filter((seconds) => seconds > 0 && seconds < 900)
+      .sort((a, b) => a - b);
+    return durations.length ? durations[Math.floor(durations.length / 2)] : null;
+  }, [selectedRuns]);
+
   const selectedOpportunities = useMemo(
     () => opportunities.filter((item) => !profileId || String(item.professional_profile_id) === profileId),
     [opportunities, profileId],
@@ -328,6 +341,13 @@ export default function DiscoveryTab() {
           <p>{isLoading ? 'Loading…' : `${results.length} role${results.length === 1 ? '' : 's'} at or above ${minimumScore}% match.`}</p>
         </div>
         <div className="stack">
+          {isSearching && results.length === 0 && (
+            <SearchProgress
+              heading="Checking your configured company boards"
+              detail="Kall is reading each Greenhouse, Lever, Ashby, and Workday board you configured, then scoring what it finds against this career direction."
+              estimateSeconds={estimateSeconds}
+            />
+          )}
           {results.map((result) => (
             <article className="card" key={result.match_id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
@@ -362,7 +382,7 @@ export default function DiscoveryTab() {
               </div>
             </article>
           ))}
-          {!isLoading && profileId && results.length === 0 && (
+          {!isLoading && !isSearching && profileId && results.length === 0 && (
             <article className="card">
               <h2>No matching results yet</h2>
               <p>Run Search Now, lower the minimum score, or add company boards under Search Sources.</p>

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import GoogleJobSearchResults, { type SiteQuery } from '../components/GoogleJobSearchResults';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
+import SearchProgress from '../components/SearchProgress';
 import { fetchKall } from '../lib/api';
 import styles from './ConsultingTab.module.css';
 
@@ -49,6 +50,7 @@ export default function ConsultingTab() {
   const [extraTerms, setExtraTerms] = useState('');
   const [queries, setQueries] = useState<SiteQuery[]>([]);
   const [discoveryPlan, setDiscoveryPlan] = useState<DiscoveryPlan | null>(null);
+  const [findingLeads, setFindingLeads] = useState(false);
   const visibleLeads = useMemo(() => workspace.leads.filter((lead) => segment === 'all' || (segment === 'warm' ? WARM_SEGMENTS.has(lead.relationship_segment) : lead.relationship_segment === segment)), [segment, workspace.leads]);
   const leadNames = useMemo(() => new Map(workspace.leads.map((lead) => [lead.id, `${lead.organization}: ${lead.opportunity_name}`])), [workspace.leads]);
   const vaettirPartners = workspace.engagements.filter((engagement) => engagement.design_partner_product === 'vaettir');
@@ -77,18 +79,23 @@ export default function ConsultingTab() {
   async function prepareLeadSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!profileId) { setMessage('Choose a professional profile so Kall can tailor the consulting search.'); return; }
-    setMessage('Kall is preparing lead paths…');
+    setMessage('');
+    setFindingLeads(true);
     const query = extraTerms.trim() ? `?focus=${encodeURIComponent(extraTerms.trim())}` : '';
-    const response = await fetchKall(`/me/consulting/discovery-plan/${profileId}${query}`);
-    if (!response.ok) { setMessage(await responseMessage(response, 'Unable to prepare consulting searches.')); return; }
-    const plan: DiscoveryPlan = await response.json();
-    setDiscoveryPlan(plan);
-    // The server already ran the searches; the per-site widget is only the
-    // fallback when no search key is configured.
-    setQueries(plan.search_enabled ? [] : plan.searches.map((item) => ({ provider: item.provider, domain: '', query: item.query })));
-    setMessage(plan.results.length
-      ? `Found ${plan.results.length} public ${plan.results.length === 1 ? 'opening' : 'openings'} for this direction.`
-      : 'Kall prepared public searches and qualification questions for this direction.');
+    try {
+      const response = await fetchKall(`/me/consulting/discovery-plan/${profileId}${query}`);
+      if (!response.ok) { setMessage(await responseMessage(response, 'Unable to prepare consulting searches.')); return; }
+      const plan: DiscoveryPlan = await response.json();
+      setDiscoveryPlan(plan);
+      // The server already ran the searches; the per-site widget is only the
+      // fallback when no search key is configured.
+      setQueries(plan.search_enabled ? [] : plan.searches.map((item) => ({ provider: item.provider, domain: '', query: item.query })));
+      setMessage(plan.results.length
+        ? `Found ${plan.results.length} public ${plan.results.length === 1 ? 'opening' : 'openings'} for this direction.`
+        : 'Kall prepared public searches and qualification questions for this direction.');
+    } finally {
+      setFindingLeads(false);
+    }
   }
 
   async function savePractice(event: FormEvent<HTMLFormElement>) {
@@ -123,7 +130,7 @@ export default function ConsultingTab() {
     <section aria-labelledby="engagement-heading"><div className="section-heading"><div><span className="eyebrow">Engagements</span><h2 id="engagement-heading">Track active client work and paid design partners.</h2></div><button className="button secondary" type="button" onClick={() => chooseForm('engagement')}>Add engagement</button></div><div className={styles.cardGrid}>{workspace.engagements.map((item) => <article className="card" key={item.id}><div className={styles.cardTop}><span className="pill">{label(item.status)}</span><span className={styles.value}>{money(item.fee_cents)}</span></div><h3 className={styles.cardTitle}>{item.name}</h3><p>{item.client_name}</p><label className={styles.compactLabel}>Engagement status <select className="input" value={item.status} onChange={(event) => void submit(`/me/consulting/engagements/${item.id}`, { status: event.target.value }, 'Engagement status updated.', 'PATCH')}><option value="planned">Planned</option><option value="active">Active</option><option value="paused">Paused</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>{item.design_partner_product === 'vaettir' && <><p className={styles.partner}>Vaettir paid design partner · {label(item.design_partner_stage || 'discovery')}</p><label className={styles.compactLabel}>Design-partner stage <select className="input" value={item.design_partner_stage || 'discovery'} onChange={(event) => void submit(`/me/consulting/engagements/${item.id}`, { design_partner_stage: event.target.value }, 'Vaettir partner stage updated.', 'PATCH')}><option value="discovery">Discovery</option><option value="proposed">Proposed</option><option value="active">Active</option><option value="completed">Completed</option><option value="declined">Declined</option></select></label></>}</article>)}{!loading && workspace.engagements.length === 0 && <article className="card"><h3>No engagements yet</h3><p>Convert a won lead into delivery work, or record a Vaettir paid design partnership.</p></article>}</div></section>
 
     <section className="card" aria-labelledby="offer-heading"><span className="eyebrow">Entry offer</span><h2 id="offer-heading" style={{ marginTop: 14 }}>Turn your expertise into one clear first engagement.</h2><p>Define a small outcome a client can understand and buy: the problem, time frame, deliverables, and price. It might be a commissioned concept, menu consultation, sales audit, workshop, operational review, technical assessment, or another service grounded in your record.</p></section>
-    <section className="card" aria-labelledby="search-consulting-heading"><span className="eyebrow">Kall lead finder</span><h2 id="search-consulting-heading" style={{ marginTop: 14 }}>Find and qualify consulting, fractional, advisory, and project work.</h2><p>Kall turns a professional direction into public searches, warm-network prompts, and questions that separate real opportunities from vague interest.</p><form className="form" onSubmit={(event) => void prepareLeadSearch(event)} style={{ marginTop: 20 }}><ProfessionalProfileSelect value={profileId} onChange={setProfileId} required /><label><span className="muted">Optional specialty, industry, or client problem</span><input className="input" value={extraTerms} onChange={(event) => setExtraTerms(event.target.value)} placeholder="Restaurant menu design, gallery commissions, regional sales training…" /></label><button className="button" type="submit">Find lead paths</button></form>{discoveryPlan && <div className={styles.results}>{discoveryPlan.results.length > 0 && <><h3>Open consulting work</h3><div className={styles.cardGrid}>{discoveryPlan.results.map((result) => <article className="card" key={result.url}><span className="pill">{result.provider}</span><h3 className={styles.cardTitle}>{result.title}</h3>{result.snippet && <p>{result.snippet}</p>}<div className={styles.actions}><a className="button secondary" href={result.url} target="_blank" rel="noreferrer">Open</a><button className="button ghost" type="button" onClick={() => chooseForm('lead')}>Track as a lead</button></div></article>)}</div></>}<h3>Your search brief</h3><p>{discoveryPlan.positioning}</p><h3>Qualify each lead</h3><ol>{discoveryPlan.qualification_questions.map((question) => <li key={question}>{question}</li>)}</ol>{discoveryPlan.warm_lead_prompts.length > 0 && <><h3>Start with people you know</h3>{discoveryPlan.warm_lead_prompts.map((prompt) => <article className="card" key={prompt.contact_id}><strong>{prompt.name}{prompt.company ? ` · ${prompt.company}` : ''}</strong><p>{prompt.assistant_prompt}</p></article>)}</>}</div>}<div className={styles.channels}>{CHANNELS.map((channel) => <a key={channel.name} href={channel.url} target="_blank" rel="noreferrer"><strong>{channel.name}</strong><span>{channel.note}</span></a>)}</div>{queries.length > 0 && <div className={styles.results}><GoogleJobSearchResults queries={queries} profileId={profileId || undefined} mode="consulting" /></div>}</section>
+    <section className="card" aria-labelledby="search-consulting-heading"><span className="eyebrow">Kall lead finder</span><h2 id="search-consulting-heading" style={{ marginTop: 14 }}>Find and qualify consulting, fractional, advisory, and project work.</h2><p>Kall turns a professional direction into public searches, warm-network prompts, and questions that separate real opportunities from vague interest.</p><form className="form" onSubmit={(event) => void prepareLeadSearch(event)} style={{ marginTop: 20 }}><ProfessionalProfileSelect value={profileId} onChange={setProfileId} required /><label><span className="muted">Optional specialty, industry, or client problem</span><input className="input" value={extraTerms} onChange={(event) => setExtraTerms(event.target.value)} placeholder="Restaurant menu design, gallery commissions, regional sales training…" /></label><button className="button" type="submit" disabled={findingLeads}>{findingLeads ? 'Finding lead paths…' : 'Find lead paths'}</button></form>{findingLeads ? <div className={styles.results}><SearchProgress heading="Finding consulting, fractional, and advisory work" detail="Kall is running public searches for this direction, drafting qualification questions, and checking your own contacts for warm introductions." /></div> : null}{!findingLeads && discoveryPlan && <div className={styles.results}>{discoveryPlan.results.length > 0 && <><h3>Open consulting work</h3><div className={styles.cardGrid}>{discoveryPlan.results.map((result) => <article className="card" key={result.url}><span className="pill">{result.provider}</span><h3 className={styles.cardTitle}>{result.title}</h3>{result.snippet && <p>{result.snippet}</p>}<div className={styles.actions}><a className="button secondary" href={result.url} target="_blank" rel="noreferrer">Open</a><button className="button ghost" type="button" onClick={() => chooseForm('lead')}>Track as a lead</button></div></article>)}</div></>}<h3>Your search brief</h3><p>{discoveryPlan.positioning}</p><h3>Qualify each lead</h3><ol>{discoveryPlan.qualification_questions.map((question) => <li key={question}>{question}</li>)}</ol>{discoveryPlan.warm_lead_prompts.length > 0 && <><h3>Start with people you know</h3>{discoveryPlan.warm_lead_prompts.map((prompt) => <article className="card" key={prompt.contact_id}><strong>{prompt.name}{prompt.company ? ` · ${prompt.company}` : ''}</strong><p>{prompt.assistant_prompt}</p></article>)}</>}</div>}<div className={styles.channels}>{CHANNELS.map((channel) => <a key={channel.name} href={channel.url} target="_blank" rel="noreferrer"><strong>{channel.name}</strong><span>{channel.note}</span></a>)}</div>{queries.length > 0 && <div className={styles.results}><GoogleJobSearchResults queries={queries} profileId={profileId || undefined} mode="consulting" /></div>}</section>
     <p className="notice">Consulting records are private to your account. Kall does not scrape private networks, send outreach, submit proposals, or claim a client relationship.</p>
   </section>;
 }

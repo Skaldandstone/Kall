@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
+import SearchProgress from '../components/SearchProgress';
 import GoogleJobSearchResults, { soloQuery, type SiteQuery } from '../components/GoogleJobSearchResults';
 import AggregatedJobResults, { type JobResult } from '../components/AggregatedJobResults';
 import { deadLinkCount, hiddenSearchResultCount, loadSuppressedResults, restoreHiddenSearchResults } from '../lib/searchResultState';
@@ -259,7 +260,10 @@ export default function SearchTab() {
       <article className="card search-page-results-column">
         <div className="section-heading search-page-column-heading"><div><span className="eyebrow">Open roles</span><h2 style={{ marginTop: 14 }}>Results for these criteria</h2></div><p>Applied jobs and postings you flag as dead links stay hidden until restored.</p></div>
         {loading ? (
-          <div className="search-empty-state" role="status" aria-live="polite"><span className="pill">Search running</span><h2>Looking across matching job sources</h2><p>This usually takes 10 to 30 seconds. Kall is building the search from your selected career direction and any terms you added; results will appear here as soon as the source checks finish.</p></div>
+          <SearchProgress
+            heading="Looking across matching job sources"
+            detail="Kall is building the search from your selected career direction and any terms you added; results appear here as soon as the source checks finish."
+          />
         ) : aggregatedResults !== null ? (
           <AggregatedJobResults
             results={aggregatedResults}
