@@ -52,6 +52,22 @@ SKILL_TERMS = {
 }
 LEADERSHIP_TERMS = {"director", "head", "manager", "lead", "strategy", "organization", "team", "executive"}
 
+#: A plain `term in text` substring check false-positives badly on short
+#: terms -- "go" (the language) matches inside "going", "growing",
+#: "together", and so on, which silently poisons required_skills/
+#: preferred_skills with a term the posting never actually mentioned. Word
+#: boundaries fix this without having to hand-curate every short term out
+#: of SKILL_TERMS/LEADERSHIP_TERMS.
+_TERM_PATTERN_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _contains_term(text: str, term: str) -> bool:
+    pattern = _TERM_PATTERN_CACHE.get(term)
+    if pattern is None:
+        pattern = re.compile(rf"\b{re.escape(term)}\b", re.IGNORECASE)
+        _TERM_PATTERN_CACHE[term] = pattern
+    return pattern.search(text) is not None
+
 
 def _lines(text: str) -> list[str]:
     return [line.strip() for line in text.replace("\r", "").split("\n") if line.strip()]
@@ -118,11 +134,11 @@ def parse_resume(text: str) -> tuple[dict[str, Any], list[str]]:
         else:
             sections.setdefault(current, []).append(line)
 
-    skills = sorted({term for term in SKILL_TERMS if term in text.lower()})
+    skills = sorted({term for term in SKILL_TERMS if _contains_term(text, term)})
     achievements = []
     for line in lines:
         if len(line) >= 35 and _metrics(line):
-            achievements.append({"text": line, "metrics": _metrics(line), "skills": [s for s in skills if s in line.lower()]})
+            achievements.append({"text": line, "metrics": _metrics(line), "skills": [s for s in skills if _contains_term(line, s)]})
 
     role_titles, years_of_experience = employment_history(lines)
     dates = re.findall(r"\b(?:19|20)\d{2}\b", text)
@@ -154,10 +170,10 @@ def analyze_job(text: str) -> dict[str, list[str]]:
             preferred.append(line)
         elif any(x in value for x in ("responsible", "you will", "what you'll do", "duties")):
             responsibilities.append(line)
-    required_skills = sorted({term for term in SKILL_TERMS if term in lower and any(term in item.lower() for item in required)})
-    preferred_skills = sorted({term for term in SKILL_TERMS if term in lower and any(term in item.lower() for item in preferred)})
-    all_skills = sorted({term for term in SKILL_TERMS if term in lower})
-    leadership = sorted({term for term in LEADERSHIP_TERMS if term in lower})
+    required_skills = sorted({term for term in SKILL_TERMS if any(_contains_term(item, term) for item in required)})
+    preferred_skills = sorted({term for term in SKILL_TERMS if any(_contains_term(item, term) for item in preferred)})
+    all_skills = sorted({term for term in SKILL_TERMS if _contains_term(text, term)})
+    leadership = sorted({term for term in LEADERSHIP_TERMS if _contains_term(text, term)})
     words = re.findall(r"[a-z][a-z0-9+.#/-]{2,}", lower)
     keywords = [word for word, _ in Counter(words).most_common(30) if word not in {"the", "and", "with", "for", "you", "our", "this", "that"}]
     return {

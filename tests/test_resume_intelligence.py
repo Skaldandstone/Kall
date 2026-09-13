@@ -52,6 +52,24 @@ You will lead the team during busy service periods.
     assert "guest service" in result["preferred_skills"]
 
 
+def test_job_analyzer_does_not_false_positive_on_short_skill_terms_inside_other_words() -> None:
+    """Regression test: SKILL_TERMS matched by plain substring, so "go" (the
+    language) lit up inside "going", "growing", "together", and any other
+    word merely containing those two letters -- found via a real Barback
+    posting whose text (naturally) contains "growing" and "guide" but never
+    mentions the Go programming language. A spurious required_skills hit here
+    also silently defeats tailoring.py's explicit_requirements fallback,
+    since that only engages when required_skills/preferred_skills are
+    actually empty."""
+    result = analyze_job(
+        """Barback
+Required: previous experience and a desire to keep growing and guide guests.
+"""
+    )
+    assert "go" not in result["required_skills"]
+    assert "go" not in result["preferred_skills"]
+
+
 def test_parser_does_not_invent_metrics() -> None:
     parsed, _ = parse_resume("Improved release quality across the platform.")
     assert parsed["achievements"] == []

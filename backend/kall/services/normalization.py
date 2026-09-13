@@ -5,12 +5,28 @@ from kall.models.enums import WorkType
 from kall.providers.jobs import DiscoveredJob
 from kall.services.matching import salary_from_text
 
+#: Block-level tags become a line break rather than disappearing outright --
+#: collapsing them straight to a space (the old behavior) flattened an entire
+#: job description's paragraphs and bullet points into one giant line with no
+#: newlines at all, which analyze_job() (intelligence.py) relies on to split
+#: a posting into individual requirement/responsibility lines. A description
+#: with no newlines becomes either one all-or-nothing "requirement" (if the
+#: word appears anywhere) or none, and any per-line keyword extraction pulls
+#: from wherever that one giant line happens to start rather than the actual
+#: requirement bullets.
+_BLOCK_TAGS = re.compile(r"</?(?:p|div|br|li|h[1-6]|ul|ol)[^>]*>", re.IGNORECASE)
+_INLINE_TAG = re.compile(r"<[^>]+>")
+
 
 def clean_text(value: str | None) -> str:
     if not value:
         return ""
-    value = re.sub(r"<[^>]+>", " ", value)
-    return re.sub(r"\s+", " ", value).strip()
+    value = _BLOCK_TAGS.sub("\n", value)
+    value = _INLINE_TAG.sub(" ", value)
+    value = re.sub(r"[ \t]+", " ", value)
+    value = re.sub(r" *\n *", "\n", value)
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value.strip()
 
 
 def fingerprint(job: DiscoveredJob) -> str:
