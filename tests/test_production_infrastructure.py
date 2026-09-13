@@ -335,6 +335,12 @@ def test_scheduled_jobs_are_opt_in_one_shot_tasks_with_no_automatic_replay() -> 
     assert "Default: 'false'" in _section(parameters, "  EnableScheduledJobs:\n", "  SesSenderEmail:\n")
     assert "ScheduledJobsEnabled: !Equals [!Ref EnableScheduledJobs, 'true']" in conditions
     assert "Condition: ScheduledJobsEnabled" in role
+    assert "aws:SourceAccount: !Ref AWS::AccountId" in role
+    assert (
+        "aws:SourceArn: !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:"
+        "${AWS::AccountId}:schedule-group/${AWS::StackName}-jobs"
+    ) in role
+    assert ":schedule/${AWS::StackName}-jobs/*" not in role
     assert "Action: ecs:RunTask" in role
     assert "Resource: !Ref JobRunnerTaskDefinition" in role
     assert "iam:PassedToService: ecs-tasks.amazonaws.com" in role
