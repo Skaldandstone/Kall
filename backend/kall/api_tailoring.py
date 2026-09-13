@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from kall.auth import get_current_user
 from kall.db import get_session
-from kall.models import Job, TailoringChange, TailoringProposal, User
+from kall.models import GeneratedDocument, Job, TailoringChange, TailoringProposal, User
 from kall.services.resume import reflow_extracted_text
 from kall.services.tailoring import (
     create_tailoring_proposal,
@@ -44,6 +44,62 @@ def create_proposal(
         return create_tailoring_proposal(session, current_user.id, job, payload.professional_profile_id)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.get("/proposals")
+def list_proposals(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Every proposal this user owns, named by the job it was built for.
+
+    A proposal only ever meant something as "the tailored resume for that
+    posting", but the only handle the web UI had for one was its primary
+    key, so the person was asked to read a number off one tab and type it
+    into another. This returns the name, the review progress, and whether
+    files already exist, which is everything a picker needs.
+    """
+    proposals = list(
+        session.exec(
+            select(TailoringProposal)
+            .where(TailoringProposal.user_id == current_user.id)
+            .order_by(TailoringProposal.id.desc())
+        )
+    )
+    if not proposals:
+        return []
+
+    proposal_ids = [proposal.id for proposal in proposals]
+    changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id.in_(proposal_ids))))
+    jobs = {
+        job.id: job
+        for job in session.exec(select(Job).where(Job.id.in_({proposal.job_id for proposal in proposals})))
+    }
+    documented = set(
+        session.exec(
+            select(GeneratedDocument.proposal_id).where(GeneratedDocument.proposal_id.in_(proposal_ids))
+        )
+    )
+
+    rows = []
+    for proposal in proposals:
+        own = [change for change in changes if change.proposal_id == proposal.id]
+        job = jobs.get(proposal.job_id)
+        rows.append(
+            {
+                "id": proposal.id,
+                "status": proposal.status,
+                "job_title": job.title if job else "Saved job",
+                "company": job.company if job else None,
+                "job_url": job.url if job else None,
+                "change_count": len(own),
+                "pending_count": len([change for change in own if change.status == "pending"]),
+                "has_document": proposal.id in documented,
+                "created_at": proposal.created_at,
+                "finalized_at": proposal.finalized_at,
+            }
+        )
+    return rows
 
 
 @router.get("/proposals/{proposal_id}")

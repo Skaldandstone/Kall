@@ -30,7 +30,6 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
     await expect(page.getByText(/is now selected for this opportunity\./)).toBeVisible();
   });
 
-  let proposalId = '';
   await test.step('create and accept a tailoring proposal', async () => {
     await page.goto('/resumes?tab=tailoring');
     // Resume Studio asks for the posting rather than exposing an internal job
@@ -41,10 +40,11 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
     await page.getByRole('textbox', { name: 'Job description' }).fill(String(job.description || job.snippet));
     await expect(page.getByRole('button', { name: 'Create proposal' })).toBeEnabled();
     await page.getByRole('button', { name: 'Create proposal' }).click();
-    await expect(page.locator('code').first()).toBeVisible({ timeout: 15_000 });
-    const proposalText = await page.locator('code').first().innerText();
-    proposalId = proposalText.trim();
-    expect(Number(proposalId)).toBeGreaterThan(0);
+
+    // The proposal is named by the job it was built for. No database
+    // identifier is shown, and none has to be carried to the next tab.
+    await expect(page.getByText(/\d+ of \d+ reviewed/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.eyebrow', { hasText: String(job.title) }).first()).toBeVisible();
 
     // Every change must be reviewed before the proposal can be finalized --
     // accept them all rather than assuming there's exactly one. The Accept
@@ -56,22 +56,51 @@ test('job intelligence, tailoring, and document generation', async ({ page }) =>
       await expect(page.getByText('Status: accepted').nth(i)).toBeVisible();
     }
 
-    await page.getByRole('button', { name: 'Finalize proposal' }).click();
-    await expect(page.getByText(/is finalized/)).toBeVisible();
+    await page.getByRole('button', { name: 'Finalize and choose a look' }).click();
+    await expect(page.getByRole('heading', { name: 'Reviewed and ready to build' })).toBeVisible();
   });
 
-  await test.step('generate a resume package', async () => {
-    await page.goto('/resumes?tab=generate');
-    const forms = page.locator('input[name="proposal_id"]');
-    await forms.first().fill(proposalId);
+  await test.step('generate a resume package from the named proposal', async () => {
+    // Following the app's own link carries the proposal across. Nothing is
+    // typed, and the picker names the job rather than numbering it.
+    await page.getByRole('link', { name: 'Choose a look and build' }).click();
+    await expect(page).toHaveURL(/tab=generate&proposal=\d+/);
+    await expect(page.locator('input[name="proposal_id"]')).toHaveCount(0);
+
+    const picker = page.getByLabel('Tailored resume to use');
+    await expect(picker).toBeVisible();
+    await expect(picker.locator('option:checked')).toContainText(String(job.title));
+
+    // Each layout option is the person's own resume rendered in it, not a
+    // schematic of section names.
+    const gallery = page.getByRole('radiogroup', { name: 'ATS-readable layout' });
+    await expect(gallery.locator('img.template-shot').first()).toBeVisible({ timeout: 30_000 });
+    await gallery.getByRole('radio', { name: /Leadership and impact/ }).click();
+    await expect(gallery.getByRole('radio', { name: /Leadership and impact/ })).toHaveAttribute('aria-checked', 'true');
+
     await page.getByRole('button', { name: 'Generate files' }).click();
-    await expect(page.getByText('Resume package generated.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Resume package generated.')).toBeVisible({ timeout: 30_000 });
   });
 
   await test.step('draft and review a cover letter', async () => {
-    await page.locator('input[name="proposal_id"]').last().fill(proposalId);
     await page.getByRole('button', { name: 'Create review draft' }).click();
     await expect(page.getByText('Cover letter draft is ready for review.')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Paragraph 1/)).toBeVisible();
   });
+});
+
+/**
+ * The generate tab is reachable directly, and a person who has tailored
+ * nothing should be told what to do rather than shown an ID box.
+ */
+test('the generate tab points a new account at tailoring instead of asking for an ID', async ({ page }) => {
+  await signInAsNewUser(page);
+  await completeOnboarding(page);
+
+  await page.goto('/resumes?tab=generate');
+  await expect(page.getByRole('heading', { name: 'Tailor a resume to a job first.' })).toBeVisible();
+  await expect(page.locator('input[name="proposal_id"]')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Start tailoring' }).click();
+  await expect(page).toHaveURL(/tab=tailoring/);
+  await expect(page.getByRole('heading', { name: 'Evidence-grounded tailoring' })).toBeVisible();
 });

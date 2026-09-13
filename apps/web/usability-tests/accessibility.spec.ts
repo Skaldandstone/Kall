@@ -21,6 +21,8 @@ const tabRoutes = [
   '/profiles?tab=growth',
   '/profiles?tab=achievements',
   '/profiles?tab=references',
+  '/resumes?tab=tailoring',
+  '/resumes?tab=generate',
 ];
 
 test.beforeEach(async ({ page }) => {

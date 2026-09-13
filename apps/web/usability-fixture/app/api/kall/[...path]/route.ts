@@ -20,6 +20,24 @@ export async function GET(request: NextRequest) {
     target_bonus_percent: 10, travel_max_percent: 10, relocation_preference: 'none', equity_preference: 'nice_to_have',
     default_resume_id: 1, default_resume_name: 'Quality engineering resume', is_active: true, match_count: 3, best_match_score: 86, completeness: { score: 85 },
   }] });
+  // Tailoring work is named by the job it was built for -- the picker on
+  // both resume tabs reads this rather than asking for a proposal id.
+  if (path === '/tailoring/proposals') return NextResponse.json([
+    { id: 31, status: 'finalized', job_title: 'Director of Quality Engineering', company: 'Northstar Robotics', job_url: 'https://jobs.lever.co/northstar/1', change_count: 3, pending_count: 0, has_document: false, created_at: '2026-08-30T15:00:00Z', finalized_at: '2026-08-30T16:00:00Z' },
+    { id: 32, status: 'review_required', job_title: 'QA Director', company: 'Acme', job_url: 'https://boards.greenhouse.io/acme/2', change_count: 2, pending_count: 2, has_document: false, created_at: '2026-08-29T15:00:00Z', finalized_at: null },
+  ]);
+  if (path === '/tailoring/proposals/32') return NextResponse.json({
+    proposal: { id: 32, status: 'review_required', unsupported_requirements: ['Five years of medical-device experience'] },
+    changes: [{ id: 91, section: 'summary', original_text: 'Quality leader.', proposed_text: 'Quality leader who owns release readiness across software delivery.', edited_text: null, reason: 'Align the opening summary with this posting.', evidence: [{ type: 'employment', id: 4, text: 'Led quality engineering at Northstar.' }], status: 'pending' }],
+  });
+  // A rendered layout sample. The gallery falls back to its schematic when
+  // this is unavailable, so a 501 here would hide the real state under audit.
+  if (/^\/tailoring\/\d+\/previews\/[a-z]+\.png$/.test(path)) {
+    return new NextResponse(Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    ), { headers: { 'Content-Type': 'image/png' } });
+  }
   if (path === '/search/suppressed' || path === '/submissions') return NextResponse.json([]);
   if (path === '/me/applications') return NextResponse.json({ stages: [{ items: [{ id: 41, stage: 'review', company: 'Northstar Robotics', role: 'Director of Quality Engineering', location: 'Remote', match_score: 86 }] }] });
   if (path === '/applications/41/review') return NextResponse.json({ review: { status: 'needs_review', readiness_issues: ['Confirm your documents and answers.'] }, questions: [{ id: 7, prompt: 'Describe your quality leadership experience.', category: 'Experience', sensitive: false, required: true }], answers: [{ id: 9, question_id: 7, value: 'I lead quality engineering teams and build reliable release practices.', status: 'suggested' }] });

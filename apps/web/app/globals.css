@@ -688,10 +688,30 @@ label .muted,
 .template-sheet { display: grid; gap: 5px; min-height: 190px; padding: 14px 12px; border-radius: 3px; background: #fff; color: #18202a; box-shadow: 0 5px 18px rgba(0,0,0,.22); font-size: 7px; }
 .template-sheet>strong { font-family: Georgia,serif; font-size: 14px; }
 .template-sheet>span { color: #475569; }
-.template-sheet>div { display: grid; gap: 3px; padding-top: 5px; border-top: 1px solid #cbd5e1; }
+.template-sheet>div, .template-row { display: grid; gap: 3px; padding-top: 5px; border-top: 1px solid #cbd5e1; }
 .template-sheet b { font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
 .template-sheet i { display: block; height: 3px; border-radius: 2px; background: #dbe3ea; }
 @media(max-width:640px){.template-preview{grid-template-columns:1fr}.template-sheet{width:150px}}
+
+/* The layout chooser. Each option is the person's own tailored resume
+   rendered in that layout, so the choice is between real documents rather
+   than between descriptions of them. Before a job is chosen there is no
+   resume to render, and the schematic above stands in. */
+.template-choice { min-width: 0; margin: 0; padding: 0; border: 0; }
+.template-choice legend { padding: 0; color: var(--text-secondary); font-size: 13px; }
+.template-choice p { margin: 8px 0; }
+.template-choice[disabled] .template-gallery { opacity: .55; }
+.template-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+.template-option { display: grid; gap: 6px; align-content: start; padding: 10px; text-align: left; color: var(--text); background: transparent; border: 2px solid var(--border); border-radius: var(--radius-md); cursor: pointer; }
+.template-option:hover:not(:disabled) { border-color: var(--text-secondary); }
+.template-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.template-option.is-selected { border-color: var(--accent); background: var(--surface-raised); }
+.template-option:disabled { cursor: default; }
+.template-option .template-sheet { min-height: 0; aspect-ratio: .773; overflow: hidden; }
+.template-shot { display: block; width: 100%; aspect-ratio: .773; object-fit: cover; object-position: top; border-radius: 3px; background: #fff; }
+.template-name { font-size: 14px; }
+.template-option small { color: var(--text-secondary); line-height: 1.35; }
+@media(max-width:640px){.template-gallery{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}}
 
 @media (max-width: 900px) {
   .record-layout {

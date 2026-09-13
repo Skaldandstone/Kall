@@ -1,8 +1,7 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-
-const API = '/api/kall';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { fetchKall } from '../lib/api';
 
 // byte_size is null until that format has actually been rendered, which
 // happens on the first download rather than at generation time.
@@ -29,6 +28,20 @@ type CoverLetterResult = {
   }>;
 };
 
+/** One reviewed piece of tailoring work, named by the job it was built for. */
+type ProposalSummary = {
+  id: number;
+  status: string;
+  job_title: string;
+  company: string | null;
+  job_url: string | null;
+  change_count: number;
+  pending_count: number;
+  has_document: boolean;
+  created_at: string;
+  finalized_at: string | null;
+};
+
 const TEMPLATES = {
   standard: { label: 'Classic chronological', use: 'A familiar structure for most roles and industries.', order: ['Summary', 'Experience', 'Skills', 'Education'] },
   executive: { label: 'Leadership and impact', use: 'For senior leaders whose scope, decisions, and outcomes should lead.', order: ['Leadership profile', 'Selected impact', 'Experience', 'Education'] },
@@ -39,35 +52,91 @@ const TEMPLATES = {
   compact: { label: 'Compact two-page', use: 'For long work histories that need a concise, scan-friendly structure.', order: ['Summary', 'Selected achievements', 'Recent experience', 'Earlier experience'] },
 } as const;
 type TemplateKey = keyof typeof TEMPLATES;
+const TEMPLATE_KEYS = Object.keys(TEMPLATES) as TemplateKey[];
+
+function proposalLabel(proposal: ProposalSummary) {
+  return proposal.company ? `${proposal.job_title} · ${proposal.company}` : proposal.job_title;
+}
 
 export default function GenerateTab() {
+  const [proposals, setProposals] = useState<ProposalSummary[]>([]);
+  const [proposalId, setProposalId] = useState('');
+  const [loadingProposals, setLoadingProposals] = useState(true);
   const [documentResult, setDocumentResult] = useState<DocumentResult | null>(null);
   const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
   const [templateKey, setTemplateKey] = useState<TemplateKey>('standard');
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+
+  const selected = proposals.find((proposal) => String(proposal.id) === proposalId) || null;
+  const ready = Boolean(selected && selected.status === 'finalized');
+
+  const loadProposals = useCallback(async () => {
+    const response = await fetchKall('/tailoring/proposals');
+    if (!response.ok) {
+      setLoadingProposals(false);
+      setMessage('Unable to load your tailoring work.');
+      return;
+    }
+    const rows: ProposalSummary[] = await response.json();
+    setProposals(rows);
+    setLoadingProposals(false);
+    // Arriving from the tailoring tab carries the proposal in the URL, so
+    // nobody has to copy an identifier between two screens.
+    const requested = new URLSearchParams(window.location.search).get('proposal');
+    const preferred = requested && rows.some((row) => String(row.id) === requested)
+      ? requested
+      : String(rows.find((row) => row.status === 'finalized')?.id ?? '');
+    setProposalId((current) => current || preferred);
+  }, []);
+
+  useEffect(() => { void loadProposals(); }, [loadProposals]);
+
+  // Each sample is the person's own resume in that layout. A schematic of
+  // section names cannot answer "which of these should I send?", which is
+  // the only question this step asks.
+  useEffect(() => {
+    setPreviews({});
+    if (!ready || !selected) return;
+    let cancelled = false;
+    const id = selected.id;
+    const urls: string[] = [];
+    (async () => {
+      for (const key of TEMPLATE_KEYS) {
+        if (cancelled) return;
+        const response = await fetchKall(`/tailoring/${id}/previews/${key}.png`).catch(() => null);
+        if (!response || !response.ok || cancelled) continue;
+        const url = URL.createObjectURL(await response.blob());
+        urls.push(url);
+        if (cancelled) { URL.revokeObjectURL(url); return; }
+        setPreviews((current) => ({ ...current, [key]: url }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [ready, selected]);
 
   async function generateResume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!proposalId) return;
     setBusy(true);
-    setMessage('Generating your tailored document…');
-    const form = new FormData(event.currentTarget);
-    const proposalId = form.get('proposal_id');
-    const templateKey = form.get('template_key');
+    setMessage('Building your tailored resume…');
     try {
-      const response = await fetch(`${API}/tailoring/${proposalId}/documents`, {
+      const response = await fetchKall(`/tailoring/${proposalId}/documents`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template_key: templateKey }),
       });
       const generated = await response.json();
       if (!response.ok) throw new Error(generated.detail || 'Generation failed');
-      const detail = await fetch(`${API}/documents/${generated.id}`);
+      const detail = await fetchKall(`/documents/${generated.id}`);
       setDocumentResult(await detail.json());
       setMessage('Resume package generated.');
+      void loadProposals();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Generation failed.');
     } finally {
@@ -77,15 +146,14 @@ export default function GenerateTab() {
 
   async function generateCoverLetter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!proposalId) return;
     setBusy(true);
+    setMessage('Drafting a cover letter from the finalized resume…');
     const form = new FormData(event.currentTarget);
-    const proposalId = form.get('proposal_id');
     try {
-      const response = await fetch(`${API}/tailoring/${proposalId}/cover-letter`, {
+      const response = await fetchKall(`/tailoring/${proposalId}/cover-letter`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emphasis: form.get('emphasis'),
           tone: form.get('tone'),
@@ -95,7 +163,7 @@ export default function GenerateTab() {
       });
       const proposal = await response.json();
       if (!response.ok) throw new Error(proposal.detail || 'Cover letter generation failed');
-      const detail = await fetch(`${API}/cover-letters/${proposal.id}`);
+      const detail = await fetchKall(`/cover-letters/${proposal.id}`);
       setCoverLetter(await detail.json());
       setMessage('Cover letter draft is ready for review.');
     } catch (error) {
@@ -106,11 +174,9 @@ export default function GenerateTab() {
   }
 
   async function decide(changeId: number, decision: 'accepted' | 'rejected') {
-    const response = await fetch(`${API}/cover-letter-changes/${changeId}`, {
+    const response = await fetchKall(`/cover-letter-changes/${changeId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ decision }),
     });
     if (response.ok && coverLetter) {
@@ -130,9 +196,8 @@ export default function GenerateTab() {
     if (!documentResult) return;
     setDownloadingFormat(artifact.format);
     try {
-      const response = await fetch(
-        `${API}/documents/${documentResult.document.id}/download/${artifact.format}`,
-        { },
+      const response = await fetchKall(
+        `/documents/${documentResult.document.id}/download/${artifact.format}`,
       );
       if (!response.ok) throw new Error('Unable to download this file.');
       const blob = await response.blob();
@@ -151,70 +216,131 @@ export default function GenerateTab() {
     }
   }
 
+  const picker = (
+    <label>
+      <span className="muted">Tailored resume to use</span>
+      <select
+        className="input"
+        value={proposalId}
+        onChange={(event) => { setProposalId(event.target.value); setDocumentResult(null); setCoverLetter(null); }}
+        disabled={loadingProposals || proposals.length === 0}
+      >
+        <option value="">{loadingProposals ? 'Loading your tailoring work…' : 'Choose a job'}</option>
+        {proposals.map((proposal) => (
+          <option key={proposal.id} value={proposal.id}>
+            {proposalLabel(proposal)}
+            {proposal.status === 'finalized' ? '' : ` — ${proposal.pending_count} question${proposal.pending_count === 1 ? '' : 's'} left`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
     <>
-      <section className="grid">
-        <article className="card">
-          <h2>Generate resume package</h2>
-          <p style={{ marginBottom: 20 }}>
-            The tailoring proposal must be fully reviewed and finalized first.
-          </p>
-          <form className="form" onSubmit={generateResume}>
-            <label>
-              <span className="muted">Tailoring proposal ID</span>
-              <input className="input" name="proposal_id" inputMode="numeric" required />
-            </label>
-            <label>
-              <span className="muted">ATS-readable layout</span>
-              <select className="input" name="template_key" value={templateKey} onChange={(event) => setTemplateKey(event.target.value as TemplateKey)}>
-                {Object.entries(TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
-              </select>
-            </label>
-            <section className="template-preview" aria-live="polite">
-              <div className="template-sheet"><strong>Your Name</strong><span>Contact details · Location · Portfolio or LinkedIn</span>{TEMPLATES[templateKey].order.map((section) => <div key={section}><b>{section}</b><i /><i /></div>)}</div>
-              <div><h3>{TEMPLATES[templateKey].label}</h3><p>{TEMPLATES[templateKey].use}</p><p className="muted">Single column, standard headings, selectable text, and no decorative graphics that interfere with parsing.</p></div>
-            </section>
-            <button className="button" disabled={busy}>Generate files</button>
-          </form>
-        </article>
+      {!loadingProposals && proposals.length === 0 && (
+        <section className="card" style={{ marginBottom: 24 }}>
+          <span className="eyebrow">Nothing to build yet</span>
+          <h2 style={{ marginTop: 14 }}>Tailor a resume to a job first.</h2>
+          <p>Paste a job posting into the Tailoring tab. Kall asks what is missing, you answer, and the approved answers become the files you export here.</p>
+          <a className="button" href="/resumes?tab=tailoring" style={{ marginTop: 18 }}>Start tailoring</a>
+        </section>
+      )}
 
-        <article className="card">
-          <h2>Draft grounded cover letter</h2>
-          <form className="form" onSubmit={generateCoverLetter}>
-            <label><span className="muted">Tailoring proposal ID</span><input className="input" name="proposal_id" required /></label>
-            <div className="two">
-              <label><span className="muted">Emphasis</span><select className="input" name="emphasis" defaultValue="balanced">
-                <option value="balanced">Balanced</option>
-                <option value="executive">Executive</option>
-                <option value="technical">Technical</option>
-              </select></label>
-              <label><span className="muted">Tone</span><select className="input" name="tone" defaultValue="formal">
-                <option value="formal">Formal</option>
-                <option value="conversational">Conversational</option>
-              </select></label>
-            </div>
-            <label><span className="muted">Length</span><select className="input" name="length" defaultValue="standard">
-              <option value="concise">Concise</option>
-              <option value="standard">Standard</option>
-            </select></label>
-            <label><span className="muted">Why this company (optional)</span><textarea
-              className="input"
-              name="company_interest_notes"
-              rows={4}
-              style={{ paddingTop: 14 }}
-            /></label>
-            <button className="button secondary" disabled={busy}>Create review draft</button>
-          </form>
-        </article>
-      </section>
+      {proposals.length > 0 && (
+        <section className="grid">
+          <article className="card">
+            <h2>Generate resume package</h2>
+            <p style={{ marginBottom: 20 }}>
+              Choose the job you tailored for, then pick the layout to send.
+            </p>
+            <form className="form" onSubmit={generateResume}>
+              {picker}
+              {selected && !ready && (
+                <p className="notice">
+                  {selected.pending_count} question{selected.pending_count === 1 ? '' : 's'} still need an answer before this can be built.{' '}
+                  <a href={`/resumes?tab=tailoring&proposal=${selected.id}`}>Finish reviewing it</a>.
+                </p>
+              )}
+              <fieldset className="template-choice" disabled={!ready}>
+                <legend>ATS-readable layout</legend>
+                <p className="muted">
+                  {ready
+                    ? 'Each sample is your own resume, with the approved changes, in that layout.'
+                    : 'Choose a finalized job above to see your own resume in each layout.'}
+                </p>
+                <div className="template-gallery" role="radiogroup" aria-label="ATS-readable layout">
+                  {TEMPLATE_KEYS.map((key) => {
+                    const template = TEMPLATES[key];
+                    const active = templateKey === key;
+                    return (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        key={key}
+                        className={`template-option${active ? ' is-selected' : ''}`}
+                        onClick={() => setTemplateKey(key)}
+                      >
+                        {previews[key] ? (
+                          <img className="template-shot" src={previews[key]} alt={`Your resume in the ${template.label} layout`} />
+                        ) : (
+                          <span className="template-sheet" aria-hidden="true">
+                            <strong>Your Name</strong>
+                            <span>Contact details · Location</span>
+                            {template.order.map((section) => <span key={section} className="template-row"><b>{section}</b><i /><i /></span>)}
+                          </span>
+                        )}
+                        <strong className="template-name">{template.label}</strong>
+                        <small>{template.use}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="muted">Single column, standard headings, selectable text, and no decorative graphics that interfere with parsing.</p>
+              </fieldset>
+              <button className="button" disabled={busy || !ready}>Generate files</button>
+            </form>
+          </article>
 
-      <p className="notice" aria-live="polite" style={{ marginTop: 18 }}>{message}</p>
+          <article className="card">
+            <h2>Draft grounded cover letter</h2>
+            <p style={{ marginBottom: 20 }}>Drafted from the same finalized resume. Every paragraph needs your review.</p>
+            <form className="form" onSubmit={generateCoverLetter}>
+              <div className="two">
+                <label><span className="muted">Emphasis</span><select className="input" name="emphasis" defaultValue="balanced">
+                  <option value="balanced">Balanced</option>
+                  <option value="executive">Executive</option>
+                  <option value="technical">Technical</option>
+                </select></label>
+                <label><span className="muted">Tone</span><select className="input" name="tone" defaultValue="formal">
+                  <option value="formal">Formal</option>
+                  <option value="conversational">Conversational</option>
+                </select></label>
+              </div>
+              <label><span className="muted">Length</span><select className="input" name="length" defaultValue="standard">
+                <option value="concise">Concise</option>
+                <option value="standard">Standard</option>
+              </select></label>
+              <label><span className="muted">Why this company (optional)</span><textarea
+                className="input"
+                name="company_interest_notes"
+                rows={4}
+                style={{ paddingTop: 14 }}
+              /></label>
+              <button className="button secondary" disabled={busy || !ready}>Create review draft</button>
+            </form>
+          </article>
+        </section>
+      )}
+
+      <p className="notice" role="status" aria-live="polite" style={{ marginTop: 18 }}>{message}</p>
 
       {documentResult && (
         <section className="stack" style={{ marginTop: 24 }}>
           <div className="section-heading">
             <div><span className="eyebrow">Generated package</span><h2 style={{ marginTop: 14 }}>Private, traceable artifacts.</h2></div>
-            <p>Checksum {documentResult.document.checksum.slice(0, 14)}… · Template {documentResult.document.template_key}</p>
+            <p>{selected ? `${proposalLabel(selected)} · ` : ''}{TEMPLATES[documentResult.document.template_key as TemplateKey]?.label ?? documentResult.document.template_key} · checksum {documentResult.document.checksum.slice(0, 14)}…</p>
           </div>
           <div className="grid">
             {documentResult.artifacts.map((artifact) => (

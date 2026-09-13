@@ -301,3 +301,92 @@ def test_proposal_still_drafts_achievement_and_role_gap_changes_when_the_posting
     sections = [change.section for change in changes]
     assert "summary" in sections
     assert "achievements" in sections, "A verified achievement matching the posting's own requirement text must still be proposed"
+
+
+def test_proposal_listing_names_each_proposal_by_its_job(client) -> None:
+    """The web tailoring and generate tabs used to ask the person to read a
+    proposal's primary key off one screen and type it into another. This is
+    the listing that lets them pick "Director of QA at North" instead."""
+    from kall.db import get_session
+    from kall.main import app
+
+    session = next(app.dependency_overrides[get_session]())
+    me = client.get("/api/me").json()
+    assert client.get("/api/tailoring/proposals").json() == []
+
+    job = Job(
+        source="test",
+        company="North",
+        title="Director of QA",
+        description="Lead quality",
+        url="https://example.com/listing-gaps",
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    resume = ResumeDocument(
+        user_id=me["id"], name="r.txt", file_path="x", mime_type="text/plain", extracted_text="Led QA."
+    )
+    session.add(resume)
+    session.commit()
+    session.refresh(resume)
+    session.add(
+        ResumeSelection(
+            user_id=me["id"], job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id
+        )
+    )
+    session.commit()
+
+    created = client.post("/api/tailoring/proposals", json={"job_id": job.id, "professional_profile_id": 1})
+    assert created.status_code == 200, created.text
+    proposal_id = created.json()["id"]
+
+    listed = client.get("/api/tailoring/proposals")
+    assert listed.status_code == 200
+    rows = listed.json()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["id"] == proposal_id
+    assert row["job_title"] == "Director of QA"
+    assert row["company"] == "North"
+    assert row["job_url"] == "https://example.com/listing-gaps"
+    assert row["status"] == "review_required"
+    assert row["change_count"] >= 1
+    assert row["pending_count"] == row["change_count"]
+    assert row["has_document"] is False
+
+    assert client.post(f"/api/tailoring/proposals/{proposal_id}/review-all", json={"status": "accepted"}).status_code == 200
+    assert client.post(f"/api/tailoring/proposals/{proposal_id}/finalize").status_code == 200
+    assert client.post(f"/api/tailoring/{proposal_id}/documents", json={"template_key": "standard"}).status_code == 200
+
+    finalized = client.get("/api/tailoring/proposals").json()[0]
+    assert finalized["status"] == "finalized"
+    assert finalized["pending_count"] == 0
+    assert finalized["has_document"] is True
+    assert finalized["finalized_at"] is not None
+
+
+def test_proposal_listing_never_returns_another_account_s_proposals(client) -> None:
+    from kall.db import get_session
+    from kall.main import app
+
+    session = next(app.dependency_overrides[get_session]())
+    other = User(clerk_user_id="user_other", email="other@example.com", full_name="Other")
+    session.add(other)
+    job = Job(
+        source="test",
+        company="Elsewhere",
+        title="Someone else's role",
+        description="Not yours",
+        url="https://example.com/not-yours",
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(other)
+    session.refresh(job)
+    session.add(
+        TailoringProposal(user_id=other.id, job_id=job.id, resume_id=1, professional_profile_id=1)
+    )
+    session.commit()
+
+    assert client.get("/api/tailoring/proposals").json() == []
