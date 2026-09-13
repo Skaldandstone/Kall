@@ -16,7 +16,11 @@ API path" section for how the API was made reachable for this).
 
 ## Not yet built (explicit follow-up, not silently dropped)
 
-- **Push notifications.** Needs Firebase Cloud Messaging (Android) and APNs (iOS) credentials/developer-account setup that don't exist yet - this is infrastructure outside this repo, not a code gap.
+- **Push notification release acceptance.** The app now requests permission,
+  registers an encrypted Expo device token, and lets the shared backend deliver
+  alerts through Expo's FCM/APNs relay. The next native store build still needs
+  physical-device receipt testing with the EAS-managed Android and Apple push
+  credentials before delivery can be called released.
 - **Desktop-heavy editors.** Paragraph-level resume tailoring, the public career-page layout editor, privacy field rules, search-source administration, and account deletion remain web-only. Mobile links its daily workflow together and includes a store-compliant plan screen; it falls back to web billing until native products are activated.
 
 Native Apple and Google billing setup and release gates are documented in
@@ -37,7 +41,9 @@ emulator once Android Studio/Xcode is installed.
 
 Expo Go covers most work. A **native** build is needed only once something
 Expo Go cannot load is added - a config plugin with native code, a custom
-native module, or push notifications.
+native module, or push notifications. Push therefore belongs in the next native
+store binary and cannot be added to the version already under Play review by an
+over-the-air update.
 
 ```bash
 npx expo run:android        # builds and installs a debug build on the emulator

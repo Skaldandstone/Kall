@@ -9,9 +9,16 @@ alone.
 
 from datetime import datetime, time
 
+import httpx
 import pytest
 from kall.models.core import Job, User
-from kall.models.opportunities import NotificationDelivery, NotificationPreference, Opportunity
+from kall.models.opportunities import (
+    DeviceRegistration,
+    NotificationDelivery,
+    NotificationPreference,
+    Opportunity,
+)
+from kall.security import encrypt_sensitive
 from kall.services.notification_delivery import drain, process_delivery
 from kall.services.notifications import NotificationService, RetryableDeliveryError
 from sqlmodel import Session, select
@@ -48,7 +55,7 @@ def _job_and_opportunity(session, user_id):
 
 def _queued_delivery(session, user_id, opportunity_ids, **overrides):
     delivery = NotificationDelivery(
-        user_id=user_id, channel="email", kind="opportunity_digest",
+        user_id=user_id, channel=overrides.pop("channel", "email"), kind="opportunity_digest",
         dedupe_key=overrides.pop("dedupe_key", "digest:1:2026-08-27"),
         payload={"opportunity_ids": opportunity_ids},
         **overrides,
@@ -94,6 +101,74 @@ def test_a_configured_provider_sends_and_marks_delivered(engine, monkeypatch) ->
         assert sent["recipient"] == user.email
         assert job.title in sent["html"]
         assert job.company in sent["html"]
+
+
+def test_push_delivery_uses_encrypted_registered_device(engine, monkeypatch) -> None:
+    sent = {}
+
+    def fake_post(url, **kwargs):
+        sent.update(url=url, json=kwargs["json"])
+        return httpx.Response(200, json={"data": [{"status": "ok", "id": "ticket-1"}]})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    with Session(engine) as session:
+        user = _user(session)
+        _job, opp = _job_and_opportunity(session, user.id)
+        session.add(NotificationPreference(user_id=user.id, push_enabled=True))
+        session.add(DeviceRegistration(
+            user_id=user.id,
+            platform="android",
+            token_hash="hash",
+            encrypted_token=encrypt_sensitive("ExponentPushToken[private-device-token]") or "",
+        ))
+        session.commit()
+        delivery = _queued_delivery(
+            session,
+            user.id,
+            [opp.id],
+            dedupe_key="push:1",
+            channel="push",
+        )
+
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "sent"
+        assert delivery.provider_message_id == "ticket-1"
+        assert sent["url"] == "https://exp.host/--/api/v2/push/send"
+        assert sent["json"][0]["to"] == "ExponentPushToken[private-device-token]"
+
+
+def test_dead_push_token_is_disabled_and_delivery_fails(engine, monkeypatch) -> None:
+    monkeypatch.setattr(
+        httpx,
+        "post",
+        lambda *a, **k: httpx.Response(200, json={"data": [{
+            "status": "error",
+            "message": "Device is not registered",
+            "details": {"error": "DeviceNotRegistered"},
+        }]}),
+    )
+    with Session(engine) as session:
+        user = _user(session)
+        _job, opp = _job_and_opportunity(session, user.id)
+        session.add(NotificationPreference(user_id=user.id, push_enabled=True))
+        registration = DeviceRegistration(
+            user_id=user.id,
+            platform="android",
+            token_hash="dead-hash",
+            encrypted_token=encrypt_sensitive("ExponentPushToken[dead-device-token]") or "",
+        )
+        session.add(registration)
+        session.commit()
+        delivery = _queued_delivery(
+            session,
+            user.id,
+            [opp.id],
+            dedupe_key="push:dead",
+            channel="push",
+        )
+
+        assert process_delivery(session, delivery, now=datetime(2026, 8, 30, 12)) == "failed"
+        session.refresh(registration)
+        assert registration.enabled is False
 
 
 def test_opting_out_skips_rather_than_sends(engine, monkeypatch) -> None:

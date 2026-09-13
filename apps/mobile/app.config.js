@@ -69,6 +69,7 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       '@clerk/expo',
       'expo-web-browser',
+      'expo-notifications',
       ['@sentry/react-native/expo', {
         organization: 'skald-and-stone',
         project: 'kall-mobile-sp',

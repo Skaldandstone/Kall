@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -12,6 +13,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import (
     CareerProfile,
+    DeviceRegistration,
     DiscoverySchedule,
     Job,
     NotificationDelivery,
@@ -21,6 +23,7 @@ from kall.models import (
 )
 from kall.models.monitoring import PublicBoardFeed, ScheduleBoardState
 from kall.providers.board_feed import feed_key
+from kall.security import encrypt_sensitive
 from kall.services import work_claims
 from kall.services.applications import existing_application_summary, find_existing_application
 from kall.services.ats_web_search import build_ats_queries, build_search_intent
@@ -114,6 +117,28 @@ class PreferenceInput(BaseModel):
         if (self.quiet_hours_start is None) != (self.quiet_hours_end is None):
             raise ValueError("Set both quiet-hour times, or clear both.")
         return self
+
+
+class DeviceRegistrationInput(BaseModel):
+    platform: Literal["android", "ios"]
+    token: str = Field(min_length=20, max_length=512)
+
+    @field_validator("token")
+    @classmethod
+    def valid_expo_push_token(cls, value: str) -> str:
+        token = value.strip()
+        if not (
+            token.startswith("ExponentPushToken[") or token.startswith("ExpoPushToken[")
+        ) or not token.endswith("]"):
+            raise ValueError("A valid Expo push token is required.")
+        return token
+
+
+class DeviceRegistrationView(BaseModel):
+    id: int
+    platform: Literal["android", "ios"]
+    enabled: bool
+    last_seen_at: datetime
 
 
 def _owned_profile(profile_id: int, user_id: int, session: Session) -> CareerProfile:
@@ -334,3 +359,48 @@ def set_preferences(payload: PreferenceInput, current: User = Depends(get_curren
     session.commit()
     session.refresh(row)
     return PreferenceView(**row.model_dump(), email_provider_status="configured" if get_settings().ses_sender_email else "unconfigured")
+
+
+@router.post("/device-registrations", response_model=DeviceRegistrationView)
+def register_device(
+    payload: DeviceRegistrationInput,
+    current: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> DeviceRegistration:
+    """Register a device without ever storing or returning its raw push token."""
+    token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
+    row = session.exec(
+        select(DeviceRegistration).where(DeviceRegistration.token_hash == token_hash)
+    ).first()
+    if row and row.user_id != current.id:
+        # A signed-in device can move between accounts. Reassign it instead of
+        # leaking whether another account previously owned the opaque token.
+        row.user_id = current.id
+    if not row:
+        row = DeviceRegistration(
+            user_id=current.id,
+            platform=payload.platform,
+            token_hash=token_hash,
+            encrypted_token=encrypt_sensitive(payload.token) or "",
+        )
+    row.platform = payload.platform
+    row.encrypted_token = encrypt_sensitive(payload.token) or ""
+    row.enabled = True
+    row.last_seen_at = utcnow()
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+@router.delete("/device-registrations/{registration_id}", status_code=204)
+def unregister_device(
+    registration_id: int,
+    current: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    row = session.get(DeviceRegistration, registration_id)
+    if not row or row.user_id != current.id:
+        raise HTTPException(404, "Device registration not found")
+    session.delete(row)
+    session.commit()

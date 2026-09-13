@@ -184,3 +184,14 @@ export const saveNotificationPreferences = (body: NotificationPreferences) =>
     method: "PUT",
     body,
   });
+export type DeviceRegistration = {
+  id: number;
+  platform: "android" | "ios";
+  enabled: boolean;
+  last_seen_at: string;
+};
+export const registerDevice = (platform: "android" | "ios", token: string) =>
+  apiRequest<DeviceRegistration>("/device-registrations", {
+    method: "POST",
+    body: { platform, token },
+  });
