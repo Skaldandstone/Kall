@@ -185,7 +185,6 @@ def create_checkout_url(session: Session, user: User, plan: str) -> str:
     client = stripe_client()
     with billing_transaction(session, user.id) as commit:
         row = bound_row(session, user.id)
-        checked_portal_configuration(client)
         price = provider_call(client.v1.prices.retrieve, price_id)
         recurring = price.get("recurring") or {}
         if (price.get("id") != price_id or price.get("livemode") is not expected_livemode() or not price.get("active")

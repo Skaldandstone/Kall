@@ -132,6 +132,19 @@ def test_checkout_uses_server_prices_owned_customer_and_one_persisted_attempt(cl
     assert client.post("/api/billing/checkout", json={"plan": "premium"}).status_code == 409
 
 
+def test_checkout_does_not_depend_on_customer_portal_catalog(client, stripe_gateway):
+    """A shared or stale portal must not block Kall's separately validated Checkout catalog."""
+    stripe_gateway.configuration["features"]["subscription_update"]["products"][0]["prices"] = [
+        "price_other_product"
+    ]
+
+    response = client.post("/api/billing/checkout", json={"plan": "plus"})
+
+    assert response.status_code == 200
+    assert response.json()["url"].startswith("https://checkout.stripe.com/")
+    assert not any(call[0] == "portal.retrieve" for call in stripe_gateway.calls)
+
+
 @pytest.mark.parametrize("field", ["price", "customer", "user_id", "success_url", "subscription_data"])
 def test_checkout_rejects_client_authority_fields(client, stripe_gateway, field):
     assert client.post("/api/billing/checkout", json={"plan": "plus", field: "untrusted"}).status_code == 422
