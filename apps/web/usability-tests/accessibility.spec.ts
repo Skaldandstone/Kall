@@ -73,9 +73,9 @@ test('every application section keeps one page heading and named form controls',
   }
 });
 
-test('primary workflows reflow at 320 CSS pixels', async ({ page }) => {
+test('primary workflows and their added sections reflow at 320 CSS pixels', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
-  for (const path of primaryRoutes) {
+  for (const path of [...primaryRoutes, ...tabRoutes]) {
     await page.goto(path, { waitUntil: 'networkidle' });
     await expect(page.locator('main h1')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true);

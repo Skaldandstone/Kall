@@ -1,0 +1,118 @@
+.workspace {
+  display: grid;
+  gap: 24px;
+}
+
+.intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.introCopy {
+  max-width: 700px;
+}
+
+.intro h2 {
+  margin: 14px 0 10px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.formCard,
+.savedCard {
+  min-width: 0;
+}
+
+.formCard h2,
+.savedCard h2 {
+  margin: 14px 0 8px;
+}
+
+.description {
+  margin-bottom: 22px !important;
+}
+
+.fieldHelp {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.status {
+  min-height: 24px;
+  margin: 16px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.statusError {
+  color: var(--danger);
+}
+
+.sourceList {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sourceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.sourceName {
+  display: block;
+  color: var(--text);
+  font-weight: 650;
+}
+
+.sourceKey {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.provider {
+  align-self: start;
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.empty {
+  margin-top: 18px !important;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+@media (max-width: 760px) {
+  .intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

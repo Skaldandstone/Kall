@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
-import { theme } from "../theme";
+import { elevation, radius, spacing, theme, type } from "../theme";
 
 export function FormField({ label, value, onChange, placeholder, help, multiline = false, keyboardType = "default", autoCapitalize = "sentences", secure = false, editable = true }: {
   label: string;
@@ -79,7 +79,14 @@ export function SwitchRow({ label, detail, value, onChange, disabled = false }: 
         <Text style={styles.switchLabel}>{label}</Text>
         {detail ? <Text style={styles.help}>{detail}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ false: theme.border, true: theme.accent }} />
+      <Switch
+        accessibilityLabel={label}
+        accessibilityHint={detail}
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        trackColor={{ false: theme.border, true: theme.accent }}
+      />
     </View>
   );
 }
@@ -89,36 +96,36 @@ export function FormActions({ children }: { children: ReactNode }) {
 }
 
 export const formStyles = StyleSheet.create({
-  primary: { minHeight: 48, alignItems: "center", justifyContent: "center", backgroundColor: theme.accent, borderRadius: 10, paddingHorizontal: 16 },
-  primaryText: { color: theme.accentInk, fontWeight: "700", fontSize: 14 },
-  secondary: { minHeight: 48, alignItems: "center", justifyContent: "center", borderColor: theme.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14 },
-  secondaryText: { color: theme.text, fontWeight: "700", fontSize: 14 },
-  dangerText: { color: theme.danger, fontWeight: "700", fontSize: 14 },
+  primary: { minHeight: 50, alignItems: "center", justifyContent: "center", backgroundColor: theme.accent, borderRadius: radius.md, paddingHorizontal: spacing.lg },
+  primaryText: { color: theme.accentInk, fontWeight: "800", fontSize: type.body },
+  secondary: { minHeight: 48, alignItems: "center", justifyContent: "center", backgroundColor: theme.surfaceRaised, borderRadius: radius.md, paddingHorizontal: spacing.lg },
+  secondaryText: { color: theme.text, fontWeight: "700", fontSize: type.body },
+  dangerText: { color: theme.danger, fontWeight: "700", fontSize: type.body },
   disabled: { opacity: 0.5 },
-  card: { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 14 },
-  cardLabel: { color: theme.textMuted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginBottom: 8 },
-  cardTitle: { color: theme.text, fontSize: 17, fontWeight: "700" },
-  body: { color: theme.textSecondary, fontSize: 14, lineHeight: 20 },
-  muted: { color: theme.textMuted, fontSize: 12, lineHeight: 17 },
-  success: { color: theme.success, marginBottom: 14, lineHeight: 20 },
-  error: { color: theme.danger, marginBottom: 14, lineHeight: 20 },
+  card: { ...elevation.card, backgroundColor: theme.surface, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md },
+  cardLabel: { color: theme.accent, fontSize: 11, lineHeight: 15, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: spacing.sm },
+  cardTitle: { color: theme.text, fontSize: type.title, lineHeight: 24, fontWeight: "700", letterSpacing: -0.25 },
+  body: { color: theme.textSecondary, fontSize: type.body, lineHeight: 22 },
+  muted: { color: theme.textMuted, fontSize: 13, lineHeight: 18 },
+  success: { color: theme.success, marginBottom: spacing.md, fontSize: 14, lineHeight: 20 },
+  error: { color: theme.danger, marginBottom: spacing.md, fontSize: 14, lineHeight: 20 },
 });
 
 const styles = StyleSheet.create({
-  field: { marginTop: 12 },
-  label: { color: theme.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: 6 },
-  input: { minHeight: 48, color: theme.text, backgroundColor: theme.surfaceRaised, borderColor: theme.border, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, fontSize: 15 },
+  field: { marginTop: spacing.md },
+  label: { color: theme.textSecondary, fontSize: 13, lineHeight: 18, fontWeight: "600", marginBottom: 6 },
+  input: { minHeight: 52, color: theme.text, backgroundColor: theme.surfaceRaised, borderColor: theme.border, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: spacing.lg, fontSize: 16 },
   inputDisabled: { opacity: 0.6 },
-  multiline: { minHeight: 96, paddingTop: 12, textAlignVertical: "top" },
-  help: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: 5 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { minHeight: 40, justifyContent: "center", borderColor: theme.border, borderWidth: 1, borderRadius: 20, paddingHorizontal: 13 },
+  multiline: { minHeight: 104, paddingTop: spacing.md, textAlignVertical: "top" },
+  help: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: 6 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  chip: { minHeight: 44, justifyContent: "center", borderColor: theme.border, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14 },
   chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  chipText: { color: theme.textSecondary, fontSize: 13, fontWeight: "600" },
+  chipText: { color: theme.textSecondary, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   chipTextActive: { color: theme.accentInk },
-  switchRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 },
+  switchRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.sm },
   switchCopy: { flex: 1 },
   switchLabel: { color: theme.text, fontSize: 15, fontWeight: "600" },
   disabled: { opacity: 0.55 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.lg },
 });
