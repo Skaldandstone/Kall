@@ -142,7 +142,7 @@ def test_checkout_does_not_depend_on_customer_portal_catalog(client, stripe_gate
 
     assert response.status_code == 200
     assert response.json()["url"].startswith("https://checkout.stripe.com/")
-    assert not any(call[0] == "portal.retrieve" for call in stripe_gateway.calls)
+    assert not any(call[0] == "portal.configuration.retrieve" for call in stripe_gateway.calls)
 
 
 @pytest.mark.parametrize("field", ["price", "customer", "user_id", "success_url", "subscription_data"])
@@ -174,6 +174,11 @@ def test_ambiguous_creation_reuses_persisted_idempotency_key(client, stripe_gate
 def test_portal_uses_only_owned_customer_and_scoped_configuration(client, engine, stripe_gateway):
     stripe_gateway.bind(engine, client.user_id)
     assert client.post("/api/billing/portal").status_code == 200
+    assert stripe_gateway.calls[-2] == (
+        "portal.configuration.retrieve",
+        "bpc_kall",
+        {"expand": ["features.subscription_update.products"]},
+    )
     assert stripe_gateway.calls[-1] == ("portal.create", {"customer": "cus_local",
         "return_url": "http://localhost:3000/billing", "configuration": "bpc_kall"})
     stripe_gateway.customers["cus_local"]["metadata"]["kall_user_id"] = "another-user"

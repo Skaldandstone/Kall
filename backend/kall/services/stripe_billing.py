@@ -151,7 +151,14 @@ def checked_portal_configuration(client) -> str:
     configuration_id = get_settings().stripe_portal_configuration_id
     if not configuration_id:
         raise HTTPException(503, "Kall customer portal is not configured")
-    configuration = provider_call(client.v1.billing_portal.configurations.retrieve, configuration_id)
+    # Portal product catalogs are expandable in current Stripe API versions.
+    # Without the expansion a valid Kall-only configuration can look empty and
+    # fail the allowlist check below.
+    configuration = provider_call(
+        client.v1.billing_portal.configurations.retrieve,
+        configuration_id,
+        {"expand": ["features.subscription_update.products"]},
+    )
     if (configuration.get("id") != configuration_id or not configuration.get("active")
             or configuration.get("livemode") is not expected_livemode()):
         raise HTTPException(503, "Kall customer portal configuration is unavailable")

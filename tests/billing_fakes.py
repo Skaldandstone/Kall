@@ -48,7 +48,7 @@ class FakeStripe:
             checkout=SimpleNamespace(sessions=SimpleNamespace(create=self.create_checkout,
                                       retrieve=lambda key: deepcopy(self.checkouts[key]))),
             billing_portal=SimpleNamespace(
-                configurations=SimpleNamespace(retrieve=lambda key: deepcopy(self.configuration)),
+                configurations=SimpleNamespace(retrieve=self.retrieve_portal_configuration),
                 sessions=SimpleNamespace(create=self.create_portal)),
             charges=SimpleNamespace(list=self.list_charges, retrieve=self.retrieve_charge),
             refunds=SimpleNamespace(create=self.create_refund),
@@ -120,6 +120,10 @@ class FakeStripe:
     def create_portal(self, params):
         self.calls.append(("portal.create", deepcopy(params)))
         return {"url": "https://billing.stripe.com/p/session/local"}
+
+    def retrieve_portal_configuration(self, key, params=None):
+        self.calls.append(("portal.configuration.retrieve", key, deepcopy(params)))
+        return deepcopy(self.configuration)
 
     def bind(self, engine, user_id, *, plan="premium", status="active", suffix="local"):
         customer_id, subscription_id = f"cus_{suffix}", f"sub_{suffix}"
