@@ -1460,6 +1460,8 @@ Resources:
               Value: us-east-2
             - Name: AWS_S3_BUCKET
               Value: !Ref DocumentBucket
+            - Name: ALPHA_INVITE_ONLY
+              Value: !If [PublicSignupEnabled, 'false', 'true']
             - Name: OPENAI_MODEL
               Value: gpt-5.6-luna
             - Name: MONITORING_ENABLED

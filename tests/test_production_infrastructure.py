@@ -177,7 +177,7 @@ def test_production_migration_receives_complete_fail_closed_settings() -> None:
 def test_public_signup_is_parameterised_and_fails_closed() -> None:
     """Opening registration must be a deliberate parameter flip, never a default.
 
-    All three task definitions have to agree: a template where the API opened up
+    All four task definitions have to agree: a template where the API opened up
     but the web tier still advertised invite-only copy would be worse than either
     state on its own.
     """
@@ -196,7 +196,7 @@ def test_public_signup_is_parameterised_and_fails_closed() -> None:
             "- Name: ALPHA_INVITE_ONLY\n"
             "              Value: !If [PublicSignupEnabled, 'false', 'true']"
         )
-        == 3
+        == 4
     )
     # The allowlist secret stays wired in regardless, so invite-only can be
     # restored without redeploying configuration that was deleted.
@@ -346,6 +346,7 @@ def test_scheduled_jobs_are_opt_in_one_shot_tasks_with_no_automatic_replay() -> 
     assert "iam:PassedToService: ecs-tasks.amazonaws.com" in role
     assert "- Name: MONITORING_ENABLED\n              Value: !Ref EnableScheduledJobs" in jobrunner
     assert "- Name: AWS_S3_BUCKET\n              Value: !Ref DocumentBucket" in jobrunner
+    assert "- Name: ALPHA_INVITE_ONLY\n              Value: !If [PublicSignupEnabled, 'false', 'true']" in jobrunner
     assert schedules.count("Type: AWS::Scheduler::Schedule\n") == 2
     assert "ScheduleExpression: rate(1 hour)" in schedules
     assert "ScheduleExpression: cron(30 6 * * ? *)" in schedules
