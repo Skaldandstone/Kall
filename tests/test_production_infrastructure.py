@@ -345,6 +345,7 @@ def test_scheduled_jobs_are_opt_in_one_shot_tasks_with_no_automatic_replay() -> 
     assert "Resource: !Ref JobRunnerTaskDefinition" in role
     assert "iam:PassedToService: ecs-tasks.amazonaws.com" in role
     assert "- Name: MONITORING_ENABLED\n              Value: !Ref EnableScheduledJobs" in jobrunner
+    assert "- Name: AWS_S3_BUCKET\n              Value: !Ref DocumentBucket" in jobrunner
     assert schedules.count("Type: AWS::Scheduler::Schedule\n") == 2
     assert "ScheduleExpression: rate(1 hour)" in schedules
     assert "ScheduleExpression: cron(30 6 * * ? *)" in schedules

@@ -1458,6 +1458,8 @@ Resources:
               Value: !Sub https://${PublicDomainName}
             - Name: AWS_REGION
               Value: us-east-2
+            - Name: AWS_S3_BUCKET
+              Value: !Ref DocumentBucket
             - Name: OPENAI_MODEL
               Value: gpt-5.6-luna
             - Name: MONITORING_ENABLED
