@@ -16,6 +16,7 @@ PUBLIC_ROUTE_PATHS = {
 }
 AUTHENTICATION_DEPENDENCIES = {
     "get_current_user",
+    "get_verified_clerk_user_id",
     "require_admin_token",
 }
 
