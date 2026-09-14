@@ -27,7 +27,7 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_mobile_release_endpoint_matches_the_android_build() -> None:
+def test_mobile_release_endpoint_does_not_advertise_an_unavailable_build() -> None:
     response = TestClient(app).get("/api/mobile-release")
     assert response.status_code == 200
     assert response.json() == {
@@ -37,7 +37,9 @@ def test_mobile_release_endpoint_matches_the_android_build() -> None:
     }
 
     app_config = json.loads((Path(__file__).parents[1] / "apps/mobile/app.json").read_text())
-    assert app_config["expo"]["version"] == LATEST_ANDROID_VERSION
+    packaged_version = tuple(int(part) for part in app_config["expo"]["version"].split("."))
+    available_version = tuple(int(part) for part in LATEST_ANDROID_VERSION.split("."))
+    assert packaged_version >= available_version
     assert response.headers["cache-control"] == "no-store"
 
 
