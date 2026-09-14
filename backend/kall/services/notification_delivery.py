@@ -16,6 +16,7 @@ from kall.clock import utcnow
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference
 from kall.services import work_claims
+from kall.services.email_templates import action_button, app_url, match_card, match_table
 from kall.services.notification_timing import (
     after_quiet_hours,
     as_local,
@@ -78,17 +79,19 @@ def _digest_email(session: Session, delivery: NotificationDelivery) -> tuple[str
         )
     } if opportunities else {}
 
-    rows = []
+    rows: list[str] = []
     for opportunity in opportunities:
         job = jobs_by_id.get(opportunity.job_id)
         if not job:
             continue
-        rows.append(
-            f"<li><strong>{escape(job.title)}</strong> at {escape(job.company)}: "
-            f"{opportunity.match_score}% match</li>"
-        )
+        rows.append(match_card(job.title, job.company, opportunity.match_score))
     subject = f"{len(rows)} new opportunit{'y' if len(rows) == 1 else 'ies'} today"
-    html = f"<p>Kall found {len(rows)} new match{'es' if len(rows) != 1 else ''} for you.</p><ul>{''.join(rows)}</ul>"
+    html = (
+        f"<p style=\"margin:0 0 18px\">Kall found {len(rows)} new "
+        f"match{'es' if len(rows) != 1 else ''} worth reviewing.</p>"
+        f"{match_table(rows)}"
+        f"{action_button('Review your matches', app_url('/job-intelligence'))}"
+    )
     return subject, html
 
 
@@ -101,15 +104,20 @@ def _morning_brief_email(session: Session, delivery: NotificationDelivery) -> tu
     focus = brief["focus"]
     subject = f"Kall: {focus['title']}"
 
-    rows = "".join(
-        f"<li><strong>{item['title']}</strong> at {item['company']} &mdash; {item['score']}% match</li>"
+    rows = [
+        match_card(str(item["title"]), str(item["company"]), int(item["score"]))
         for item in brief["opportunities"][:3]
-    )
+    ]
     html = (
-        f"<p>{focus['detail']}</p>"
-        f"<p><a href=\"{focus['href']}\">Open it</a></p>"
-        + (f"<h3>Top matches</h3><ul>{rows}</ul>" if rows else "")
-        + f"<p>Career health: {brief['career_health']['score']}%</p>"
+        f"<p style=\"margin:0 0 8px;color:#3f4d5f\">{escape(str(focus['detail']))}</p>"
+        f"{action_button('Open in Kall', app_url(str(focus['href'])))}"
+        f"{match_table(rows)}"
+        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" '
+        'style="margin-top:22px;border-top:1px solid #dce3eb"><tr>'
+        '<td style="padding-top:18px;font-family:Arial,sans-serif;color:#5b6878;font-size:14px">'
+        'Career health</td><td align="right" style="padding-top:18px;font-family:Arial,sans-serif;'
+        'color:#8a651f;font-size:20px;font-weight:700">'
+        f"{int(brief['career_health']['score'])}%</td></tr></table>"
     )
     return subject, html
 

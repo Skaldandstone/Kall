@@ -33,6 +33,7 @@ from botocore.exceptions import ClientError, ConnectTimeoutError, EndpointConnec
 from kall.config import get_settings
 from kall.models import DeviceRegistration
 from kall.security import decrypt_sensitive
+from kall.services.email_templates import action_button, html_to_text, render_email_document
 from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
@@ -73,10 +74,7 @@ class NotificationAction:
 def _action_links_html(actions: list[NotificationAction]) -> str:
     if not actions:
         return ""
-    links = "".join(
-        f'<p><a href="{action.deep_link}">{action.label}</a></p>' for action in actions
-    )
-    return f"<hr>{links}"
+    return "".join(action_button(action.label, action.deep_link) for action in actions)
 
 
 class NotificationService:
@@ -91,14 +89,19 @@ class NotificationService:
             )
 
         client = _ses_client(settings.aws_region)
-        body = html + _action_links_html(actions)
+        content = html + _action_links_html(actions)
+        body = render_email_document(subject, content)
+        text = html_to_text(content)
         try:
             response = client.send_email(
                 Source=settings.ses_sender_email,
                 Destination={"ToAddresses": [recipient]},
                 Message={
                     "Subject": {"Data": subject, "Charset": "UTF-8"},
-                    "Body": {"Html": {"Data": body, "Charset": "UTF-8"}},
+                    "Body": {
+                        "Html": {"Data": body, "Charset": "UTF-8"},
+                        "Text": {"Data": text, "Charset": "UTF-8"},
+                    },
                 },
             )
         except (ConnectTimeoutError, EndpointConnectionError) as error:
