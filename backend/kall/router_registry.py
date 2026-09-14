@@ -12,6 +12,7 @@ from kall.api_career_page import router as career_page_router
 from kall.api_career_profiles import router as career_profiles_router
 from kall.api_consulting import router as consulting_router
 from kall.api_documents import router as documents_router
+from kall.api_email_connections import router as email_connections_router
 from kall.api_growth import router as growth_router
 from kall.api_intelligence import router as intelligence_router
 from kall.api_match_intelligence import router as match_intelligence_router
@@ -43,6 +44,7 @@ API_ROUTERS = (
     growth_router,
     tailoring_router,
     documents_router,
+    email_connections_router,
     opportunities_router,
     search_apply_router,
     shared_search_router,

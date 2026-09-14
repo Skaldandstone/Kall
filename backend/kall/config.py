@@ -110,6 +110,22 @@ class Settings(BaseSettings):
     revenuecat_secret_api_key: str | None = None
     sensitive_data_encryption_key: str | None = None
 
+    # Email connection (Gmail/Outlook, read-only) for auto-detecting
+    # application status from confirmation/interview/rejection mail -- see
+    # services/email_oauth.py. Narrowest possible scope requested from each
+    # provider's own consent screen (gmail.readonly / Mail.Read), never a
+    # send/modify scope. Unset means that provider's connect button reports
+    # not configured, matching every other optional integration here.
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    microsoft_oauth_client_id: str | None = None
+    microsoft_oauth_client_secret: str | None = None
+    #: Where a provider's consent screen redirects back to after the person
+    #: approves access -- must exactly match what's registered with that
+    #: provider. Defaults to the same public API origin every other webhook
+    #: and OAuth-style callback in this app already uses.
+    email_oauth_redirect_base_url: str | None = None
+
     #: Shared secret for the Adminhelper Worker's machine-to-machine calls to
     #: /admin/portal/* (see api_admin_portal.py) -- a separate surface from
     #: the human CS console at /admin, which is Clerk-session gated instead.

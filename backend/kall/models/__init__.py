@@ -5,6 +5,7 @@ from kall.models.consulting import *
 from kall.models.core import *
 from kall.models.discovery import *
 from kall.models.documents import *
+from kall.models.email_connection import *
 from kall.models.growth import *
 from kall.models.intelligence import *
 from kall.models.match_intelligence import *
