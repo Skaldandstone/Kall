@@ -14,6 +14,26 @@ if (platform !== 'android' && !/^[1-9]\d*$/.test(eas.submit?.production?.ios?.as
   console.error('iOS submission is pending Apple Developer enrollment. Create Kall in App Store Connect, set submit.production.ios.ascAppId in eas.json, and configure iOS signing and the EAS Submit API key with eas credentials --platform ios. No build was queued.');
   process.exit(1);
 }
+function runPreflight(script) {
+  const command = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : 'npm';
+  const commandArguments = process.platform === 'win32'
+    ? ['/d', '/s', '/c', `npm run ${script}`]
+    : ['run', script];
+  const result = spawnSync(command, commandArguments, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: false,
+  });
+  if (result.error) console.error(result.error.message);
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+if (platform !== 'ios') {
+  runPreflight('validate:android-play');
+  runPreflight('validate:android-native');
+}
+if (platform !== 'android') runPreflight('validate:ios-alpha');
+
 if (flags.includes('--check')) {
   console.log(`Local ${platform} submission configuration is ready; remote credentials are not checked.`);
   process.exit(0);

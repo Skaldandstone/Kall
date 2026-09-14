@@ -4,8 +4,9 @@
 
 Updated 8 September 2026. This is the release contract for the first Kall
 production candidate. Production Clerk and the isolated live Stripe catalog are
-configured and live. Native Apple/Google billing, automatic tax, SES sending,
-continuous monitoring, and application auto-submission remain disabled. Public
+configured and live. SES production sending and scheduled notification delivery
+are enabled. Native Apple/Google billing, automatic tax, and application
+auto-submission remain disabled. Public
 signup is enabled and remains an explicit deployment parameter.
 
 ## Current state
@@ -15,6 +16,17 @@ signup is enabled and remains an explicit deployment parameter.
 Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
+
+> **13 September 2026, SES production acceptance:** AWS granted production
+> access in project `051722405355`, selected Region `us-east-2`. Live checks
+> report sending enabled, healthy enforcement, a 50,000-message daily quota,
+> and a 14-message-per-second rate. The stack supplies the verified sender
+> `support@skaldandstone.com` to the scheduled job runner. Account-level
+> suppression automatically records both hard bounces and complaints; the
+> suppression list was empty at verification time. A send to the official SES
+> success simulator returned a provider message ID and did not contact a real
+> recipient or count against the quota. Inbox delivery to a consenting Kall
+> user remains a separate acceptance check.
 
 The 8 September parity release is source commit `1b8c8229398484674082b74fd846df3ed936e189`;
 commit `4b568ef472a53ad83eb9d8a7d61df68b0877e408` adds only the reviewed-snapshot

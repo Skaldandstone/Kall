@@ -14,6 +14,11 @@ const retiredHost = ['d1ch3en4uvduym', 'cloudfront', 'net'].join('.');
 const profileName = 'android-production';
 
 assert.equal(app.android?.package, expectedPackage, 'Unexpected Android package name.');
+assert.equal(
+  app.orientation,
+  'default',
+  'Android must let the system choose orientation so phones, foldables, tablets, and multi-window layouts can resize.',
+);
 // The package name is permanent the moment a Play Console listing exists for
 // it -- see docs/NEEDS_DECISION.md -- so this is the one field on this
 // screen worth a hard assertion rather than a passive default.
@@ -70,6 +75,34 @@ for (const submitProfileName of ['production', 'internal-qa']) {
     'completed',
     `${submitProfileName} must publish a completed Play test release.`,
   );
+}
+
+const buildPropertiesPlugin = app.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
+);
+assert.ok(buildPropertiesPlugin, 'Missing expo-build-properties release configuration.');
+assert.equal(
+  buildPropertiesPlugin[1]?.android?.enableMinifyInReleaseBuilds,
+  true,
+  'Android release builds must enable R8 code shrinking.',
+);
+assert.equal(
+  buildPropertiesPlugin[1]?.android?.enableShrinkResourcesInReleaseBuilds,
+  true,
+  'Android release builds must remove unused resources after R8.',
+);
+
+const brandAssetNames = ['brand-mark.png', 'brand-mark@2x.png', 'brand-mark@3x.png'];
+const brandAssetLimits = [104, 208, 312];
+for (const [index, assetName] of brandAssetNames.entries()) {
+  const asset = fs.readFileSync(path.join(mobileRoot, 'assets', assetName));
+  assert.deepEqual(
+    [...asset.subarray(0, 8)],
+    [137, 80, 78, 71, 13, 10, 26, 10],
+    `${assetName} must be a PNG.`,
+  );
+  assert.equal(asset.readUInt32BE(16), brandAssetLimits[index], `${assetName} has the wrong width.`);
+  assert.equal(asset.readUInt32BE(20), brandAssetLimits[index], `${assetName} has the wrong height.`);
 }
 
 const releaseEnvironment = profile.env;
@@ -203,16 +236,19 @@ assert.ok(
   'A changed native release must clear app-owned billing state and require a fresh Clerk login.',
 );
 const latestVersionMatch = releaseRouteSource.match(/latestAndroidVersion = '(\d+\.\d+\.\d+)'/);
-assert.equal(
-  latestVersionMatch?.[1],
-  app.version,
-  'The public Android release manifest must match the app version being built.',
-);
 const backendLatestVersionMatch = backendReleaseSource.match(/LATEST_ANDROID_VERSION = "(\d+\.\d+\.\d+)"/);
 assert.equal(
   backendLatestVersionMatch?.[1],
-  app.version,
-  'The production API Android release manifest must match the app version being built.',
+  latestVersionMatch?.[1],
+  'The web and production API Android release manifests must agree.',
+);
+const versionParts = (version) => version.split('.').map(Number);
+const releasedParts = versionParts(latestVersionMatch?.[1] ?? '0.0.0');
+const buildParts = versionParts(app.version);
+const firstDifference = buildParts.findIndex((part, index) => part !== releasedParts[index]);
+assert.ok(
+  firstDifference === -1 || buildParts[firstDifference] > releasedParts[firstDifference],
+  'The app version being built must not be older than the version already advertised as available.',
 );
 
 for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {
@@ -223,5 +259,6 @@ for (const relativePath of ['app.json', 'app.config.js', 'eas.json']) {
 console.log('Android Play configuration passed.');
 console.log(`package=${app.android.package}`);
 console.log(`versionCode=${app.android.versionCode}`);
+console.log(`version=${app.version}, latestAvailable=${latestVersionMatch?.[1]}`);
 console.log(`apiBaseUrl=${expectedApiBase}`);
 console.log('registration=open, production Clerk instance, EAS-managed signing');

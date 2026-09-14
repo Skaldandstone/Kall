@@ -16,7 +16,7 @@ export function PageHeader({ eyebrow, title, description, action }: { eyebrow?: 
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return <View accessible={false} style={[styles.brandMark, compact && styles.brandMarkCompact]}>
-    <Image source={require('../../assets/icon.png')} resizeMode="contain" style={[styles.brandImage, compact && styles.brandImageCompact]} />
+    <Image source={require('../../assets/brand-mark.png')} resizeMode="contain" style={[styles.brandImage, compact && styles.brandImageCompact]} />
   </View>;
 }
 
