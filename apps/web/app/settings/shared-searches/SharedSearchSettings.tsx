@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ChipsInput from '../../components/ChipsInput';
 import { showToast } from '../../components/ToastHost';
 
 const API = '/api/kall';
@@ -14,8 +15,6 @@ type SharedSearch = {
   status: 'awaiting_input' | 'active' | 'revoked';
 };
 
-const csv = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
-
 function shareUrl(slug: string): string {
   return `${window.location.origin}/friend/${slug}`;
 }
@@ -26,7 +25,9 @@ export default function SharedSearchSettings() {
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState('');
   const [profileId, setProfileId] = useState('');
-  const [titles, setTitles] = useState('');
+  const [titles, setTitles] = useState<string[]>([]);
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState<string[]>([]);
 
   async function load() {
     const [profilesResponse, sharesResponse] = await Promise.all([
@@ -53,7 +54,9 @@ export default function SharedSearchSettings() {
       }
       setLabel('');
       setProfileId('');
-      setTitles('');
+      setTitles([]);
+      setIndustries([]);
+      setKeywords([]);
       await load();
       showToast('Share created.', 'success');
     } finally {
@@ -103,11 +106,18 @@ export default function SharedSearchSettings() {
 
       <section className="card">
         <h2>Fill in a quick profile for them</h2>
-        <p>You know roughly what they want — enter a few basics and get a link right away.</p>
+        <p>You know roughly what they want — enter a few basics and get a link right away. For example, to help a friend find a software job in C++ and DX12: put "Software Engineer" or "Graphics Programmer" under job titles, "Software" or "Games" under industries, and "C++, DX12" under skills.</p>
         <div className="stack">
-          <input className="input" placeholder="Job titles (comma separated)" value={titles} onChange={(e) => setTitles(e.target.value)} />
+          <ChipsInput label="Job titles" placeholder="Software Engineer, Graphics Programmer" value={titles} onChange={setTitles} />
+          <ChipsInput label="Industries" placeholder="Software, Games" value={industries} onChange={setIndustries} />
+          <ChipsInput label="Skills to search for" placeholder="C++, DX12, Vulkan" helpText="Specific tools, languages, or technologies." value={keywords} onChange={setKeywords} />
           <input className="input" placeholder="Friend's name (optional, just for your own list)" value={label} onChange={(e) => setLabel(e.target.value)} />
-          <button className="button" disabled={busy || !titles.trim()} onClick={() => void create({ criteria: { target_titles: csv(titles) }, friend_label: label || null })} style={{ alignSelf: 'flex-start' }}>
+          <button
+            className="button"
+            disabled={busy || titles.length === 0}
+            onClick={() => void create({ criteria: { target_titles: titles, industries, include_keywords: keywords }, friend_label: label || null })}
+            style={{ alignSelf: 'flex-start' }}
+          >
             Create share
           </button>
         </div>

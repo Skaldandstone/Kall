@@ -13,6 +13,8 @@ import { theme } from "../theme";
 export default function SharedSearchesScreen() {
   const [shares, setShares] = useState<SharedSearch[] | null>(null);
   const [titles, setTitles] = useState("");
+  const [industries, setIndustries] = useState("");
+  const [keywords, setKeywords] = useState("");
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -33,6 +35,8 @@ export default function SharedSearchesScreen() {
     try {
       await createSharedSearch(payload);
       setTitles("");
+      setIndustries("");
+      setKeywords("");
       setLabel("");
       await load();
     } catch (error) {
@@ -60,15 +64,31 @@ export default function SharedSearchesScreen() {
 
       <View style={formStyles.card}>
         <Text style={formStyles.cardLabel}>Fill in a quick profile for them</Text>
-        <Text style={formStyles.body}>You know roughly what they want -- enter a few basics and get a link right away.</Text>
-        <FormField label="Job titles (comma separated)" value={titles} onChange={setTitles} placeholder="Retail Associate, Store Manager" />
+        <Text style={formStyles.body}>
+          You know roughly what they want -- enter a few basics and get a link right away. For a
+          friend hunting for a software job in C++ and DX12: "Software Engineer" or "Graphics
+          Programmer" under job titles, "Software" or "Games" under industries, "C++, DX12" under
+          skills.
+        </Text>
+        <FormField label="Job titles (comma separated)" value={titles} onChange={setTitles} placeholder="Software Engineer, Graphics Programmer" />
+        <FormField label="Industries (comma separated)" value={industries} onChange={setIndustries} placeholder="Software, Games" />
+        <FormField label="Skills to search for (comma separated)" value={keywords} onChange={setKeywords} placeholder="C++, DX12, Vulkan" />
         <FormField label="Friend's name (optional, just for your own list)" value={label} onChange={setLabel} />
         <FormActions>
           <Pressable
             accessibilityRole="button"
             disabled={busy === "create" || !titles.trim()}
             style={[formStyles.primary, (busy === "create" || !titles.trim()) && formStyles.disabled]}
-            onPress={() => void create({ criteria: { target_titles: titles.split(",").map((t) => t.trim()).filter(Boolean) }, friend_label: label || null })}
+            onPress={() =>
+              void create({
+                criteria: {
+                  target_titles: titles.split(",").map((t) => t.trim()).filter(Boolean),
+                  industries: industries.split(",").map((t) => t.trim()).filter(Boolean),
+                  include_keywords: keywords.split(",").map((t) => t.trim()).filter(Boolean),
+                },
+                friend_label: label || null,
+              })
+            }
           >
             {busy === "create" ? <ActivityIndicator color={theme.accentInk} /> : <Text style={formStyles.primaryText}>Create share</Text>}
           </Pressable>

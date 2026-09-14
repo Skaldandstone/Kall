@@ -28,9 +28,12 @@ from kall.services.normalization import normalize_discovered
 from sqlmodel import Session, select
 
 #: The lightweight criteria shape used for paths 2 and 3 -- deliberately a
-#: subset of CareerProfile's fields (no salary/keywords/equity) to keep the
-#: intake form a friend fills in short.
-CRITERIA_FIELDS = ("target_titles", "countries", "states_regions", "cities", "work_types", "industries")
+#: subset of CareerProfile's fields (no salary/equity) to keep the intake
+#: form a friend fills in short. include_keywords is the one place a very
+#: specific ask ("C++ and DX12", not just "Software Engineer") belongs --
+#: deterministic_match scores a keyword hit the same way it would for a
+#: full CareerProfile.
+CRITERIA_FIELDS = ("target_titles", "industries", "include_keywords", "countries", "states_regions", "cities", "work_types")
 
 #: How many scored results a digest keeps, highest score first.
 DIGEST_LIMIT = 20

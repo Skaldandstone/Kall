@@ -43,9 +43,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const share = await fetchShare(slug);
   if (!share) return { title: 'Link not found' };
+  const title = 'Job matches shared with you';
+  const description = 'A batch of job postings matched to a Kall search, refreshed on open.';
   return {
-    title: { absolute: 'Job matches shared with you' },
-    description: 'A batch of job postings matched to a Kall search, refreshed on open.',
+    title: { absolute: title },
+    description,
+    // Explicit rather than relying on Next's title/description fallback, so
+    // a preview card in iMessage/RCS/WhatsApp reads correctly even if that
+    // fallback behavior ever changes. Still text-only -- no share image
+    // exists for this feature yet, same as the career page precedent this
+    // was copied from.
+    openGraph: { title, description, type: 'website' },
     robots: { index: false, follow: false },
   };
 }

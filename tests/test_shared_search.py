@@ -46,6 +46,18 @@ def test_criteria_from_dict_drops_unknown_keys_and_cleans_lists() -> None:
     assert criteria.name == "Jordan's search"
 
 
+def test_criteria_from_dict_carries_industries_and_skills() -> None:
+    """A friend hunting for a specific software job -- 'C++ and DX12' -- needs
+    include_keywords, not just target_titles, or a search for 'Graphics
+    Programmer' alone would surface any graphics role regardless of stack."""
+    criteria = criteria_from_dict(
+        {"target_titles": ["Graphics Programmer"], "industries": ["Games"], "include_keywords": ["C++", "DX12"]},
+        name="friend",
+    )
+    assert criteria.industries == ["Games"]
+    assert criteria.include_keywords == ["C++", "DX12"]
+
+
 @pytest.mark.asyncio
 async def test_generate_digest_scores_and_limits_results() -> None:
     criteria = MatchCriteria(name="test", target_titles=["QA Engineer"])
@@ -132,6 +144,17 @@ def test_create_shared_search_with_ad_hoc_criteria(client) -> None:
     response = client.post(API, json={"criteria": {"target_titles": ["QA Engineer"]}, "friend_label": "Jordan"})
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "active"
+
+
+def test_create_shared_search_carries_industries_and_skills_through(client) -> None:
+    response = client.post(
+        API,
+        json={"criteria": {"target_titles": ["Graphics Programmer"], "industries": ["Games"], "include_keywords": ["C++", "DX12"]}},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["criteria"]["industries"] == ["Games"]
+    assert data["criteria"]["include_keywords"] == ["C++", "DX12"]
 
 
 def test_create_shared_search_as_invite_waits_for_the_friend(client) -> None:

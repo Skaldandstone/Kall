@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ChipsInput from '../../components/ChipsInput';
+import ChipsToggle from '../../components/ChipsToggle';
 import type { SharedSearchView } from './page';
 
 const WORK_TYPE_OPTIONS = [
@@ -9,30 +11,33 @@ const WORK_TYPE_OPTIONS = [
   { value: 'on_site', label: 'On-site' },
 ];
 
-const csv = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
-
 function IntakeForm({ slug }: { slug: string }) {
-  const [titles, setTitles] = useState('');
-  const [countries, setCountries] = useState('');
-  const [statesRegions, setStatesRegions] = useState('');
-  const [workTypes, setWorkTypes] = useState<string[]>(['remote']);
+  const [titles, setTitles] = useState<string[]>([]);
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [statesRegions, setStatesRegions] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SharedSearchView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
+      const form = new FormData(event.currentTarget);
+      const workTypes = String(form.get('work_types') || '').split(',').filter(Boolean);
       const response = await fetch(`/api/kall/shared-searches/${slug}/criteria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           criteria: {
-            target_titles: csv(titles),
-            countries: csv(countries),
-            states_regions: csv(statesRegions),
+            target_titles: titles,
+            industries,
+            include_keywords: keywords,
+            countries,
+            states_regions: statesRegions,
             work_types: workTypes,
           },
         }),
@@ -55,42 +60,42 @@ function IntakeForm({ slug }: { slug: string }) {
       <h1 style={{ marginTop: 16 }}>Someone wants to help you find a job.</h1>
       <p>Answer a few quick questions and get a batch of real openings that match — no account needed.</p>
       <form className="stack" style={{ marginTop: 16 }} onSubmit={submit}>
-        <label>
-          Job titles you&apos;re looking for
-          <input className="input" placeholder="Retail Associate, Store Manager" value={titles} onChange={(e) => setTitles(e.target.value)} required />
-        </label>
-        <label>
-          Countries
-          <input className="input" placeholder="United States" value={countries} onChange={(e) => setCountries(e.target.value)} />
-        </label>
-        <label>
-          States / regions
-          <input className="input" placeholder="Washington, Oregon" value={statesRegions} onChange={(e) => setStatesRegions(e.target.value)} />
-        </label>
-        <fieldset style={{ border: 0, padding: 0 }}>
-          <legend>Work style</legend>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {WORK_TYPE_OPTIONS.map((option) => {
-              const active = workTypes.includes(option.value);
-              return (
-                <button
-                  type="button"
-                  key={option.value}
-                  className={active ? 'button' : 'button ghost'}
-                  onClick={() =>
-                    setWorkTypes((current) =>
-                      active ? current.filter((v) => v !== option.value) : [...current, option.value],
-                    )
-                  }
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <ChipsInput
+          label="Job titles you're looking for"
+          placeholder="Retail Associate, Store Manager"
+          helpText="Press Enter to add a title. Include close variants — job boards phrase the same role differently."
+          value={titles}
+          onChange={setTitles}
+          required
+        />
+        <ChipsInput
+          label="Industries"
+          placeholder="Software, Healthcare, Retail"
+          value={industries}
+          onChange={setIndustries}
+        />
+        <ChipsInput
+          label="Skills to search for"
+          placeholder="C++, DX12, Vulkan"
+          helpText="Specific tools, languages, or technologies — as specific as you like."
+          value={keywords}
+          onChange={setKeywords}
+        />
+        <ChipsInput
+          label="Countries"
+          placeholder="United States"
+          value={countries}
+          onChange={setCountries}
+        />
+        <ChipsInput
+          label="States / regions"
+          placeholder="Washington, Oregon"
+          value={statesRegions}
+          onChange={setStatesRegions}
+        />
+        <ChipsToggle name="work_types" label="Work style" options={WORK_TYPE_OPTIONS} defaultValue={['remote']} />
         {error && <p className="notice">{error}</p>}
-        <button className="button" type="submit" disabled={busy || !titles.trim()}>
+        <button className="button" type="submit" disabled={busy || titles.length === 0}>
           {busy ? 'Finding matches…' : 'Show me matches'}
         </button>
       </form>
