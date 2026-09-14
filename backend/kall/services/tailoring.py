@@ -12,8 +12,10 @@ from kall.models import (
     TailoringAudit,
     TailoringChange,
     TailoringProposal,
+    User,
 )
 from kall.services.openai_json import ask_for_json
+from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume import reflow_extracted_text
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
@@ -164,7 +166,7 @@ def _rules_based_summary(original: str, job: Job, focus: str) -> str:
     return f"{original} Well-positioned for {job.title} at {job.company}, with strengths in {focus}."
 
 
-def _drafted_summary(original: str, job: Job, focus: str) -> str:
+def _drafted_summary_with_source(original: str, job: Job, focus: str) -> tuple[str, bool]:
     """A single model call rewrites the summary as flowing prose that
     naturally works the posting's own focus areas in, when a key is
     configured -- otherwise the rules-based sentence above stands in. Either
@@ -178,25 +180,41 @@ def _drafted_summary(original: str, job: Job, focus: str) -> str:
             f"weaving in these skills where true to the original: {focus}. Two to four sentences, professional "
             "resume voice -- not a description of what changed or why. Preserve every date, percentage, dollar "
             f"amount, and other number from the original exactly. Never invent new facts, employers, or credentials."
-            f"\n\nOriginal summary: {original or '(no existing summary)'}"
+            f"\n\nOriginal summary: {(original or '(no existing summary)')[:6000]}"
         )
-        result = ask_for_json(prompt, schema_name="tailored_summary", schema=_SUMMARY_SCHEMA, purpose="summary rewrite")
+        result = ask_for_json(
+            prompt,
+            schema_name="tailored_summary",
+            schema=_SUMMARY_SCHEMA,
+            purpose="summary rewrite",
+            source_ref=f"job:{job.id}",
+        )
         candidate = str((result or {}).get("summary", "")).strip()
         if candidate and preserves_immutable_facts(original, candidate):
-            return candidate
-    return _rules_based_summary(original, job, focus)
+            return candidate, True
+    return _rules_based_summary(original, job, focus), False
+
+
+def _drafted_summary(original: str, job: Job, focus: str) -> str:
+    """Compatibility wrapper for callers that only need the drafted text."""
+    return _drafted_summary_with_source(original, job, focus)[0]
 
 
 def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
     original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
-    proposed = _drafted_summary(original, job, focus)
+    proposed, used_ai = _drafted_summary_with_source(original, job, focus)
     return TailoringChange(
         section="summary",
         original_text=original,
         proposed_text=proposed,
         reason="Align the opening summary with explicit job requirements without adding claims.",
-        evidence=[{"type": "job", "id": job.id, "text": focus}],
+        evidence=[{
+            "type": "job",
+            "id": job.id,
+            "text": focus,
+            "source": "model" if used_ai else "rules",
+        }],
         immutable_tokens=immutable_tokens(original),
     )
 
@@ -207,6 +225,9 @@ def create_tailoring_proposal(
     job: Job,
     professional_profile_id: int,
 ) -> TailoringProposal:
+    user = session.get(User, user_id)
+    if get_settings().openai_api_key and user:
+        assert_ai_allowed(session, user)
     selection = session.exec(
         select(ResumeSelection).where(
             ResumeSelection.user_id == user_id,
@@ -278,9 +299,20 @@ def create_tailoring_proposal(
         )
     changes[0].proposal_id = proposal.id
     changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or ""))
+    used_ai = any(
+        evidence.get("source") == "model"
+        for change in changes
+        for evidence in change.evidence
+    )
     session.add_all(changes)
-    session.add(TailoringAudit(proposal_id=proposal.id, event="proposal_created", details={"provider": "deterministic"}))
+    session.add(TailoringAudit(
+        proposal_id=proposal.id,
+        event="proposal_created",
+        details={"provider": "openai" if used_ai else "deterministic"},
+    ))
     session.commit()
+    if used_ai and user:
+        record_ai_action(session, user)
     session.refresh(proposal)
     return proposal
 

@@ -11,12 +11,14 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
 from kall.services import quota
+from kall.services.intelligence import parse_resume
 from kall.services.onboarding_ai import deterministic_career_strategy, suggest_career_strategy
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume_proofreading import find_repeated_lines, proofreading_gaps
 from kall.services.resume_readiness import resume_readiness
 from kall.services.storage import get_storage
+from kall.services.tailoring import immutable_tokens
 
 router = APIRouter()
 
@@ -77,18 +79,7 @@ def _dedupe_repeated_lines(text: str) -> str | None:
 def _fallback_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> list[dict]:
     text = (resume.extracted_text or "").strip()
     recommendations: list[dict] = []
-    if resume.target_titles:
-        target = resume.target_titles[0]
-        recommendations.append({
-            "id": "target-summary",
-            "section": "Professional summary",
-            "title": f"Lead with your {target} positioning",
-            "reason": "The opening should immediately connect your evidence to the selected target role.",
-            "current_text": text[:500],
-            "proposed_text": f"{target} leader with a record of building reliable delivery systems, developing high-performing teams, and translating quality strategy into measurable business outcomes.",
-            "confidence": 82,
-        })
-    elif profile_titles:
+    if not resume.target_titles and profile_titles:
         # A real signal already on file (the user's active career profiles),
         # not a guess -- filling this in is what actually moves the
         # "Target roles are defined" points in _resume_score.
@@ -99,21 +90,23 @@ def _fallback_recommendations(resume: ResumeDocument, profile_titles: list[str])
             "reason": "No target titles are stored on this resume, so role alignment cannot be evaluated.",
             "current_text": "No target titles are currently stored.",
             "proposed_text": ", ".join(profile_titles[:3]),
-            "confidence": 80,
+            "confidence": 100,
             "target_titles": profile_titles[:3],
         })
     if not resume.tags:
-        tags = ["quality engineering strategy", "test automation", "release governance", "risk management", "ci/cd", "metrics", "cross-functional leadership"]
-        recommendations.append({
-            "id": "skills-metadata",
-            "section": "Skills",
-            "title": "Add searchable specialization language",
-            "reason": "Specific skills improve matching and make the resume easier to tailor.",
-            "current_text": "No resume skill tags are currently stored.",
-            "proposed_text": ", ".join(tags).capitalize() + ".",
-            "confidence": 88,
-            "tags": tags,
-        })
+        parsed, _ = parse_resume(text)
+        tags = list(dict.fromkeys(parsed.get("skills") or []))[:8]
+        if tags:
+            recommendations.append({
+                "id": "skills-metadata",
+                "section": "Skills",
+                "title": "Save skills already named in this resume",
+                "reason": "These skills were extracted from the resume text and can improve matching.",
+                "current_text": "No resume skill tags are currently stored.",
+                "proposed_text": ", ".join(tags) + ".",
+                "confidence": 100,
+                "tags": tags,
+            })
     deduped = _dedupe_repeated_lines(text)
     if deduped is not None:
         recommendations.append({
@@ -123,18 +116,20 @@ def _fallback_recommendations(resume: ResumeDocument, profile_titles: list[str])
             "reason": "A line appears more than once, which reads as a copy-paste error and can confuse an ATS parser.",
             "current_text": text,
             "proposed_text": deduped,
-            "confidence": 70,
+            "confidence": 100,
         })
     return recommendations
 
 
-def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> list[dict]:
+def _ai_recommendations(
+    resume: ResumeDocument, profile_titles: list[str]
+) -> tuple[list[dict], bool]:
     settings = get_settings()
     if not settings.openai_api_key:
-        return _fallback_recommendations(resume, profile_titles)
+        return _fallback_recommendations(resume, profile_titles), False
     resume_text = (resume.extracted_text or "").strip()
     if not resume_text:
-        return _fallback_recommendations(resume, profile_titles)
+        return _fallback_recommendations(resume, profile_titles), False
     schema = {
         "type": "object",
         "properties": {
@@ -191,17 +186,25 @@ def _ai_recommendations(resume: ResumeDocument, profile_titles: list[str]) -> li
         schema_name="resume_recommendations",
         schema=schema,
         purpose="resume recommendations",
+        source_ref=f"resume:{resume.id}:v{resume.version}",
     )
     if parsed is None:
-        return _fallback_recommendations(resume, profile_titles)
+        return _fallback_recommendations(resume, profile_titles), False
     try:
-        return [
+        recommendations = [
             ResumeRecommendation.model_validate(item).model_dump()
             for item in parsed.get("recommendations", [])
         ]
+        source_numbers = set(immutable_tokens(resume_text))
+        supported = [
+            item
+            for item in recommendations
+            if set(immutable_tokens(item["proposed_text"])).issubset(source_numbers)
+        ]
+        return supported, True
     except ValidationError:
         # Well-formed JSON that is not the shape we asked for.
-        return _fallback_recommendations(resume, profile_titles)
+        return _fallback_recommendations(resume, profile_titles), False
 
 
 @router.get("/me/resume-intelligence")
@@ -228,7 +231,13 @@ def generate_recommendations(resume_id: int, current_user: User = Depends(get_cu
     resume = _owned_resume(resume_id, current_user.id, session)
     profiles = list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id, CareerProfile.is_active)))
     profile_titles = sorted({title for profile in profiles for title in profile.target_titles})
-    return {"resume_id": resume.id, "recommendations": _ai_recommendations(resume, profile_titles), "ai_enabled": bool(get_settings().openai_api_key)}
+    ai_enabled = bool(get_settings().openai_api_key)
+    if ai_enabled:
+        assert_ai_allowed(session, current_user)
+    recommendations, used_ai = _ai_recommendations(resume, profile_titles)
+    if used_ai:
+        record_ai_action(session, current_user)
+    return {"resume_id": resume.id, "recommendations": recommendations, "ai_enabled": ai_enabled}
 
 
 @router.post("/me/resumes/{resume_id}/suggest-strategy")

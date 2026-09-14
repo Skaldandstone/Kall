@@ -57,8 +57,6 @@ def related_title_suggestions(
 
 _SUGGESTABLE_FIELDS = [
     "target_titles", "industries", "functional_areas", "work_types", "countries",
-    "minimum_base", "target_base", "stretch_base",
-    "minimum_total_comp", "target_total_comp", "target_bonus_percent",
 ]
 
 
@@ -186,10 +184,15 @@ def suggest_career_profile_fields(
         return {"enabled": True, "suggestions": {}, "rationale": "This profile already has every suggestible field filled in."}
 
     resume_text = _resume_text_for(session, profile, current_user.id)
+    ai_enabled = bool(get_settings().openai_api_key)
+    if ai_enabled:
+        assert_ai_allowed(session, current_user)
     result = suggest_empty_fields(profile, empty_fields, resume_text)
     if result is None:
         return {"enabled": False, "suggestions": {}, "rationale": None}
 
+    if ai_enabled:
+        record_ai_action(session, current_user)
     rationale = result.pop("rationale", None)
     return {"enabled": True, "suggestions": result, "rationale": rationale}
 

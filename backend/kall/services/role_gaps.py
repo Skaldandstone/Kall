@@ -110,7 +110,14 @@ def suggest_role_gaps(job_title: str, company: str, roles: list[RoleContext], ga
             "they answer yes. Never invent metrics, tools, or outcomes: where a number belongs, write [X]. Return "
             "exactly one entry per (employment_id, requirement) pair listed.\n\n" + "\n\n".join(listing)
         )
-        result = ask_for_json(prompt, schema_name="role_gap_suggestions", schema=_SCHEMA, purpose="role gap suggestions")
+        source_ids = ",".join(str(value) for value in sorted(gaps))
+        result = ask_for_json(
+            prompt,
+            schema_name="role_gap_suggestions",
+            schema=_SCHEMA,
+            purpose="role gap suggestions",
+            source_ref=f"employment:{source_ids}",
+        )
         for item in (result or {}).get("suggestions", []):
             key = (int(item.get("employment_id", 0)), str(item.get("requirement", "")).strip())
             if key[0] in gaps and any(req.casefold() == key[1].casefold() for req in gaps[key[0]]):

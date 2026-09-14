@@ -1,11 +1,8 @@
-"""AI-assisted suggestions for empty CareerProfile fields.
+"""AI-assisted suggestions for evidence-supported CareerProfile fields.
 
-Mirrors the ask_for_json + graceful-None-on-failure pattern used by
-growth_ai and onboarding_ai. Compensation numbers are the model's own
-estimate from its training data, not a paid market-data lookup (no such
-integration exists in this codebase -- see docs/ROADMAP.md) -- so this
-never invents a number for a field the profile already has, and the
-schema only asks about fields that are actually empty.
+Compensation is deliberately excluded. Kall has no verified market-data
+source, so a model-generated salary number would be unsupported precision.
+People set compensation themselves until a reviewed source is integrated.
 """
 
 from kall.config import get_settings
@@ -17,17 +14,6 @@ _FIELD_SCHEMAS = {
     "functional_areas": {"type": "array", "maxItems": 4, "items": {"type": "string"}},
     "work_types": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
     "countries": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
-    "minimum_base": {"type": "integer", "minimum": 0},
-    "target_base": {"type": "integer", "minimum": 0},
-    "stretch_base": {"type": "integer", "minimum": 0},
-    "minimum_total_comp": {"type": "integer", "minimum": 0},
-    "target_total_comp": {"type": "integer", "minimum": 0},
-    "target_bonus_percent": {"type": "number", "minimum": 0},
-}
-
-_COMPENSATION_FIELDS = {
-    "minimum_base", "target_base", "stretch_base",
-    "minimum_total_comp", "target_total_comp", "target_bonus_percent",
 }
 
 
@@ -61,16 +47,17 @@ def suggest_empty_fields(profile, empty_fields: list[str], resume_text: str) -> 
         "required": [*empty_fields, "rationale"],
         "additionalProperties": False,
     }
-    wants_compensation = any(field in _COMPENSATION_FIELDS for field in empty_fields)
     prompt = (
         "Suggest reasonable, realistic values for the listed empty fields on this person's career "
         "search profile, based on their existing profile choices and resume below. "
         "Only address the fields named in the schema. Never invent employers or credentials.\n\n"
-        + ("Compensation figures are your own best estimate of typical U.S. market pay for this "
-           "role, seniority, and location from your training knowledge -- not verified market data. "
-           "Say so plainly in the rationale, and keep target figures realistic for the person's "
-           "apparent seniority rather than optimistic.\n\n" if wants_compensation else "")
-        + f"CURRENT PROFILE:\n{_profile_context(profile)}\n\n"
+        + f"CURRENT PROFILE:\n{_profile_context(profile)[:5000]}\n\n"
         f"RESUME (may be empty):\n{resume_text[:30000]}"
     )
-    return ask_for_json(prompt, schema_name="profile_field_suggestions", schema=schema, purpose="profile_field_suggestions")
+    return ask_for_json(
+        prompt,
+        schema_name="profile_field_suggestions",
+        schema=schema,
+        purpose="profile_field_suggestions",
+        source_ref=f"career-profile:{profile.id}",
+    )

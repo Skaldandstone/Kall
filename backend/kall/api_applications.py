@@ -2,7 +2,7 @@ from collections import Counter
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, delete, select
 
 from kall.auth import get_current_user
@@ -80,14 +80,14 @@ class InterviewPrepNotesUpdate(BaseModel):
 
 
 class QuizAnswer(BaseModel):
-    question: str
-    category: str
-    answer_prompt: str
-    candidate_answer: str
+    question: str = Field(max_length=1000)
+    category: str = Field(max_length=120)
+    answer_prompt: str = Field(max_length=2000)
+    candidate_answer: str = Field(max_length=5000)
 
 
 class QuizGradeRequest(BaseModel):
-    answers: list[QuizAnswer]
+    answers: list[QuizAnswer] = Field(max_length=10)
 
 
 def _build_prep(application: Application, current_user: User, session: Session) -> InterviewPrep:

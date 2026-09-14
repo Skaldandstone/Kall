@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from kall.auth import get_current_user
@@ -40,10 +40,10 @@ class GenerateResumeRequest(BaseModel):
 
 
 class CoverLetterRequest(BaseModel):
-    emphasis: str = "balanced"
-    tone: str = "formal"
-    length: str = "standard"
-    company_interest_notes: str | None = None
+    emphasis: str = Field(default="balanced", max_length=40)
+    tone: str = Field(default="formal", max_length=40)
+    length: str = Field(default="standard", max_length=40)
+    company_interest_notes: str | None = Field(default=None, max_length=2000)
 
 
 class ReviewCoverLetterRequest(BaseModel):

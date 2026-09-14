@@ -145,7 +145,13 @@ def generate_interview_prep(job: Job, analysis: JobRequirementAnalysis | None) -
         "should name concrete topics or concepts worth reviewing beforehand, not links.\n\n"
         f"{_company_prompt_context(job, analysis)}"
     )
-    parsed = ask_for_json(prompt, schema_name="interview_prep", schema=_SCHEMA, purpose="interview prep")
+    parsed = ask_for_json(
+        prompt,
+        schema_name="interview_prep",
+        schema=_SCHEMA,
+        purpose="interview prep",
+        source_ref=f"job:{job.id}",
+    )
     if parsed is None:
         return _FALLBACK_PREP, False
 
@@ -230,7 +236,13 @@ def grade_quiz_answers(
         f"ROLE:\n{_company_prompt_context(job, analysis)}\n\n"
         f"ANSWERS TO GRADE:\n{transcript}"
     )
-    parsed = ask_for_json(prompt, schema_name="interview_quiz_grading", schema=_GRADE_SCHEMA, purpose="interview quiz grading")
+    parsed = ask_for_json(
+        prompt,
+        schema_name="interview_quiz_grading",
+        schema=_GRADE_SCHEMA,
+        purpose="interview quiz grading",
+        source_ref=f"job:{job.id}",
+    )
     if parsed is None:
         return None
 

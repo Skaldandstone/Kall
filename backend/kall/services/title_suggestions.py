@@ -190,7 +190,13 @@ def ai_related_titles(titles: list[str], exclude: list[str] | None = None) -> li
         "does not miss postings. Do not suggest promotions, demotions, or different functions, and do "
         "not repeat a title already listed."
     )
-    result = ask_for_json(prompt, schema_name="related_job_titles", schema=_RELATED_SCHEMA, purpose="related job titles")
+    result = ask_for_json(
+        prompt,
+        schema_name="related_job_titles",
+        schema=_RELATED_SCHEMA,
+        purpose="related job titles",
+        source_ref="approved-title-set",
+    )
     if not result:
         return []
     offered: list[str] = []

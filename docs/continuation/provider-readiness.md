@@ -82,7 +82,10 @@ and complete one invited-user acceptance pass on the replacement HTTPS runtime.
 Kall has no Anthropic or Claude runtime dependency. Onboarding assistance,
 resume intelligence, growth suggestions, interview preparation and compatibility
 checks all use the shared OpenAI Responses API adapter with strict JSON schemas,
-`store: false`, and model `gpt-5.6-luna`. The focused OpenAI suite passed 28 tests.
+`store: false`, product-owned developer instructions, local output validation,
+safe generation traces, and model `gpt-5.6-luna`. See
+[Generated content in Kall](../GENERATED_CONTENT.md) for the audited paths and
+the current verification boundary.
 
 No Kall-specific `OPENAI_API_KEY` is configured in the replacement AWS project.
 The product falls back safely when the key is absent, but live AI behavior is not

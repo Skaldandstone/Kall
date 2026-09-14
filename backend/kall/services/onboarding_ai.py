@@ -71,13 +71,9 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         "keywords are specific skills or specializations evidenced in the text. work_types should only include "
         "values actually implied (e.g. 'remote' if they've worked remotely) -- if nothing is implied, return an "
         "empty list.\n\n"
-        "pay_basis and suggested_salary_min/suggested_salary_max are a rough, clearly-unverified estimate of "
-        "what someone with this resume's most recent role, seniority, and location typically earns -- pay_basis "
-        "is 'hourly' only if the resume's most recent role reads as hourly/contract work, otherwise 'salary'. "
-        "suggested_salary_min/max are always annualized numbers (multiply an hourly estimate by roughly 2080 "
-        "hours/year) regardless of pay_basis, in whole dollars. Set both to null if the resume gives too little "
-        "signal (no clear recent title, seniority, or location) to estimate responsibly -- do not guess from a "
-        "vague resume just to fill the field.\n\n"
+        "pay_basis is 'hourly' only if the resume explicitly describes hourly or contract work; otherwise use "
+        "'salary'. Always set suggested_salary_min and suggested_salary_max to null. Kall has no verified market "
+        "compensation source in this request, so do not manufacture a market-rate estimate from model memory.\n\n"
         f"RESUME:\n{text[:30000]}"
     )
     result = ask_for_json(
@@ -85,6 +81,7 @@ def suggest_career_strategy(resume_text: str) -> dict | None:
         schema_name="career_strategy_suggestion",
         schema=_STRATEGY_SCHEMA,
         purpose="career strategy suggestion",
+        source_ref="uploaded-resume:unversioned",
     )
     if result is not None:
         # Keep the model inside the vocabulary the search actually expands on,

@@ -4,7 +4,9 @@ from kall.models import CareerGoal
 from kall.services.openai_json import ask_for_json
 
 
-def _call_structured(prompt: str, schema: dict, schema_name: str) -> dict | None:
+def _call_structured(
+    prompt: str, schema: dict, schema_name: str, source_ref: str
+) -> dict | None:
     """Calls OpenAI's Responses API with a strict JSON schema, mirroring the
     pattern in api_resume_intelligence.py's _ai_recommendations. Returns None
     on any failure (missing key, network error, bad response) so the caller
@@ -14,7 +16,13 @@ def _call_structured(prompt: str, schema: dict, schema_name: str) -> dict | None
     settings = get_settings()
     if not settings.openai_api_key:
         return None
-    return ask_for_json(prompt, schema_name=schema_name, schema=schema, purpose="growth plan")
+    return ask_for_json(
+        prompt,
+        schema_name=schema_name,
+        schema=schema,
+        purpose="growth plan",
+        source_ref=source_ref,
+    )
 
 
 def _goal_context(goal: CareerGoal) -> str:
@@ -69,7 +77,7 @@ def generate_ai_plan(goal: CareerGoal, resume_text: str) -> dict | None:
         f"GOAL:\n{_goal_context(goal)}\n\n"
         f"CANDIDATE BACKGROUND (may be empty):\n{resume_text[:30000]}"
     )
-    return _call_structured(prompt, _PLAN_SCHEMA, "career_growth_plan")
+    return _call_structured(prompt, _PLAN_SCHEMA, "career_growth_plan", f"career-goal:{goal.id}")
 
 
 _SKILLS_SCHEMA = {
@@ -107,4 +115,6 @@ def analyze_skills(goal: CareerGoal, answer_text: str, resume_text: str) -> dict
         f"THEIR OWN DESCRIPTION OF CURRENT SKILLS:\n{answer_text}\n\n"
         f"STORED RESUME (may be empty):\n{resume_text[:30000]}"
     )
-    return _call_structured(prompt, _SKILLS_SCHEMA, "career_skill_assessment")
+    return _call_structured(
+        prompt, _SKILLS_SCHEMA, "career_skill_assessment", f"career-goal:{goal.id}"
+    )

@@ -51,6 +51,7 @@ def main() -> int:
         schema_name="preflight",
         schema=_SCHEMA,
         purpose="preflight check",
+        source_ref="operator-preflight",
     )
 
     if answer is None:

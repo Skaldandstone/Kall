@@ -41,8 +41,12 @@ def test_suggest_career_strategy_parses_a_canned_response(monkeypatch: pytest.Mo
         def json(self) -> dict:
             return {
                 "output_text": (
-                    '{"summary": "Quality leader.", "target_titles": ["Director of Quality Engineering"], '
-                    '"industries": ["Games"], "keywords": ["test automation", "CI/CD"], "work_types": ["remote"]}'
+                    '{"summary": "Quality leader.", "profile_name": "Quality Leadership", '
+                    '"target_titles": ["Director of Quality Engineering"], '
+                    '"functional_areas": ["Quality Engineering"], "industries": ["Games"], '
+                    '"keywords": ["test automation", "CI/CD"], "work_types": ["remote"], '
+                    '"pay_basis": "salary", "suggested_salary_min": null, '
+                    '"suggested_salary_max": null}'
                 )
             }
 

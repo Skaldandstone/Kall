@@ -171,8 +171,8 @@ def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, m
 
     def fake_suggest(profile, empty_fields, resume_text):
         captured["empty_fields"] = empty_fields
-        return {field: (["Backend Engineer"] if field == "target_titles" else 150000) for field in empty_fields} | {
-            "rationale": "Estimated from role and location.",
+        return {field: (["Backend Engineer"] if field == "target_titles" else ["Software"]) for field in empty_fields} | {
+            "rationale": "Grounded in the saved resume.",
         }
 
     monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", fake_suggest)
@@ -185,10 +185,10 @@ def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, m
     body = response.json()
     assert body["enabled"] is True
     assert "target_titles" not in captured["empty_fields"]
-    assert "target_base" in captured["empty_fields"]
+    assert "target_base" not in captured["empty_fields"]
     assert "target_titles" not in body["suggestions"]
-    assert body["suggestions"]["target_base"] == 150000
-    assert body["rationale"] == "Estimated from role and location."
+    assert "target_base" not in body["suggestions"]
+    assert body["rationale"] == "Grounded in the saved resume."
 
 
 def test_suggest_fields_short_circuits_when_profile_is_already_complete(client, monkeypatch) -> None:

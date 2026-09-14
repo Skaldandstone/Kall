@@ -11,6 +11,10 @@
 - Push: Expo device-token relay to FCM and APNs
 - AI: optional OpenAI provider behind service boundaries
 
+All customer-facing generated material follows the product-owned runtime,
+validation, evidence, review, and fallback contract in
+[Generated content in Kall](GENERATED_CONTENT.md).
+
 ## Sensitive information
 
 EEO answers, disability status, veteran status, race/ethnicity, gender identity,

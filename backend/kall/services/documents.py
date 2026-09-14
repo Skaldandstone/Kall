@@ -21,11 +21,14 @@ from kall.models import (
     ResumeDocument,
     TailoringChange,
     TailoringProposal,
+    User,
 )
 from kall.services.openai_json import ask_for_json
+from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume_assembly import assemble_resume, layout_text
 from kall.services.resume_render import render_docx, render_pdf
 from kall.services.storage import get_storage
+from kall.services.tailoring import immutable_tokens
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
@@ -421,7 +424,7 @@ def _drafted_paragraphs(
     tone: str,
     length: str,
     company_interest_notes: str | None,
-) -> list[str]:
+) -> tuple[list[str], bool]:
     """Grounded in the actual posting and the person's own finalized resume
     content when a model is configured; a rules-based letter that still
     reflects the emphasis/tone/length choices otherwise. Neither path
@@ -445,11 +448,26 @@ def _drafted_paragraphs(
             "true evidence from the resume content tied to the posting's own requirements, and a closing paragraph. "
             "Never invent metrics, employers, titles, or skills not present in the resume content above."
         )
-        result = ask_for_json(prompt, schema_name="cover_letter", schema=_COVER_LETTER_SCHEMA, purpose="cover letter draft")
+        result = ask_for_json(
+            prompt,
+            schema_name="cover_letter",
+            schema=_COVER_LETTER_SCHEMA,
+            purpose="cover letter draft",
+            source_ref=f"job:{job.id}",
+        )
         paragraphs = [str(p).strip() for p in (result or {}).get("paragraphs", []) if str(p).strip()]
-        if len(paragraphs) >= 3:
-            return paragraphs
-    return _rules_based_paragraphs(job, analysis, sections, emphasis, tone, length, company_interest_notes)
+        source_numbers = immutable_tokens(
+            " ".join((resume_text, job.description, company_interest_notes or ""))
+        )
+        drafted_numbers = immutable_tokens(" ".join(paragraphs))
+        if len(paragraphs) >= 3 and set(drafted_numbers).issubset(source_numbers):
+            return paragraphs, True
+    return (
+        _rules_based_paragraphs(
+            job, analysis, sections, emphasis, tone, length, company_interest_notes
+        ),
+        False,
+    )
 
 
 def propose_cover_letter(
@@ -462,6 +480,9 @@ def propose_cover_letter(
 ) -> CoverLetterProposal:
     if proposal.status != "finalized":
         raise ValueError("Finalize the resume tailoring proposal first")
+    user = session.get(User, proposal.user_id)
+    if get_settings().openai_api_key and user:
+        assert_ai_allowed(session, user)
     job = session.get(Job, proposal.job_id)
     analysis = session.exec(select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == proposal.job_id)).first()
     sections = finalized_resume_content(session, proposal)
@@ -477,17 +498,25 @@ def propose_cover_letter(
     session.add(letter)
     session.commit()
     session.refresh(letter)
-    paragraphs = _drafted_paragraphs(job, analysis, sections, emphasis, tone, length, company_interest_notes)
+    paragraphs, used_ai = _drafted_paragraphs(
+        job, analysis, sections, emphasis, tone, length, company_interest_notes
+    )
     for position, text in enumerate(paragraphs):
         session.add(
             CoverLetterChange(
                 proposal_id=letter.id,
                 position=position,
                 proposed_text=text,
-                evidence=[{"source": "finalized_resume", "proposal_id": proposal.id}],
+                evidence=[{
+                    "source": "finalized_resume",
+                    "proposal_id": proposal.id,
+                    "generation": "openai" if used_ai else "deterministic",
+                }],
             )
         )
     session.commit()
+    if used_ai and user:
+        record_ai_action(session, user)
     session.refresh(letter)
     return letter
 
