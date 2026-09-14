@@ -159,7 +159,7 @@ jobs:
       - run: npm ci
         working-directory: apps/web
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -209,7 +209,7 @@ jobs:
       - run: npm ci
         working-directory: apps/web
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -249,7 +249,7 @@ jobs:
       - run: npm ci
         working-directory: apps/extension
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -301,7 +301,7 @@ jobs:
       - run: npm run validate:ios-alpha
         working-directory: apps/mobile
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
