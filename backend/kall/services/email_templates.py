@@ -26,7 +26,7 @@ def action_button(label: str, href: str) -> str:
         '<table role="presentation" cellspacing="0" cellpadding="0" border="0" '
         'style="margin:24px 0 8px"><tr><td bgcolor="#d8b66f" '
         'style="border-radius:8px">'
-        f'<a href="{escape(href, quote=True)}" style="display:inline-block;padding:14px 22px;'
+        f'<a class="email-cta" href="{escape(href, quote=True)}" style="display:inline-block;padding:14px 22px;'
         'font-family:Arial,sans-serif;font-size:16px;font-weight:700;line-height:20px;'
         'color:#101721;text-decoration:none;border-radius:8px">'
         f'{escape(label)}</a></td></tr></table>'
@@ -36,13 +36,13 @@ def action_button(label: str, href: str) -> str:
 def match_card(title: str, company: str, score: int) -> str:
     """Render one compact opportunity row with a prominent match score."""
     return (
-        '<tr><td style="padding:14px 16px;border:1px solid #dce3eb;border-radius:8px;'
+        '<tr><td class="match-card" style="padding:14px 16px;border:1px solid #dce3eb;border-radius:8px;'
         'background:#f7f9fb">'
         '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">'
         '<tr><td style="padding-right:14px;font-family:Arial,sans-serif;color:#152235;'
         'font-size:15px;line-height:22px">'
-        f'<strong style="color:#09111d">{escape(title)}</strong><br>'
-        f'<span style="color:#5b6878">{escape(company)}</span></td>'
+        f'<strong class="match-title" style="color:#09111d">{escape(title)}</strong><br>'
+        f'<span class="match-company" style="color:#5b6878">{escape(company)}</span></td>'
         '<td width="66" align="right" valign="middle" style="font-family:Arial,sans-serif;'
         'color:#8a651f;font-size:17px;font-weight:700;white-space:nowrap">'
         f'{score}%</td></tr></table></td></tr>'
@@ -85,19 +85,24 @@ def render_email_document(subject: str, content_html: str) -> str:
       .email-card {{ background:#111c2b !important; border-color:#25364c !important; }}
       .email-copy, .email-copy p, .email-copy li {{ color:#d7dee8 !important; }}
       .email-title, .email-copy h2, .email-copy h3, .email-copy strong {{ color:#f4f1e9 !important; }}
+      .email-brand {{ color:#f4f1e9 !important; }}
+      .email-cta {{ color:#101721 !important; }}
+      .match-card {{ background:#182538 !important; border-color:#38506f !important; }}
+      .match-title {{ color:#f4f1e9 !important; }}
+      .match-company {{ color:#aab7c8 !important; }}
       .email-footer {{ color:#aab7c8 !important; }}
     }}
   </style>
 </head>
 <body class="email-page" style="margin:0;padding:0;background:#eef1f5;word-spacing:normal">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{escape(preheader)}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eef1f5">
+  <table class="email-page" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eef1f5">
     <tr><td align="center" style="padding:28px 12px">
       <table class="email-shell" role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:100%">
         <tr><td class="email-pad" style="padding:0 32px 18px">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
             <td><img src="{escape(logo_url, quote=True)}" width="44" height="44" alt="" style="display:block;border:0;border-radius:11px"></td>
-            <td style="padding-left:12px;font-family:Arial,sans-serif;color:#09111d;font-size:23px;font-weight:700;letter-spacing:-0.5px">Kall</td>
+            <td class="email-brand" style="padding-left:12px;font-family:Arial,sans-serif;color:#09111d;font-size:23px;font-weight:700;letter-spacing:-0.5px">Kall</td>
           </tr></table>
         </td></tr>
         <tr><td class="email-card email-pad" style="padding:36px 40px;background:#ffffff;border:1px solid #dce3eb;border-radius:14px">
