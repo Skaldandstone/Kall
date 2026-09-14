@@ -21,6 +21,7 @@ from kall.api_ops import router as operations_router
 from kall.api_resume_intelligence import router as resume_intelligence_router
 from kall.api_resumes import router as resumes_router
 from kall.api_search_apply import router as search_apply_router
+from kall.api_shared_search import router as shared_search_router
 from kall.api_submissions import router as submissions_router
 from kall.api_tailoring import router as tailoring_router
 from kall.api_testimonials import router as testimonials_router
@@ -44,6 +45,7 @@ API_ROUTERS = (
     documents_router,
     opportunities_router,
     search_apply_router,
+    shared_search_router,
     submissions_router,
     billing_router,
     native_billing_router,

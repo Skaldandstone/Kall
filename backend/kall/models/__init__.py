@@ -13,6 +13,7 @@ from kall.models.onboarding import *
 from kall.models.opportunities import *
 from kall.models.profile import *
 from kall.models.sensitive import *
+from kall.models.shared_search import *
 from kall.models.submissions import *
 from kall.models.tailoring import *
 from kall.models.testimonials import *

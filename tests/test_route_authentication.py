@@ -13,6 +13,9 @@ PUBLIC_ROUTE_PATHS = {
     "/billing/webhook",
     "/billing/revenuecat/webhook",
     "/career-pages/{slug}",
+    "/shared-searches/{slug}",
+    "/shared-searches/{slug}/criteria",
+    "/shared-searches/{slug}/refresh",
 }
 AUTHENTICATION_DEPENDENCIES = {
     "get_current_user",

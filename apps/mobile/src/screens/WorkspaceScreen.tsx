@@ -105,6 +105,11 @@ export default function WorkspaceScreen({ navigation }: Props) {
       screen: "Testimonials",
     },
     {
+      title: "Help a friend",
+      detail: "Share a batch of matching openings — no account required on their end",
+      screen: "SharedSearches",
+    },
+    {
       title: "Generated documents",
       detail: "Every tailored resume Kall has produced",
       screen: "Documents",

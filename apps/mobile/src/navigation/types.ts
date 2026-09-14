@@ -39,6 +39,7 @@ export type ProfileStackParamList = {
   SensitiveDetails: undefined;
   Sources: undefined;
   CareerPage: undefined;
+  SharedSearches: undefined;
   Testimonials: undefined;
   Documents: undefined;
   DeleteAccount: undefined;

@@ -103,6 +103,7 @@ export default function SettingsPage(){
       <a className='card' href='/profiles'><h2>Career profiles</h2><p>Manage target roles, industries, compensation, and work preferences.</p></a>
       <a className='card' href='/settings/career-page'><h2>Career page</h2><p>Choose what appears on the public page you can share alongside a resume.</p></a>
       <a className='card' href='/settings/notifications'><h2>Notifications</h2><p>Choose when Kall emails you the daily brief and new matches.</p></a>
+      <a className='card' href='/settings/shared-searches'><h2>Help a friend</h2><p>Share a batch of matching openings with someone — no account required on their end.</p></a>
       <a className='card' href='/privacy'><h2>Privacy controls</h2><p>Choose which profile fields Kall may use, share, or omit.</p></a>
       <a className='card' href='/billing'><h2>Plan & billing</h2><p>Review your subscription and payment options.</p></a>
     </section>

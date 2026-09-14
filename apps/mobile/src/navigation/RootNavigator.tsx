@@ -30,6 +30,7 @@ import AchievementsScreen from "../screens/AchievementsScreen";
 import SensitiveDetailsScreen from "../screens/SensitiveDetailsScreen";
 import SourcesScreen from "../screens/SourcesScreen";
 import CareerPageScreen from "../screens/CareerPageScreen";
+import SharedSearchesScreen from "../screens/SharedSearchesScreen";
 import TestimonialsScreen from "../screens/TestimonialsScreen";
 import DocumentsScreen from "../screens/DocumentsScreen";
 import DeleteAccountScreen from "../screens/DeleteAccountScreen";
@@ -192,6 +193,11 @@ function ProfileNavigator() {
         name="CareerPage"
         component={CareerPageScreen}
         options={{ title: "Public career page" }}
+      />
+      <ProfileStack.Screen
+        name="SharedSearches"
+        component={SharedSearchesScreen}
+        options={{ title: "Help a friend" }}
       />
       <ProfileStack.Screen
         name="Testimonials"
