@@ -43,7 +43,23 @@ Kall is not primarily a job board, applicant tracker, resume generator, or gener
 
 ## Business Model Baseline
 
-The first ten completed applications are free. Continued application automation is planned as a $4 monthly subscription, subject to product, legal, and financial validation.
+Three tiers, gated by metered usage rather than a one-time trial count:
+
+- **Free** ($0) — 5 applications a week, 3 AI actions a week, 25 MB of resume storage. Job search, tracking, and tailoring are all available at this tier; the caps bound cost, not capability.
+- **Plus** ($5/month) — 25 applications a week, 15 AI actions a week, 500 MB of storage, the daily brief and scheduled discovery, a career page without the Kall footer, and the apply extension.
+- **Premium** ($15/month) — unlimited applications, 400 AI actions a month, 5 GB of storage, a career page per role, a custom domain, and everything in Plus.
+
+Allowances are weekly on Free and Plus (a large free tier stays useful and affordable; see `docs/UNIT_ECONOMICS.md`'s reasoning for why a weekly cadence beats a monthly one someone exhausts in three days) and monthly on Premium's AI-action ceiling. Prices and the enforcement logic live in `apps/web/app/lib/plans.ts` and `backend/kall/services/quota.py`; this is the plain-language source of truth for what a person on each plan actually gets, not the numbers themselves, so it does not need to change every time cost inputs are re-checked.
+
+**Pending, not yet built** (tracked in Linear SSE-206, decided 2026-09-15 in
+the Notion PRD "Billing, Plans & Quotas"): unit-economics modeling found
+free-tier AI cost was the dominant deficit driver, so Plus moves to
+$9/month and Premium to $25/month, and Free's AI surface drops to
+effectively zero -- career-growth-plan generation, skills analysis,
+resume "suggest-strategy," and interview-prep/application Q&A all move
+entirely behind Plus, and the profile-field chip suggester becomes
+deterministic (no LLM call) on Free rather than quota-gated. This table
+still describes what's actually live; do not treat it as final.
 
 ## Success Definition
 
