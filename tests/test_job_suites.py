@@ -9,9 +9,9 @@ from kall.jobs import daily, hourly
 from kall.jobs._suite import run_suite
 
 
-def test_hourly_covers_the_four_hourly_jobs_with_notifications_last() -> None:
+def test_hourly_covers_the_five_hourly_jobs_with_notifications_last() -> None:
     names = list(hourly.JOBS)
-    assert set(names) == {"billing_grace_period", "daily_brief", "run_discovery", "notifications"}
+    assert set(names) == {"billing_grace_period", "daily_brief", "run_discovery", "email_sync", "notifications"}
     # The outbox drain runs last so anything queued this tick sends this tick.
     assert names[-1] == "notifications"
 

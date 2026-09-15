@@ -10,13 +10,14 @@ jobs queued this tick goes out this tick instead of next.
 
 import sys
 
-from kall.jobs import billing_grace_period, daily_brief, notifications, run_discovery
+from kall.jobs import billing_grace_period, daily_brief, email_sync, notifications, run_discovery
 from kall.jobs._suite import run_suite
 
 JOBS = {
     "billing_grace_period": billing_grace_period.main,
     "daily_brief": daily_brief.main,
     "run_discovery": run_discovery.main,
+    "email_sync": email_sync.main,
     "notifications": notifications.main,
 }
 
