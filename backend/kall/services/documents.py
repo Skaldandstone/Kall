@@ -102,7 +102,7 @@ def finalized_resume_content(session: Session, proposal: TailoringProposal) -> l
     if any(change.status == "pending" for change in changes):
         raise ValueError("Every tailoring change must be reviewed")
     return [
-        {"section": change.section, "text": text}
+        {"section": change.section, "text": text, "original": change.original_text}
         for change in changes
         if (text := _accepted_text(change))
     ]
@@ -111,9 +111,16 @@ def finalized_resume_content(session: Session, proposal: TailoringProposal) -> l
 def draft_resume_content(session: Session, proposal: TailoringProposal) -> list[dict[str, str]]:
     """The tailored sections as they stand right now -- accepted and edited
     changes only, pending ones left out -- so a look can be previewed before
-    the review is finished."""
+    the review is finished.
+
+    Carries the change's original_text alongside the accepted/edited text
+    (unused by most sections, which only ever replace a fixed slot like the
+    summary) -- an "experience_bullet" change needs it to find-and-replace
+    the exact source bullet inside the fallback resume text, since that
+    text has no other addressable structure to slot a rewrite into.
+    """
     changes = list(session.exec(select(TailoringChange).where(TailoringChange.proposal_id == proposal.id).order_by(TailoringChange.id)))
-    return [{"section": change.section, "text": text} for change in changes if (text := _accepted_text(change))]
+    return [{"section": change.section, "text": text, "original": change.original_text} for change in changes if (text := _accepted_text(change))]
 
 
 def preview_layout(session: Session, proposal: TailoringProposal, template_key: str) -> dict:

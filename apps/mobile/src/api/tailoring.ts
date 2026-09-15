@@ -195,3 +195,10 @@ export const linkGeneratedDocuments = (
   applicationId: number,
   body: { generated_document_id?: number; cover_letter_proposal_id?: number },
 ) => apiRequest<ApplicationRecord>(`/applications/${applicationId}/generated-documents`, { method: "PATCH", body });
+
+/** Discards the in-progress or already-finalized tailoring review, cover
+ * letter, and generated document, and starts a fresh proposal in their
+ * place -- for someone unhappy with the resume they ended up with, who
+ * previously had no way back once a step was finalized. */
+export const restartTailoring = (applicationId: number) =>
+  apiRequest<ApplicationRecord>(`/applications/${applicationId}/restart-tailoring`, { method: "POST" });

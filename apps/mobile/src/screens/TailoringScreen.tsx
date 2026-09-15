@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -33,6 +34,7 @@ import {
   finalizeProposal,
   generateDocument,
   linkGeneratedDocuments,
+  restartTailoring,
   reviewAllChanges,
   saveDocumentToProfile,
   type ApplicationRecord,
@@ -188,6 +190,35 @@ export default function TailoringScreen({ route }: Props) {
     }, "Unable to update those suggestions.");
   }
 
+  function restart() {
+    Alert.alert(
+      "Start over?",
+      "Your current answers, cover letter, and generated resume for this application will be replaced with a fresh draft. Nothing you already saved to your resume library is affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Start over",
+          style: "destructive",
+          onPress: () => void run("restart", async () => {
+            await restartTailoring(applicationId);
+            setProposal(null);
+            setChanges([]);
+            setDrafts({});
+            setDocument(null);
+            setCoverLetter(null);
+            setPreviews({});
+            setFinalPreview(null);
+            setSavedResume(null);
+            setAts(null);
+            setShowAnswered(false);
+            await load();
+            setMessage("Starting over with a fresh draft.");
+          }, "Unable to start over."),
+        },
+      ],
+    );
+  }
+
   function saveToProfile() {
     if (!document) return;
     void run("save-profile", async () => {
@@ -271,7 +302,7 @@ export default function TailoringScreen({ route }: Props) {
   const decided = ordered.filter((change) => change.status !== "pending");
   const answered = decided.length;
   const current = ordered.find((change) => change.status === "pending") ?? null;
-  const currentKind = current ? (current.section.startsWith(ROLE_SECTION_PREFIX) ? "role" : current.section === "summary" ? "summary" : "achievement") : null;
+  const currentKind = current ? (current.section.startsWith(ROLE_SECTION_PREFIX) ? "role" : current.section === "summary" ? "summary" : current.section === "experience_bullet" ? "experience_bullet" : "achievement") : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
@@ -292,6 +323,9 @@ export default function TailoringScreen({ route }: Props) {
         </View>
       ) : (
         <>
+          <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.textButton, styles.restartButton]} onPress={restart}>
+            <Text style={styles.textButtonText}>Not happy with this? Start over</Text>
+          </Pressable>
           <View style={styles.card}>
             <Text style={styles.cardLabel}>{finalized ? "Your answers are in" : "Step 1 of 3 · Answer what's missing"}</Text>
             <Text style={styles.body}>
@@ -311,7 +345,7 @@ export default function TailoringScreen({ route }: Props) {
             <View style={styles.card}>
               <View style={styles.changeTop}>
                 <Text style={styles.pill}>Question {answered + 1} of {changes.length}</Text>
-                <Text style={styles.status}>{currentKind === "role" ? String(current.evidence[0]?.requirement ?? "Requirement") : currentKind === "summary" ? "Opening summary" : "Verified achievement"}</Text>
+                <Text style={styles.status}>{currentKind === "role" ? String(current.evidence[0]?.requirement ?? "Requirement") : currentKind === "summary" ? "Opening summary" : currentKind === "experience_bullet" ? "Experience wording" : "Verified achievement"}</Text>
               </View>
               <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round((answered / Math.max(1, changes.length)) * 100)}%` }]} /></View>
               {currentKind === "role" ? (
@@ -326,6 +360,12 @@ export default function TailoringScreen({ route }: Props) {
                   {current.original_text ? (<><Text style={styles.sectionLabel}>Your current summary</Text><Text style={styles.original}>{current.original_text}</Text></>) : null}
                   <Text style={styles.sectionLabel}>Proposed summary — edit freely</Text>
                 </>
+              ) : currentKind === "experience_bullet" ? (
+                <>
+                  <Text style={styles.reason}>{current.reason}</Text>
+                  {current.original_text ? (<><Text style={styles.sectionLabel}>Your current wording</Text><Text style={styles.original}>{current.original_text}</Text></>) : null}
+                  <Text style={styles.sectionLabel}>Proposed wording — edit freely</Text>
+                </>
               ) : (
                 <>
                   <Text style={styles.reason}>{current.reason}</Text>
@@ -333,7 +373,7 @@ export default function TailoringScreen({ route }: Props) {
                 </>
               )}
               <TextInput
-                accessibilityLabel={currentKind === "role" ? "Suggested bullet" : currentKind === "summary" ? "Proposed summary" : "Achievement text"}
+                accessibilityLabel={currentKind === "role" ? "Suggested bullet" : currentKind === "summary" ? "Proposed summary" : currentKind === "experience_bullet" ? "Proposed wording" : "Achievement text"}
                 multiline
                 style={styles.editor}
                 value={drafts[current.id] ?? ""}
@@ -345,10 +385,10 @@ export default function TailoringScreen({ route }: Props) {
               ) : null}
               <View style={styles.actions}>
                 <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.button, busy !== null && styles.disabled]} onPress={() => decide(current, (drafts[current.id] ?? "").trim() !== current.proposed_text ? "edited" : "accepted")}>
-                  {busy === `change-${current.id}` ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{currentKind === "role" ? "Yes, add it" : currentKind === "summary" ? "Use this summary" : "Keep it"}</Text>}
+                  {busy === `change-${current.id}` ? <ActivityIndicator color={theme.accentInk} /> : <Text style={styles.buttonText}>{currentKind === "role" ? "Yes, add it" : currentKind === "summary" ? "Use this summary" : currentKind === "experience_bullet" ? "Use this wording" : "Keep it"}</Text>}
                 </Pressable>
                 <Pressable accessibilityRole="button" disabled={busy !== null} style={[styles.secondaryButton, busy !== null && styles.disabled]} onPress={() => decide(current, "rejected")}>
-                  <Text style={styles.rejectText}>{currentKind === "role" ? "Not in this role" : currentKind === "summary" ? "Keep my original" : "Leave it out"}</Text>
+                  <Text style={styles.rejectText}>{currentKind === "role" ? "Not in this role" : currentKind === "summary" ? "Keep my original" : currentKind === "experience_bullet" ? "Keep my original wording" : "Leave it out"}</Text>
                 </Pressable>
               </View>
               {pending > 1 ? (
@@ -373,7 +413,7 @@ export default function TailoringScreen({ route }: Props) {
               {showAnswered ? decided.map((change) => (
                 <View key={change.id} style={styles.answeredRow}>
                   <Text style={styles.answeredLabel} numberOfLines={2}>
-                    {change.section.startsWith(ROLE_SECTION_PREFIX) ? `${String(change.evidence[0]?.requirement ?? "Requirement")} · ${String(change.evidence[0]?.employer ?? "")}` : change.section === "summary" ? "Opening summary" : "Achievement"}
+                    {change.section.startsWith(ROLE_SECTION_PREFIX) ? `${String(change.evidence[0]?.requirement ?? "Requirement")} · ${String(change.evidence[0]?.employer ?? "")}` : change.section === "summary" ? "Opening summary" : change.section === "experience_bullet" ? "Experience wording" : "Achievement"}
                   </Text>
                   <Text style={[styles.status, change.status === "rejected" ? styles.statusRejected : styles.statusAccepted]}>{change.status === "rejected" ? "Skipped" : "Approved"}</Text>
                 </View>
@@ -606,6 +646,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: { color: theme.text, fontWeight: "700", fontSize: 14 },
   rejectText: { color: theme.danger, fontWeight: "700", fontSize: 14 },
   textButton: { minHeight: 44, justifyContent: "center", marginTop: 6 },
+  restartButton: { alignSelf: "flex-end", marginTop: 0, marginBottom: 4 },
   textButtonText: { color: theme.accent, fontWeight: "600" },
   disabled: { opacity: 0.5 },
   templates: { gap: 8, marginTop: 12, marginBottom: 14 },

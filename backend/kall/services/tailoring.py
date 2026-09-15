@@ -14,6 +14,7 @@ from kall.models import (
     TailoringProposal,
     User,
 )
+from kall.services.intelligence import parse_resume
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume import reflow_extracted_text
@@ -245,6 +246,87 @@ def _drafted_achievement_with_source(original: str, job: Job, focus: str) -> tup
     return original, False
 
 
+_EXPERIENCE_ALIGNMENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "bullets": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "original": {"type": "string"},
+                    "rewrite": {"type": "string"},
+                },
+                "required": ["original", "rewrite"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["bullets"],
+    "additionalProperties": False,
+}
+
+
+def _fallback_experience_alignment_changes(proposal_id: int, experience_text: str, job: Job, focus: str) -> list[TailoringChange]:
+    """When there is no structured Employment record, _role_gap_changes
+    below bails out before it ever looks at the resume itself -- role-gap
+    and achievement customization only ever read Kall's own Employment/
+    Achievement tables, never the uploaded resume's text. Anyone relying on
+    a resume upload rather than manually filled-in structured history got a
+    tailored resume with nothing customized but the summary, no matter how
+    well their real experience actually matched the posting.
+
+    Asks the model to find a handful of existing bullets, as extracted from
+    the resume, whose wording could better echo the posting's own language,
+    and a rewrite of each that preserves every fact. The model does its own
+    bullet segmentation rather than a regex trying to find bullet
+    boundaries in already-reflowed word-per-line text, which is fuzzy by
+    nature; a returned bullet that cannot be found verbatim in the source
+    text is dropped rather than guessed at, since it has to be found and
+    replaced in place later with no other addressable structure to rely on.
+    """
+    if not get_settings().openai_api_key or not experience_text.strip():
+        return []
+    prompt = (
+        "Below is someone's work experience, extracted from their resume. Identify up to 6 existing bullet "
+        f"points whose wording could better echo language a hiring manager for '{job.title}' at {job.company} "
+        f"would recognize, foregrounding: {focus}. For each, return the bullet exactly as it appears in the "
+        "text below (verbatim, so it can be found and replaced) and a rewritten version. Preserve every date, "
+        "percentage, dollar amount, employer name, and other fact from the original exactly -- reword only, "
+        "never invent or drop a fact, never change what was actually done. Skip a bullet if there is nothing "
+        "meaningful to improve; return fewer than 6 rather than force weak suggestions.\n\n"
+        f"EXPERIENCE:\n{experience_text[:12000]}"
+    )
+    result = ask_for_json(
+        prompt,
+        schema_name="experience_alignment",
+        schema=_EXPERIENCE_ALIGNMENT_SCHEMA,
+        purpose="experience alignment",
+        source_ref=f"job:{job.id}",
+    )
+    changes = []
+    for item in (result or {}).get("bullets", [])[:6]:
+        original = str(item.get("original", "")).strip()
+        rewrite = str(item.get("rewrite", "")).strip()
+        if not original or not rewrite or original not in experience_text or original == rewrite:
+            continue
+        if not preserves_immutable_facts(original, rewrite):
+            continue
+        changes.append(
+            TailoringChange(
+                proposal_id=proposal_id,
+                section="experience_bullet",
+                original_text=original,
+                proposed_text=rewrite,
+                reason="This bullet's wording could better match the posting's own language.",
+                evidence=[{"type": "experience_bullet", "text": focus, "source": "model"}],
+                immutable_tokens=immutable_tokens(original),
+            )
+        )
+    return changes
+
+
 def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
     original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
@@ -352,7 +434,28 @@ def create_tailoring_proposal(
             )
         )
     changes[0].proposal_id = proposal.id
+    employment_exists = session.exec(select(Employment.id).where(Employment.user_id == user_id)).first() is not None
     changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or ""))
+    if not employment_exists and requirement_terms:
+        # _role_gap_changes above requires at least one Employment row and
+        # never looks at the resume text at all -- someone relying on a
+        # resume upload rather than manually filled-in structured history
+        # otherwise gets nothing customized but the summary, no matter how
+        # well their real experience matches the posting. The parsed
+        # fallback experience text (what the final document actually
+        # renders for these accounts -- see resume_assembly.py) is the only
+        # source of real work history available here.
+        parsed, _ = parse_resume(reflow_extracted_text(resume.extracted_text or ""))
+        fallback_sections = parsed.get("sections", {})
+        experience_text = " ".join(
+            fallback_sections.get("experience")
+            or fallback_sections.get("professional experience")
+            or fallback_sections.get("employment")
+            or []
+        )
+        if experience_text:
+            focus = ", ".join(requirement_terms[:5]) or "the role's documented requirements"
+            changes.extend(_fallback_experience_alignment_changes(proposal.id, experience_text, job, focus))
     used_ai = any(
         evidence.get("source") == "model"
         for change in changes

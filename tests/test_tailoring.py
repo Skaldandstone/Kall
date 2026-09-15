@@ -171,7 +171,7 @@ def test_finalize_proposal_sets_status_documents_service_expects() -> None:
         # finalized_resume_content() is the consumer this status must satisfy;
         # a mismatched status string here previously made document generation
         # permanently unreachable after finalization.
-        assert finalized_resume_content(session, finalized) == [{"section": "summary", "text": "A"}]
+        assert finalized_resume_content(session, finalized) == [{"section": "summary", "text": "A", "original": "A"}]
 
 
 def test_created_proposal_survives_session_close() -> None:
@@ -381,6 +381,132 @@ def test_achievement_changes_reword_to_the_postings_language_when_a_model_is_con
     assert change.proposed_text == "Shipped CI/CD pipelines that cut deploy time by 40%."
     assert change.original_text == "Reduced deploy time by 40% through build automation."
     assert change.evidence[0]["source"] == "model"
+    get_settings.cache_clear()
+
+
+def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structured_employment(monkeypatch) -> None:
+    """Regression test: _role_gap_changes requires at least one Employment
+    row and bails out before ever looking at the resume text -- someone
+    relying on a resume upload rather than manually filled-in structured
+    history got a tailored resume with nothing customized but the summary,
+    no matter how well their real experience matched the posting. Traced
+    from a real account with zero Employment rows whose generated resume
+    came back with only a summary."""
+    from kall.config import get_settings
+    from kall.services import tailoring
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        tailoring, "ask_for_json",
+        lambda *a, **k: {"bullets": [{
+            "original": "Reduced deploy time by 40% through manual scripting.",
+            "rewrite": "Shipped CI/CD pipelines that cut deploy time by 40%.",
+        }]},
+    )
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="fallback-experience@example.com", full_name="Fallback User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        job = Job(
+            source="test", company="Northwind", title="DevOps Engineer",
+            description="Own CI/CD pipelines and deployment automation.",
+            url="https://example.com/devops-fallback",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        session.add(JobRequirementAnalysis(job_id=job.id, required_skills=["ci/cd"], preferred_skills=[]))
+
+        # No Employment rows at all -- everything comes from the uploaded
+        # resume's own text, via the parsed-fallback path.
+        resume = ResumeDocument(
+            user_id=user.id, name="resume.txt", file_path="uploads/1/resume.txt",
+            mime_type="text/plain",
+            extracted_text=(
+                "Summary\nSeasoned engineer.\n\n"
+                "Experience\nAcme Corp - Engineer 2019 - 2022\n"
+                "Reduced deploy time by 40% through manual scripting.\n"
+            ),
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
+        session.commit()
+
+        proposal = create_tailoring_proposal(session, user.id, job, 1)
+        change = session.exec(
+            select(TailoringChange).where(TailoringChange.proposal_id == proposal.id, TailoringChange.section == "experience_bullet")
+        ).one()
+
+    assert change.original_text == "Reduced deploy time by 40% through manual scripting."
+    assert change.proposed_text == "Shipped CI/CD pipelines that cut deploy time by 40%."
+    get_settings.cache_clear()
+
+
+def test_experience_bullet_suggestion_is_dropped_when_not_found_verbatim_or_drops_a_fact(monkeypatch) -> None:
+    """A rewrite the model didn't quote exactly from the source can never be
+    found and replaced later (resume_assembly.py has no other addressable
+    structure for unstructured fallback text), and a rewrite dropping a
+    fact must be caught the same way every other rewrite in this file is."""
+    from kall.config import get_settings
+    from kall.services import tailoring
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        tailoring, "ask_for_json",
+        lambda *a, **k: {"bullets": [
+            {"original": "This bullet does not appear in the resume at all.", "rewrite": "Something else."},
+            {"original": "Reduced deploy time by 40% through manual scripting.", "rewrite": "Reduced deploy time through manual scripting."},
+        ]},
+    )
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="fallback-drops-fact@example.com", full_name="Fallback Drop User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        job = Job(
+            source="test", company="Northwind", title="DevOps Engineer",
+            description="Own CI/CD pipelines and deployment automation.",
+            url="https://example.com/devops-fallback-2",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        session.add(JobRequirementAnalysis(job_id=job.id, required_skills=["ci/cd"], preferred_skills=[]))
+
+        resume = ResumeDocument(
+            user_id=user.id, name="resume.txt", file_path="uploads/1/resume.txt",
+            mime_type="text/plain",
+            extracted_text=(
+                "Summary\nSeasoned engineer.\n\n"
+                "Experience\nAcme Corp - Engineer 2019 - 2022\n"
+                "Reduced deploy time by 40% through manual scripting.\n"
+            ),
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
+        session.commit()
+
+        proposal = create_tailoring_proposal(session, user.id, job, 1)
+        changes = list(session.exec(
+            select(TailoringChange).where(TailoringChange.proposal_id == proposal.id, TailoringChange.section == "experience_bullet")
+        ))
+
+    assert changes == []
     get_settings.cache_clear()
 
 

@@ -45,7 +45,7 @@ def test_finalized_content_excludes_rejected_changes() -> None:
         session.add(TailoringChange(proposal_id=proposal.id, section="achievement", original_text="Old", proposed_text="Rejected", reason="match", status="rejected"))
         session.commit()
         content = finalized_resume_content(session, proposal)
-        assert content == [{"section": "summary", "text": "Accepted"}]
+        assert content == [{"section": "summary", "text": "Accepted", "original": "Old"}]
 
 
 def _finalized_proposal(session, engine=None):

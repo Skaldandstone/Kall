@@ -184,6 +184,17 @@ def assemble_resume(
         sections.append({"key": "experience", "title": _SECTION_TITLES["experience"], "entries": entries})
     else:
         lines = fallback.get("experience") or fallback.get("professional experience") or fallback.get("employment") or []
+        # An accepted "experience_bullet" change has no addressable slot to
+        # go in the way a "role:<id>" bullet has a real Employment row --
+        # this unstructured fallback text is all there is, so the accepted
+        # wording replaces the original verbatim, in place, wherever it
+        # appears. A change whose original text isn't found (edited by hand
+        # into something no longer verbatim, say) is silently skipped
+        # rather than left to raise -- the source text winning is a safe
+        # default here, not a bug worth failing the whole render over.
+        for item in tailored_sections:
+            if item["section"] == "experience_bullet" and item.get("original") and item["text"].strip():
+                lines = [line.replace(item["original"], item["text"].strip(), 1) for line in lines]
         if lines:
             sections.append({"key": "experience", "title": _SECTION_TITLES["experience"], "paragraphs": lines})
 

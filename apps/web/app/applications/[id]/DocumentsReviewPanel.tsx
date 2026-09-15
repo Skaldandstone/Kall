@@ -219,7 +219,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const ordered = [...tailoringChanges].sort((a, b) => rank(a) - rank(b) || a.id - b.id);
   const decided = ordered.filter((change) => change.status !== 'pending');
   const current = ordered.find((change) => change.status === 'pending') ?? null;
-  const currentKind = current ? (current.section.startsWith(ROLE_PREFIX) ? 'role' : current.section === 'summary' ? 'summary' : 'achievement') : null;
+  const currentKind = current ? (current.section.startsWith(ROLE_PREFIX) ? 'role' : current.section === 'summary' ? 'summary' : current.section === 'experience_bullet' ? 'experience_bullet' : 'achievement') : null;
   const pendingCount = ordered.length - decided.length;
 
   async function reviewAll(status: 'accepted' | 'rejected', prefix?: string) {
@@ -395,7 +395,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
               <article className="card" aria-live="polite">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                   <span className="pill">Question {decided.length + 1} of {ordered.length}</span>
-                  <span className="notice">{currentKind === 'role' ? String(current.evidence[0]?.requirement ?? 'Requirement') : currentKind === 'summary' ? 'Opening summary' : 'Verified achievement'}</span>
+                  <span className="notice">{currentKind === 'role' ? String(current.evidence[0]?.requirement ?? 'Requirement') : currentKind === 'summary' ? 'Opening summary' : currentKind === 'experience_bullet' ? 'Experience wording' : 'Verified achievement'}</span>
                 </div>
                 <div aria-hidden style={{ height: 4, borderRadius: 2, background: 'var(--border)', margin: '10px 0', overflow: 'hidden' }}><div style={{ height: 4, width: `${Math.round((decided.length / Math.max(1, ordered.length)) * 100)}%`, background: 'var(--accent)' }} /></div>
                 {currentKind === 'role' ? <>
@@ -406,14 +406,18 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
                   <h3 style={{ marginTop: 8 }}>Kall can align your opening summary with this posting without adding claims.</h3>
                   {current.original_text && <><h4>Your current summary</h4><p>{current.original_text}</p></>}
                   <h4>Proposed summary — edit freely</h4>
+                </> : currentKind === 'experience_bullet' ? <>
+                  <h3 style={{ marginTop: 8 }}>{current.reason}</h3>
+                  {current.original_text && <><h4>Your current wording</h4><p>{current.original_text}</p></>}
+                  <h4>Proposed wording — edit freely</h4>
                 </> : <>
                   <h3 style={{ marginTop: 8 }}>{current.reason}</h3>
                   <h4>Include this achievement?</h4>
                 </>}
-                <textarea className="input" id={`app-tailoring-${current.id}`} key={current.id} defaultValue={current.edited_text || current.proposed_text} rows={4} disabled={busy} aria-label={currentKind === 'role' ? 'Suggested bullet' : currentKind === 'summary' ? 'Proposed summary' : 'Achievement text'} />
+                <textarea className="input" id={`app-tailoring-${current.id}`} key={current.id} defaultValue={current.edited_text || current.proposed_text} rows={4} disabled={busy} aria-label={currentKind === 'role' ? 'Suggested bullet' : currentKind === 'summary' ? 'Proposed summary' : currentKind === 'experience_bullet' ? 'Proposed wording' : 'Achievement text'} />
                 <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="button" disabled={busy} onClick={() => { const value = (window.document.getElementById(`app-tailoring-${current.id}`) as HTMLTextAreaElement).value; void decideTailoring(current, value.trim() !== current.proposed_text ? 'edited' : 'accepted', value); }}>{currentKind === 'role' ? 'Yes, add it' : currentKind === 'summary' ? 'Use this summary' : 'Keep it'}</button>
-                  <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(current, 'rejected')}>{currentKind === 'role' ? 'Not in this role' : currentKind === 'summary' ? 'Keep my original' : 'Leave it out'}</button>
+                  <button className="button" disabled={busy} onClick={() => { const value = (window.document.getElementById(`app-tailoring-${current.id}`) as HTMLTextAreaElement).value; void decideTailoring(current, value.trim() !== current.proposed_text ? 'edited' : 'accepted', value); }}>{currentKind === 'role' ? 'Yes, add it' : currentKind === 'summary' ? 'Use this summary' : currentKind === 'experience_bullet' ? 'Use this wording' : 'Keep it'}</button>
+                  <button className="button ghost" disabled={busy} onClick={() => void decideTailoring(current, 'rejected')}>{currentKind === 'role' ? 'Not in this role' : currentKind === 'summary' ? 'Keep my original' : currentKind === 'experience_bullet' ? 'Keep my original wording' : 'Leave it out'}</button>
                   {pendingCount > 1 && <>
                     <button className="button secondary" disabled={busy} onClick={() => void reviewAll('accepted')}>Approve the remaining {pendingCount}</button>
                     <button className="button ghost" disabled={busy} onClick={() => void reviewAll('rejected')}>Skip the rest</button>
@@ -424,7 +428,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
             {decided.length > 0 && (
               <article className="card">
                 <button type="button" className="text-link" aria-expanded={showAnswered} onClick={() => setShowAnswered((value) => !value)}>Answered ({decided.length}) · {showAnswered ? 'hide' : 'show'}</button>
-                {showAnswered && <ul style={{ marginTop: 10 }}>{decided.map((change) => <li key={change.id}>{change.section.startsWith(ROLE_PREFIX) ? `${String(change.evidence[0]?.requirement ?? 'Requirement')} · ${String(change.evidence[0]?.employer ?? '')}` : change.section === 'summary' ? 'Opening summary' : 'Achievement'} — {change.status === 'rejected' ? 'skipped' : 'approved'}</li>)}</ul>}
+                {showAnswered && <ul style={{ marginTop: 10 }}>{decided.map((change) => <li key={change.id}>{change.section.startsWith(ROLE_PREFIX) ? `${String(change.evidence[0]?.requirement ?? 'Requirement')} · ${String(change.evidence[0]?.employer ?? '')}` : change.section === 'summary' ? 'Opening summary' : change.section === 'experience_bullet' ? 'Experience wording' : 'Achievement'} — {change.status === 'rejected' ? 'skipped' : 'approved'}</li>)}</ul>}
               </article>
             )}
             <button className="button" disabled={busy || !tailoringChangesLoaded || tailoringChanges.some((change) => change.status === 'pending')} onClick={() => void finalizeTailoring()}>Continue to pick a look</button>

@@ -98,6 +98,40 @@ def test_layout_falls_back_to_the_parsed_resume_when_the_record_is_empty() -> No
     assert "QA Lead at Acme 2015 - 2020" in experience["paragraphs"]
 
 
+def test_layout_replaces_an_accepted_experience_bullet_wording_in_place() -> None:
+    """An accepted "experience_bullet" change has no addressable slot to go
+    in the way an accepted "role:<id>" bullet has a real Employment row to
+    attach to -- the unstructured fallback experience text is all there
+    is, so the accepted wording replaces the original verbatim, wherever
+    it appears, rather than being appended anywhere new."""
+    with _session() as session:
+        user = User(email="fallback-bullet@example.com", full_name="Fallback Bullet")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        resume = ResumeDocument(
+            user_id=user.id, name="r.pdf", file_path="x", mime_type="application/pdf", byte_size=1,
+            extracted_text=(
+                "Summary\nSeasoned tester.\nExperience\nQA Lead at Acme 2015 - 2020 "
+                "Reduced deploy time by 40% through manual scripting.\nSkills\nSelenium, Python\n"
+            ),
+        )
+        session.add(resume)
+        session.commit()
+        layout = assemble_resume(session, user.id, [
+            {
+                "section": "experience_bullet",
+                "text": "Shipped CI/CD pipelines that cut deploy time by 40%.",
+                "original": "Reduced deploy time by 40% through manual scripting.",
+            },
+        ], resume)
+    experience = next(section for section in layout["sections"] if section["key"] == "experience")
+    combined = " ".join(experience["paragraphs"])
+    assert "Shipped CI/CD pipelines that cut deploy time by 40%." in combined
+    assert "Reduced deploy time by 40% through manual scripting." not in combined
+    assert "QA Lead at Acme 2015 - 2020" in combined
+
+
 def test_layout_reflows_word_per_line_extraction_before_falling_back() -> None:
     """Regression test: a resume uploaded before extracted_text was reflowed
     at upload time still has the old pypdf word-per-line bytes on disk --
