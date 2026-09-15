@@ -13,6 +13,7 @@ the parsed resume text stands in so the export is still a full document
 rather than a fragment.
 """
 
+import re
 from datetime import date
 
 from kall.models import (
@@ -146,7 +147,15 @@ def assemble_resume(
 
     tailored_summary = _tailored(tailored_sections, "summary")[:1]
     if tailored_summary:
-        summary_paragraphs = [part.strip() for part in tailored_summary[0].split("\n\n") if part.strip()]
+        # A drafted summary was only ever split on a *double* newline, but a
+        # model asked for "two to four sentences" (tailoring.py's prompt)
+        # sometimes separates them with a single "\n" instead -- that whole
+        # reply then became one long paragraphs[0] with the line breaks
+        # embedded in it, which both the PDF and the web preview render as
+        # one dense run-on paragraph, since neither preserves raw "\n" in a
+        # single flowed line of text. Splitting on any run of newlines
+        # turns each of the model's own line breaks into its own paragraph.
+        summary_paragraphs = [part.strip() for part in re.split(r"\n+", tailored_summary[0]) if part.strip()]
     elif profile and profile.professional_summary and profile.professional_summary.strip():
         summary_paragraphs = [profile.professional_summary.strip()]
     elif fallback.get("summary"):

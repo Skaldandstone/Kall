@@ -62,6 +62,23 @@ def test_layout_assembles_header_summary_jobs_skills_and_education_from_the_reco
     assert "ACHIEVEMENTS" in layout_text(layout).upper()
 
 
+def test_layout_splits_a_summary_on_single_newlines_too() -> None:
+    """Regression test: a drafted summary was only ever split on a double
+    newline. tailoring.py's own prompt asks the model for "two to four
+    sentences" without specifying how to separate them, and a reply that
+    used single newlines between them landed as one paragraphs[0] string
+    with the line breaks embedded in it -- both the PDF and the web
+    preview render that as one dense run-on paragraph, since neither
+    treats a raw "\\n" inside a line of text as a break."""
+    with _session() as session:
+        user = _user_with_record(session)
+        layout = assemble_resume(session, user.id, [
+            {"section": "summary", "text": "Quality leader with 15 years of experience.\nShipped CI/CD for four product lines."},
+        ])
+    summary = next(section for section in layout["sections"] if section["key"] == "summary")
+    assert summary["paragraphs"] == ["Quality leader with 15 years of experience.", "Shipped CI/CD for four product lines."]
+
+
 def test_layout_falls_back_to_the_parsed_resume_when_the_record_is_empty() -> None:
     with _session() as session:
         user = User(email="new@example.com", full_name="New Person")
