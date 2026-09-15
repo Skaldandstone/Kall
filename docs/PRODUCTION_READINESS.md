@@ -44,6 +44,30 @@ and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
 catalogs, credentials, and sandbox acceptance are complete.
 
+> **14 September 2026, API+web release, change set created:** source commit
+> `a94b70206e7584e616b50fc9a3fd589f88ffa8dc` (the RENDER_VERSION
+> cache-invalidation fix from the release below, plus
+> `POST /applications/{id}/restart-tailoring` -- a way to discard an
+> in-progress or already-finalized tailoring/cover-letter/document review
+> and start a fresh proposal, reached from a "Start over" control on the
+> review panel at any phase, not just after picking a look). Green CI on
+> this exact commit. Reviewed-snapshot manifest
+> `a980fb23ba07bf5aa1652249dc25ab531a2af2930940ef8bddc37e80409aee23`, built
+> via `kall-api-build`/`kall-web-build` with source, manifest hash, image
+> tag (`release-a94b702`), and a corrected buildspec override (the
+> persisted buildspec's embedded expected-commit check is a full release
+> behind, `692b558`, since a buildspec override never mutates the stored
+> project config) all overridden per-build. New API image
+> `sha256:ce0e33bccee6fc372d01cbcadd4a21ba2a4debc529bc78d17a65cd3f5f6d1bc0`,
+> new web image
+> `sha256:e1ec29d40c49c377bc86ce7e440c15847cb1daa7b5dfd9f211535cbb85dbffb4`,
+> both ECR Basic scans completed with zero findings. No schema change --
+> `VerifiedMigrationHead` stays `20260914_0036`. Change set `release-a94b702`
+> verified before execution: every changed resource is an in-place
+> `Modify`, same shape as every prior release this week; every parameter
+> besides `ApiImage`/`WebImage` carries `UsePreviousValue`. Not yet
+> executed -- `execute-change-set` needs to be run by hand.
+
 > **14 September 2026, API+web release:** source commit
 > `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
 > customization, the resume section-heading parser fix, a maintenance
@@ -75,8 +99,8 @@ catalogs, credentials, and sandbox acceptance are complete.
 > A same-day follow-up commit (`0857137`, after this release was already
 > live) versions the document/preview cache key by a new `RENDER_VERSION`
 > constant, to fix a document generated before a rendering bug fix
-> serving its pre-fix bytes forever. That fix is on `main` but **not yet
-> in a deployed image** -- it needs its own release.
+> serving its pre-fix bytes forever. Shipped in the `a94b702` release
+> below.
 
 > **12 September 2026, web-only release:** the deployed web image and
 > `WebImage` parameter were out of date here even before this release (the
