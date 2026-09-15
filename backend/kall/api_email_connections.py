@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -16,6 +16,7 @@ from kall.config import get_settings
 from kall.db import get_session
 from kall.models import EmailConnection, User
 from kall.security import encrypt_sensitive
+from kall.services.email_filter_export import build_gmail_filter_xml
 from kall.services.email_oauth import PROVIDERS, EmailConnectionNotConfigured, redirect_uri_for
 
 router = APIRouter(tags=["email-connections"])
@@ -133,6 +134,23 @@ async def email_connection_callback(
 
     frontend_url = (get_settings().frontend_url or "").rstrip("/")
     return RedirectResponse(url=f"{frontend_url}/settings/email?connected={provider}")
+
+
+@router.get("/me/email-connections/gmail-filters.xml")
+def gmail_filter_import_xml(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    """A downloadable Gmail filter-import file: Settings > Filters and
+    Blocked Addresses > Import filters, on the same screen Gmail's own
+    Export produces this exact format from. One filter per known ATS
+    domain plus every employer domain already in this person's tracked
+    applications, all applying a single Kall/Job Search label."""
+    xml = build_gmail_filter_xml(session, current_user.id)
+    return Response(
+        content=xml, media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=kall-job-search-filters.xml"},
+    )
 
 
 @router.delete("/me/email-connections/{connection_id}")

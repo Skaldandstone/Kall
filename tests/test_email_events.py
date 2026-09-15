@@ -125,6 +125,58 @@ def test_confirming_an_already_reviewed_event_is_refused(client, engine) -> None
     assert response.status_code == 422
 
 
+def test_importing_an_unmatched_event_creates_an_application(client, engine) -> None:
+    _application_id, connection_id = _seed(engine, client.user_id)
+    with Session(engine) as session:
+        profile = CareerProfile(user_id=client.user_id, name="Import profile")
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+    event_id = _event(engine, user_id=client.user_id, connection_id=connection_id, application_id=None, event_type="confirmation")
+    with Session(engine) as session:
+        event = session.get(EmailDetectedEvent, event_id)
+        event.evidence = {**event.evidence, "url": "https://example.com/careers/9", "subject": "Application received"}
+        session.add(event)
+        session.commit()
+
+    response = client.post(f"{API}/{event_id}/import", json={"professional_profile_id": profile_id})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "submitted"
+
+    with Session(engine) as session:
+        event = session.get(EmailDetectedEvent, event_id)
+        assert event.status == "confirmed"
+        assert event.application_id == data["id"]
+
+
+def test_importing_without_a_url_anywhere_is_refused(client, engine) -> None:
+    _application_id, connection_id = _seed(engine, client.user_id)
+    with Session(engine) as session:
+        profile = CareerProfile(user_id=client.user_id, name="Import profile")
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+    event_id = _event(engine, user_id=client.user_id, connection_id=connection_id, application_id=None, event_type="confirmation")
+    response = client.post(f"{API}/{event_id}/import", json={"professional_profile_id": profile_id})
+    assert response.status_code == 422
+
+
+def test_importing_an_already_matched_event_is_refused(client, engine) -> None:
+    application_id, connection_id = _seed(engine, client.user_id)
+    with Session(engine) as session:
+        profile = CareerProfile(user_id=client.user_id, name="Import profile")
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        profile_id = profile.id
+    event_id = _event(engine, user_id=client.user_id, connection_id=connection_id, application_id=application_id)
+    response = client.post(f"{API}/{event_id}/import", json={"professional_profile_id": profile_id})
+    assert response.status_code == 422
+
+
 def test_events_are_scoped_to_their_owner(client, engine) -> None:
     application_id, connection_id = _seed(engine, client.user_id + 1)
     event_id = _event(engine, user_id=client.user_id + 1, connection_id=connection_id, application_id=application_id)

@@ -90,6 +90,23 @@ export default function EmailConnectionSettings() {
                 </button>
               </>
             )}
+            {provider.key === 'gmail' && (
+              <p className="notice" style={{ marginTop: 12 }}>
+                Want Kall to check a much smaller, pre-tagged set of mail instead of scanning everything?{' '}
+                <a href={`${API}/me/email-connections/gmail-filters.xml`} download="kall-job-search-filters.xml">
+                  Download a filter file
+                </a>{' '}
+                and import it from Gmail's own Settings → Filters and Blocked Addresses → Import filters. Entirely
+                optional — Kall works without it, just with a coarser first pass.
+              </p>
+            )}
+            {provider.key === 'outlook' && (
+              <p className="notice" style={{ marginTop: 12 }}>
+                For the same effect in Outlook: create a rule (Settings → Mail → Rules) that applies a category named{' '}
+                <strong>Kall Job Search</strong> to mail from greenhouse.io, lever.co, myworkday.com, or any employer
+                you've applied to. Entirely optional.
+              </p>
+            )}
           </section>
         );
       })}

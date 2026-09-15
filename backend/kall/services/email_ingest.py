@@ -187,7 +187,13 @@ async def ingest_connection(session: Session, connection: EmailConnection, clien
                 event_type=classification["event_type"],
                 confidence=float(classification.get("confidence", 0.0)),
                 source=classification.get("_source", "rules"),
-                evidence={"sender": message.sender, "subject": message.subject, "snippet": message.snippet[:280]},
+                evidence={
+                    "sender": message.sender, "subject": message.subject, "snippet": message.snippet[:280],
+                    # Kept so an unmatched confirmation can be offered back as
+                    # "add this application?" (Phase 3's import path) without
+                    # asking the person to retype what the email already said.
+                    "url": url, "company_name_guess": classification.get("company_name_guess") or None,
+                },
             )
             session.add(event)
             created.append(event)
