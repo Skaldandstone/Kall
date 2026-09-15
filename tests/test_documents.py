@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from kall.clock import utcnow
 from kall.models import GeneratedDocument, Job, TailoringChange, TailoringProposal, User
+from kall.services import documents
 from kall.services.documents import (
     ARTIFACT_RETENTION_DAYS,
     ensure_artifact,
@@ -182,6 +183,46 @@ def test_an_expired_artifact_comes_back_identical(tmp_path: Path, monkeypatch: p
         rebuilt = ensure_artifact(session, generated, "pdf")
         assert Path(rebuilt.file_path).read_bytes() == original_bytes
         assert rebuilt.checksum == original_checksum
+
+
+def test_a_render_version_bump_reaches_documents_generated_before_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression test: ensure_artifact's storage key used to be pure
+    content -- user/document/format -- with nothing tying it to the code
+    that produced the bytes. A resume rendered before a rendering bug fix
+    (the embedded bullet font, a font-encoding fix, anything in
+    render_pdf/render_docx) would keep passing `storage.exists(...)` and
+    serving its pre-fix bytes on every future download, forever, no matter
+    how many times the renderer got fixed afterward -- exactly the shape of
+    bug a "why does this resume still show the old problem" report points
+    at. RENDER_VERSION in the storage key is what makes a version bump
+    actually reach documents that already exist."""
+    monkeypatch.chdir(tmp_path)
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        generated = generate_resume_documents(session, _finalized_proposal(session))
+
+        monkeypatch.setattr(documents, "RENDER_VERSION", 1)
+        monkeypatch.setattr(documents, "render_artifact", lambda doc, fmt: f"pre-fix-{fmt}".encode())
+        before_fix = ensure_artifact(session, generated, "pdf")
+        # Captured as a plain string: ensure_artifact reuses the same
+        # DocumentArtifact row (and therefore the same Python object, via
+        # SQLAlchemy's identity map) on the next call below, mutating
+        # `before_fix.file_path` in place -- comparing the live attribute
+        # afterward would silently compare the object to itself.
+        before_fix_path = before_fix.file_path
+        assert Path(before_fix_path).read_bytes() == b"pre-fix-pdf"
+
+        # The renderer changes -- some real fix lands in render_pdf -- and
+        # the version is bumped to mark that.
+        monkeypatch.setattr(documents, "RENDER_VERSION", 2)
+        monkeypatch.setattr(documents, "render_artifact", lambda doc, fmt: f"post-fix-{fmt}".encode())
+        after_fix = ensure_artifact(session, generated, "pdf")
+
+        assert Path(after_fix.file_path).read_bytes() == b"post-fix-pdf", (
+            "a document generated before the version bump kept serving pre-fix bytes"
+        )
+        assert after_fix.file_path != before_fix_path
 
 
 def test_expiry_leaves_recent_files_alone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

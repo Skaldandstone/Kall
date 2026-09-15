@@ -26,7 +26,7 @@ from kall.models import (
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume_assembly import assemble_resume, layout_text
-from kall.services.resume_render import render_docx, render_pdf
+from kall.services.resume_render import RENDER_VERSION, render_docx, render_pdf
 from kall.services.storage import get_storage
 from kall.services.tailoring import immutable_tokens
 from reportlab.lib.pagesizes import LETTER
@@ -132,9 +132,15 @@ def render_preview_png(layout: dict, template_key: str, dpi: int = 96) -> bytes:
 
 def ensure_preview(session: Session, proposal: TailoringProposal, template_key: str) -> bytes:
     """Rendered on demand and cached by content, so re-opening the picker
-    costs nothing and a review decision invalidates the old image."""
+    costs nothing and a review decision invalidates the old image.
+
+    The digest folds in RENDER_VERSION alongside layout/template content --
+    without it, a fix to render_pdf/render_preview_png would never actually
+    reach a preview whose layout+template combination was already cached
+    under the pre-fix key.
+    """
     layout = preview_layout(session, proposal, template_key)
-    digest = _sha(json.dumps({"layout": layout, "template": template_key}, sort_keys=True).encode())[:24]
+    digest = _sha(json.dumps({"layout": layout, "template": template_key, "render_version": RENDER_VERSION}, sort_keys=True).encode())[:24]
     key = f"previews/{proposal.user_id}/proposal-{proposal.id}/{template_key}-{digest}.png"
     storage = get_storage()
     if storage.exists(key):
@@ -145,10 +151,13 @@ def ensure_preview(session: Session, proposal: TailoringProposal, template_key: 
 
 
 def document_preview_png(session: Session, document: GeneratedDocument) -> bytes:
+    """Same caching shape as ensure_preview, keyed by RENDER_VERSION rather
+    than a content digest since a saved document's layout never changes --
+    the version alone is enough to invalidate it across a rendering fix."""
     layout = document.content_json.get("layout")
     if not layout:
         raise ValueError("This document has no layout to preview")
-    key = f"previews/{document.user_id}/document-{document.id}.png"
+    key = f"previews/{document.user_id}/document-{document.id}-v{RENDER_VERSION}.png"
     storage = get_storage()
     if storage.exists(key):
         return storage.read(key)
@@ -617,20 +626,27 @@ def ensure_artifact(
     """Return the rendered artifact, producing it if it is absent or expired.
 
     Safe to call for a document whose files were expired years ago: the bytes
-    come back identical, which is the whole reason expiry is acceptable.
+    come back identical, which is the whole reason expiry is acceptable --
+    *identical to what the current renderer produces*, not to whatever was
+    generated originally. The storage key folds in RENDER_VERSION for
+    exactly that reason: without it, `existing`'s row (and the file at its
+    `file_path`) would keep satisfying `storage.exists(...)` forever, so a
+    resume/cover-letter generated before a rendering bug fix would keep
+    serving the pre-fix bytes on every future download indefinitely, no
+    matter how many times the renderer itself gets fixed afterward.
     """
     storage = get_storage()
+    key = f"generated/{document.user_id}/document-{document.id}/{document.document_type}-v{RENDER_VERSION}.{file_format}"
     existing = session.exec(
         select(DocumentArtifact).where(
             DocumentArtifact.generated_document_id == document.id,
             DocumentArtifact.format == file_format,
         )
     ).first()
-    if existing and storage.exists(existing.file_path):
+    if existing and existing.file_path == key and storage.exists(existing.file_path):
         return existing
 
     data = render_artifact(document, file_format)
-    key = f"generated/{document.user_id}/document-{document.id}/{document.document_type}.{file_format}"
     storage.save(key, data)
 
     artifact = existing or DocumentArtifact(
