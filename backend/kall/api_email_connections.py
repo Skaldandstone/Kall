@@ -38,22 +38,31 @@ def _sign_state(user_id: int, provider: str) -> str:
     return f"{payload_b64}.{signature}"
 
 
-def _verify_state(state: str, *, user_id: int, provider: str) -> bool:
+def _user_id_from_state(state: str, *, provider: str) -> int | None:
+    """The state IS the authentication for this endpoint, not a Bearer
+    token: the redirect back from Google/Microsoft's own server is a plain
+    browser navigation (system browser on mobile, no shared cookie or
+    header at all) with nothing else to authenticate it. Same trust model
+    as a testimonial's token_hash -- a signed, single-purpose,
+    short-lived value is enough on its own."""
     try:
         payload_b64, signature = state.split(".", 1)
     except ValueError:
-        return False
+        return None
     secret = get_settings().app_secret_key.encode()
     expected = hmac.new(secret, payload_b64.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected):
-        return False
+        return None
     try:
         payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode()))
     except (ValueError, UnicodeDecodeError):
-        return False
-    if payload.get("user_id") != user_id or payload.get("provider") != provider:
-        return False
-    return (time.time() - float(payload.get("issued_at", 0))) <= _STATE_TTL_SECONDS
+        return None
+    if payload.get("provider") != provider:
+        return None
+    if (time.time() - float(payload.get("issued_at", 0))) > _STATE_TTL_SECONDS:
+        return None
+    user_id = payload.get("user_id")
+    return int(user_id) if isinstance(user_id, int) else None
 
 
 class ConnectionOut(BaseModel):
@@ -107,11 +116,14 @@ async def email_connection_callback(
     provider: str,
     code: str,
     state: str,
-    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     adapter = _provider_or_404(provider)
-    if not _verify_state(state, user_id=current_user.id, provider=provider):
+    user_id = _user_id_from_state(state, provider=provider)
+    if user_id is None:
+        raise HTTPException(400, "Invalid or expired authorization state")
+    user = session.get(User, user_id)
+    if not user or not user.is_active:
         raise HTTPException(400, "Invalid or expired authorization state")
     try:
         token = await adapter.exchange_code(code, redirect_uri_for(provider))
@@ -119,9 +131,9 @@ async def email_connection_callback(
         raise HTTPException(503, str(exc)) from exc
 
     existing = session.exec(
-        select(EmailConnection).where(EmailConnection.user_id == current_user.id, EmailConnection.provider == provider)
+        select(EmailConnection).where(EmailConnection.user_id == user_id, EmailConnection.provider == provider)
     ).first()
-    connection = existing or EmailConnection(user_id=current_user.id, provider=provider, access_token_encrypted="")
+    connection = existing or EmailConnection(user_id=user_id, provider=provider, access_token_encrypted="")
     connection.access_token_encrypted = encrypt_sensitive(token.access_token)
     if token.refresh_token:
         connection.refresh_token_encrypted = encrypt_sensitive(token.refresh_token)

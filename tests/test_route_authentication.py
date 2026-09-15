@@ -16,6 +16,12 @@ PUBLIC_ROUTE_PATHS = {
     "/shared-searches/{slug}",
     "/shared-searches/{slug}/criteria",
     "/shared-searches/{slug}/refresh",
+    # The redirect back from Google/Microsoft's own server is a plain
+    # browser navigation with no shared cookie or bearer token to check --
+    # the signed, single-purpose `state` parameter is the authentication
+    # here (see api_email_connections.py's _user_id_from_state), same
+    # trust model as a testimonial's token_hash above.
+    "/me/email-connections/{provider}/callback",
 }
 AUTHENTICATION_DEPENDENCIES = {
     "get_current_user",

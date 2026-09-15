@@ -48,6 +48,13 @@ def test_callback_stores_encrypted_tokens_and_redirects(client, engine, monkeypa
 
     monkeypatch.setattr(email_oauth.GmailOAuthProvider, "exchange_code", fake_exchange)
 
+    # This endpoint takes no get_current_user dependency at all -- the real
+    # request has nothing to authenticate it with. Google's own server
+    # redirects the person's browser (the system browser on mobile, no
+    # shared cookie or bearer token) straight to this URL; a version that
+    # required Depends(get_current_user) would 401 every real callback,
+    # and only this test suite's fixture auth override (now irrelevant
+    # here, since the dependency is gone) would have hidden that.
     response = client.get(f"{API}/gmail/callback", params={"code": "auth-code-123", "state": state}, follow_redirects=False)
     assert response.status_code in (302, 307), response.text
     assert "connected=gmail" in response.headers["location"]
