@@ -24,23 +24,57 @@ def _looks_word_per_line(lines: list[str]) -> bool:
 
 
 #: Headings a resume uses to open a section. When word-per-line output has
-#: lost every real line break, a title-case token equal to one of these,
-#: right after the end of a sentence, is the only paragraph boundary left.
+#: lost every real line break, a token that reads as one of these, right
+#: after the end of a sentence, is the only paragraph boundary left.
+#: Matched case-insensitively and with trailing punctuation stripped: a real
+#: resume token here is "Experience:" or "SKILLS", not the bare "Experience"
+#: this used to require verbatim -- neither of those matched at all, so a
+#: resume using either style collapsed into one page-length paragraph with
+#: no recognizable section boundaries, and parse_resume() (which looks for
+#: a heading as its own line) never saw "experience" as anything but buried
+#: mid-sentence text.
 _SECTION_HEADINGS = {
-    "Summary", "Profile", "Experience", "Employment", "Skills", "Education", "Certifications",
-    "Awards", "Publications", "Projects", "Leadership", "Languages", "Patents", "Interests",
+    "summary", "profile", "experience", "employment", "skills", "education", "certifications",
+    "awards", "publications", "projects", "leadership", "languages", "patents", "interests",
 }
 
 
 def _paragraphs_from_tokens(tokens: list[str]) -> list[str]:
     paragraphs: list[list[str]] = [[]]
+    heading_starts: list[bool] = [False]
     for index, token in enumerate(tokens):
         previous = tokens[index - 1] if index else ""
-        opens_section = token in _SECTION_HEADINGS and (index == 0 or previous.endswith((".", ":", "!", "?")))
+        normalized = token.strip(".:;!?").casefold()
+        is_heading_word = normalized in _SECTION_HEADINGS
+        # A bullet list commonly runs straight into the next heading with no
+        # closing punctuation ("...test automation engineers Skills:
+        # Automation Frameworks..."), so requiring the *previous* token to
+        # end a sentence misses exactly the headings that follow a bullet.
+        # The heading word's own trailing colon is the more reliable signal
+        # here -- prose uses "years of experience" without one, a heading
+        # uses "Experience:" -- so a colon alone is enough to open a
+        # section; without one, still require the previous token to end a
+        # sentence, or "experience" used as an ordinary word would wrongly
+        # split the paragraph it's already part of.
+        opens_section = is_heading_word and (token.endswith(":") or index == 0 or previous.endswith((".", ":", "!", "?")))
         if opens_section and paragraphs[-1]:
             paragraphs.append([])
+            heading_starts.append(True)
         paragraphs[-1].append(token)
-    return [" ".join(part) for part in paragraphs if part]
+    result = []
+    for starts_with_heading, part in zip(heading_starts, paragraphs, strict=True):
+        if not part:
+            continue
+        if starts_with_heading:
+            # The heading goes on its own line so parse_resume()'s per-line
+            # heading check -- which requires the whole line to be the
+            # heading, not just start with it -- can actually recognize it,
+            # rather than seeing one giant line beginning with the word.
+            body = " ".join(part[1:])
+            result.append(f"{part[0]}\n{body}" if body else part[0])
+        else:
+            result.append(" ".join(part))
+    return result
 
 
 def reflow_extracted_text(text: str) -> str:
