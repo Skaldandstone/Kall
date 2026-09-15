@@ -8,6 +8,34 @@ SECTION_NAMES = {
     "summary", "experience", "employment", "skills", "education", "certifications",
     "awards", "publications", "projects", "leadership", "professional experience",
 }
+#: A heading exactly equal to one of the SECTION_NAMES above was the only
+#: thing parse_resume() recognized -- a title-case heading a resume very
+#: commonly uses instead ("Work Experience", "Career History", "Employment
+#: History") normalized to something like "work experience", which matches
+#: none of them, so the entire job history fell into the "unclassified"
+#: bucket and _parsed_fallback() (resume_assembly.py) -- which only ever
+#: reads the "experience"/"professional experience"/"employment" keys --
+#: rendered nothing at all for anyone without structured Employment rows.
+#: This maps real-world variants to the canonical key parse_resume already
+#: uses, rather than requiring the resume to spell a heading one exact way.
+_SECTION_ALIASES: dict[str, str] = {
+    "work experience": "experience",
+    "relevant experience": "experience",
+    "professional history": "experience",
+    "employment history": "employment",
+    "work history": "employment",
+    "career history": "employment",
+    "technical skills": "skills",
+    "core competencies": "skills",
+    "areas of expertise": "skills",
+    "key skills": "skills",
+}
+
+
+def _canonical_section_name(normalized: str) -> str | None:
+    if normalized in SECTION_NAMES:
+        return normalized
+    return _SECTION_ALIASES.get(normalized)
 #: A conservative vocabulary for "this line names a job, not a company or a
 #: bullet point" -- used only to decide whether a line next to a date range
 #: is worth surfacing as a title candidate. Deliberately broad rather than an
@@ -128,7 +156,16 @@ def parse_resume(text: str) -> tuple[dict[str, Any], list[str]]:
     current = "unclassified"
     for line in lines:
         normalized = line.lower().rstrip(":")
-        if normalized in SECTION_NAMES or (len(line) < 40 and line.isupper()):
+        canonical = _canonical_section_name(normalized)
+        if canonical:
+            current = canonical
+            sections.setdefault(current, [])
+        elif len(line) < 40 and line.isupper():
+            # An all-caps heading not in SECTION_NAMES/_SECTION_ALIASES (e.g.
+            # "PROJECTS & PUBLICATIONS") still starts a new section -- its
+            # own literal text, so a later exact-key lookup for it can never
+            # match, but it at least stops that heading's body from being
+            # wrongly appended to whatever the previous section was.
             current = normalized
             sections.setdefault(current, [])
         else:

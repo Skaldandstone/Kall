@@ -70,6 +70,29 @@ Required: previous experience and a desire to keep growing and guide guests.
     assert "go" not in result["preferred_skills"]
 
 
+def test_parser_recognizes_common_section_heading_variants() -> None:
+    """Regression test: a heading required an exact match against a small
+    fixed vocabulary (or an unlikely all-caps line under 40 chars) --
+    "Work Experience" in ordinary title case, a completely common resume
+    heading, matched neither, so the whole job history landed in the
+    "unclassified" bucket and resume_assembly.py's fallback (which only
+    ever reads the "experience"/"professional experience"/"employment"
+    keys) rendered zero experience for anyone without structured
+    Employment rows and this exact heading wording."""
+    parsed, _ = parse_resume(
+        "Work Experience\n"
+        "Director of QA\n"
+        "Led quality initiatives across the org.\n\n"
+        "Technical Skills\n"
+        "Python, AWS\n\n"
+        "Employment History\n"
+        "Earlier role at a prior company.\n"
+    )
+    assert "Director of QA" in parsed["sections"]["experience"]
+    assert "Python, AWS" in parsed["sections"]["skills"]
+    assert "Earlier role at a prior company." in parsed["sections"]["employment"]
+
+
 def test_parser_does_not_invent_metrics() -> None:
     parsed, _ = parse_resume("Improved release quality across the platform.")
     assert parsed["achievements"] == []
