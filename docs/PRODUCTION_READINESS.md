@@ -70,6 +70,35 @@ catalogs, credentials, and sandbox acceptance are complete.
 > single `PRIMARY` deployment each and `rolloutState: COMPLETED`, and the
 > public root, `/api/health`, and `/api/kall/health` all return 200.
 
+> **15 September 2026, API+web release, change set created:** source commit
+> `acaec7d8bc68446425ba7813dd2f03311f5695ce` (experience-wording alignment
+> suggestions for accounts with no structured Employment record, and the
+> "Start over" control ported to mobile -- both traced from a real
+> account's tailored resume that came back with only a summary; earlier
+> commits in the same push already fixed the word-per-line reflow bug
+> that caused it). Green CI on this exact commit (backend, web, e2e,
+> accessibility, mobile-e2e). Local mobile validation also clean:
+> `tsc --noEmit`, `validate:ios-alpha`, `validate:android-play`,
+> `validate:android-native`, and `expo-doctor` (21/21) -- no EAS build
+> triggered. Reviewed-snapshot manifest
+> `1507dc8bd2e54cf946e5c6d47d34ab0f8b8c7ab380c85a03b63239a2186ec93b`, built
+> via `kall-api-build`/`kall-web-build` with source, manifest hash, image
+> tag (`release-acaec7d`), and a corrected buildspec override all
+> overridden per-build. New API image
+> `sha256:5d56270685428488820d119ed892fefef10a10139ba4aee180901dc4b0bbd317`,
+> new web image
+> `sha256:a5c6913e93f7cc6b1bc3dc721f429a8c928e43f02e6516f7201ccaf6a595b059`,
+> both ECR Basic scans completed with zero findings. No schema change --
+> `VerifiedMigrationHead` stays `20260914_0036`. Change set
+> `release-acaec7d` on `kall-production` verified before execution: every
+> changed resource is an in-place `Modify`, same shape as every prior
+> release this week; every parameter besides `ApiImage`/`WebImage` carries
+> `UsePreviousValue`. This change set's images already include the
+> earlier `release-2887b3c` reflow fix (same commit history, superseding
+> build) -- that change set was deleted rather than left pending
+> alongside this one. Not yet executed -- `execute-change-set` needs to be
+> run by hand.
+
 > **14 September 2026, API+web release:** source commit
 > `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
 > customization, the resume section-heading parser fix, a maintenance
