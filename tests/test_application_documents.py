@@ -184,3 +184,78 @@ def test_link_generated_documents_merges_into_prepared_payload(client) -> None:
 
     fetched = client.get(f"/api/applications/{application_id}")
     assert fetched.json()["prepared_payload"]["cover_letter_proposal_id"] == 42
+
+
+def _prepared_application_with_resume(client, url: str) -> dict:
+    profile_id = client.post("/api/me/professional-profiles", json={"name": "Backend"}).json()["id"]
+    resume_id = client.post(
+        "/api/me/resumes",
+        files={"file": ("resume.txt", b"Built Python services at scale for a fintech platform.", "text/plain")},
+    ).json()["id"]
+    job_id = client.post("/api/jobs", json={
+        "source": "test", "company": "Acme", "title": "Engineer",
+        "description": "Required: Python.", "url": url,
+    }).json()["id"]
+    prepared = client.post("/api/applications/prepare-options", json={
+        "job_id": job_id, "professional_profile_id": profile_id, "resume_id": resume_id,
+        "customize_resume": True, "generate_cover_letter": False, "application_mode": "assisted",
+    }).json()
+    return prepared
+
+
+def test_restart_tailoring_replaces_the_proposal_and_clears_downstream_links(client) -> None:
+    """Regression test: once the one-question-at-a-time review was
+    finalized, there was no way back -- someone unhappy with the resume
+    they ended up with on the final step could only pick a different look
+    on the same already-decided answers, never re-answer a question or
+    draft a different cover letter."""
+    application = _prepared_application_with_resume(client, "https://boards.example.com/jobs/restart-1")
+    application_id = application["id"]
+    original_proposal_id = application["prepared_payload"]["tailoring_proposal_id"]
+    assert original_proposal_id is not None
+
+    client.patch(f"/api/applications/{application_id}/generated-documents", json={
+        "cover_letter_proposal_id": 99, "generated_document_id": 100,
+    })
+
+    restarted = client.post(f"/api/applications/{application_id}/restart-tailoring")
+    assert restarted.status_code == 200, restarted.text
+    payload = restarted.json()["prepared_payload"]
+    assert payload["tailoring_proposal_id"] is not None
+    assert payload["tailoring_proposal_id"] != original_proposal_id
+    assert payload["cover_letter_proposal_id"] is None
+    assert payload["generated_document_id"] is None
+
+    fetched = client.get(f"/api/applications/{application_id}").json()
+    assert fetched["prepared_payload"]["tailoring_proposal_id"] == payload["tailoring_proposal_id"]
+
+
+def test_restart_tailoring_refuses_once_submitted(client) -> None:
+    from kall.db import get_session
+    from kall.main import app
+    from kall.models.enums import ApplicationStatus
+
+    application = _prepared_application_with_resume(client, "https://boards.example.com/jobs/restart-2")
+    session = next(app.dependency_overrides[get_session]())
+    row = session.get(Application, application["id"])
+    row.status = ApplicationStatus.SUBMITTED
+    session.add(row)
+    session.commit()
+
+    response = client.post(f"/api/applications/{application['id']}/restart-tailoring")
+    assert response.status_code == 409
+
+
+def test_restart_tailoring_refuses_without_a_tailored_resume_to_restart(client) -> None:
+    profile_id = client.post("/api/me/professional-profiles", json={"name": "Backend"}).json()["id"]
+    job_id = client.post("/api/jobs", json={
+        "source": "test", "company": "Acme", "title": "Engineer",
+        "description": "Required: Python.", "url": "https://boards.example.com/jobs/restart-3",
+    }).json()["id"]
+    application_id = client.post("/api/applications/prepare-options", json={
+        "job_id": job_id, "professional_profile_id": profile_id, "resume_id": None,
+        "customize_resume": False, "generate_cover_letter": False, "application_mode": "assisted",
+    }).json()["id"]
+
+    response = client.post(f"/api/applications/{application_id}/restart-tailoring")
+    assert response.status_code == 409

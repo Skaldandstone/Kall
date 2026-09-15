@@ -236,6 +236,29 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
     } finally { setBusy(false); }
   }
 
+  async function restartTailoring() {
+    if (!window.confirm('Start over? Your current answers, cover letter, and generated resume for this application will be replaced with a fresh draft. Nothing you already saved to your resume library is affected.')) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`${API}/applications/${applicationId}/restart-tailoring`, { method: 'POST' });
+      if (!response.ok) { showToast(await errorMessage(response, 'Unable to start over.'), 'error'); return; }
+      setTailoringChanges([]);
+      setTailoringChangesLoaded(false);
+      setTailoringStatus('');
+      setCoverLetterChanges([]);
+      setCoverLetterChangesLoaded(false);
+      setCoverLetterStatus('');
+      setDocument_(null);
+      setPreviews({});
+      setFinalPreview(null);
+      setAts(null);
+      setSavedName(null);
+      setShowAnswered(false);
+      await load();
+      showToast('Starting over with a fresh draft.', 'success');
+    } finally { setBusy(false); }
+  }
+
   async function saveToProfile() {
     if (!document_) return;
     setBusy(true);
@@ -355,6 +378,13 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   }
 
   return <div className="stack">
+    {payload.tailoring_proposal_id && (
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="button" className="text-link" disabled={busy} onClick={() => void restartTailoring()}>
+          Not happy with this? Start over
+        </button>
+      </div>
+    )}
     {payload.tailoring_proposal_id && (
       <section className="card">
         <span className="eyebrow">Resume tailoring</span>
