@@ -44,7 +44,7 @@ and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
 catalogs, credentials, and sandbox acceptance are complete.
 
-> **14 September 2026, API+web release, change set created:** source commit
+> **14 September 2026, API+web release:** source commit
 > `a94b70206e7584e616b50fc9a3fd589f88ffa8dc` (the RENDER_VERSION
 > cache-invalidation fix from the release below, plus
 > `POST /applications/{id}/restart-tailoring` -- a way to discard an
@@ -63,10 +63,12 @@ catalogs, credentials, and sandbox acceptance are complete.
 > `sha256:e1ec29d40c49c377bc86ce7e440c15847cb1daa7b5dfd9f211535cbb85dbffb4`,
 > both ECR Basic scans completed with zero findings. No schema change --
 > `VerifiedMigrationHead` stays `20260914_0036`. Change set `release-a94b702`
-> verified before execution: every changed resource is an in-place
+> verified before execution: every changed resource was an in-place
 > `Modify`, same shape as every prior release this week; every parameter
-> besides `ApiImage`/`WebImage` carries `UsePreviousValue`. Not yet
-> executed -- `execute-change-set` needs to be run by hand.
+> besides `ApiImage`/`WebImage` carried `UsePreviousValue`. Executed by
+> James. Post-release: stack `UPDATE_COMPLETE`, both services 1/1 with a
+> single `PRIMARY` deployment each and `rolloutState: COMPLETED`, and the
+> public root, `/api/health`, and `/api/kall/health` all return 200.
 
 > **14 September 2026, API+web release:** source commit
 > `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
