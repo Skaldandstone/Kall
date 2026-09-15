@@ -44,7 +44,7 @@ and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
 catalogs, credentials, and sandbox acceptance are complete.
 
-> **14 September 2026, API+web release, change set created:** source commit
+> **14 September 2026, API+web release:** source commit
 > `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
 > customization, the resume section-heading parser fix, a maintenance
 > banner for a rolling deploy, and the ATS-template-standards writeup;
@@ -61,14 +61,22 @@ catalogs, credentials, and sandbox acceptance are complete.
 > `sha256:8ad2f4c0f50340d9da24b020aef688d7d7f04da5065ef3322114ffd16b619078`,
 > both ECR Basic scans completed with zero findings. No schema change in
 > this release -- `VerifiedMigrationHead` stays `20260914_0036`, so no
-> migration task runs first. Change set `release-4087795` on
-> `kall-production` verified before execution: every changed resource is an
+> migration task ran first. Change set `release-4087795` on
+> `kall-production` verified before execution: every changed resource was an
 > in-place `Modify` (`ApiService`/`WebService` and their task definitions,
 > plus the job-runner task definition and scheduler resources that also
-> reference the API image); nothing is added or removed, and every
-> parameter besides `ApiImage`/`WebImage` carries `UsePreviousValue`. Not
-> yet executed -- `execute-change-set` needs to be run by hand; this entry
-> gets its post-release verification lines once that happens.
+> reference the API image); nothing was added or removed, and every
+> parameter besides `ApiImage`/`WebImage` carried `UsePreviousValue`.
+> Executed by James. Post-release: stack `UPDATE_COMPLETE`, both services
+> 1/1 with a single `PRIMARY` deployment each and `rolloutState:
+> COMPLETED`, and the public root, `/api/health`, and `/api/kall/health`
+> all return 200.
+>
+> A same-day follow-up commit (`0857137`, after this release was already
+> live) versions the document/preview cache key by a new `RENDER_VERSION`
+> constant, to fix a document generated before a rendering bug fix
+> serving its pre-fix bytes forever. That fix is on `main` but **not yet
+> in a deployed image** -- it needs its own release.
 
 > **12 September 2026, web-only release:** the deployed web image and
 > `WebImage` parameter were out of date here even before this release (the
