@@ -40,6 +40,7 @@ export type ProfileStackParamList = {
   Sources: undefined;
   CareerPage: undefined;
   SharedSearches: undefined;
+  EmailConnections: undefined;
   Testimonials: undefined;
   Documents: undefined;
   DeleteAccount: undefined;

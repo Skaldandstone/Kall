@@ -110,6 +110,11 @@ export default function WorkspaceScreen({ navigation }: Props) {
       screen: "SharedSearches",
     },
     {
+      title: "Email",
+      detail: "Auto-detect application status from confirmation, interview, and rejection emails",
+      screen: "EmailConnections",
+    },
+    {
       title: "Generated documents",
       detail: "Every tailored resume Kall has produced",
       screen: "Documents",
