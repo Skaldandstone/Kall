@@ -17,10 +17,27 @@ from kall.services.tailoring import (
     _requirement_keywords,
     create_tailoring_proposal,
     finalize_proposal,
+    immutable_tokens,
     preserves_immutable_facts,
     review_change,
 )
 from sqlmodel import Session, SQLModel, create_engine, select
+
+
+def test_immutable_tokens_catches_a_percentage_at_the_end_of_a_sentence() -> None:
+    """Regression test: IMMUTABLE_PATTERN's percent branch ended in \\b, and
+    \\b never matches immediately after "%" since "%" is itself a non-word
+    character -- a \\b there requires a word/non-word transition that
+    doesn't exist. Every percentage in a real sentence ("... by 40%.",
+    "... by 40% through ...") extracted as zero tokens, so
+    preserves_immutable_facts() could never actually catch a model rewrite
+    that silently dropped a percentage -- exactly the fact the summary and
+    achievement rewrites both claim to preserve."""
+    assert immutable_tokens("Reduced deploy time by 40% through automation.") == ["40%"]
+    assert not preserves_immutable_facts(
+        "Reduced deploy time by 40% through automation.",
+        "Shipped CI/CD pipelines for the platform team.",
+    )
 
 
 def test_summary_paragraph_skips_a_pdf_header_block_split_across_blank_lines() -> None:
@@ -301,6 +318,131 @@ def test_proposal_still_drafts_achievement_and_role_gap_changes_when_the_posting
     sections = [change.section for change in changes]
     assert "summary" in sections
     assert "achievements" in sections, "A verified achievement matching the posting's own requirement text must still be proposed"
+
+
+def test_achievement_changes_reword_to_the_postings_language_when_a_model_is_configured(monkeypatch) -> None:
+    """Regression test: a verified achievement's proposed_text was always
+    achievement_text itself -- an exact copy, no wording customization at
+    all. Once experience actually imports into a tailored resume, its
+    wording still has to move toward the posting's own vocabulary the same
+    way the summary already does; this checks that path exists and that a
+    rewrite dropping a fact is rejected the same way summary rewrites are."""
+    from kall.config import get_settings
+    from kall.services import tailoring
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        tailoring, "ask_for_json",
+        lambda *a, **k: {"achievement": "Shipped CI/CD pipelines that cut deploy time by 40%."},
+    )
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="reword-achievement@example.com", full_name="Reword User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        job = Job(
+            source="test", company="Northwind", title="DevOps Engineer",
+            description="Own CI/CD pipelines and deployment automation.",
+            url="https://example.com/devops-engineer",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        session.add(JobRequirementAnalysis(job_id=job.id, required_skills=["ci/cd"], preferred_skills=[]))
+
+        resume = ResumeDocument(
+            user_id=user.id, name="resume.txt", file_path="uploads/1/resume.txt",
+            mime_type="text/plain", extracted_text="Built build automation for the platform team.",
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
+        session.add(
+            Achievement(
+                user_id=user.id,
+                achievement_text="Reduced deploy time by 40% through build automation.",
+                skills=["ci/cd"],
+                verification_status="verified",
+            )
+        )
+        session.commit()
+
+        proposal = create_tailoring_proposal(session, user.id, job, 1)
+        change = session.exec(
+            select(TailoringChange).where(TailoringChange.proposal_id == proposal.id, TailoringChange.section == "achievements")
+        ).one()
+
+    assert change.proposed_text == "Shipped CI/CD pipelines that cut deploy time by 40%."
+    assert change.original_text == "Reduced deploy time by 40% through build automation."
+    assert change.evidence[0]["source"] == "model"
+    get_settings.cache_clear()
+
+
+def test_achievement_rewrite_that_drops_a_fact_falls_back_to_the_original(monkeypatch) -> None:
+    """A model rewrite is only usable if it preserves every immutable fact
+    from the original -- exactly the same safety rule summary rewrites
+    already follow. A rewrite that drops the 40% must not reach the person
+    as if Kall verified it."""
+    from kall.config import get_settings
+    from kall.services import tailoring
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        tailoring, "ask_for_json",
+        lambda *a, **k: {"achievement": "Shipped CI/CD pipelines for the platform team."},
+    )
+
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="reword-drops-fact@example.com", full_name="Drop User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        job = Job(
+            source="test", company="Northwind", title="DevOps Engineer",
+            description="Own CI/CD pipelines and deployment automation.",
+            url="https://example.com/devops-engineer-2",
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        session.add(JobRequirementAnalysis(job_id=job.id, required_skills=["ci/cd"], preferred_skills=[]))
+
+        resume = ResumeDocument(
+            user_id=user.id, name="resume.txt", file_path="uploads/1/resume.txt",
+            mime_type="text/plain", extracted_text="Built build automation for the platform team.",
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
+        session.add(
+            Achievement(
+                user_id=user.id,
+                achievement_text="Reduced deploy time by 40% through build automation.",
+                skills=["ci/cd"],
+                verification_status="verified",
+            )
+        )
+        session.commit()
+
+        proposal = create_tailoring_proposal(session, user.id, job, 1)
+        change = session.exec(
+            select(TailoringChange).where(TailoringChange.proposal_id == proposal.id, TailoringChange.section == "achievements")
+        ).one()
+
+    assert change.proposed_text == "Reduced deploy time by 40% through build automation."
+    assert change.evidence[0]["source"] == "rules"
+    get_settings.cache_clear()
 
 
 def test_proposal_listing_names_each_proposal_by_its_job(client) -> None:

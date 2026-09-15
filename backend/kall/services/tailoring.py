@@ -20,7 +20,12 @@ from kall.services.resume import reflow_extracted_text
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
 
-IMMUTABLE_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?%\b|\$\d[\d,]*(?:\.\d+)?[KMB]?\b", re.I)
+#: The percent branch has no trailing \b: \b only matches between a word
+#: and non-word character, and "%" is itself non-word, so a \b placed right
+#: after it never matches anything -- "40%" silently extracted as zero
+#: immutable tokens, which meant preserves_immutable_facts() below could
+#: never actually catch a model rewrite that dropped a percentage.
+IMMUTABLE_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b|\b\d+(?:\.\d+)?%|\$\d[\d,]*(?:\.\d+)?[KMB]?\b", re.I)
 
 
 def immutable_tokens(text: str) -> list[str]:
@@ -200,6 +205,46 @@ def _drafted_summary(original: str, job: Job, focus: str) -> str:
     return _drafted_summary_with_source(original, job, focus)[0]
 
 
+_ACHIEVEMENT_SCHEMA = {
+    "type": "object",
+    "properties": {"achievement": {"type": "string"}},
+    "required": ["achievement"],
+    "additionalProperties": False,
+}
+
+
+def _drafted_achievement_with_source(original: str, job: Job, focus: str) -> tuple[str, bool]:
+    """Reword an already-verified achievement so its phrasing echoes the
+    posting's own language, the same safety shape as
+    _drafted_summary_with_source above: a rewrite that drops or changes a
+    fact falls back to the achievement exactly as written. Without this,
+    every achievement a person had verified onto their profile went into a
+    tailored resume completely unchanged -- the posting's own vocabulary
+    for the same skill (e.g. "CI/CD pipelines" vs. the achievement's
+    "build automation") never made it in, which is exactly what an ATS
+    keyword match and a human skimming the resume both look for."""
+    if get_settings().openai_api_key and focus:
+        prompt = (
+            f"Rewrite this resume bullet so its phrasing echoes language a hiring manager for "
+            f"'{job.title}' at {job.company} would recognize, foregrounding: {focus}. One sentence, "
+            "professional resume voice, no leading bullet symbol. Preserve every date, percentage, "
+            "dollar amount, employer name, and other fact from the original exactly -- reword only, "
+            "never invent or drop a fact."
+            f"\n\nOriginal: {original[:2000]}"
+        )
+        result = ask_for_json(
+            prompt,
+            schema_name="tailored_achievement",
+            schema=_ACHIEVEMENT_SCHEMA,
+            purpose="achievement rewrite",
+            source_ref=f"job:{job.id}",
+        )
+        candidate = str((result or {}).get("achievement", "")).strip()
+        if candidate and preserves_immutable_facts(original, candidate):
+            return candidate, True
+    return original, False
+
+
 def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
     original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
@@ -286,14 +331,23 @@ def create_tailoring_proposal(
         if any(skill.lower() in (a.achievement_text + " " + " ".join(a.skills)).lower() for skill in requirement_terms)
     ]
     for achievement in relevant[:6]:
+        matched_terms = [
+            term for term in requirement_terms
+            if term.lower() in (achievement.achievement_text + " " + " ".join(achievement.skills)).lower()
+        ]
+        focus = ", ".join(dict.fromkeys(matched_terms))
+        proposed, used_ai_here = _drafted_achievement_with_source(achievement.achievement_text, job, focus)
         changes.append(
             TailoringChange(
                 proposal_id=proposal.id,
                 section="achievements",
                 original_text=achievement.achievement_text,
-                proposed_text=achievement.achievement_text,
+                proposed_text=proposed,
                 reason="Verified achievement aligns with one or more job requirements.",
-                evidence=[{"type": "achievement", "id": achievement.id, "text": achievement.achievement_text}],
+                evidence=[{
+                    "type": "achievement", "id": achievement.id, "text": achievement.achievement_text,
+                    "source": "model" if used_ai_here else "rules",
+                }],
                 immutable_tokens=immutable_tokens(achievement.achievement_text),
             )
         )
