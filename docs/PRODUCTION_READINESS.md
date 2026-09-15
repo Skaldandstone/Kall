@@ -44,6 +44,32 @@ and the public root, both health routes, and mobile release manifest return 200.
 RevenueCat remains fail-closed with its webhook returning 404 until store
 catalogs, credentials, and sandbox acceptance are complete.
 
+> **14 September 2026, API+web release, change set created:** source commit
+> `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
+> customization, the resume section-heading parser fix, a maintenance
+> banner for a rolling deploy, and the ATS-template-standards writeup;
+> earlier commits in the same push added email integration and its mobile
+> UI). Green CI on this exact commit. Reviewed-snapshot manifest
+> `eb5975ae72847bd5d995cbfe3f73a80f60c3ba3d1403dcd985499fc38c203434`, built
+> via `kall-api-build`/`kall-web-build` CodeBuild runs with the source,
+> manifest hash, image tag (`release-4087795`), and buildspec (only the
+> embedded expected-commit check line differs from the persisted baseline)
+> all overridden per-build, so the projects' stored configuration still
+> reflects their original reviewed baseline. New API image
+> `sha256:4152774cdb9a2f9aade84abdfa464e6cc3ca2d0a051b1bbd902f158b865604a0`,
+> new web image
+> `sha256:8ad2f4c0f50340d9da24b020aef688d7d7f04da5065ef3322114ffd16b619078`,
+> both ECR Basic scans completed with zero findings. No schema change in
+> this release -- `VerifiedMigrationHead` stays `20260914_0036`, so no
+> migration task runs first. Change set `release-4087795` on
+> `kall-production` verified before execution: every changed resource is an
+> in-place `Modify` (`ApiService`/`WebService` and their task definitions,
+> plus the job-runner task definition and scheduler resources that also
+> reference the API image); nothing is added or removed, and every
+> parameter besides `ApiImage`/`WebImage` carries `UsePreviousValue`. Not
+> yet executed -- `execute-change-set` needs to be run by hand; this entry
+> gets its post-release verification lines once that happens.
+
 > **12 September 2026, web-only release:** the deployed web image and
 > `WebImage` parameter were out of date here even before this release (the
 > live stack had already moved to `sha256:ac4396bba34cd9173a51ee5dd1ce55c318a221557db146249db1e8c7c80bdef2`

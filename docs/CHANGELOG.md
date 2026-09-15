@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.10.0
+
+- Rebuilt tailoring review as a guided, one-question-at-a-time flow (role
+  gaps, then the summary, then achievements) with a "choose a look" step and
+  an ATS check run against the actual rendered PDF (name-first, standard
+  headings, standard fonts, no images, reading order, clean text
+  extraction), not just promised.
+- Verified achievements now get reworded toward a posting's own language
+  instead of being copied in verbatim, with the same fact-preservation
+  safety net the summary rewrite already used (and a real bug fix to that
+  net: its percentage-matching regex could never actually match).
+- Fixed resumes silently rendering with no experience section at all for
+  anyone whose original resume used a common heading spelling ("Work
+  Experience", "Career History") the parser didn't recognize as an exact
+  match.
+- Added tiered plans (Free/Plus/Premium) with metered applications, AI
+  actions, and resume storage, replacing the earlier all-or-nothing model;
+  documented the cost model the prices were chosen from (`UNIT_ECONOMICS.md`).
+- Added one-click apply: autofill engine that navigates a real ATS form,
+  uploads the selected resume, and answers EEO/work-authorization questions
+  from the stored professional record, always ask-before-submit.
+- Added "help a friend": share a refreshable batch of job matches via your
+  own profile, criteria you fill in for them, or a link they fill in
+  themselves -- a public digest page with no apply/track action, since
+  neither Kall nor the sharer can act on the friend's behalf.
+- Added email integration: connect a read-only Gmail or Outlook inbox to
+  auto-detect application confirmations, interview invites, and rejections;
+  import an unmatched confirmation email as a tracked application; export a
+  Gmail filter file to pre-tag job mail. Read-only end to end -- Kall never
+  sends, deletes, or modifies anything in a connected mailbox.
+- Added Workday as a discovery provider and enriched externally-imported
+  postings from their own `schema.org` `JobPosting` data.
+- Brought mobile to feature parity with web: full onboarding, resume
+  tailoring, job intelligence, professional record, submission flow,
+  monitoring, testimonials, the career page editor, documents, usage, and
+  account deletion.
+- Activated native billing (Apple/Google in-app subscriptions via
+  RevenueCat) and portal-visible Stripe/Google Play payment history and
+  refunds; scheduled notification delivery and mobile push.
+- Ran a full authentication-route audit (an AST/route-introspection test
+  that fails on any non-public route missing an auth dependency); caught
+  and fixed a real bug it found: the email-connection OAuth callback
+  required a Bearer header that a browser redirect from Google/Microsoft
+  never carries, which would have 401'd on every real connection.
+- Added a maintenance banner shown when the API is briefly unreachable
+  during a rolling deploy, instead of a raw gateway error.
+
 ## 0.9.0
 
 - Migrated hosting from Render to AWS (ECS Fargate, RDS Postgres with enforced TLS, CloudFront for HTTPS, Secrets Manager) - see `docs/AWS_DEPLOYMENT.md`.
