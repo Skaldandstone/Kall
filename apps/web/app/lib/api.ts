@@ -12,6 +12,11 @@ const API = '/api/kall';
  *
  * Returns the Response either way, so callers keep whatever error handling
  * they already had -- this adds the dialog, it does not take over.
+ *
+ * Gateway errors (502/503/504, or the fetch itself failing) are handled one
+ * level down instead, by a window.fetch patch in MaintenanceBanner -- most
+ * of the app calls the API with a plain fetch(`${API}...`), not this
+ * function, so catching a mid-deploy gap here alone would miss most of it.
  */
 export async function fetchKall(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${API}${path}`, init);

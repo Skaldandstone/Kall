@@ -28,3 +28,4 @@ blob-report/
 
 # Rendered template previews written by local file storage during tests
 previews/
+.local/

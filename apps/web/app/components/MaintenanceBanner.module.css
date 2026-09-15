@@ -1,0 +1,51 @@
+.banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.rune {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.banner p {
+  margin: 0;
+  flex: 1;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 560px) {
+  .banner {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}

@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { SENTRY_DSN_META_NAME, SENTRY_ENVIRONMENT_META_NAME } from '../lib/sentry-shared';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
+import MaintenanceBanner from './components/MaintenanceBanner';
 import PlanLimitDialog from './components/PlanLimitDialog';
 import ToastHost from './components/ToastHost';
 import './globals.css';
@@ -100,6 +101,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <ToastHost />
           {/* Raised by fetchKall on any 402, from anywhere in the app. */}
           <PlanLimitDialog />
+          {/* Raised by fetchKall on a 502/503/504 or a failed fetch -- a
+              deploy rolling out underneath an open tab, not a real outage. */}
+          <MaintenanceBanner />
           <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
               {children}
