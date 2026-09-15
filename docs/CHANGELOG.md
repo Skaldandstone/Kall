@@ -2,6 +2,21 @@
 
 ## 0.10.0
 
+- Added a "Start over" control to resume tailoring review, on web and
+  mobile, reachable from any phase of the review -- answering questions,
+  the cover letter, or the final preview -- rather than only after picking
+  a look. Discards the in-progress or already-finalized review and starts
+  a fresh proposal; nothing already generated is deleted.
+- Fixed a resume ending up with nothing but a summary for anyone whose PDF
+  extracts as one word per line (a common artifact of designed/multi-
+  column resume layouts) and has no structured Employment record in
+  Kall's professional record: the word-per-line reflow only recognized a
+  section heading when the word before it ended a sentence, which missed
+  every heading that follows straight off a bullet list with no closing
+  period -- extremely common. Also added wording-alignment suggestions for
+  exactly these accounts' existing experience bullets, since role-gap and
+  achievement customization only ever read Kall's own structured records,
+  never the uploaded resume's text.
 - Rebuilt tailoring review as a guided, one-question-at-a-time flow (role
   gaps, then the summary, then achievements) with a "choose a look" step and
   an ATS check run against the actual rendered PDF (name-first, standard
