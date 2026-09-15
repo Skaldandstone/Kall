@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AppNav from '../components/AppNav';
+import EmailEventBanner from './EmailEventBanner';
 import { showToast } from '../components/ToastHost';
 import { hideSearchResult, restoreSearchResult } from '../lib/searchResultState';
 import styles from './page.module.css';
@@ -116,6 +117,7 @@ export default function ApplicationsClient() {
   const next = pipeline.next_decision;
   return <main className='app-shell'>
     <AppNav current='applications'/>
+    <EmailEventBanner onChanged={() => void loadPipeline()} />
     <section className={styles.hero}><div><p className='eyebrow'>Applications</p><h1>{pipeline.summary.active ? `${pipeline.summary.active} application${pipeline.summary.active === 1 ? '' : 's'} still in progress.` : 'No applications in progress.'}</h1><p>Track what Kall prepared, what still needs your review, and what you submitted.</p></div><a className='button' href='/search'>Search open roles</a></section>
     <section className={styles.summary} aria-label='Application summary'>
       <article><strong>{pipeline.summary.active}</strong><span>Active</span></article><article><strong>{pipeline.summary.needs_review}</strong><span>Needs review</span></article><article><strong>{pipeline.summary.submitted}</strong><span>Submitted</span></article><article><strong>{pipeline.summary.best_match == null ? '—' : `${pipeline.summary.best_match}%`}</strong><span>Best match</span></article>
