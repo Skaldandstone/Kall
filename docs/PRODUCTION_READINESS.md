@@ -70,7 +70,7 @@ catalogs, credentials, and sandbox acceptance are complete.
 > single `PRIMARY` deployment each and `rolloutState: COMPLETED`, and the
 > public root, `/api/health`, and `/api/kall/health` all return 200.
 
-> **15 September 2026, API+web release, change set created:** source commit
+> **15 September 2026, API+web release:** source commit
 > `acaec7d8bc68446425ba7813dd2f03311f5695ce` (experience-wording alignment
 > suggestions for accounts with no structured Employment record, and the
 > "Start over" control ported to mobile -- both traced from a real
@@ -92,12 +92,14 @@ catalogs, credentials, and sandbox acceptance are complete.
 > `VerifiedMigrationHead` stays `20260914_0036`. Change set
 > `release-acaec7d` on `kall-production` verified before execution: every
 > changed resource is an in-place `Modify`, same shape as every prior
-> release this week; every parameter besides `ApiImage`/`WebImage` carries
-> `UsePreviousValue`. This change set's images already include the
+> release this week; every parameter besides `ApiImage`/`WebImage` carried
+> `UsePreviousValue`. This change set's images already included the
 > earlier `release-2887b3c` reflow fix (same commit history, superseding
 > build) -- that change set was deleted rather than left pending
-> alongside this one. Not yet executed -- `execute-change-set` needs to be
-> run by hand.
+> alongside this one. Executed by James. Post-release: stack
+> `UPDATE_COMPLETE`, both services 1/1 with a single `PRIMARY` deployment
+> each and `rolloutState: COMPLETED`, and the public root, `/api/health`,
+> and `/api/kall/health` all return 200.
 
 > **14 September 2026, API+web release:** source commit
 > `408779575c7ce02e7dcf61ffe9c4992059ef61cf` (guided-tailoring wording
