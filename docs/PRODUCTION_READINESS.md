@@ -17,6 +17,41 @@ Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
 
+> **16 September 2026, API+web release:** source commit
+> `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised
+> 15MB -> 25MB across backend and both mobile screens, and the web
+> career-strategy resume upload now surfaces the backend's actual
+> rejection reason instead of a generic failure message -- traced from a
+> friend's mobile upload failing with no server-side trace, which
+> correctly pointed at the client-side size check rejecting before any
+> request was sent). Green CI on this exact commit. Reviewed-snapshot
+> manifest `583b323c38801453c2714a894a6ba05c9326d0920172a516bdf33117f9a4a854`,
+> built via `kall-api-build`/`kall-web-build` with source, manifest hash,
+> image tag (`release-c48061c`), and a corrected buildspec override all
+> overridden per-build. New API image
+> `sha256:869321dc46f2dca08f4668306f36e8c7e907c2d1aded7a973338f78dce361e51`,
+> new web image
+> `sha256:883b5580ccf9ee23250e39c650d7380cd4a8adadc6332ee5b174b252f75b3320`,
+> both ECR Basic scans completed with zero findings. No schema change --
+> `VerifiedMigrationHead` stays `20260914_0036`. Change set
+> `release-c48061c` on `kall-production` verified before execution: all
+> 10 changed resources were in-place `Modify`s (`ApiService`/`WebService`
+> and their task definitions, plus the job-runner task definition and
+> scheduler resources that also reference the API image); every parameter
+> besides `ApiImage`/`WebImage` carried `UsePreviousValue`. Executed by
+> James. Post-release: stack `UPDATE_COMPLETE`, and the public root,
+> `/api/health`, and `/api/kall/health` all return 200.
+>
+> **Not yet deployed as of this writing**: the SSE-206 repricing/AI-gating
+> commit (`984ebaa` locally, merged to `main` as `c752a93`) is code-only --
+> Plus/Premium's live Stripe prices are still $5/$15 and the Play/App
+> Store listings are unchanged, so shipping this commit's web copy
+> ($9/$25) without first updating the actual Stripe `StripePlusPriceId`/
+> `StripePremiumPriceId` stack parameters would show a price the checkout
+> does not actually charge. Hold this release until the Stripe (and,
+> separately, Play/App Store) price change is made and the stack
+> parameters are updated to match.
+
 > **13 September 2026, SES production acceptance:** AWS granted production
 > access in project `051722405355`, selected Region `us-east-2`. Live checks
 > report sending enabled, healthy enforcement, a 50,000-message daily quota,
