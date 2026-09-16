@@ -340,7 +340,9 @@ def test_achievement_changes_reword_to_the_postings_language_when_a_model_is_con
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        user = User(email="reword-achievement@example.com", full_name="Reword User")
+        # Free's ai_actions limit is 0 (SSE-206) -- Plus, so this actually
+        # exercises the AI rewrite path rather than the deterministic one.
+        user = User(email="reword-achievement@example.com", full_name="Reword User", plan="plus")
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -408,7 +410,9 @@ def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structure
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        user = User(email="fallback-experience@example.com", full_name="Fallback User")
+        # Free's ai_actions limit is 0 (SSE-206) -- Plus, so this actually
+        # exercises the AI alignment path rather than the deterministic one.
+        user = User(email="fallback-experience@example.com", full_name="Fallback User", plan="plus")
         session.add(user)
         session.commit()
         session.refresh(user)

@@ -28,21 +28,23 @@ export const PLANS: Plan[] = [
     pitch: 'Enough to know whether Kall works for you.',
     lines: [
       '5 applications a week',
-      '3 AI actions a week',
       '25 MB of resumes',
       'Job search, tracking and tailoring',
+      'Profile suggestions from your resume',
     ],
   },
   {
     id: 'plus',
     name: 'Plus',
-    price: '$5',
+    price: '$9',
     cadence: '/month',
     pitch: 'For a real search, run weekly.',
     lines: [
       '25 applications a week',
       '15 AI actions a week',
       '500 MB of resumes',
+      'Career growth plans, skills analysis and interview prep',
+      'AI-matched resume strategy suggestions',
       'Daily brief and scheduled discovery',
       'Career page without the Kall footer',
       'The apply extension',
@@ -51,7 +53,7 @@ export const PLANS: Plan[] = [
   {
     id: 'premium',
     name: 'Premium',
-    price: '$15',
+    price: '$25',
     cadence: '/month',
     pitch: 'For a search you are not counting.',
     lines: [

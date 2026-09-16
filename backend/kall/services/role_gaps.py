@@ -87,15 +87,18 @@ _SCHEMA = {
 }
 
 
-def suggest_role_gaps(job_title: str, company: str, roles: list[RoleContext], gaps: dict[int, list[str]]) -> list[RoleGap]:
+def suggest_role_gaps(
+    job_title: str, company: str, roles: list[RoleContext], gaps: dict[int, list[str]], ai_allowed: bool = True,
+) -> list[RoleGap]:
     """One suggestion per gap. A single model call drafts every bullet at once
-    when a key is configured; otherwise the rules-based phrasing stands in.
-    Model output is trimmed to the gaps that were actually asked about, so it
-    can never introduce a requirement or a role of its own."""
+    when a key is configured and `ai_allowed`; otherwise the rules-based
+    phrasing stands in. Model output is trimmed to the gaps that were
+    actually asked about, so it can never introduce a requirement or a role
+    of its own."""
     by_id = {role.employment_id: role for role in roles}
     results: list[RoleGap] = []
     drafted: dict[tuple[int, str], tuple[str, str]] = {}
-    if get_settings().openai_api_key and gaps:
+    if ai_allowed and get_settings().openai_api_key and gaps:
         listing = []
         for employment_id, requirements in gaps.items():
             role = by_id[employment_id]

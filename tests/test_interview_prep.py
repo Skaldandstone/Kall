@@ -6,11 +6,23 @@ the same way api_resume_intelligence's is, through ask_for_json's own
 contract (openai_api_key unset -> fallback), not by mocking a live call.
 """
 
-from kall.models import Application, CareerProfile, InterviewPrep, Job
+import pytest
+from kall.models import Application, CareerProfile, InterviewPrep, Job, User
 from kall.services.interview_prep import _FALLBACK_PREP, generate_interview_prep
 from sqlmodel import Session, select
 
 API = "/api/me/applications"
+
+
+@pytest.fixture(autouse=True)
+def _plus_plan(client, engine) -> None:
+    """Interview prep and quiz grading moved entirely behind Plus (SSE-206);
+    this file exercises those endpoints, so run it as a Plus account."""
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        user.plan = "plus"
+        session.add(user)
+        session.commit()
 
 
 def _application(engine, user_id: int) -> int:
@@ -263,3 +275,24 @@ def test_interview_prep_is_scoped_to_the_owning_account(client, engine) -> None:
 
     response = client.get(f"{API}/{application_id}/interview-prep")
     assert response.status_code == 404
+
+
+def test_free_plan_cannot_generate_interview_prep_or_grade_a_quiz(client, engine) -> None:
+    """Interview prep and quiz grading moved entirely behind Plus (SSE-206) --
+    Free gets no fallback bank here, unlike growth plans' deterministic path."""
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        user.plan = "free"
+        session.add(user)
+        session.commit()
+    application_id = _application(engine, client.user_id)
+
+    prep_response = client.get(f"{API}/{application_id}/interview-prep")
+    assert prep_response.status_code == 402
+    assert prep_response.json()["detail"]["code"] == "plan_required"
+
+    grade_response = client.post(f"{API}/{application_id}/interview-prep/quiz/grade", json={
+        "answers": [{"question": "Why this role?", "category": "general", "answer_prompt": "Be specific.", "candidate_answer": "Because I like it."}],
+    })
+    assert grade_response.status_code == 402
+    assert grade_response.json()["detail"]["code"] == "plan_required"

@@ -4,11 +4,22 @@ through the API, the same "field exists nowhere in the write path" gap
 found repeatedly elsewhere in this codebase.
 """
 
+from kall.models import User
+from sqlmodel import Session
+
 
 def _create_profile(client) -> int:
     response = client.post("/api/me/professional-profiles", json={"name": "Test Profile"})
     assert response.status_code == 200, response.text
     return response.json()["id"]
+
+
+def _upgrade_to_plus(engine, user_id: int) -> None:
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        user.plan = "plus"
+        session.add(user)
+        session.commit()
 
 
 def test_cities_and_pay_basis_can_be_set_through_create_and_update(client) -> None:
@@ -154,9 +165,10 @@ def test_functional_area_catalog_exposes_the_matching_vocabulary(client):
     assert "SDET" in area["related_roles"]
 
 
-def test_suggest_fields_reports_disabled_without_an_openai_key(client, monkeypatch) -> None:
+def test_suggest_fields_reports_disabled_without_an_openai_key(client, engine, monkeypatch) -> None:
     import kall.api_career_profiles as api_career_profiles
 
+    _upgrade_to_plus(engine, client.user_id)
     monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", lambda *a, **k: None)
     profile_id = _create_profile(client)
     response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
@@ -164,7 +176,33 @@ def test_suggest_fields_reports_disabled_without_an_openai_key(client, monkeypat
     assert response.json() == {"enabled": False, "suggestions": {}, "rationale": None}
 
 
-def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, monkeypatch) -> None:
+def test_free_plan_gets_deterministic_suggestions_not_the_ai_path(client, engine, monkeypatch) -> None:
+    """Chips are rules-based only on Free (SSE-206): no LLM call, so
+    suggest_empty_fields must never be reached for a Free account."""
+    import kall.api_career_profiles as api_career_profiles
+
+    def fail_if_called(*a, **k):
+        raise AssertionError("Free should never call the AI suggestion path")
+
+    monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", fail_if_called)
+    # work_types defaults to ["remote"] on creation, so clear it explicitly --
+    # otherwise it is not an "empty" field and this would never exercise it.
+    profile_id = client.post("/api/me/professional-profiles", json={"name": "Test Profile", "work_types": []}).json()["id"]
+    client.post(
+        "/api/me/resumes",
+        files={"file": ("resume.txt", b"Senior Software Engineer\n2019 - Present\nRemote team, backend systems.", "text/plain")},
+    )
+
+    response = client.post(f"/api/me/career-profiles/{profile_id}/suggest-fields")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["enabled"] is True
+    assert "Senior Software Engineer" in body["suggestions"]["target_titles"]
+    assert body["suggestions"]["work_types"] == ["Remote"]
+    assert body["rationale"] is None
+
+
+def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, engine, monkeypatch) -> None:
     import kall.api_career_profiles as api_career_profiles
 
     captured: dict = {}
@@ -175,6 +213,7 @@ def test_suggest_fields_only_asks_about_fields_that_are_actually_empty(client, m
             "rationale": "Grounded in the saved resume.",
         }
 
+    _upgrade_to_plus(engine, client.user_id)
     monkeypatch.setattr(api_career_profiles, "suggest_empty_fields", fake_suggest)
     profile_id = client.post("/api/me/professional-profiles", json={
         "name": "Test Profile", "target_titles": ["Already set"],

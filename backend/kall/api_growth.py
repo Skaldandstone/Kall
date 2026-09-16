@@ -19,9 +19,10 @@ from kall.models import (
     ResumeDocument,
     User,
 )
+from kall.models.enums import SubscriptionPlan
 from kall.services.growth_ai import analyze_skills, generate_ai_plan
 from kall.services.job_search_aggregation import aggregate_job_search
-from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.quota import assert_ai_allowed, record_ai_action, require_plan
 
 router = APIRouter()
 
@@ -157,6 +158,7 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
     if existing and not payload.regenerate:
         return _plan_payload(session, existing)
 
+    require_plan(session, current_user, minimum=SubscriptionPlan.PLUS, feature="Career growth plans")
     resume_text = _default_resume_text(session, current_user.id)
     assert_ai_allowed(session, current_user)
     ai_content = generate_ai_plan(goal, resume_text)
@@ -234,6 +236,7 @@ def generate_plan(goal_id: int, payload: PlanGenerateRequest = PlanGenerateReque
 @router.post("/growth/goals/{goal_id}/skills-analysis", response_model=GrowthSkillAssessment)
 def create_skills_analysis(goal_id: int, payload: SkillsAnalysisRequest, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> GrowthSkillAssessment:
     goal = _owned_goal(session, current_user.id, goal_id)
+    require_plan(session, current_user, minimum=SubscriptionPlan.PLUS, feature="Skills analysis")
     resume_text = _default_resume_text(session, current_user.id)
     assert_ai_allowed(session, current_user)
     ai_result = analyze_skills(goal, payload.answer, resume_text)

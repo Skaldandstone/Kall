@@ -52,9 +52,14 @@ PLAN_LIMITS: dict[str, dict[Meter, Limit]] = {
     # days from being useful again.
     SubscriptionPlan.FREE: {
         "applications": Limit(5, "week"),
-        # Enough to see one growth plan and one resume parse -- the two moments
-        # that show what the feature is for. Zero would make it invisible.
-        "ai_actions": Limit(3, "week"),
+        # Free's AI surface is deliberately zero (SSE-206): unit-economics
+        # modeling found free-tier AI cost was the dominant deficit driver.
+        # The AI-cost features this used to preview a taste of -- growth
+        # plans, skills analysis, resume strategy, interview prep -- are
+        # gated behind Plus directly (see require_plan below) rather than
+        # relying on this reaching zero, so the refusal names the plan to
+        # upgrade to instead of reading as a bug ("used 0 of 0").
+        "ai_actions": Limit(0, "week"),
         # A ceiling, not a budget: storage does not refill, it is occupied.
         "storage_bytes": Limit(25 * MB, LIFETIME),
     },
@@ -284,5 +289,51 @@ def assert_ai_allowed(session: Session, user: User) -> None:
     check(session, user, "ai_actions")
 
 
+def ai_actions_available(session: Session, user: User) -> bool:
+    """Whether one more AI call is allowed right now -- same logic as
+    assert_ai_allowed, but returns a bool instead of raising and consumes
+    nothing.
+
+    For a caller with a deterministic fallback (tailoring's wording
+    enhancements) that should degrade gracefully when the quota is spent
+    or the plan has none, rather than aborting the whole request the way a
+    hard assert_ai_allowed gate would.
+    """
+    if user.billing_exempt:
+        return True
+    limit = limit_for(user, "ai_actions")
+    if limit.amount is None:
+        return True
+    return used(session, user, "ai_actions") < limit.amount
+
+
 def record_ai_action(session: Session, user: User) -> None:
     consume(session, user, "ai_actions")
+
+
+#: Ordinal rank for "at least this plan" checks. Higher is more capable.
+_PLAN_RANK: dict[str, int] = {SubscriptionPlan.FREE: 0, SubscriptionPlan.PLUS: 1, SubscriptionPlan.PREMIUM: 2}
+
+
+def require_plan(session: Session, user: User, *, minimum: str, feature: str) -> None:
+    """Raise 402 unless the user's plan is at least `minimum`.
+
+    For a feature moved entirely behind a paid plan (SSE-206: growth plans,
+    skills analysis, resume strategy, interview prep) rather than metered --
+    the refusal names the plan to upgrade to, instead of reading as a
+    depleted counter. `session` is accepted for symmetry with `check()` and
+    so a future exemption lookup does not change every call site.
+    """
+    if user.billing_exempt:
+        return
+    if _PLAN_RANK[plan_of(user)] >= _PLAN_RANK[minimum]:
+        return
+    raise HTTPException(
+        status_code=402,
+        detail={
+            "code": "plan_required",
+            "plan": plan_of(user),
+            "required_plan": minimum,
+            "message": f"{feature} requires the {minimum.capitalize()} plan.",
+        },
+    )

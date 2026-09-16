@@ -17,13 +17,23 @@ import styles from './PlanLimitDialog.module.css';
  * and a user second is how a limit starts to feel like a trap.
  */
 
-export type PlanLimitDetail = {
-  meter: string;
-  plan: string;
-  limit: number | null;
-  period: string;
-  message: string;
-};
+export type PlanLimitDetail =
+  | {
+      code?: 'plan_limit_reached';
+      meter: string;
+      plan: string;
+      limit: number | null;
+      period: string;
+      message: string;
+    }
+  | {
+      // A feature moved entirely behind a plan (SSE-206) rather than metered
+      // -- there is no counter to refill, so no meter/limit/period.
+      code: 'plan_required';
+      plan: string;
+      required_plan: string;
+      message: string;
+    };
 
 declare global {
   interface WindowEventMap {
@@ -60,9 +70,12 @@ export default function PlanLimitDialog() {
 
   if (!detail) return null;
 
-  const upgrade = nextPlanAfter(detail.plan);
-  const refill = refillsOn(detail.period);
-  const meter = METER_LABELS[detail.meter] ?? detail.meter;
+  const isPlanRequired = detail.code === 'plan_required';
+  const upgrade = isPlanRequired
+    ? PLANS.find((plan) => plan.id === detail.required_plan) ?? null
+    : nextPlanAfter(detail.plan);
+  const refill = isPlanRequired ? '' : refillsOn(detail.period);
+  const meter = isPlanRequired ? '' : METER_LABELS[detail.meter] ?? detail.meter;
 
   return (
     <div className={styles.backdrop} onClick={close}>
@@ -79,16 +92,20 @@ export default function PlanLimitDialog() {
           ×
         </button>
 
-        <span className="eyebrow">Plan limit</span>
+        <span className="eyebrow">{isPlanRequired ? 'Plan required' : 'Plan limit'}</span>
         <h2 id="plan-limit-title">
-          {detail.limit === null
-            ? `You have reached your ${meter} limit.`
-            : `That was your ${detail.limit === 1 ? '' : `${detail.limit}th `}${meter.replace(/s$/, '')} ${
-                detail.period === 'week' ? 'this week' : 'this month'
-              }.`}
+          {isPlanRequired
+            ? `This needs the ${upgrade?.name ?? detail.required_plan} plan.`
+            : detail.limit === null
+              ? `You have reached your ${meter} limit.`
+              : `That was your ${detail.limit === 1 ? '' : `${detail.limit}th `}${meter.replace(/s$/, '')} ${
+                  detail.period === 'week' ? 'this week' : 'this month'
+                }.`}
         </h2>
 
-        {refill ? (
+        {isPlanRequired ? (
+          <p className={styles.refill}>{detail.message}</p>
+        ) : refill ? (
           <p className={styles.refill}>
             Your allowance refills on <strong>{refill}</strong>. Nothing is lost in the
             meantime — everything you have saved stays where it is.

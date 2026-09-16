@@ -1,8 +1,20 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from kall.models import CareerGoal
+from kall.models import CareerGoal, User
 from kall.services.growth_ai import analyze_skills, generate_ai_plan
+from sqlmodel import Session
+
+
+@pytest.fixture(autouse=True)
+def _plus_plan(client: TestClient, engine) -> None:
+    """Growth plans and skills analysis moved entirely behind Plus (SSE-206);
+    this whole file exercises those features, so run it as a Plus account."""
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        user.plan = "plus"
+        session.add(user)
+        session.commit()
 
 
 def _goal(**overrides) -> CareerGoal:
@@ -210,3 +222,26 @@ def test_skills_analysis_fallback_without_api_key(client: TestClient) -> None:
     assert body["provider"] == "deterministic"
     assert 0 <= body["readiness_score"] <= 100
     assert body["narrative"]
+
+
+def test_free_plan_cannot_generate_a_growth_plan_or_run_skills_analysis(client: TestClient, engine) -> None:
+    """Growth plans and skills analysis moved entirely behind Plus (SSE-206) --
+    Free gets no deterministic fallback here, unlike before."""
+    with Session(engine) as session:
+        user = session.get(User, client.user_id)
+        user.plan = "free"
+        session.add(user)
+        session.commit()
+
+    goal = client.post(
+        "/api/growth/goals",
+        json={"title": "Move into game art", "target_role": "Environment Artist", "target_industry": "Games", "time_per_week_hours": 6},
+    ).json()
+
+    plan_response = client.post(f"/api/growth/goals/{goal['id']}/plan")
+    assert plan_response.status_code == 402
+    assert plan_response.json()["detail"]["code"] == "plan_required"
+
+    skills_response = client.post(f"/api/growth/goals/{goal['id']}/skills-analysis", json={"answer": "3 years of web development."})
+    assert skills_response.status_code == 402
+    assert skills_response.json()["detail"]["code"] == "plan_required"

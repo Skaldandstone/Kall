@@ -112,7 +112,29 @@ def test_suggest_career_strategy_prompt_asks_for_concise_industries_and_similar_
     assert "profile_name" in prompt
 
 
-def test_suggest_strategy_endpoint_without_api_key_falls_back_to_a_deterministic_guess(client: TestClient) -> None:
+def _upgrade_to_plus(engine, user_id: int) -> None:
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        user.plan = "plus"
+        session.add(user)
+        session.commit()
+
+
+def test_suggest_strategy_endpoint_requires_plus(client: TestClient) -> None:
+    """Resume strategy suggestions moved entirely behind Plus (SSE-206)."""
+    upload = client.post(
+        "/api/me/resumes",
+        files={"file": ("resume.txt", b"Director of Quality Engineering\n2018 - Present\nLed test automation.", "text/plain")},
+    )
+    resume_id = upload.json()["id"]
+
+    response = client.post(f"/api/me/resumes/{resume_id}/suggest-strategy")
+    assert response.status_code == 402
+    assert response.json()["detail"]["code"] == "plan_required"
+
+
+def test_suggest_strategy_endpoint_without_api_key_falls_back_to_a_deterministic_guess(client: TestClient, engine) -> None:
+    _upgrade_to_plus(engine, client.user_id)
     upload = client.post(
         "/api/me/resumes",
         files={"file": ("resume.txt", b"Director of Quality Engineering\n2018 - Present\nLed test automation.", "text/plain")},
@@ -128,7 +150,8 @@ def test_suggest_strategy_endpoint_without_api_key_falls_back_to_a_deterministic
     assert "quality engineering" in body["suggestion"]["keywords"]
 
 
-def test_suggest_strategy_endpoint_without_api_key_or_signal_returns_no_suggestion(client: TestClient) -> None:
+def test_suggest_strategy_endpoint_without_api_key_or_signal_returns_no_suggestion(client: TestClient, engine) -> None:
+    _upgrade_to_plus(engine, client.user_id)
     upload = client.post(
         "/api/me/resumes",
         files={"file": ("resume.txt", b"A short document with no known skills or dated roles in it.", "text/plain")},
@@ -143,6 +166,7 @@ def test_suggest_strategy_endpoint_without_api_key_or_signal_returns_no_suggesti
 
 
 def test_suggest_strategy_endpoint_rejects_other_users_resume(client: TestClient, engine) -> None:
+    _upgrade_to_plus(engine, client.user_id)
     # The signed-in user has a resume of their own, so a 404 below cannot pass
     # just because no resumes exist.
     client.post("/api/me/resumes", files={"file": ("mine.txt", b"Director of Quality Engineering.", "text/plain")})

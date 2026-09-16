@@ -16,7 +16,7 @@ from kall.models import (
 )
 from kall.services.intelligence import parse_resume
 from kall.services.openai_json import ask_for_json
-from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.quota import ai_actions_available, record_ai_action
 from kall.services.resume import reflow_extracted_text
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
@@ -172,15 +172,15 @@ def _rules_based_summary(original: str, job: Job, focus: str) -> str:
     return f"{original} Well-positioned for {job.title} at {job.company}, with strengths in {focus}."
 
 
-def _drafted_summary_with_source(original: str, job: Job, focus: str) -> tuple[str, bool]:
+def _drafted_summary_with_source(original: str, job: Job, focus: str, ai_allowed: bool = True) -> tuple[str, bool]:
     """A single model call rewrites the summary as flowing prose that
     naturally works the posting's own focus areas in, when a key is
-    configured -- otherwise the rules-based sentence above stands in. Either
-    way the result must preserve every immutable fact from the original;
-    a model rewrite that drops one falls back to the deterministic sentence
-    rather than risk producing a proposal review_change would refuse to let
-    the person accept."""
-    if get_settings().openai_api_key:
+    configured and `ai_allowed` -- otherwise the rules-based sentence above
+    stands in. Either way the result must preserve every immutable fact from
+    the original; a model rewrite that drops one falls back to the
+    deterministic sentence rather than risk producing a proposal
+    review_change would refuse to let the person accept."""
+    if ai_allowed and get_settings().openai_api_key:
         prompt = (
             f"Rewrite this resume summary so it naturally emphasizes fit for '{job.title}' at {job.company}, "
             f"weaving in these skills where true to the original: {focus}. Two to four sentences, professional "
@@ -201,9 +201,9 @@ def _drafted_summary_with_source(original: str, job: Job, focus: str) -> tuple[s
     return _rules_based_summary(original, job, focus), False
 
 
-def _drafted_summary(original: str, job: Job, focus: str) -> str:
+def _drafted_summary(original: str, job: Job, focus: str, ai_allowed: bool = True) -> str:
     """Compatibility wrapper for callers that only need the drafted text."""
-    return _drafted_summary_with_source(original, job, focus)[0]
+    return _drafted_summary_with_source(original, job, focus, ai_allowed)[0]
 
 
 _ACHIEVEMENT_SCHEMA = {
@@ -214,7 +214,7 @@ _ACHIEVEMENT_SCHEMA = {
 }
 
 
-def _drafted_achievement_with_source(original: str, job: Job, focus: str) -> tuple[str, bool]:
+def _drafted_achievement_with_source(original: str, job: Job, focus: str, ai_allowed: bool = True) -> tuple[str, bool]:
     """Reword an already-verified achievement so its phrasing echoes the
     posting's own language, the same safety shape as
     _drafted_summary_with_source above: a rewrite that drops or changes a
@@ -224,7 +224,7 @@ def _drafted_achievement_with_source(original: str, job: Job, focus: str) -> tup
     for the same skill (e.g. "CI/CD pipelines" vs. the achievement's
     "build automation") never made it in, which is exactly what an ATS
     keyword match and a human skimming the resume both look for."""
-    if get_settings().openai_api_key and focus:
+    if ai_allowed and get_settings().openai_api_key and focus:
         prompt = (
             f"Rewrite this resume bullet so its phrasing echoes language a hiring manager for "
             f"'{job.title}' at {job.company} would recognize, foregrounding: {focus}. One sentence, "
@@ -268,7 +268,9 @@ _EXPERIENCE_ALIGNMENT_SCHEMA = {
 }
 
 
-def _fallback_experience_alignment_changes(proposal_id: int, experience_text: str, job: Job, focus: str) -> list[TailoringChange]:
+def _fallback_experience_alignment_changes(
+    proposal_id: int, experience_text: str, job: Job, focus: str, ai_allowed: bool = True,
+) -> list[TailoringChange]:
     """When there is no structured Employment record, _role_gap_changes
     below bails out before it ever looks at the resume itself -- role-gap
     and achievement customization only ever read Kall's own Employment/
@@ -286,7 +288,7 @@ def _fallback_experience_alignment_changes(proposal_id: int, experience_text: st
     text is dropped rather than guessed at, since it has to be found and
     replaced in place later with no other addressable structure to rely on.
     """
-    if not get_settings().openai_api_key or not experience_text.strip():
+    if not ai_allowed or not get_settings().openai_api_key or not experience_text.strip():
         return []
     prompt = (
         "Below is someone's work experience, extracted from their resume. Identify up to 6 existing bullet "
@@ -327,10 +329,10 @@ def _fallback_experience_alignment_changes(proposal_id: int, experience_text: st
     return changes
 
 
-def _summary_change(resume: ResumeDocument, job: Job, skills: list[str]) -> TailoringChange:
+def _summary_change(resume: ResumeDocument, job: Job, skills: list[str], ai_allowed: bool = True) -> TailoringChange:
     original = _find_summary_paragraph(resume.extracted_text or "")
     focus = ", ".join(skills[:5]) or "the role's documented requirements"
-    proposed, used_ai = _drafted_summary_with_source(original, job, focus)
+    proposed, used_ai = _drafted_summary_with_source(original, job, focus, ai_allowed)
     return TailoringChange(
         section="summary",
         original_text=original,
@@ -353,8 +355,15 @@ def create_tailoring_proposal(
     professional_profile_id: int,
 ) -> TailoringProposal:
     user = session.get(User, user_id)
-    if get_settings().openai_api_key and user:
-        assert_ai_allowed(session, user)
+    # Whether the AI-enhanced wording (summary, achievements, role gaps,
+    # experience-bullet alignment) may run this time -- not a hard gate on
+    # proposal creation itself. Tailoring is a Free-tier feature (SSE-206
+    # only moved growth plans, skills analysis, resume strategy, and
+    # interview prep entirely behind Plus); without this, exhausting the
+    # ai_actions allowance would have refused to create a proposal at all
+    # rather than degrading to the rules-based wording every draft function
+    # already falls back to.
+    ai_allowed = bool(get_settings().openai_api_key) and bool(user) and ai_actions_available(session, user)
     selection = session.exec(
         select(ResumeSelection).where(
             ResumeSelection.user_id == user_id,
@@ -407,7 +416,7 @@ def create_tailoring_proposal(
     session.commit()
     session.refresh(proposal)
 
-    changes = [_summary_change(resume, job, requirement_terms)]
+    changes = [_summary_change(resume, job, requirement_terms, ai_allowed)]
     relevant = [
         a for a in verified
         if any(skill.lower() in (a.achievement_text + " " + " ".join(a.skills)).lower() for skill in requirement_terms)
@@ -418,7 +427,7 @@ def create_tailoring_proposal(
             if term.lower() in (achievement.achievement_text + " " + " ".join(achievement.skills)).lower()
         ]
         focus = ", ".join(dict.fromkeys(matched_terms))
-        proposed, used_ai_here = _drafted_achievement_with_source(achievement.achievement_text, job, focus)
+        proposed, used_ai_here = _drafted_achievement_with_source(achievement.achievement_text, job, focus, ai_allowed)
         changes.append(
             TailoringChange(
                 proposal_id=proposal.id,
@@ -435,7 +444,7 @@ def create_tailoring_proposal(
         )
     changes[0].proposal_id = proposal.id
     employment_exists = session.exec(select(Employment.id).where(Employment.user_id == user_id)).first() is not None
-    changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or ""))
+    changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or "", ai_allowed))
     if not employment_exists and requirement_terms:
         # _role_gap_changes above requires at least one Employment row and
         # never looks at the resume text at all -- someone relying on a
@@ -455,7 +464,7 @@ def create_tailoring_proposal(
         )
         if experience_text:
             focus = ", ".join(requirement_terms[:5]) or "the role's documented requirements"
-            changes.extend(_fallback_experience_alignment_changes(proposal.id, experience_text, job, focus))
+            changes.extend(_fallback_experience_alignment_changes(proposal.id, experience_text, job, focus, ai_allowed))
     used_ai = any(
         evidence.get("source") == "model"
         for change in changes
@@ -489,6 +498,7 @@ def _role_gap_changes(
     requirements: list[str],
     verified: list[Achievement],
     resume_text: str,
+    ai_allowed: bool = True,
 ) -> list[TailoringChange]:
     """One pending change per (role, missing requirement): the question to
     answer and the bullet to use if the answer is yes."""
@@ -503,7 +513,7 @@ def _role_gap_changes(
         roles.append(RoleContext(employment_id=row.id or 0, employer=row.employer, title=row.job_title, dates=dates, text=row.description or "", bullets=linked))
     gaps = find_gaps(roles, list(dict.fromkeys(requirements)), resume_text)
     changes = []
-    for gap in suggest_role_gaps(job.title, job.company, roles, gaps):
+    for gap in suggest_role_gaps(job.title, job.company, roles, gaps, ai_allowed):
         changes.append(
             TailoringChange(
                 proposal_id=proposal.id,

@@ -24,7 +24,7 @@ from kall.models import (
     SubmissionReceipt,
     User,
 )
-from kall.models.enums import ApplicationStatus
+from kall.models.enums import ApplicationStatus, SubscriptionPlan
 from kall.services import quota
 from kall.services.applications import application_stage
 from kall.services.interview_prep import generate_interview_prep, grade_quiz_answers
@@ -99,9 +99,9 @@ def _build_prep(application: Application, current_user: User, session: Session) 
     question_bank: list[dict] = []
     questions_to_ask: list[dict] = []
     if job:
-        # Only the AI path costs anything or needs gating -- generate_interview_prep
-        # falls back to a fixed bank for free when no key is configured or the
-        # call fails, same shape as api_growth.py's generate_plan.
+        # Interview prep moved entirely behind Plus (SSE-206) -- unlike the
+        # AI-vs-deterministic split elsewhere, Free gets no fallback bank here.
+        quota.require_plan(session, current_user, minimum=SubscriptionPlan.PLUS, feature="Interview prep")
         quota.assert_ai_allowed(session, current_user)
         prep_content, used_ai = generate_interview_prep(job, analysis)
         company_context = prep_content["company_context"]
@@ -192,6 +192,7 @@ def grade_interview_quiz(
     analysis = session.exec(
         select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == application.job_id)
     ).first()
+    quota.require_plan(session, current_user, minimum=SubscriptionPlan.PLUS, feature="Interview quiz grading")
     quota.assert_ai_allowed(session, current_user)
     results = grade_quiz_answers(job, analysis, [answer.model_dump() for answer in payload.answers])
     if results is None:

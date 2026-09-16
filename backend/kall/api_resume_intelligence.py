@@ -10,11 +10,12 @@ from kall.clock import utcnow
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import Application, CareerProfile, JobMatch, ResumeDocument, User
+from kall.models.enums import SubscriptionPlan
 from kall.services import quota
 from kall.services.intelligence import parse_resume
 from kall.services.onboarding_ai import deterministic_career_strategy, suggest_career_strategy
 from kall.services.openai_json import ask_for_json
-from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.quota import assert_ai_allowed, record_ai_action, require_plan
 from kall.services.resume_proofreading import find_repeated_lines, proofreading_gaps
 from kall.services.resume_readiness import resume_readiness
 from kall.services.storage import get_storage
@@ -243,6 +244,7 @@ def generate_recommendations(resume_id: int, current_user: User = Depends(get_cu
 @router.post("/me/resumes/{resume_id}/suggest-strategy")
 def suggest_strategy(resume_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)) -> dict:
     resume = _owned_resume(resume_id, current_user.id, session)
+    require_plan(session, current_user, minimum=SubscriptionPlan.PLUS, feature="Resume strategy suggestions")
     text = resume.extracted_text or ""
     ai_enabled = bool(get_settings().openai_api_key)
     suggestion = None

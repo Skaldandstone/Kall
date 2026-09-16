@@ -3,9 +3,16 @@
 Compensation is deliberately excluded. Kall has no verified market-data
 source, so a model-generated salary number would be unsupported precision.
 People set compensation themselves until a reviewed source is integrated.
+
+`deterministic_field_suggestions` below is the Free-tier path (SSE-206):
+rules-based only, no LLM call and no ai_actions quota involved, since it
+never calls the model at all. `suggest_empty_fields` is the AI-assisted
+path used on Plus and Premium.
 """
 
 from kall.config import get_settings
+from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES, normalized_phrase
+from kall.services.intelligence import employment_history
 from kall.services.openai_json import ask_for_json
 
 _FIELD_SCHEMAS = {
@@ -61,3 +68,54 @@ def suggest_empty_fields(profile, empty_fields: list[str], resume_text: str) -> 
         purpose="profile_field_suggestions",
         source_ref=f"career-profile:{profile.id}",
     )
+
+
+_WORK_TYPE_TERMS: dict[str, tuple[str, ...]] = {
+    "Remote": ("remote", "work from home", "distributed team"),
+    "Hybrid": ("hybrid",),
+    "On-site": ("on-site", "onsite", "in-office", "in office"),
+}
+
+
+def _lines(text: str) -> list[str]:
+    return [line.strip() for line in text.replace("\r", "").split("\n") if line.strip()]
+
+
+def deterministic_field_suggestions(empty_fields: list[str], resume_text: str) -> dict[str, list[str]]:
+    """Rules-based suggestions for the fields `suggest_empty_fields` would
+    otherwise ask a model for -- no LLM call, so no ai_actions quota applies.
+
+    Only ever proposes a field when the resume text contains actual
+    supporting evidence; an empty result for a field is better than an
+    invented one. `industries` and `countries` have no reliable rules-based
+    signal in this codebase (an industry taxonomy and an address parser,
+    respectively, do not exist here), so they are never guessed -- the same
+    "never invent" stance the AI path already takes for compensation.
+    """
+    suggestions: dict[str, list[str]] = {}
+    if not resume_text:
+        return suggestions
+    haystack = f" {normalized_phrase(resume_text)} "
+
+    if "target_titles" in empty_fields:
+        titles, _ = employment_history(_lines(resume_text))
+        if titles:
+            suggestions["target_titles"] = titles[:6]
+
+    if "functional_areas" in empty_fields:
+        found = [
+            area for area, aliases in FUNCTIONAL_AREA_ALIASES.items()
+            if any(f" {normalized_phrase(term)} " in haystack for term in (area, *aliases))
+        ]
+        if found:
+            suggestions["functional_areas"] = found[:4]
+
+    if "work_types" in empty_fields:
+        found = [
+            label for label, terms in _WORK_TYPE_TERMS.items()
+            if any(f" {normalized_phrase(term)} " in haystack for term in terms)
+        ]
+        if found:
+            suggestions["work_types"] = found[:3]
+
+    return suggestions

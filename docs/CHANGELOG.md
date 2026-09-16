@@ -2,6 +2,18 @@
 
 ## 0.10.0
 
+- Repriced Plus to $9/mo and Premium to $25/mo (from $5/$15) and cut Free's
+  AI surface to effectively zero (SSE-206): career growth plans, skills
+  analysis, resume strategy suggestions, and interview prep/quiz grading
+  now require Plus outright instead of sharing a small weekly AI allowance;
+  profile-field chip suggestions become rules-based (no LLM call) on Free
+  and stay AI-assisted on Plus/Premium. Fixed a regression this surfaced in
+  the same pass: dropping Free's AI allowance to zero would otherwise have
+  blocked Free accounts from creating a tailoring proposal at all, since
+  proposal creation gated on AI allowance up front rather than degrading to
+  the rules-based wording each drafting step already falls back to --
+  tailoring itself stays available on every plan; only its AI wording
+  enhancements are now allowance-gated per plan.
 - Raised the resume upload size limit from 15MB to 25MB (backend and both
   mobile upload screens), and fixed the web career-strategy resume upload
   to surface the server's actual reason for a failed upload (too large,

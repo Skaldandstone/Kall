@@ -31,7 +31,7 @@ export async function fetchKall(path: string, init?: RequestInit): Promise<Respo
     try {
       const body = await response.clone().json();
       const detail = body?.detail;
-      if (detail?.code === 'plan_limit_reached') {
+      if (detail?.code === 'plan_limit_reached' || detail?.code === 'plan_required') {
         showPlanLimit(detail as PlanLimitDetail);
       }
     } catch {

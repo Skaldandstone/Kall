@@ -20,9 +20,10 @@ from kall.models import (
     TailoringProposal,
     User,
 )
+from kall.models.enums import SubscriptionPlan
 from kall.services.functional_areas import FUNCTIONAL_AREA_ALIASES
-from kall.services.profile_suggestions import suggest_empty_fields
-from kall.services.quota import assert_ai_allowed, record_ai_action
+from kall.services.profile_suggestions import deterministic_field_suggestions, suggest_empty_fields
+from kall.services.quota import assert_ai_allowed, plan_of, record_ai_action
 from kall.services.title_suggestions import ai_related_titles, related_titles
 
 router = APIRouter()
@@ -184,8 +185,18 @@ def suggest_career_profile_fields(
         return {"enabled": True, "suggestions": {}, "rationale": "This profile already has every suggestible field filled in."}
 
     resume_text = _resume_text_for(session, profile, current_user.id)
+
+    # Free gets rules-based suggestions only (SSE-206) -- no LLM call, so no
+    # ai_actions quota applies. Plus stays AI-assisted and quota-gated;
+    # Premium is AI-assisted and ungated (usage is still recorded, matching
+    # how an exempt account's usage is recorded without being enforced).
+    if plan_of(current_user) == SubscriptionPlan.FREE:
+        suggestions = deterministic_field_suggestions(empty_fields, resume_text)
+        return {"enabled": bool(suggestions), "suggestions": suggestions, "rationale": None}
+
+    premium = plan_of(current_user) == SubscriptionPlan.PREMIUM
     ai_enabled = bool(get_settings().openai_api_key)
-    if ai_enabled:
+    if ai_enabled and not premium:
         assert_ai_allowed(session, current_user)
     result = suggest_empty_fields(profile, empty_fields, resume_text)
     if result is None:

@@ -98,10 +98,13 @@ def test_storage_is_a_ceiling_not_a_weekly_budget(engine) -> None:
 
 
 def test_ai_actions_are_metered_apart_from_applications(engine) -> None:
-    """Someone can complete no applications and still cost real money."""
+    """Someone can complete no applications and still cost real money.
+
+    Uses Plus, not Free -- Free's ai_actions limit is 0 (SSE-206), which
+    would exhaust on the very first check and never exercise metering."""
     with Session(engine) as session:
-        user = make_user(session)
-        for _ in range(3):
+        user = make_user(session, plan=SubscriptionPlan.PLUS)
+        for _ in range(15):
             quota.check(session, user, "ai_actions")
             quota.consume(session, user, "ai_actions")
 
