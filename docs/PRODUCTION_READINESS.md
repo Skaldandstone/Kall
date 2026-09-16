@@ -17,6 +17,54 @@ Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
 
+> **16 September 2026, API+web release + live Stripe repricing:** source
+> commit `4163b2eb44712ddc8ecb35dd9e153798876f3ae8` (SSE-206: Plus/Premium
+> repriced to $9/$25, Free's AI surface cut to effectively zero -- growth
+> plans, skills analysis, resume strategy, and interview prep/quiz grading
+> now require Plus outright; profile-field chips go rules-based on Free;
+> a regression this surfaced -- dropping Free's ai_actions allowance to
+> zero would have blocked Free from creating any tailoring proposal, not
+> just its AI wording -- was fixed by threading an ai_allowed flag through
+> so tailoring degrades to rules-based wording instead of refusing
+> outright). Green CI on this exact commit. Reviewed-snapshot manifest
+> `fdc9a6ddb620853ebfaa770192f0837ebc118b563b5397cd2e3cfd94e133752c`,
+> built via `kall-api-build`/`kall-web-build` with source, manifest hash,
+> image tag (`release-4163b2e`), and a corrected buildspec override all
+> overridden per-build. New API image
+> `sha256:6141bc4a81f5ab6edc61c9b4dff77952d72d95e9a0122b7f00fbc455d15b2eac`,
+> new web image
+> `sha256:8b89af2969684c04036dd8c2eb814f3641a290fb7b1ccad79494de3fa6ddd84f`,
+> both ECR Basic scans completed with zero findings. No schema change --
+> `VerifiedMigrationHead` stays `20260914_0036`.
+>
+> Before this release, confirmed zero active/trialing/past-due
+> subscriptions on the live Kall Stripe account (`acct_1U9JeKLDE8FHWLmd`,
+> via the newly-authenticated Stripe connector) -- no grandfathering or
+> price-increase notice was needed. Created new live Price objects on the
+> existing Plus/Premium Products (`price_1UGRZALDE8FHWLmdffpdMpwZ` at
+> $9.00/mo, `price_1UGRZhLDE8FHWLmdhgzXGPfP` at $25.00/mo) and set each as
+> its product's default price; the old prices
+> (`price_1UB0nkLDE8FHWLmdAPU6aofY`, `price_1UB0njLDE8FHWLmdmDCbWyPx`)
+> were left active rather than archived immediately, in case of a rollback.
+> Deliberately did **not** execute a Stripe-price-only change set ahead of
+> the code -- the currently-deployed API image already reads
+> `StripePlusPriceId`/`StripePremiumPriceId` for checkout, so shipping the
+> price change alone first would have charged the new amounts while the
+> site still displayed the old $5/$15 copy. Change set `release-4163b2e`
+> bundled `ApiImage`/`WebImage` and the two Stripe price parameters
+> together so displayed and charged price move in lockstep; every other
+> parameter carried `UsePreviousValue`, and all 10 changed resources were
+> in-place `Modify`s, same shape as every prior release this week.
+> Executed by James. Post-release: stack `UPDATE_COMPLETE`, and the public
+> root, `/api/health`, and `/api/kall/health` all return 200.
+>
+> **Still outstanding for this repricing**: Google Play and App Store
+> Connect subscription prices are unchanged ($4.99/$14.99) -- those need
+> to be updated directly in each console; RevenueCat only reflects
+> whatever price is set there, it does not originate a price change. The
+> old Stripe prices should be archived (`active: false`) once this release
+> is confirmed stable, to prevent any new checkout from selecting them.
+
 > **16 September 2026, API+web release:** source commit
 > `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised
 > 15MB -> 25MB across backend and both mobile screens, and the web
@@ -41,16 +89,6 @@ and webhook destination. No controlled live charge or refund has been performed.
 > besides `ApiImage`/`WebImage` carried `UsePreviousValue`. Executed by
 > James. Post-release: stack `UPDATE_COMPLETE`, and the public root,
 > `/api/health`, and `/api/kall/health` all return 200.
->
-> **Not yet deployed as of this writing**: the SSE-206 repricing/AI-gating
-> commit (`984ebaa` locally, merged to `main` as `c752a93`) is code-only --
-> Plus/Premium's live Stripe prices are still $5/$15 and the Play/App
-> Store listings are unchanged, so shipping this commit's web copy
-> ($9/$25) without first updating the actual Stripe `StripePlusPriceId`/
-> `StripePremiumPriceId` stack parameters would show a price the checkout
-> does not actually charge. Hold this release until the Stripe (and,
-> separately, Play/App Store) price change is made and the stack
-> parameters are updated to match.
 
 > **13 September 2026, SES production acceptance:** AWS granted production
 > access in project `051722405355`, selected Region `us-east-2`. Live checks
