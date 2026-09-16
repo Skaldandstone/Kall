@@ -12,7 +12,7 @@
         "KALL_MOBILE_RELEASE": "1",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
       },
       "ios": {
         "simulator": true,
@@ -27,7 +27,7 @@
         "KALL_MOBILE_RELEASE": "1",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
       },
       "ios": {
         "simulator": false,
@@ -43,7 +43,7 @@
         "KALL_MOBILE_RELEASE": "1",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
       },
       "android": {
         "buildType": "app-bundle"
@@ -80,7 +80,7 @@
         "KALL_MOBILE_E2E_VERSION": "1.1.2",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
       },
       "android": {
         "buildType": "apk"
@@ -94,7 +94,7 @@
         "KALL_MOBILE_RELEASE": "1",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://5569f7b9b6c2a73cdfd47c288a1d5dca@o4512015786377216.ingest.us.sentry.io/4512054701719552"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
       },
       "ios": {
         "simulator": true,
