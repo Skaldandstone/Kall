@@ -11,7 +11,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sentry from "@sentry/react-native";
-import { ApiError } from "../api/client";
+import { ApiError, uploadFailureMessage } from "../api/client";
 import {
   deleteResume,
   fetchResumeStudio,
@@ -79,9 +79,7 @@ export default function ResumesScreen() {
       setMessage("Resume uploaded.");
     } catch (e) {
       if (!(e instanceof ApiError)) Sentry.captureException(e, { tags: { flow: "resume_upload" } });
-      setMessage(
-        e instanceof ApiError ? e.message : "Unable to upload this resume.",
-      );
+      setMessage(uploadFailureMessage(e));
     } finally {
       setBusy(false);
     }

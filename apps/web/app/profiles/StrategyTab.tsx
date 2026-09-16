@@ -20,6 +20,20 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
   return fallback;
 }
 
+// Marks an error whose message already came from the backend (a real,
+// specific reason) so the catch block can tell it apart from a fetch that
+// never got a response at all.
+class UploadError extends Error {}
+
+// The fetch itself failing (offline, DNS, connection reset, CORS) always
+// surfaces as a TypeError in browsers -- never something more specific --
+// so that's the only signal available to distinguish it from a genuine bug.
+function uploadFailureMessage(error: unknown): string {
+  if (error instanceof UploadError) return error.message;
+  if (error instanceof TypeError) return "Kall couldn't reach the server. Check your connection and try again.";
+  return 'Something went wrong uploading that resume. Please try again.';
+}
+
 type Profile = {
   id: number;
   name: string;
@@ -264,7 +278,7 @@ export default function StrategyTab() {
         window.location.replace('/sign-in');
         return;
       }
-      if (!response.ok) throw new Error(await errorMessage(response, 'Unable to upload that resume.'));
+      if (!response.ok) throw new UploadError(await errorMessage(response, 'Unable to upload that resume.'));
 
       const uploaded = await response.json() as UploadedResume;
       const shouldMakeDefault = !profile.default_resume_id || window.confirm(
@@ -278,7 +292,7 @@ export default function StrategyTab() {
         await load();
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Unable to upload that resume.');
+      setMessage(uploadFailureMessage(error));
     } finally {
       setUploadingProfileId(null);
     }

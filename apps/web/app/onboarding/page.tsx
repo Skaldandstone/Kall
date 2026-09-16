@@ -45,6 +45,15 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
   return fallback;
 }
 
+// The fetch itself failing (offline, DNS, connection reset, CORS) always
+// surfaces as a TypeError in browsers -- never something more specific --
+// so that's the only signal available to distinguish it from a genuine bug.
+function networkFailureMessage(error: unknown, fallback: string): string {
+  return error instanceof TypeError
+    ? "Kall couldn't reach the server. Check your connection and try again."
+    : fallback;
+}
+
 export default function Onboarding() {
   const [step, setStep] = useState(2);
   const [token, setToken] = useState('');
@@ -207,8 +216,8 @@ export default function Onboarding() {
       }
 
       setStep(3);
-    } catch {
-      setMessage('Kall could not upload your resume. Please try again.');
+    } catch (error) {
+      setMessage(networkFailureMessage(error, 'Kall could not upload your resume. Please try again.'));
     } finally {
       setSubmitting(false);
     }
