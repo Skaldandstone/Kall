@@ -186,6 +186,9 @@ def check(session: Session, user: User, meter: Meter, amount: int = 1) -> None:
         "ai_actions": "AI actions",
         "storage_bytes": "storage",
     }[meter]
+    # storage_bytes is measured in raw bytes; every other meter is a small
+    # count already fit to read as-is.
+    shown_amount = f"{limit.amount // MB} MB" if meter == "storage_bytes" else str(limit.amount)
     raise HTTPException(
         status_code=402,
         detail={
@@ -196,7 +199,7 @@ def check(session: Session, user: User, meter: Meter, amount: int = 1) -> None:
             "period": limit.period,
             # Says when it comes back, not just that it is gone -- a weekly
             # allowance is only useful if the person knows it refills.
-            "message": f"You have used all {limit.amount} of your {thing} {PERIOD_WORDS[limit.period]}.",
+            "message": f"You have used all {shown_amount} of your {thing} {PERIOD_WORDS[limit.period]}.",
         },
     )
 

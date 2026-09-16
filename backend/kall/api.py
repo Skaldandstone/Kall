@@ -191,11 +191,19 @@ async def upload_resume(file: UploadFile = File(...), current_user: User = Depen
     data = await file.read()
     if len(data) > RESUME_MAX_BYTES:
         raise HTTPException(413, "Resume file is too large (25MB limit)")
+    if not data:
+        raise HTTPException(422, "That file is empty. Choose a different resume.")
     # Checked before the write, so a file that would not fit is never stored.
     quota.check(session, current_user, "storage_bytes", amount=len(data))
     key = f"uploads/{current_user.id}/{filename}"
     mime = file.content_type or "application/octet-stream"
-    text = extract_resume_text(data, mime)
+    try:
+        text = extract_resume_text(data, mime)
+    except Exception as exc:
+        # A wrong-extension file is already rejected above; this is a file
+        # with the right extension but unreadable contents (corrupted,
+        # truncated, password-protected, or not actually that format).
+        raise HTTPException(422, "Kall couldn't read that file. It may be corrupted or password-protected -- try re-exporting it or choosing a different file.") from exc
     get_storage().save(key, data)
     row = ResumeDocument(user_id=current_user.id, name=filename, file_path=key, mime_type=mime, extracted_text=text, byte_size=len(data))
     session.add(row)

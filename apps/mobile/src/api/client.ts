@@ -34,6 +34,17 @@ export class ApiError extends Error {
   }
 }
 
+// ApiError already carries the backend's real reason (too large, wrong
+// format, quota, etc). Anything else means the request never got a
+// response at all -- expo/fetch surfaces that as a TypeError, the same
+// signal browsers use, regardless of whether it was no connectivity, a
+// timeout, or the connection dropping mid-upload.
+export function uploadFailureMessage(e: unknown): string {
+  if (e instanceof ApiError) return e.message;
+  if (e instanceof TypeError) return "Kall couldn't reach the server. Check your connection and try again.";
+  return "Something went wrong uploading that resume. Please try again.";
+}
+
 async function errorMessage(
   response: Response,
   fallback: string,
