@@ -179,7 +179,7 @@ def list_profiles(current_user: User = Depends(get_current_user), session: Sessi
     return list(session.exec(select(CareerProfile).where(CareerProfile.user_id == current_user.id)))
 
 
-RESUME_MAX_BYTES = 15 * 1024 * 1024
+RESUME_MAX_BYTES = 25 * 1024 * 1024
 RESUME_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
 
@@ -190,7 +190,7 @@ async def upload_resume(file: UploadFile = File(...), current_user: User = Depen
         raise HTTPException(415, "Resumes must be a .pdf, .docx, or .txt file")
     data = await file.read()
     if len(data) > RESUME_MAX_BYTES:
-        raise HTTPException(413, "Resume file is too large (15MB limit)")
+        raise HTTPException(413, "Resume file is too large (25MB limit)")
     # Checked before the write, so a file that would not fit is never stored.
     quota.check(session, current_user, "storage_bytes", amount=len(data))
     key = f"uploads/{current_user.id}/{filename}"

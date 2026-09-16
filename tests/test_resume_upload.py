@@ -8,7 +8,7 @@ def test_rejects_disallowed_file_extension(client: TestClient) -> None:
 
 
 def test_rejects_oversized_file(client: TestClient) -> None:
-    oversized = b"x" * (15 * 1024 * 1024 + 1)
+    oversized = b"x" * (25 * 1024 * 1024 + 1)
     response = client.post("/api/me/resumes", files={"file": ("resume.txt", oversized, "text/plain")})
     assert response.status_code == 413
 

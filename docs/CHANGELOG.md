@@ -2,6 +2,10 @@
 
 ## 0.10.0
 
+- Raised the resume upload size limit from 15MB to 25MB (backend and both
+  mobile upload screens), and fixed the web career-strategy resume upload
+  to surface the server's actual reason for a failed upload (too large,
+  wrong file type) instead of a generic "Unable to upload that resume."
 - Added a "Start over" control to resume tailoring review, on web and
   mobile, reachable from any phase of the review -- answering questions,
   the cover letter, or the final preview -- rather than only after picking

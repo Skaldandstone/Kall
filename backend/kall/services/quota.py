@@ -139,7 +139,7 @@ def stored_bytes(session: Session, user_id: int) -> int:
     can always be regenerated.
 
     The purpose of this ceiling is therefore anti-abuse rather than revenue.
-    A single resume is a few hundred kilobytes and the per-file limit is 15 MB,
+    A single resume is a few hundred kilobytes and the per-file limit is 25 MB,
     so without a ceiling one account could park gigabytes for free. It is not
     expected to bind on anyone using Kall normally.
     """

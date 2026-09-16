@@ -32,7 +32,7 @@ import { countryNames, regionsForCountries } from "../lib/locationData";
 import { theme } from "../theme";
 import { resumeMimeType } from "./ResumesScreen";
 
-const MAX_RESUME_BYTES = 15 * 1024 * 1024;
+const MAX_RESUME_BYTES = 25 * 1024 * 1024;
 
 const numberOrNull = (value: string) => {
   const parsed = Number(value);
@@ -320,7 +320,7 @@ export default function CareerProfilesScreen() {
     if (result.canceled) return;
     const selected = result.assets[0];
     if (selected.size != null && selected.size > MAX_RESUME_BYTES) {
-      setMessage("This resume is larger than the 15 MB upload limit.");
+      setMessage("This resume is larger than the 25 MB upload limit.");
       return;
     }
     setUploading(true);

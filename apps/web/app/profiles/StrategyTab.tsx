@@ -10,6 +10,16 @@ import styles from './page.module.css';
 
 const API = '/api/kall';
 
+async function errorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const data = await response.json();
+    if (typeof data.detail === 'string') return data.detail;
+  } catch {
+    // Preserve the user-facing fallback when the response is not JSON.
+  }
+  return fallback;
+}
+
 type Profile = {
   id: number;
   name: string;
@@ -254,7 +264,7 @@ export default function StrategyTab() {
         window.location.replace('/sign-in');
         return;
       }
-      if (!response.ok) throw new Error('Unable to upload that resume.');
+      if (!response.ok) throw new Error(await errorMessage(response, 'Unable to upload that resume.'));
 
       const uploaded = await response.json() as UploadedResume;
       const shouldMakeDefault = !profile.default_resume_id || window.confirm(

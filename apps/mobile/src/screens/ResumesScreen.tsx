@@ -20,7 +20,7 @@ import {
 } from "../api/workspace";
 import { theme } from "../theme";
 
-const MAX_RESUME_BYTES = 15 * 1024 * 1024;
+const MAX_RESUME_BYTES = 25 * 1024 * 1024;
 const MIME_BY_EXTENSION: Record<string, string> = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -64,7 +64,7 @@ export default function ResumesScreen() {
     if (result.canceled) return;
     const selected = result.assets[0];
     if (selected.size != null && selected.size > MAX_RESUME_BYTES) {
-      setMessage("This resume is larger than the 15 MB upload limit.");
+      setMessage("This resume is larger than the 25 MB upload limit.");
       return;
     }
     setBusy(true);
@@ -174,7 +174,7 @@ export default function ResumesScreen() {
         <View style={styles.empty}>
           <Text style={styles.cardTitle}>No resumes yet</Text>
           <Text style={styles.cardBody}>
-            Upload a PDF, DOCX, or TXT file up to 15 MB.
+            Upload a PDF, DOCX, or TXT file up to 25 MB.
           </Text>
         </View>
       ) : (
