@@ -109,10 +109,21 @@ and webhook destination. No controlled live charge or refund has been performed.
 > (`active: false`) -- no new checkout can select them; only the new
 > $9/$25 prices remain active on the Plus/Premium products.
 >
-> **Still outstanding for this repricing**: Google Play and App Store
-> Connect subscription prices are unchanged ($4.99/$14.99) -- those need
-> to be updated directly in each console; RevenueCat only reflects
-> whatever price is set there, it does not originate a price change.
+> **17 September 2026**: updated Google Play and App Store Connect
+> subscription prices to match, directly in each console (RevenueCat only
+> reflects whatever price is set there; it never originates a price
+> change). Play: used "Set prices" against a $9.00/$25.00 USD reference to
+> recalculate all 117 (Plus) / 2 (Premium) regions, then corrected the
+> US row in each to the exact $9.00/$25.00 (the bulk recalculation
+> rounds to psychological pricing, e.g. $8.99, on its own) -- existing
+> subscribers keep their current price per Play's own price-change
+> confirmation, consistent with Stripe. App Store Connect: Apple's
+> standard tier list has no exact $9.00/$25.00 tier (nearest are
+> $8.99/$9.99 and $24.99/$25.99), but both exact amounts exist under
+> "See Additional Prices," so used those and recalculated all 175
+> regions from that US reference for both Kall Plus Monthly and Kall
+> Premium Monthly. Confirmed both products now show US $9.00 and $25.00
+> respectively in each console.
 
 > **16 September 2026, API+web release:** source commit
 > `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised
