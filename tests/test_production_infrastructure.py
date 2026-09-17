@@ -137,7 +137,7 @@ def test_production_activation_and_billing_fail_closed() -> None:
     assert parameters.count("    Default: 'false'") >= 2
     assert "ApplicationActivationRequiresDatabaseEvidence" in rules
     assert "kall-db-roles-v1" in rules
-    assert "20260914_0036" in rules
+    assert "20260917_0039" in rules
     assert "StripeActivationRequiresLiveCatalog" in rules
     assert "stripe-disabled" in rules
     assert "RevenueCatActivationRequiresCatalog" in rules
@@ -320,7 +320,7 @@ def test_production_guard_covers_release_critical_invariants() -> None:
     assert "Parameters.EnableStripeLive.Default == 'false'" in guard
     assert "Parameters.EnableApplicationServices.Default == 'false'" in guard
     assert "Parameters.EnableScheduledJobs.Default == 'false'" in guard
-    assert "'20260914_0036'" in guard
+    assert "'20260917_0039'" in guard
 
 
 def test_scheduled_jobs_are_opt_in_one_shot_tasks_with_no_automatic_replay() -> None:
