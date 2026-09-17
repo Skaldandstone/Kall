@@ -58,12 +58,17 @@ and webhook destination. No controlled live charge or refund has been performed.
 > Executed by James. Post-release: stack `UPDATE_COMPLETE`, and the public
 > root, `/api/health`, and `/api/kall/health` all return 200.
 >
+> **17 September 2026**: confirmed the release healthy (root/`/api/health`
+> both 200) and archived both old Stripe prices
+> (`price_1UB0nkLDE8FHWLmdAPU6aofY` at $5.00/mo,
+> `price_1UB0njLDE8FHWLmdmDCbWyPx` at $15.00/mo) via the Stripe connector
+> (`active: false`) -- no new checkout can select them; only the new
+> $9/$25 prices remain active on the Plus/Premium products.
+>
 > **Still outstanding for this repricing**: Google Play and App Store
 > Connect subscription prices are unchanged ($4.99/$14.99) -- those need
 > to be updated directly in each console; RevenueCat only reflects
-> whatever price is set there, it does not originate a price change. The
-> old Stripe prices should be archived (`active: false`) once this release
-> is confirmed stable, to prevent any new checkout from selecting them.
+> whatever price is set there, it does not originate a price change.
 
 > **16 September 2026, API+web release:** source commit
 > `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised
