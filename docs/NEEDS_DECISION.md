@@ -4,7 +4,7 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-09-02.
+Last updated 2026-09-17.
 
 ## Needs a decision
 
@@ -261,6 +261,20 @@ You called this non-essential until we are closer to production. It blocks any
 real signup volume when that changes.
 
 ## Needs you specifically
+
+**Three commits and three migrations are sitting on `main`, undeployed (2026-09-17).**
+`VerifiedMigrationHead` is still `20260914_0036` -- migrations `20260914_0037`
+(EmailConnection), `20260914_0038` (EmailDetectedEvent), and today's
+`20260917_0039` (User.support_id) have none of them run against production.
+The email ones are why `KALL-API-8`/`KALL-API-7` keep recurring in Sentry
+(`relation "emaildetectedevent" does not exist`) -- the API code that reads
+that table has been live since the 15 September release, three days before
+its own migration. Also undeployed: `3ea2fb9` (resume upload now gives a
+specific reason -- empty file, corrupt file, readable storage-limit
+wording) and `92d680e`/`a2de8f5` (support ID feature). None of this reaches
+production until the next release's change set actually runs the pending
+migrations and deploys the new images -- I can't execute that from here,
+it needs the same by-hand steps every other release this week did.
 
 **One click: confirm the kall-alerts email subscription (2026-08-28).**
 Production alerting now exists -- a failed scheduled-job suite or an
