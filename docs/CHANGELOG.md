@@ -2,6 +2,15 @@
 
 ## 0.10.0
 
+- Added a permanent, random 8-digit `support_id` for every user, shown
+  read-only on the identity/profile page (web and mobile) so someone can
+  quote it to support instead of their email. Both admin surfaces --
+  `/admin` (the human console) and `/admin/portal` (the Adminhelper Worker,
+  which can now also search by `support_id` as an exact-match alternative
+  to its existing partial-email search) -- can look a user up by it.
+  Existing accounts are backfilled by migration; new accounts get one
+  generated (checked against the database for a collision) at signup.
+
 - Repriced Plus to $9/mo and Premium to $25/mo (from $5/$15) and cut Free's
   AI surface to effectively zero (SSE-206): career growth plans, skills
   analysis, resume strategy suggestions, and interview prep/quiz grading

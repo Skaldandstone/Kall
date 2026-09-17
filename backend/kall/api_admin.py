@@ -48,6 +48,7 @@ def _summary(session: Session, user: User) -> dict[str, Any]:
     return {
         "id": user.id,
         "email": user.email,
+        "support_id": user.support_id,
         "full_name": user.full_name,
         "plan": user.plan,
         "billing_exempt": user.billing_exempt,

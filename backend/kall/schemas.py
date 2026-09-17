@@ -42,6 +42,7 @@ class IdentityProfileUpdate(BaseModel):
 
 class IdentityProfileResponse(BaseModel):
     email: EmailStr
+    support_id: str
     full_name: str
     preferred_name: str | None = None
     phone: str | None = None

@@ -5,6 +5,7 @@ import { countries, regionsForCountry } from '../../../lib/location-data';
 
 type IdentityProfile = {
   email: string;
+  support_id: string;
   full_name: string;
   preferred_name: string | null;
   phone: string | null;
@@ -21,6 +22,7 @@ type IdentityProfile = {
 
 const emptyProfile: IdentityProfile = {
   email: '',
+  support_id: '',
   full_name: '',
   preferred_name: '',
   phone: '',
@@ -139,6 +141,20 @@ export default function IdentityPanel() {
             <input className="input" type="email" value={profile.email} readOnly />
           </label>
         </div>
+        <div className="two">
+          <label>
+            Support ID
+            <input
+              className="input"
+              value={profile.support_id.replace(/(\d{4})(\d{4})/, '$1 $2')}
+              readOnly
+              aria-describedby="support-id-hint"
+            />
+          </label>
+        </div>
+        <p id="support-id-hint" className="muted" style={{ marginTop: -8 }}>
+          Quote this instead of your email when contacting support.
+        </p>
         <div className="two">
           <label>
             Preferred name

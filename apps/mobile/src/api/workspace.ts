@@ -8,6 +8,7 @@ export type Account = {
 };
 export type Identity = {
   email: string;
+  support_id: string;
   full_name: string;
   preferred_name?: string | null;
   city?: string | null;

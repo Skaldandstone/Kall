@@ -66,6 +66,7 @@ def _log(session: Session, staff_actor: str | None, *, action: str, target_user_
 class PortalUserSummary(BaseModel):
     id: int
     email: str
+    support_id: str
     full_name: str | None
     plan: str | None
     is_active: bool
@@ -149,6 +150,7 @@ def _summary(user: User) -> PortalUserSummary:
     return PortalUserSummary(
         id=user.id,
         email=user.email,
+        support_id=user.support_id,
         full_name=user.full_name,
         plan=str(user.plan) if user.plan is not None else None,
         is_active=user.is_active,
@@ -174,9 +176,17 @@ def _target(session: Session, user_id: int) -> User:
 
 
 @router.get("/users", dependencies=[Depends(require_admin_token)])
-def search_users(email: str, session: Session = Depends(get_session)) -> list[PortalUserSummary]:
-    """Look up users by (partial) email address."""
-    stmt = select(User).where(func.lower(User.email).contains(email.lower())).limit(20)
+def search_users(
+    email: str | None = None, support_id: str | None = None, session: Session = Depends(get_session)
+) -> list[PortalUserSummary]:
+    """Look up users by (partial) email address, or by their exact support ID --
+    the 8-digit code a user can quote instead of their email."""
+    if support_id:
+        stmt = select(User).where(User.support_id == support_id.strip())
+    elif email:
+        stmt = select(User).where(func.lower(User.email).contains(email.lower())).limit(20)
+    else:
+        raise HTTPException(status_code=400, detail="Provide email or support_id")
     return [_summary(u) for u in session.exec(stmt).all()]
 
 

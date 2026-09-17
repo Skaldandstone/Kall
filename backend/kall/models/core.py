@@ -1,3 +1,4 @@
+import secrets
 from datetime import date, datetime
 from typing import Any
 
@@ -19,6 +20,14 @@ class User(TimestampMixin, table=True):
     id: int | None = Field(default=None, primary_key=True)
     clerk_user_id: str | None = Field(default=None, index=True, unique=True)
     email: str = Field(index=True, unique=True)
+    #: An 8-digit random code, unrelated to `id` or signup order, a user can
+    #: quote to support instead of their email. The default here is just a
+    #: fallback so a `User(...)` built outside the real signup path (tests,
+    #: fixtures, seed scripts) never needs to supply one; the real signup
+    #: path (auth.ensure_local_user) always calls
+    #: services.support_id.generate_support_id, which checks the database
+    #: for a collision first -- this default does not.
+    support_id: str = Field(default_factory=lambda: f"{secrets.randbelow(10**8):08d}", index=True, unique=True)
     full_name: str
     country: str | None = None
     state_region: str | None = None
