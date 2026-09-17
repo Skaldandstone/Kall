@@ -5,7 +5,7 @@ import { useClerk } from '@clerk/nextjs';
 import AppNav from '../components/AppNav';
 
 const API='/api/kall';
-type User={email:string;full_name:string;country?:string|null;state_region?:string|null;plan?:string};
+type User={email:string;support_id:string;full_name:string;country?:string|null;state_region?:string|null;plan?:string};
 
 export default function SettingsPage(){
   const[user,setUser]=useState<User|null>(null);
@@ -96,7 +96,7 @@ export default function SettingsPage(){
       <p>Manage sign-in, contact details, notifications, privacy, your public page, and billing from one place.</p>
     </section>
     {message&&<p className='notice' role='alert'>{message}</p>}
-    {user&&<section className='card' style={{marginBottom:24}}><h2>{user.full_name}</h2><p>{user.email}</p><p className='muted'>{[user.state_region,user.country].filter(Boolean).join(', ')||'Location not set'} · {String(user.plan||'free').replaceAll('_',' ')} plan</p></section>}
+    {user&&<section className='card' style={{marginBottom:24}}><h2>{user.full_name}</h2><p>{user.email}</p><p className='muted'>Support ID {user.support_id.replace(/(\d{4})(\d{4})/,'$1 $2')} — quote this instead of your email when contacting support</p><p className='muted'>{[user.state_region,user.country].filter(Boolean).join(', ')||'Location not set'} · {String(user.plan||'free').replaceAll('_',' ')} plan</p></section>}
     <section className='grid' style={{gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))'}}>
       <a className='card' href='/settings/identity'><h2>Identity & contact</h2><p>Update your name, location, links, and professional summary.</p></a>
       <a className='card' href='/account'><h2>Sign-in & security</h2><p>Add passkeys, connect identity providers, and enable authenticator-app 2FA.</p></a>

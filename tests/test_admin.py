@@ -143,6 +143,17 @@ def test_an_admin_can_find_and_read_an_account(admin_client, engine) -> None:
     assert detail["usage"]["meters"]["applications"]["limit"] == 5
 
 
+def test_an_admin_can_find_an_account_by_its_exact_support_id(admin_client, engine) -> None:
+    with Session(engine) as session:
+        target = make_user(session, "supportid@example.com")
+        support_id = target.support_id
+
+    listed = admin_client.get(f"/api/admin/users?q={support_id}").json()
+    assert [row["email"] for row in listed] == ["supportid@example.com"]
+
+    assert admin_client.get("/api/admin/users?q=00000000").json() == []
+
+
 def test_an_admin_sees_entitlement_not_content(admin_client, engine) -> None:
     """Support needs to know what an account may do, not what it contains."""
     with Session(engine) as session:

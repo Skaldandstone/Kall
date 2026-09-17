@@ -125,6 +125,7 @@ def get_identity(current_user: User = Depends(get_current_user), session: Sessio
     profile = session.exec(select(CandidateProfile).where(CandidateProfile.user_id == current_user.id)).first()
     return IdentityProfileResponse(
         email=current_user.email,
+        support_id=current_user.support_id,
         full_name=current_user.full_name,
         preferred_name=(profile.preferred_name if profile else None) or current_user.full_name,
         phone=decrypt_sensitive(profile.phone_encrypted) if profile and profile.phone_encrypted else None,

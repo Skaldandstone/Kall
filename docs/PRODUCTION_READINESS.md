@@ -17,6 +17,50 @@ Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
 
+> **17 September 2026, API+web release + pending migrations:** source
+> commit `f67bd2401d897511a46bb621836b7e6c60ada5c3` (real one-click email
+> unsubscribe per RFC 8058 -- `List-Unsubscribe`/`List-Unsubscribe-Post`
+> headers and a footer link on every notification email, both pointing at
+> a new unauthenticated `/api/unsubscribe` endpoint; fixed the web
+> notification settings page still saying push was "coming soon" when
+> it's been live on mobile for a while; and a permanent random 8-digit
+> `support_id` for every user, shown read-only on the identity/profile
+> page so someone can quote it to support instead of their email, with
+> both admin surfaces able to look a user up by it). Green CI on this
+> exact commit. Reviewed-snapshot manifest
+> `b6201aa388aa07fe4bd2975009f66df38c3b531fa0f6f00450568d01cb650e7c`,
+> built via `kall-api-build`/`kall-web-build` with source, manifest hash,
+> image tag (`release-f67bd24`), and a corrected buildspec override all
+> overridden per-build. New API image
+> `sha256:60e7588bf8d86f47b8f0aab4ee5f19769ec8280d5f1156efdb316b53266c9a9f`,
+> new web image
+> `sha256:dfb6bb28677a47ff858dd1c61dd915947906abd49321ae7dae3230c0a143f1f8`,
+> both ECR Basic scans completed with zero findings.
+>
+> This release carried a real schema change -- the `EmailConnection`,
+> `EmailDetectedEvent`, and `User.support_id` migrations
+> (`20260914_0037`, `20260914_0038`, `20260917_0039`) had been sitting
+> undeployed on `main` since the 14 September release. Ran them first, as
+> a one-shot ECS task on a new `MigrationTaskDefinition` revision pointing
+> at the new API image (the deployed revision still referenced the old
+> image, and `RunTask` cannot override a task definition's container
+> image), in the `DatabaseAdminSecurityGroup` so it could reach
+> `DatabaseSecurityGroup`. Exited zero; log confirms all three migrations
+> applied in order and `verified alembic heads: 20260917_0039`. Advanced
+> the template's `VerifiedMigrationHead` `AllowedValues` and activation-gate
+> assertion to `20260917_0039` (commit `ad577aa`, same pattern as every
+> prior head advance) before building the change set, since the parameter
+> is allowlisted and CloudFormation rejects an unlisted value. Change set
+> `release-ad577aa` on `kall-production` verified before execution: all 10
+> changed resources were in-place `Modify`s (`ApiService`/`WebService` and
+> their task definitions, the migration/job-runner/bootstrap task
+> definitions, and the scheduler resources that reference the job-runner
+> image by ARN); every parameter besides `ApiImage`/`WebImage`/
+> `VerifiedMigrationHead` carried `UsePreviousValue`. Post-release: stack
+> `UPDATE_COMPLETE`, both services 1/1 with a single `PRIMARY` deployment
+> each and `rolloutState: COMPLETED`, and the public root, `/api/health`,
+> and `/api/kall/health` all return 200.
+
 > **16 September 2026, API+web release + live Stripe repricing:** source
 > commit `4163b2eb44712ddc8ecb35dd9e153798876f3ae8` (SSE-206: Plus/Premium
 > repriced to $9/$25, Free's AI surface cut to effectively zero -- growth

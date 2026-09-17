@@ -4,7 +4,7 @@ Things that cannot move without a decision, and things that are done but that
 you should know about. Written down because the overnight session's reminder
 lives only in that session.
 
-Last updated 2026-09-02.
+Last updated 2026-09-17.
 
 ## Needs a decision
 

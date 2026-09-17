@@ -2,6 +2,25 @@
 
 ## 0.10.0
 
+- Added real one-click email unsubscribe (RFC 8058): every notification
+  email now carries `List-Unsubscribe`/`List-Unsubscribe-Post` headers and
+  a visible footer link, both pointing at a new unauthenticated
+  `/api/unsubscribe` endpoint -- a mail client (or a person) can turn off
+  email with no Kall session at all, the way Gmail/Yahoo's bulk-sender
+  rules expect. Previously the only "manage preferences" link required
+  signing in first. Also fixed the web notification settings page still
+  saying push notifications were "coming once app store credentials are
+  set up" -- they've been live on mobile for a while; the web page just
+  never got updated to say so.
+- Added a permanent, random 8-digit `support_id` for every user, shown
+  read-only on the identity/profile page (web and mobile) so someone can
+  quote it to support instead of their email. Both admin surfaces --
+  `/admin` (the human console) and `/admin/portal` (the Adminhelper Worker,
+  which can now also search by `support_id` as an exact-match alternative
+  to its existing partial-email search) -- can look a user up by it.
+  Existing accounts are backfilled by migration; new accounts get one
+  generated (checked against the database for a collision) at signup.
+
 - Repriced Plus to $9/mo and Premium to $25/mo (from $5/$15) and cut Free's
   AI surface to effectively zero (SSE-206): career growth plans, skills
   analysis, resume strategy suggestions, and interview prep/quiz grading

@@ -27,6 +27,7 @@ from kall.api_shared_search import router as shared_search_router
 from kall.api_submissions import router as submissions_router
 from kall.api_tailoring import router as tailoring_router
 from kall.api_testimonials import router as testimonials_router
+from kall.api_unsubscribe import router as unsubscribe_router
 from kall.profile_api import router as profile_router
 
 API_ROUTERS = (
@@ -57,6 +58,7 @@ API_ROUTERS = (
     career_page_router,
     admin_router,
     admin_portal_router,
+    unsubscribe_router,
 )
 
 

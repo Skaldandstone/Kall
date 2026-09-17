@@ -24,6 +24,14 @@ def test_partial_identity_update_preserves_omitted_sensitive_fields(client, engi
         assert profile.postal_code_encrypted == "preserve-postal"
 
 
+def test_identity_includes_the_support_id(client) -> None:
+    response = client.get("/api/me/identity")
+    assert response.status_code == 200
+    support_id = response.json()["support_id"]
+    assert len(support_id) == 8
+    assert support_id.isdigit()
+
+
 def test_identity_returns_and_updates_the_phone_number(client) -> None:
     """Regression test: the profile page had no way to enter a phone number
     at all, so every generated resume's ATS "contact" check failed on

@@ -32,6 +32,23 @@ def test_branded_document_has_logo_preheader_and_preferences(monkeypatch) -> Non
     assert "@media only screen and (max-width:620px)" in html
 
 
+def test_document_includes_unsubscribe_link_only_when_given(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "kall.services.email_templates.get_settings",
+        lambda: SimpleNamespace(frontend_url="https://kall.example"),
+    )
+
+    without = render_email_document("Kall: Review your match", "<p>Body.</p>")
+    assert "Unsubscribe" not in without
+
+    with_link = render_email_document(
+        "Kall: Review your match", "<p>Body.</p>",
+        unsubscribe_url="https://kall.example/api/unsubscribe?token=abc",
+    )
+    assert 'href="https://kall.example/api/unsubscribe?token=abc"' in with_link
+    assert "Unsubscribe" in with_link
+
+
 def test_text_fallback_preserves_words_and_link_destinations() -> None:
     text = html_to_text(
         '<h2>Top matches</h2><p>Engineer &amp; artist</p>'
@@ -87,3 +104,38 @@ def test_ses_message_contains_html_and_plain_text(monkeypatch) -> None:
     assert body["Html"]["Data"].startswith("<!doctype html>")
     assert body["Text"]["Data"] == "Your strongest match is ready."
     assert sent["Destination"] == {"ToAddresses": ["person@example.test"]}
+
+
+def test_ses_message_carries_one_click_unsubscribe_headers_when_given(monkeypatch) -> None:
+    sent: dict = {}
+
+    class FakeSes:
+        def send_raw_email(self, **kwargs):
+            sent.update(kwargs)
+            return {"MessageId": "message-2"}
+
+    monkeypatch.setattr(
+        notifications,
+        "get_settings",
+        lambda: SimpleNamespace(ses_sender_email="support@kall.example", aws_region="us-east-2"),
+    )
+    monkeypatch.setattr(
+        "kall.services.email_templates.get_settings",
+        lambda: SimpleNamespace(frontend_url="https://kall.example"),
+    )
+    monkeypatch.setattr(notifications, "_ses_client", lambda _region: FakeSes())
+
+    message_id = NotificationService().send_email(
+        "person@example.test",
+        "Kall: Your morning brief",
+        "<p>Your strongest match is ready.</p>",
+        [],
+        unsubscribe_url="https://kall.example/api/unsubscribe?token=abc",
+    )
+
+    assert message_id == "message-2"
+    assert sent["Destinations"] == ["person@example.test"]
+    raw = sent["RawMessage"]["Data"].decode("utf-8")
+    assert "List-Unsubscribe: <https://kall.example/api/unsubscribe?token=abc>" in raw
+    assert "List-Unsubscribe-Post: List-Unsubscribe=One-Click" in raw
+    assert "Your strongest match is ready." in raw

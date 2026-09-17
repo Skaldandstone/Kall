@@ -78,6 +78,27 @@ def test_portal_user_lookup_detail_and_active_toggle(client, admin_token):
     assert resp.json() == []
 
 
+def test_portal_user_lookup_by_support_id(client, admin_token):
+    headers = {"X-Admin-Token": admin_token}
+
+    by_email = client.get("/api/admin/portal/users", params={"email": "test@"}, headers=headers).json()
+    support_id = by_email[0]["support_id"]
+
+    resp = client.get("/api/admin/portal/users", params={"support_id": support_id}, headers=headers)
+    assert resp.status_code == 200
+    users = resp.json()
+    assert len(users) == 1
+    assert users[0]["email"] == "test@example.com"
+
+    assert client.get("/api/admin/portal/users", params={"support_id": "00000000"}, headers=headers).json() == []
+
+
+def test_portal_user_lookup_requires_email_or_support_id(client, admin_token):
+    headers = {"X-Admin-Token": admin_token}
+    resp = client.get("/api/admin/portal/users", headers=headers)
+    assert resp.status_code == 400
+
+
 def test_portal_support_actions_change_plan_exemption_and_usage(client, admin_token, engine):
     """The support-tier actions the portal exposes: plan changes, lifting
     plan limits, and clearing the current period's counters. Each writes an

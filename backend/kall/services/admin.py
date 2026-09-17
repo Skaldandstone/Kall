@@ -72,11 +72,13 @@ def record_action(
 
 
 def find_users(session: Session, query: str | None, limit: int = 50) -> list[User]:
-    """Search by email or name. Deliberately not a full listing by default."""
+    """Search by email, name, or exact support ID. Deliberately not a full
+    listing by default."""
     statement = select(User).order_by(User.created_at.desc()).limit(limit)
     if query:
-        pattern = f"%{query.strip().lower()}%"
+        stripped = query.strip()
+        pattern = f"%{stripped.lower()}%"
         statement = select(User).where(
-            (User.email.ilike(pattern)) | (User.full_name.ilike(pattern))
+            (User.email.ilike(pattern)) | (User.full_name.ilike(pattern)) | (User.support_id == stripped)
         ).order_by(User.created_at.desc()).limit(limit)
     return list(session.exec(statement))

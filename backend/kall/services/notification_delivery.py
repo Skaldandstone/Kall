@@ -11,10 +11,12 @@ import logging
 import time
 from datetime import datetime, timedelta
 from html import escape
+from urllib.parse import quote
 
 from kall.clock import utcnow
 from kall.models.core import Job, User
 from kall.models.opportunities import NotificationDelivery, NotificationPreference
+from kall.security import unsubscribe_token
 from kall.services import work_claims
 from kall.services.email_templates import action_button, app_url, match_card, match_table
 from kall.services.notification_timing import (
@@ -396,7 +398,8 @@ def process_delivery(session: Session, delivery: NotificationDelivery, now: date
         service = NotificationService()
         try:
             if delivery.channel == "email":
-                message_id = service.send_email(user.email, subject, body, actions=[])
+                unsubscribe_url = app_url(f"/api/unsubscribe?token={quote(unsubscribe_token(user.id))}")
+                message_id = service.send_email(user.email, subject, body, actions=[], unsubscribe_url=unsubscribe_url)
             else:
                 message_id = service.send_push(session, user.id, subject, body, actions=[])
         except NotConfiguredError:

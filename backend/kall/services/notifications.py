@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from email.message import EmailMessage
 from functools import lru_cache
 from html import unescape
 
@@ -79,7 +80,12 @@ def _action_links_html(actions: list[NotificationAction]) -> str:
 
 class NotificationService:
     def send_email(
-        self, recipient: str, subject: str, html: str, actions: list[NotificationAction]
+        self,
+        recipient: str,
+        subject: str,
+        html: str,
+        actions: list[NotificationAction],
+        unsubscribe_url: str | None = None,
     ) -> str:
         settings = get_settings()
         if not settings.ses_sender_email:
@@ -90,20 +96,43 @@ class NotificationService:
 
         client = _ses_client(settings.aws_region)
         content = html + _action_links_html(actions)
-        body = render_email_document(subject, content)
+        body = render_email_document(subject, content, unsubscribe_url)
         text = html_to_text(content)
         try:
-            response = client.send_email(
-                Source=settings.ses_sender_email,
-                Destination={"ToAddresses": [recipient]},
-                Message={
-                    "Subject": {"Data": subject, "Charset": "UTF-8"},
-                    "Body": {
-                        "Html": {"Data": body, "Charset": "UTF-8"},
-                        "Text": {"Data": text, "Charset": "UTF-8"},
+            # send_raw_email only when there is a List-Unsubscribe header to
+            # add -- SES's Simple send_email API has no way to set custom
+            # headers at all, but a raw MIME message needs no other reason
+            # to exist, so the simple API stays the default path.
+            if unsubscribe_url:
+                message = EmailMessage()
+                message["Subject"] = subject
+                message["From"] = settings.ses_sender_email
+                message["To"] = recipient
+                # RFC 8058: List-Unsubscribe-Post is what tells Gmail/Yahoo/Apple
+                # Mail to POST the link themselves with no page ever shown to
+                # the person -- the https URL alone (no List-Unsubscribe-Post)
+                # only yields the older "open this link" behavior.
+                message["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+                message["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+                message.set_content(text)
+                message.add_alternative(body, subtype="html")
+                response = client.send_raw_email(
+                    Source=settings.ses_sender_email,
+                    Destinations=[recipient],
+                    RawMessage={"Data": message.as_bytes()},
+                )
+            else:
+                response = client.send_email(
+                    Source=settings.ses_sender_email,
+                    Destination={"ToAddresses": [recipient]},
+                    Message={
+                        "Subject": {"Data": subject, "Charset": "UTF-8"},
+                        "Body": {
+                            "Html": {"Data": body, "Charset": "UTF-8"},
+                            "Text": {"Data": text, "Charset": "UTF-8"},
+                        },
                     },
-                },
-            )
+                )
         except (ConnectTimeoutError, EndpointConnectionError) as error:
             raise RetryableDeliveryError("Could not connect to the email provider.") from error
         except ClientError as error:

@@ -18,6 +18,7 @@ from sqlmodel import Session, select
 from kall.config import get_settings
 from kall.db import get_session
 from kall.models import AccountDeletionRecord, CandidateProfile, User
+from kall.services.support_id import generate_support_id
 
 
 def bearer_token(authorization: str | None) -> str:
@@ -149,7 +150,10 @@ def ensure_local_user(session: Session, clerk_user_id: str) -> User:
     if user:
         user.clerk_user_id = clerk_user_id
     else:
-        user = User(clerk_user_id=clerk_user_id, email=email, full_name=full_name)
+        user = User(
+            clerk_user_id=clerk_user_id, email=email, full_name=full_name,
+            support_id=generate_support_id(session),
+        )
 
     try:
         session.add(user)

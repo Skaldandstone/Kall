@@ -170,10 +170,7 @@ export default function NotificationSettings() {
         </label>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.6 }}>
-        <input type="checkbox" checked={false} disabled />
-        Push notifications on mobile (coming once app store credentials are set up)
-      </label>
+      <p className="muted">Push notifications are available in the Kall mobile app -- turn them on from its Notifications screen.</p>
 
       <div className="actions">
         <button className="button" type="submit" disabled={saving}>

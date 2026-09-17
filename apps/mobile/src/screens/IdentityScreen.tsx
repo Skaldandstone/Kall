@@ -82,6 +82,12 @@ export default function IdentityScreen() {
       <Text selectable style={styles.email}>
         {identity.email}
       </Text>
+      <Text selectable style={styles.email}>
+        Support ID {identity.support_id.replace(/(\d{4})(\d{4})/, "$1 $2")}
+      </Text>
+      <Text style={styles.supportIdHint}>
+        Quote this instead of your email when contacting support.
+      </Text>
       {fields.map((field) => (
         <View key={field.key} style={styles.field}>
           <Text style={styles.label}>{field.label}</Text>
@@ -131,6 +137,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   email: { color: theme.textSecondary, marginBottom: 20 },
+  supportIdHint: { color: theme.textSecondary, fontSize: 12, marginTop: -16, marginBottom: 20 },
   field: { marginBottom: 14 },
   label: {
     color: theme.textSecondary,
