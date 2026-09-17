@@ -26,3 +26,17 @@ def decrypt_sensitive(value: str | None) -> str | None:
         return _fernet().decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken:
         return None
+
+
+def unsubscribe_token(user_id: int) -> str:
+    """An opaque, unforgeable token identifying a user for the one-click
+    List-Unsubscribe endpoint -- no session, no login, so a mail client can
+    POST it with no user interaction (RFC 8058)."""
+    return encrypt_sensitive(str(user_id)) or ""
+
+
+def user_id_from_unsubscribe_token(token: str) -> int | None:
+    decrypted = decrypt_sensitive(token)
+    if decrypted is None or not decrypted.isdigit():
+        return None
+    return int(decrypted)

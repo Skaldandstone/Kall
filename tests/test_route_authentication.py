@@ -22,6 +22,11 @@ PUBLIC_ROUTE_PATHS = {
     # here (see api_email_connections.py's _user_id_from_state), same
     # trust model as a testimonial's token_hash above.
     "/me/email-connections/{provider}/callback",
+    # A mail client following List-Unsubscribe must be able to POST this with
+    # no session and no user interaction at all (RFC 8058) -- the encrypted
+    # token itself is the authentication, same trust model as the two routes
+    # above.
+    "/unsubscribe",
 }
 AUTHENTICATION_DEPENDENCIES = {
     "get_current_user",

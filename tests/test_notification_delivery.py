@@ -84,7 +84,7 @@ def test_an_unconfigured_provider_leaves_the_row_queued_not_failed(engine, monke
 def test_a_configured_provider_sends_and_marks_delivered(engine, monkeypatch) -> None:
     sent = {}
 
-    def fake_send_email(self, recipient, subject, html, actions):
+    def fake_send_email(self, recipient, subject, html, actions, unsubscribe_url=None):
         sent.update(recipient=recipient, subject=subject, html=html)
 
     monkeypatch.setattr(NotificationService, "send_email", fake_send_email)
@@ -349,7 +349,7 @@ def test_the_queued_brief_renders_from_the_same_logic_the_in_app_page_uses(engin
     email must say the same thing GET /me/morning-brief would show right now,
     not a second, independently-drifting copy of that logic."""
     sent = {}
-    monkeypatch.setattr(NotificationService, "send_email", lambda self, recipient, subject, html, actions: sent.update(subject=subject, html=html))
+    monkeypatch.setattr(NotificationService, "send_email", lambda self, recipient, subject, html, actions, unsubscribe_url=None: sent.update(subject=subject, html=html))
 
     with Session(engine) as session:
         user = _user(session)

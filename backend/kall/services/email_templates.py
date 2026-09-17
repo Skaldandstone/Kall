@@ -61,11 +61,15 @@ def match_table(rows: list[str]) -> str:
     )
 
 
-def render_email_document(subject: str, content_html: str) -> str:
+def render_email_document(subject: str, content_html: str, unsubscribe_url: str | None = None) -> str:
     """Wrap trusted notification markup in Kall's responsive email chrome."""
     title = subject.removeprefix("Kall: ")
     logo_url = app_url("/icon-192.png")
     preferences_url = app_url("/settings/notifications")
+    unsubscribe_link = (
+        f' &middot; <a href="{escape(unsubscribe_url, quote=True)}" style="color:#50667f;text-decoration:underline">Unsubscribe</a>'
+        if unsubscribe_url else ""
+    )
     preheader = re.sub(r"\s+", " ", html_to_text(content_html)).strip()[:140]
     return f'''<!doctype html>
 <html lang="en">
@@ -112,7 +116,7 @@ def render_email_document(subject: str, content_html: str) -> str:
         </td></tr>
         <tr><td class="email-footer email-pad" style="padding:20px 32px 0;font-family:Arial,sans-serif;color:#667486;font-size:12px;line-height:19px">
           Kall is your career workspace from Skald &amp; Stone.<br>
-          <a href="{escape(preferences_url, quote=True)}" style="color:#50667f;text-decoration:underline">Manage notification preferences</a>
+          <a href="{escape(preferences_url, quote=True)}" style="color:#50667f;text-decoration:underline">Manage notification preferences</a>{unsubscribe_link}
         </td></tr>
       </table>
     </td></tr>
