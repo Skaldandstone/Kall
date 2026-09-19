@@ -124,6 +124,26 @@ and webhook destination. No controlled live charge or refund has been performed.
 > regions from that US reference for both Kall Plus Monthly and Kall
 > Premium Monthly. Confirmed both products now show US $9.00 and $25.00
 > respectively in each console.
+>
+> **18 September 2026**: found and fixed a live regression from the price
+> archiving above via a routine Sentry sweep -- `checked_portal_configuration()`
+> (`backend/kall/services/stripe_billing.py:150`) requires the Stripe
+> customer-portal configuration's `subscription_update.products` allowlist
+> to match the app's current price catalog exactly, and archiving the old
+> prices without updating that Stripe-side object left it still pointing
+> at the old, now-archived `price_1UB0nkLDE8FHWLmdAPU6aofY`/
+> `price_1UB0njLDE8FHWLmdmDCbWyPx`. Any existing subscriber opening "Manage
+> billing" to switch plans got a 503 ("Customer portal includes unapproved
+> products or prices") -- confirmed via Sentry issue KALL-API-6 and a
+> direct read of the live portal configuration (`bpc_1UB8r1LDE8FHWLmdXGogNRS4`).
+> New checkouts were unaffected (that path stopped calling this check in a
+> later refactor). Fixed directly in the Stripe Dashboard (the connected
+> Stripe MCP key lacks `customer_portal_write`): removed both archived
+> prices from the portal's subscription-update product list and added the
+> current $9/$25 prices in their place. Confirmed via the Stripe API that
+> `subscription_update.products` now lists exactly
+> `price_1UGRZALDE8FHWLmdffpdMpwZ` (Plus) and
+> `price_1UGRZhLDE8FHWLmdhgzXGPfP` (Premium).
 
 > **16 September 2026, API+web release:** source commit
 > `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised

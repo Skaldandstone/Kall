@@ -43,7 +43,8 @@
         "KALL_MOBILE_RELEASE": "1",
         "API_BASE_URL": "https://kall.skaldandstone.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsua2FsbC5za2FsZGFuZHN0b25lLmNvbSQ",
-        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496"
+        "EXPO_PUBLIC_SENTRY_DSN": "https://54e8d5870510e35375dbfaa7289ec944@o4512015786377216.ingest.us.sentry.io/4512054697066496",
+        "KALL_MOBILE_ALLOW_REGISTRATION": "1"
       },
       "android": {
         "buildType": "app-bundle"

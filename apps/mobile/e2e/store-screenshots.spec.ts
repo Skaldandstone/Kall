@@ -108,8 +108,12 @@ function seedApplications(email: string): void {
 }
 
 test.use({
+  // iphone/ipad multiplied by their deviceScaleFactor below must land on one
+  // of App Store Connect's accepted pixel sizes for that display class
+  // (6.5" iPhone: 1284x2778; 13" iPad: 2064x2752) -- these are not just
+  // "big enough", Apple's uploader rejects anything off that exact list.
   viewport: screenshotTarget === 'iphone'
-    ? { width: 430, height: 932 }
+    ? { width: 428, height: 926 }
     : screenshotTarget === 'ipad'
       ? { width: 1032, height: 1376 }
       : { width: 360, height: 640 },
