@@ -70,6 +70,8 @@ module.exports = ({ config }) => {
       '@clerk/expo',
       'expo-web-browser',
       'expo-notifications',
+      'expo-sharing',
+      './plugins/with-r8-full-mode',
       ['@sentry/react-native/expo', {
         organization: 'skald-and-stone',
         project: 'kall-mobile-sp',
