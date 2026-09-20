@@ -104,6 +104,18 @@ assert.ok(
   billingSource.includes('Purchases.purchasePackage') && billingSource.includes('Purchases.restorePurchases()'),
   'iOS billing must support StoreKit purchase and explicit restore flows.',
 );
+// Paid tiers gate real features -- the free plan's AI allowance is zero and
+// growth plans, skills analysis, resume strategy, and interview prep require
+// Plus (see backend/kall/services/quota.py). A store build without native
+// purchases therefore ships upgrade walls with no way through them, which
+// fails App Review and strands paying-intent users. app.config.js refuses to
+// resolve a release build that enables purchases without the platform
+// RevenueCat key, so this flag cannot be on with the key missing.
+assert.equal(
+  eas.build?.production?.env?.KALL_MOBILE_PURCHASES_ENABLED,
+  '1',
+  'The production profile must enable native purchases; gated features are unreachable in a build that cannot sell the plan that unlocks them.',
+);
 assert.ok(
   appSource.includes('ReleaseResetGate') &&
     releaseResetSource.includes('Application.nativeApplicationVersion') &&

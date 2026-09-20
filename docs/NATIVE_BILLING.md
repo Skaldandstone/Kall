@@ -84,11 +84,44 @@ Google Play Console and App Store Connect before submission.
    subscription group are ready. Add the Apple public SDK key only to iOS builds,
    configure both Apple products together, and repeat sandbox/TestFlight tests.
 
-If provider setup is incomplete, leave `EnableRevenueCatNative=false` and
-`KALL_MOBILE_PURCHASES_ENABLED` unset. The mobile billing screen then stays
-read-only: it shows the plan and usage the account already has and deliberately
-does not link out to web billing, because Google Play and the App Store both
-prohibit pointing an app at an external checkout for a digital subscription.
+Store builds always enable `KALL_MOBILE_PURCHASES_ENABLED` -- it is set on the
+shared `production` profile and asserted by both store preflights. Paid tiers
+gate real features (the free plan's AI allowance is zero, and growth plans,
+skills analysis, resume strategy, and interview prep require Plus), so a store
+build that cannot sell those plans ships upgrade walls with no way through, and
+App Review reads that as a broken app.
+
+The server decides whether purchasing is actually offered: the billing screen
+shows packages only when the client flag and the API's `native_enabled` are both
+true, so while `EnableRevenueCatNative=false` the screen stays read-only, showing
+the plan and usage the account already has. It deliberately does not link out to
+web billing either way, because Google Play and the App Store both prohibit
+pointing an app at an external checkout for a digital subscription. That split is
+what lets the client ship ready while provider setup finishes: turn the stack
+parameter on when the store products, imports, and offering are complete, with no
+new build.
+
+## iOS purchase activation
+
+Before a purchases-enabled iOS build goes to review:
+
+1. Give RevenueCat a dedicated App Store Connect API key so it can import the
+   products and track prices, then import both Apple products, map them to the
+   `plus` and `premium` entitlements, and publish an offering containing both.
+2. Complete the App Store Connect paid-app prerequisites the subscriptions
+   depend on -- banking, tax, and trader information -- and add the required
+   review screenshot to each subscription.
+3. Submit both subscriptions in the same submission as the build. Apple expects
+   in-app purchases to be reviewed alongside the app; products left in Prepare
+   for Submission are not reviewed, and a build whose gated features cannot be
+   unlocked is rejected.
+4. Set `EnableRevenueCatNative=true` with both Apple product IDs on the
+   production stack (the template requires the two Apple products to be
+   configured together or not at all).
+5. Verify in a sandbox build: purchase both tiers, confirm the entitlement the
+   API reports and the `app_store` source, restore purchases on a second device,
+   and confirm cancellation leaves access until expiry. Apple refunds are never
+   issued by Kall; the staff portal shows the customer-facing steps instead.
 
 ## Provider checkpoint: 10 September 2026
 

@@ -212,6 +212,17 @@ assert.ok(
     billingSource.includes('Purchases.restorePurchases()'),
   'The mobile billing screen must support store purchase and explicit restore flows.',
 );
+// Both stores release from the shared "production" profile (see
+// scripts/release-store.mjs), and paid tiers gate real features -- the free
+// plan's AI allowance is zero, with growth plans, skills analysis, resume
+// strategy, and interview prep behind Plus (backend/kall/services/quota.py).
+// Shipping a store build that cannot sell those plans leaves the walls
+// standing with no way through.
+assert.equal(
+  eas.build?.production?.env?.KALL_MOBILE_PURCHASES_ENABLED,
+  '1',
+  'The production profile must enable native purchases; gated features are unreachable in a build that cannot sell the plan that unlocks them.',
+);
 assert.ok(
   updateSource.includes('/mobile-release'),
   'Android must check the public mobile release manifest when the app loads.',
