@@ -139,7 +139,15 @@ options are available right now" rather than staying read-only. Sequence it:
 3. Flip `EnableRevenueCatNative=true` with all four product IDs -- the Google
    pair in the colon form RevenueCat reports (`kall_plus_monthly:monthly`), the
    Apple pair as their bundle-style identifiers. A bare Google subscription ID
-   maps every purchase to `free`.
+   maps every purchase to `free`. `scripts/enable_native_billing.py` builds that
+   change set from these identifiers, keeps every other parameter at its current
+   value, and deliberately stops short of executing it:
+
+       python scripts/enable_native_billing.py --stack <name> --sandbox --dry-run
+       python scripts/enable_native_billing.py --stack <name> --sandbox
+
+   Read the change set, then execute it yourself. Drop `--sandbox` to narrow
+   accepted environments back to `PRODUCTION` once verification passes.
 4. Verify per platform against the live stack, with a license tester on Play and
    a sandbox account on Apple: purchase both tiers, confirm the plan and the
    expected source (`play_store` or `app_store`) without inspecting receipts,
