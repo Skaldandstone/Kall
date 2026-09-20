@@ -123,6 +123,37 @@ Before a purchases-enabled iOS build goes to review:
    and confirm cancellation leaves access until expiry. Apple refunds are never
    issued by Kall; the staff portal shows the customer-facing steps instead.
 
+## Going live on both platforms
+
+`EnableRevenueCatNative` is one switch for both stores, and the template requires
+the two Apple products to be configured together or not at all. So the flip is a
+single moment for Android and iOS, not two independent launches, and a platform
+whose RevenueCat offering is not yet published shows "No mobile subscription
+options are available right now" rather than staying read-only. Sequence it:
+
+1. Finish both stores' provider setup (the Android order above, then the iOS
+   order). Each platform needs its products imported, mapped to the `plus` and
+   `premium` entitlements, and a published offering containing both packages.
+2. Submit the Apple subscriptions in the same App Store submission as the build.
+   Play products are already active, so Android needs no equivalent step.
+3. Flip `EnableRevenueCatNative=true` with all four product IDs -- the Google
+   pair in the colon form RevenueCat reports (`kall_plus_monthly:monthly`), the
+   Apple pair as their bundle-style identifiers. A bare Google subscription ID
+   maps every purchase to `free`.
+4. Verify per platform against the live stack, with a license tester on Play and
+   a sandbox account on Apple: purchase both tiers, confirm the plan and the
+   expected source (`play_store` or `app_store`) without inspecting receipts,
+   restore on a second device, and confirm cancellation leaves access until
+   expiry. `tests/test_native_billing.py` covers the server's side of this --
+   both stores' catalogs, the store/product pairing, and two active stores
+   resolving to the higher plan -- so a failure here is provider configuration,
+   not mapping logic.
+5. Record the result as its own go/no-go, as `PRODUCTION_READINESS.md` requires
+   for live billing.
+
+If one platform's offering is not ready when the other is, hold the flip: a
+published offering on both sides is what makes the single switch safe.
+
 ## Provider checkpoint: 10 September 2026
 
 - Stripe web billing is live with the Kall-only Plus and Premium monthly catalog
