@@ -10,6 +10,11 @@
 import { autofillPack, captureJob, deps, listApplications, listProfessionalProfiles, NotSignedInError, resumeDataUrl } from './api.js';
 import { getClerk, getSessionToken, onAuthChange, openSignIn } from './auth.js';
 import { matchFields } from './matcher.js';
+import { captureException, initSentry } from './sentry.js';
+
+// First, so a failure anywhere below (including Clerk's own load) is
+// reported. Inert unless a DSN was compiled in -- see sentry.js.
+void initSentry();
 
 // api.js does not import auth.js itself (see api.js's own comment on `deps`)
 // so this is the one place that connects them.
@@ -80,6 +85,7 @@ async function loadApplications() {
     // signed-out one. Left uncaught, this would leave the popup stuck on
     // its initial "Loading..." forever with nothing but a console error to
     // explain why.
+    captureException(error, { stage: 'clerk-load' });
     applicationSelect.innerHTML = '<option>Unavailable</option>';
     render(`<p class="problem">Could not connect to Kall's sign-in: ${escapeHtml(error.message)}</p>`);
     return;
@@ -105,6 +111,7 @@ async function loadApplications() {
       renderSignedOut();
       return;
     }
+    captureException(error, { stage: 'list-applications' });
     applicationSelect.innerHTML = '<option>Unavailable</option>';
     render(`<p class="problem">${escapeHtml(error.message)}</p>`);
   }
@@ -124,6 +131,7 @@ async function loadProfiles() {
     captureButton.disabled = false;
   } catch (error) {
     if (error instanceof NotSignedInError) return; // renderSignedOut already covers this
+    captureException(error, { stage: 'list-profiles' });
     profileSelect.innerHTML = '<option>Unavailable</option>';
     renderCapture(`<p class="problem">${escapeHtml(error.message)}</p>`);
   }
@@ -150,6 +158,7 @@ async function capture() {
     });
     renderCapture(`<p>Saved -- ${saved.match_score}% match. Find it in your opportunity inbox.</p>`);
   } catch (error) {
+    if (!(error instanceof NotSignedInError)) captureException(error, { stage: 'capture' });
     renderCapture(
       error instanceof NotSignedInError
         ? `<p class="problem">${escapeHtml(error.message)}</p>`
@@ -186,6 +195,7 @@ async function fill() {
           ? `<p>Attached <strong>${escapeHtml(result.filename)}</strong>.</p>`
           : `<p class="withheld">Resume not attached: ${escapeHtml(result.reason)}</p>`;
       } catch (error) {
+        captureException(error, { stage: 'attach-resume' });
         resumeNote = `<p class="problem">Resume not attached: ${escapeHtml(error.message)}</p>`;
       }
     }
@@ -209,6 +219,7 @@ async function fill() {
       <section><p class="note">Check every field, then submit the form yourself.</p></section>
     `);
   } catch (error) {
+    if (!(error instanceof NotSignedInError)) captureException(error, { stage: 'fill' });
     render(
       error instanceof NotSignedInError
         ? `<p class="problem">${escapeHtml(error.message)}</p>`
