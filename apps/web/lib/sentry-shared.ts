@@ -29,6 +29,16 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
     const { method } = event.request;
     event.request = method ? { method } : {};
   }
+  // Sentry.captureRequestError (wired through onRequestError in
+  // instrumentation.ts) records the concrete path under
+  // contexts.nextjs.request_path, so the slug scrubbed from the URL above
+  // would otherwise leave through this side door. Drop it and keep
+  // router_path, the parametrised route, which is enough to find the
+  // failing handler.
+  const nextjs = event.contexts?.nextjs;
+  if (nextjs) {
+    delete nextjs.request_path;
+  }
   return event;
 }
 
