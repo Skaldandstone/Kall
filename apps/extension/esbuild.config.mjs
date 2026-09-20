@@ -25,7 +25,9 @@ await build({
   // Sentry's DSN is compiled in rather than read at runtime: the popup has
   // no server to ask and a DSN is public by design (it can only send
   // events to one project). Unset -> an empty string -> src/sentry.js never
-  // loads the SDK, so local builds and CI stay inert. See .env.example.
+  // initializes the SDK, so local builds and CI stay inert. (The SDK's code
+  // is still bundled: esbuild inlines the dynamic import() behind the DSN
+  // check; only its initializer is skipped.) See .env.example.
   define: {
     __SENTRY_DSN__: JSON.stringify(process.env.SENTRY_DSN ?? ""),
     __SENTRY_ENVIRONMENT__: JSON.stringify(process.env.SENTRY_ENVIRONMENT ?? ""),

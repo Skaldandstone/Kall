@@ -195,7 +195,7 @@ async function fill() {
           ? `<p>Attached <strong>${escapeHtml(result.filename)}</strong>.</p>`
           : `<p class="withheld">Resume not attached: ${escapeHtml(result.reason)}</p>`;
       } catch (error) {
-        captureException(error, { stage: 'attach-resume' });
+        if (!(error instanceof NotSignedInError)) captureException(error, { stage: 'attach-resume' });
         resumeNote = `<p class="problem">Resume not attached: ${escapeHtml(error.message)}</p>`;
       }
     }

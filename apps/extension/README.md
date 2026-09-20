@@ -41,7 +41,8 @@ holds the configuration; `content.js` is deliberately not instrumented
 because it runs inside the employer's page.
 
 The DSN is compiled into the bundle at build time and the SDK is inert
-without one:
+without one -- the code is still in `popup.bundle.js` (esbuild inlines the
+dynamic import), but it is never initialized and nothing is sent:
 
 ```bash
 SENTRY_DSN=https://...@o....ingest.us.sentry.io/... npm run build
@@ -52,3 +53,8 @@ version becomes the release (`kall-extension@<version>`). See `.env.example`
 and `docs/PRODUCTION_DEPLOYMENT.md` section 3a. A DSN is public by design (it
 can only send events to one project), which is why it can live in a build
 step rather than a secret store. CI builds without one and sends nothing.
+
+Outgoing events are scrubbed in `scrubEvent`: user, breadcrumbs and request
+data are dropped, and any URL inside an error message (Chrome writes the
+active tab's URL into its own `Cannot access contents of url "..."` error)
+is replaced with `<url>` before it leaves the extension.

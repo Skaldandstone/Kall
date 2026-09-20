@@ -20,9 +20,12 @@
  *
  * The DSN arrives at build time: esbuild.config.mjs defines __SENTRY_DSN__
  * from the SENTRY_DSN environment variable (a DSN is public by design -- it
- * can only send events to one project). With no DSN, nothing here loads
- * @sentry/browser at all, so local builds, CI and the unit tests never
- * touch the network.
+ * can only send events to one project). With no DSN, initSentry() resolves
+ * to null before the dynamic import() below runs, so the SDK is never
+ * initialized and no event is ever built or sent: local builds, CI and the
+ * unit tests never touch the network. (esbuild inlines the dynamic import,
+ * so the SDK's code is still present in every popup.bundle.js -- it just
+ * never executes without a DSN.)
  */
 
 /* global __SENTRY_DSN__, __SENTRY_ENVIRONMENT__ */
@@ -45,6 +48,8 @@ export const EXCLUDED_INTEGRATIONS = [
   'ConversationId',
   'GlobalHandlers',
   'FunctionToString',
+  // Locale + timezone: a weak fingerprint, and nothing a stack trace needs.
+  'CultureContext',
 ];
 
 export const IGNORED_ERRORS = [
@@ -57,10 +62,37 @@ export const IGNORED_ERRORS = [
   'Sign in to Kall, then try again.',
 ];
 
+/**
+ * URL-shaped substrings inside error text. Chrome itself writes the active
+ * tab's URL into some of its own error messages -- for example
+ * chrome.scripting.executeScript rejects with
+ *   Cannot access contents of url "https://<full tab URL>". Extension
+ *   manifest must request permission to access this host.
+ * whenever the tab is a page activeTab cannot reach, and that URL is the
+ * job posting the person is applying to. Matches bare and quoted URLs on
+ * the web, extension and file schemes; the replacement keeps the sentence
+ * readable in Sentry.
+ */
+const URL_PATTERN = /(?:https?|file|chrome(?:-extension)?):\/\/[^\s"'`<>]*[^\s"'`<>.,;:!?)]/g;
+const URL_PLACEHOLDER = '<url>';
+
+/** Replace every URL in a string with the placeholder; non-strings pass through. */
+export function redactUrls(text) {
+  return typeof text === 'string' ? text.replace(URL_PATTERN, URL_PLACEHOLDER) : text;
+}
+
 /** Strip anything that could identify a person from an outgoing event. */
 export function scrubEvent(event) {
   delete event.user;
   delete event.breadcrumbs;
+  if (typeof event.message === 'string') {
+    event.message = redactUrls(event.message);
+  }
+  // exception.values holds the whole cause chain (LinkedErrors stays
+  // enabled), so every value is scrubbed, not just the outermost one.
+  for (const value of event.exception?.values ?? []) {
+    if (value && typeof value.value === 'string') value.value = redactUrls(value.value);
+  }
   if (event.request) {
     // The popup's own URL is a fixed chrome-extension:// path and says
     // nothing useful, but the SDK may also pick up the active tab's URL
