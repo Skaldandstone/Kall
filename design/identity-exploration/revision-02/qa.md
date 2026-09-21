@@ -4,7 +4,7 @@ Visual QA recorded 30 August 2026. Update 31 August: **Inscription direction sel
 
 ## What was actually opened and inspected
 
-All three final 1536 x 1024 raster boards were opened as bitmaps. Review checked the crossing-stave silhouette, stone treatment, palette, legible large copy and distinct typography. The first Inscription output had malformed type and gold staves. Both were corrected using an image-generation edit and the corrected bitmap was reopened. No Tomte or Wispling branding was borrowed.
+All three final 1536 x 1024 raster boards were opened as bitmaps. Review checked the crossing-stave silhouette, stone treatment, palette, legible large copy and distinct typography. The first Inscription output had malformed type and gold staves. Both were corrected using an image-generation edit and the corrected bitmap was reopened. No Vordling or Wispling branding was borrowed.
 
 All 16 desktop JPEGs and all 16 mobile JPEGs were opened through browser screenshot output and visually inspected, including the eight controls. Desktop capture width is 1440px. Mobile width is 375px; the 1805px capture height presents the complete scroll study, not a physical phone viewport. Layout was also measured at 375 x 900 before mobile capture.
 
