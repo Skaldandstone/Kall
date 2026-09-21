@@ -76,15 +76,15 @@ rejection, and the fastest route to a second one.
 | Item | Value |
 | --- | --- |
 | Decision | Ship public sign-up (invite-only ends) |
-| Decided by | |
-| Date | |
-| Allowlist secret populated | |
-| Clerk self-service sign-up enabled | |
-| `EnablePublicSignup` set to true (change set ID) | |
-| iOS new-account registration verified | |
-| Web new-account registration verified | |
-| Existing invited account unaffected | |
-| New account on free plan with correct quotas | |
-| Account deletion verified | |
-| Sentry clean after first hour | |
-| Rollback rehearsed or accepted as parameter flip | |
+| Decided by | James Shattuck |
+| Date | 2026-09-17 (deployed); confirmed against live infrastructure 2026-09-21 |
+| `EnablePublicSignup` set to true | Confirmed: `kall-production` stack, `UPDATE_COMPLETE`, last updated 2026-09-17T20:12:49Z |
+| `ALPHA_INVITE_ONLY=false` running | Confirmed on both the API and web ECS task definitions currently in service (running count = desired count on each, 2026-09-21) |
+| Clerk self-service sign-up enabled | Not independently checkable from this session (no Clerk admin access) — the backend gate is open regardless; confirm on the Clerk side if registration still fails in practice |
+| iOS new-account registration verified | Pending a real on-device pass before recording the App Review video |
+| Web new-account registration verified | Pending |
+| Existing invited account unaffected | Pending |
+| New account on free plan with correct quotas | Pending |
+| Account deletion verified | Pending |
+| Sentry clean after first hour | N/A — this was already live days before this check, not a fresh flip |
+| Rollback rehearsed or accepted as parameter flip | Accepted as a parameter flip (untested) |
