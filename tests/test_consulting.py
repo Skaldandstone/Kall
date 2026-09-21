@@ -36,7 +36,7 @@ def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(clien
         captured["queries"] = queries
         return {
             "enabled": True,
-            "results": [{"title": "Interim VP Quality", "url": "https://catalant.com/x", "snippet": "…", "provider": "Catalant", "domain": "catalant.com"}],
+            "results": [{"title": "Interim VP Quality", "url": "https://execthread.com/listings/x", "snippet": "…", "provider": "ExecThread", "domain": "execthread.com/listings"}],
             "sites_searched": len(queries),
             "sites_failed": 0,
         }
@@ -70,27 +70,33 @@ def test_discovery_plan_turns_a_profile_and_owned_contacts_into_lead_paths(clien
     assert "quality risk" in payload["positioning"]
     assert len(payload["qualification_questions"]) == 5
     assert {item["provider"] for item in payload["searches"]} == {
-        "Catalant",
-        "Business Talent Group",
-        "Contra",
-        "Open web",
+        "ExecThread",
+        "FractionalJobs.io",
+        "GoFractional",
+        "Fractionus",
     }
     assert all(item["search_url"].startswith("https://www.google.com/search?q=") for item in payload["searches"])
     assert payload["warm_lead_prompts"][0]["name"] == "Avery Morgan"
     # The searches actually run server-side, not just handed back as links.
-    assert [item["provider"] for item in captured["queries"]] == ["Catalant", "Business Talent Group", "Contra", "Open web"]
-    assert captured["queries"][0]["domain"] == "catalant.com"
-    assert captured["queries"][3]["domain"] == ""
+    assert [item["provider"] for item in captured["queries"]] == ["ExecThread", "FractionalJobs.io", "GoFractional", "Fractionus"]
+    assert captured["queries"][0]["domain"] == "execthread.com/listings"
+    assert all(item["domain"] for item in captured["queries"])  # every board has a real, path-restricted domain now
+    # intitle: keeps a site: search matching one specific listing's own page
+    # title instead of the board's homepage; ?focus overrides target_titles.
+    assert captured["queries"][0]["query"] == 'site:execthread.com/listings (intitle:"quality risk") (health tech)'
     assert payload["search_enabled"] is True
     assert payload["results"] == [{
-        "title": "Interim VP Quality", "url": "https://catalant.com/x", "snippet": "…",
-        "provider": "Catalant", "suggested_segment": "marketplace",
+        "title": "Interim VP Quality", "url": "https://execthread.com/listings/x", "snippet": "…",
+        "provider": "ExecThread", "suggested_segment": "marketplace",
     }]
 
     # No focus is required: the profile alone produces a plan.
     unfocused = client.get(f"{BASE}/discovery-plan/{profile.id}")
     assert unfocused.status_code == 200
     assert "release readiness" in unfocused.json()["positioning"]
+    unfocused_intent = captured["queries"][0]["query"]
+    assert 'intitle:"VP Quality"' in unfocused_intent
+    assert 'intitle:"release readiness"' in unfocused_intent
 
     with Session(engine) as session:
         other = User(clerk_user_id="user_other_profile", email="profile-owner@example.com", full_name="Other")

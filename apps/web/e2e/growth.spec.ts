@@ -7,10 +7,26 @@ import { test, expect, signInAsNewUser } from './helpers';
  * configured in the e2e environment, so this exercises the deterministic
  * fallback path (backend/kall/api_growth.py's `_deterministic_plan_content`)
  * -- the path every CI run and most local dev actually takes.
+ *
+ * Growth plans require Plus (SSE-206), so the fresh Free-tier account this
+ * test starts with is upgraded through the real admin console before
+ * exercising the feature -- the same mechanism admin.spec.ts covers -- to
+ * verify the feature itself rather than the paywall it now sits behind.
  */
-test('creating a career goal produces a plan, and resources can be saved and pinned', async ({ page }) => {
+test('creating a career goal produces a plan, and resources can be saved and pinned', async ({ page, browser }) => {
 
-  await signInAsNewUser(page, 'Growth Section Test');
+  const { email } = await signInAsNewUser(page, 'Growth Section Test');
+
+  const adminContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  await signInAsNewUser(adminPage, 'Growth Test Admin', 'skaldandstone.com');
+  await adminPage.goto('/admin');
+  await adminPage.locator('input[name="q"]').fill(email);
+  await adminPage.getByRole('button', { name: 'Search' }).click();
+  await adminPage.getByText(email).click();
+  await adminPage.getByRole('button', { name: 'Set plus' }).click();
+  await expect(adminPage.getByRole('button', { name: 'Set plus' })).toBeDisabled();
+  await adminContext.close();
 
   await page.goto('/profiles?tab=growth');
 

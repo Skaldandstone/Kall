@@ -146,3 +146,59 @@ def test_sandbox_requires_explicit_acceptance(client, monkeypatch):
     assert _post(client, payload).status_code == 400
     _configure(monkeypatch, "PRODUCTION,SANDBOX")
     assert _post(client, payload).status_code == 200
+
+
+def _apple_event(event_id: str, product_id=APPLE_PLUS, **overrides):
+    return _event(
+        event_id,
+        store="APP_STORE",
+        product_id=product_id,
+        original_transaction_id=overrides.pop("original_transaction_id", "1000000987654321"),
+        **overrides,
+    )
+
+
+def test_apple_purchase_grants_plan_and_status_reports_app_store(client, engine, monkeypatch):
+    _configure(monkeypatch)
+    response = _post(client, _apple_event("evt-apple-purchase", product_id=APPLE_PREMIUM))
+    assert response.json() == {"received": True, "ignored": False}
+
+    with Session(engine) as session:
+        rows = session.exec(select(StoreSubscription)).all()
+        assert len(rows) == 1
+        assert rows[0].store == "APP_STORE" and rows[0].environment == "PRODUCTION"
+        assert session.get(User, client.user_id).plan == "premium"
+    assert client.get("/api/billing/status").json()["sources"] == ["app_store"]
+
+
+def test_product_ids_only_count_for_their_own_store(client, engine, monkeypatch):
+    """The catalog is keyed by (store, product_id), not product_id alone.
+
+    An Apple identifier arriving on a Play event -- a spoofed or misrouted
+    delivery, or a RevenueCat project wired to the wrong app -- must not grant
+    anything, and neither must the reverse. This is the pairing that keeps one
+    store's catalog from unlocking plans through the other's webhook.
+    """
+    _configure(monkeypatch)
+    apple_id_on_play = _post(client, _event("evt-cross-1", product_id=APPLE_PLUS))
+    google_id_on_apple = _post(
+        client, _apple_event("evt-cross-2", product_id=GOOGLE_PREMIUM, original_transaction_id="1000000111222333")
+    )
+    assert apple_id_on_play.json() == {"received": True, "ignored": True}
+    assert google_id_on_apple.json() == {"received": True, "ignored": True}
+    with Session(engine) as session:
+        assert session.exec(select(StoreSubscription)).all() == []
+        assert session.get(User, client.user_id).plan == "free"
+
+
+def test_both_stores_active_keeps_the_highest_plan_and_lists_both_sources(client, engine, monkeypatch):
+    _configure(monkeypatch)
+    assert _post(client, _event("evt-play-plus")).json()["ignored"] is False
+    assert _post(
+        client, _apple_event("evt-apple-premium", product_id=APPLE_PREMIUM)
+    ).json()["ignored"] is False
+
+    with Session(engine) as session:
+        assert len(session.exec(select(StoreSubscription)).all()) == 2
+        assert session.get(User, client.user_id).plan == "premium"
+    assert client.get("/api/billing/status").json()["sources"] == ["app_store", "play_store"]

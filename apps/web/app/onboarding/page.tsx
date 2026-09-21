@@ -205,7 +205,7 @@ export default function Onboarding() {
       try {
         const suggestResponse = await fetchKall(`/me/resumes/${resume.id}/suggest-strategy`, {
           method: 'POST'
-        });
+        }, { suppressPlanLimitDialog: true });
         if (suggestResponse.ok) {
           const body = await suggestResponse.json();
           setSuggestion(body.suggestion ?? null);

@@ -27,10 +27,14 @@
   command, not into this folder.
 - `listing.md` -- short/full description copy for the Play Console listing
   form.
-- `screenshots/` -- six phone screenshots (1080x1920) captured against a
+- `screenshots/` -- five phone screenshots (1080x1920) captured against a
   real local backend and a real (throwaway) Clerk test account named
-  "John Kall", not mockups: sign-in, Applications, application review,
-  Morning Brief, Opportunities, and Growth. Captured by
+  "John Kall", not mockups: Applications, application review, Morning Brief,
+  Opportunities, and Growth. Every shot is from inside an authenticated
+  session; the sign-in screen is deliberately not among them, because App
+  Store Guideline 2.3.3 and Play's listing rules both require listing
+  screenshots to show the app in use rather than a login or splash screen.
+  Captured by
   `.github/workflows/mobile-store-screenshots.yml`, a manual-only
   workflow -- run it again (`gh workflow run mobile-store-screenshots.yml`)
   whenever the app's UI changes enough to make these stale. See

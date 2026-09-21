@@ -6,7 +6,7 @@ import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
 import { backendEnv, mobileRoot, repoRoot } from './env';
 
 /**
- * Captures Google Play Store listing screenshots against a real (throwaway)
+ * Captures Google Play and App Store listing screenshots against a real (throwaway)
  * Clerk test account and a real local backend -- not mockups. On demand
  * only (guarded below): this isn't a correctness check, so it has no
  * business running on every push the way smoke.spec.ts does.
@@ -127,8 +127,12 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
 
   try {
     await page.goto('/');
+    // Waits for the sign-in view to finish loading, but does not photograph it.
+    // App Store Guideline 2.3.3 and Play's listing rules both require listing
+    // screenshots to show the app in use rather than the login or splash
+    // screen, so every shot below is taken from inside an authenticated
+    // session.
     await expect(page.getByText('Need an account? Create one')).toBeVisible();
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '1-sign-in.png') });
 
     await signIn(page, user.email);
     await expect(page.getByText('Today', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
@@ -137,24 +141,24 @@ test(`capture ${screenshotTarget} store screenshots as John Kall`, async ({ page
     seedApplications(user.email);
     await page.getByRole('tab', { name: 'Applications' }).click();
     await expect(page.getByText('Anchor Robotics')).toBeVisible({ timeout: 20_000 });
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '2-applications.png') });
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '1-applications.png') });
 
     await page.getByText('Senior Backend Engineer').click();
     await expect(page.getByText('Review checklist', { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText('Review required: Why are you interested in this role?')).toBeVisible();
     await page.waitForTimeout(250);
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '3-application-review.png') });
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '2-application-review.png') });
     await page.getByRole('tab', { name: 'Today' }).click();
     await expect(page.getByText(/Good morning/).first()).toBeVisible({ timeout: 20_000 });
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '4-morning-brief.png') });
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '3-morning-brief.png') });
 
     await page.getByRole('tab', { name: 'Job search and consulting' }).click();
     await expect(page.getByText('Kall scans your sources and brings the strongest matches here.')).toBeVisible();
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '5-opportunities.png') });
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '4-opportunities.png') });
 
     await page.getByRole('tab', { name: 'Growth' }).click();
     await expect(page.getByText('A practical plan shaped around where you want to go next.')).toBeVisible();
-    await page.screenshot({ path: path.join(OUTPUT_DIR, '6-growth.png') });
+    await page.screenshot({ path: path.join(OUTPUT_DIR, '5-growth.png') });
   } finally {
     await deleteTestUser(user.id);
   }

@@ -54,7 +54,20 @@ JOB_BOARD_DOMAINS = [
     ("Speedrun Talent Network", "speedrun-talent-network.com"),
 ]
 
-ALL_SEARCH_DOMAINS = ATS_DOMAINS + JOB_BOARD_DOMAINS
+#: Professional-association career centers, added because JOB_BOARD_DOMAINS
+#: above is entirely general/remote-work boards with no non-tech vertical
+#: coverage -- a lawyer, HR professional, or accountant target title never
+#: matched a listing this hidden-market search could find. Each domain was
+#: visited directly to confirm real, public, un-gated listings at a stable
+#: `/job/{slug}/{id}/` path (same platform underlies all three), not just a
+#: marketing page -- the same bar ATS_DOMAINS/JOB_BOARD_DOMAINS entries meet.
+PROFESSIONAL_ASSOCIATION_DOMAINS = [
+    ("American Bar Association Career Center", "jobs.americanbar.org"),
+    ("SHRM Job Board", "jobs.shrm.org"),
+    ("AFWA Career Center", "jobs.afwa.org"),
+]
+
+ALL_SEARCH_DOMAINS = ATS_DOMAINS + JOB_BOARD_DOMAINS + PROFESSIONAL_ASSOCIATION_DOMAINS
 
 
 def _quoted_or(values: list[str], limit: int = 8, prefix: str = "") -> str:

@@ -223,49 +223,69 @@ def _owned_profile(session: Session, profile_id: int, user_id: int) -> CareerPro
     return _owned(session, CareerProfile, profile_id, user_id, "Professional profile")
 
 
+#: Fractional/interim/consulting boards with real, public, un-gated listing
+#: pages, verified the same way ats_web_search.ATS_DOMAINS was: visited
+#: directly to confirm a stable listing path exists and isn't just a
+#: marketing/application-funnel page. Catalant, Business Talent Group, and
+#: Contra were tried first (they're the best-known names in this space) but
+#: all three failed that check -- Catalant and BTG have no public listing
+#: page at any path (browsing lives behind a separate logged-in app), and
+#: Contra's /opportunities page redirects unauthenticated visitors to
+#: sign-up -- so a bare site: search against any of them only ever found
+#: marketing content, never an actual open engagement. These four replace
+#: them and cover fractional/interim work across functions and industries
+#: (finance, marketing, product, ops, etc.), not just tech.
+CONSULTING_DOMAINS = [
+    (
+        "ExecThread",
+        "execthread.com/listings",
+        "Curated senior/executive and fractional leads; the hiring company's identity may be masked until revealed.",
+    ),
+    (
+        "FractionalJobs.io",
+        "fractionaljobs.io/jobs",
+        "A board built specifically for fractional-executive roles across functions.",
+    ),
+    (
+        "GoFractional",
+        "gofractional.com/job",
+        "Fractional roles with rate range and weekly-hours commitment listed up front.",
+    ),
+    (
+        "Fractionus",
+        "fractionus.com/jobs",
+        "Aggregated fractional and interim listings pulled from multiple employers.",
+    ),
+]
+
+
+def _consulting_titles(profile: CareerProfile, focus: str) -> str:
+    """intitle:-narrowed title/function boolean, same reasoning as
+    ats_web_search.build_search_intent: it keeps a site: search matching an
+    individual listing's own page title instead of the board's homepage or
+    an unrelated posting."""
+    sources = [focus.strip()] if focus.strip() else [*profile.target_titles[:5], *profile.functional_areas[:5]]
+    cleaned = [value.strip() for value in sources if value and value.strip()] or ["business transformation"]
+    return " OR ".join(f'intitle:"{value}"' for value in cleaned[:8])
+
+
 def _consulting_searches(profile: CareerProfile, focus: str) -> list[dict[str, str]]:
-    titles = [value.strip() for value in profile.target_titles if value.strip()][:3]
-    functions = [value.strip() for value in profile.functional_areas if value.strip()][:3]
-    industries = [value.strip() for value in profile.industries if value.strip()][:2]
-    specialty = focus.strip() or " OR ".join(functions or titles) or "business transformation"
-    market = " OR ".join(industries)
-    context = f" ({market})" if market else ""
-    searches = [
-        (
-            "Catalant",
-            "catalant.com",
-            f"({specialty}) (consultant OR advisory OR assessment){context}",
-            "Look for scoped projects where an experienced independent specialist can solve a named business problem.",
-        ),
-        (
-            "Business Talent Group",
-            "businesstalentgroup.com",
-            f"({specialty}) (interim OR consultant OR transformation){context}",
-            "Look for interim leadership and project work with a clear executive owner.",
-        ),
-        (
-            "Contra",
-            "contra.com",
-            f"({specialty}) (freelance OR consultant OR project){context}",
-            "Look for portfolio-led independent work with a specific buyer and deliverable.",
-        ),
-        (
-            "Open web",
-            "",
-            f'"seeking consultant" ({specialty}){context}',
-            "Find public demand signals outside a single marketplace, then verify the organization and scope.",
-        ),
-    ]
+    titles = _consulting_titles(profile, focus)
+    industries = [value.strip() for value in profile.industries if value.strip()][:3]
+    intent_parts = [f"({titles})"]
+    if industries:
+        intent_parts.append(f"({' OR '.join(industries)})")
+    intent = " ".join(intent_parts)
     return [
         {
             "provider": provider,
             "domain": domain,
-            "query": f"site:{domain} {query}" if domain else query,
-            "search_url": f"https://www.google.com/search?q={quote_plus(f'site:{domain} {query}' if domain else query)}",
+            "query": f"site:{domain} {intent}",
+            "search_url": f"https://www.google.com/search?q={quote_plus(f'site:{domain} {intent}')}",
             "rationale": rationale,
-            "suggested_segment": "marketplace" if domain else "inbound",
+            "suggested_segment": "marketplace",
         }
-        for provider, domain, query, rationale in searches
+        for provider, domain, rationale in CONSULTING_DOMAINS
     ]
 
 
