@@ -17,6 +17,38 @@ Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
 
+> **19 September 2026, mobile 1.2.0 store release + Play Console pre-launch
+> follow-up:** shipped mobile 1.2.0 to both stores. Android (versionCode 37)
+> is live in Play production; iOS (build 20) finished building after
+> regenerating APNs push credentials and a provisioning profile (the app's
+> Push Notifications capability had never been enabled on Apple's side) and
+> was submitted for App Review from a version entry that also needed its
+> price tier and worldwide availability re-set (both had reset to unset on
+> that entry). Root cause of two earlier Android build failures: an
+> ambient-env-var-driven `allowRegistration` value
+> (`apps/mobile/app.config.js`) computed differently on the local machine
+> versus the EAS build server, breaking Expo's fingerprint-based runtime
+> version check; fixed by pinning `KALL_MOBILE_ALLOW_REGISTRATION=1`
+> explicitly in `eas.json`'s `android-production` profile.
+>
+> Same day, worked the four Play Console pre-launch report recommendations:
+> edge-to-edge display support is already the Expo SDK 57 prebuild default
+> (`edgeToEdgeEnabled=true`, no first-party code needed) and R8 full mode
+> is now enabled via a new custom config plugin
+> (`apps/mobile/plugins/with-r8-full-mode.js`, since `expo-build-properties`
+> does not expose `android.enableR8.fullMode`); resource shrinking and
+> minify were already on. Updated `expo`, `expo-build-properties`,
+> `expo-constants`, `expo-notifications`, `expo-sharing`, and `expo-updates`
+> to their SDK-57-recommended versions (`npx expo install --fix`), which
+> also registers `expo-sharing` as a config plugin per its new schema.
+> Confirmed via `npm run validate:android-native`: `edge-to-edge=true,
+> R8=true, resource-shrinking=true`. The remaining two findings (a
+> deprecated `Window.setStatusBarColor` call and unoptimized
+> `BitmapFactory.decodeStream` bitmap loading) trace to `react-native-screens`
+> 4.26.0 and `expo-notifications`' push-image downloader respectively --
+> both third-party code with no app-level config to change; not fixable
+> without an upstream release, and not blocking for this release.
+
 > **17 September 2026, API+web release + pending migrations:** source
 > commit `f67bd2401d897511a46bb621836b7e6c60ada5c3` (real one-click email
 > unsubscribe per RFC 8058 -- `List-Unsubscribe`/`List-Unsubscribe-Post`
@@ -124,6 +156,26 @@ and webhook destination. No controlled live charge or refund has been performed.
 > regions from that US reference for both Kall Plus Monthly and Kall
 > Premium Monthly. Confirmed both products now show US $9.00 and $25.00
 > respectively in each console.
+>
+> **18 September 2026**: found and fixed a live regression from the price
+> archiving above via a routine Sentry sweep -- `checked_portal_configuration()`
+> (`backend/kall/services/stripe_billing.py:150`) requires the Stripe
+> customer-portal configuration's `subscription_update.products` allowlist
+> to match the app's current price catalog exactly, and archiving the old
+> prices without updating that Stripe-side object left it still pointing
+> at the old, now-archived `price_1UB0nkLDE8FHWLmdAPU6aofY`/
+> `price_1UB0njLDE8FHWLmdmDCbWyPx`. Any existing subscriber opening "Manage
+> billing" to switch plans got a 503 ("Customer portal includes unapproved
+> products or prices") -- confirmed via Sentry issue KALL-API-6 and a
+> direct read of the live portal configuration (`bpc_1UB8r1LDE8FHWLmdXGogNRS4`).
+> New checkouts were unaffected (that path stopped calling this check in a
+> later refactor). Fixed directly in the Stripe Dashboard (the connected
+> Stripe MCP key lacks `customer_portal_write`): removed both archived
+> prices from the portal's subscription-update product list and added the
+> current $9/$25 prices in their place. Confirmed via the Stripe API that
+> `subscription_update.products` now lists exactly
+> `price_1UGRZALDE8FHWLmdffpdMpwZ` (Plus) and
+> `price_1UGRZhLDE8FHWLmdhgzXGPfP` (Premium).
 
 > **16 September 2026, API+web release:** source commit
 > `c48061ce0d6640e1757ff85497bf6ebe128f0c17` (resume upload limit raised

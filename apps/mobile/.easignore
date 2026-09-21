@@ -1,0 +1,7 @@
+# EAS Build uploads the working directory as-is; these are locally
+# regenerated native prebuild artifacts (see AGENTS.md / README "Running on
+# Android") that must never be part of the fingerprint EAS computes, or a
+# stray local prebuild throws off the "runtime version calculated on local
+# machine not equal to runtime version calculated during build" check.
+/android
+/ios
