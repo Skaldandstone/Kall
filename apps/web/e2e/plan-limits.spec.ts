@@ -22,8 +22,8 @@ test('the paywall appears when a free account runs out, and says when it refills
   });
 
   await test.step('all three plans are offered at the agreed prices', async () => {
-    await expect(page.getByText('$5')).toBeVisible();
-    await expect(page.getByText('$15')).toBeVisible();
+    await expect(page.getByText('$9')).toBeVisible();
+    await expect(page.getByText('$25')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Choose Plus' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Choose Premium' })).toBeVisible();
   });

@@ -17,8 +17,18 @@ const API = '/api/kall';
  * level down instead, by a window.fetch patch in MaintenanceBanner -- most
  * of the app calls the API with a plain fetch(`${API}...`), not this
  * function, so catching a mid-deploy gap here alone would miss most of it.
+ *
+ * `suppressPlanLimitDialog` opts a call out of the dialog entirely, for the
+ * rare best-effort call whose own 402 handling is already "fail silently"
+ * (e.g. onboarding's resume-strategy suggestion) -- without it, a gated
+ * background convenience feature throws a blocking full-screen paywall over
+ * a flow that was explicitly designed not to alarm the user.
  */
-export async function fetchKall(path: string, init?: RequestInit): Promise<Response> {
+export async function fetchKall(
+  path: string,
+  init?: RequestInit,
+  options?: { suppressPlanLimitDialog?: boolean },
+): Promise<Response> {
   const response = await fetch(`${API}${path}`, init);
 
   if (response.status === 401) {
@@ -26,7 +36,7 @@ export async function fetchKall(path: string, init?: RequestInit): Promise<Respo
     return response;
   }
 
-  if (response.status === 402) {
+  if (response.status === 402 && !options?.suppressPlanLimitDialog) {
     // Read from a clone: the caller still needs an unconsumed body.
     try {
       const body = await response.clone().json();
