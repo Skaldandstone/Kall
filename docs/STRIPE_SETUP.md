@@ -12,8 +12,10 @@ open. No tax registration or automatic-tax readiness is claimed.
 
 Free, Plus and Premium, quotas, billing exemptions and the 72-hour payment
 failure grace period remain unchanged. Existing copy in
-`apps/web/app/lib/plans.ts` shows Plus at $5/month and Premium at $15/month.
-The sandbox now contains Kall Plus at USD 5/month and Premium at USD 15/month:
+`apps/web/app/lib/plans.ts` shows Plus at $9/month and Premium at $25/month.
+The sandbox objects below were created at the original USD 5 and USD 15
+prices, before the SSE-206 repricing; check Stripe for each object's current
+amount rather than trusting these figures:
 
 - Plus: `price_1UAZVXPo4uRuCWxjmqORD3B1`, product `prod_VAvMNUYFhL2Kit`
 - Premium: `price_1UAZWAPo4uRuCWxjhgrbIixK`, product `prod_VAvMM3BYCN82Ul`

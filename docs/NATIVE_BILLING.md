@@ -84,28 +84,101 @@ Google Play Console and App Store Connect before submission.
    subscription group are ready. Add the Apple public SDK key only to iOS builds,
    configure both Apple products together, and repeat sandbox/TestFlight tests.
 
-If provider setup is incomplete, leave `EnableRevenueCatNative=false` and
-`KALL_MOBILE_PURCHASES_ENABLED` unset. The mobile billing screen then stays
-read-only: it shows the plan and usage the account already has and deliberately
-does not link out to web billing, because Google Play and the App Store both
-prohibit pointing an app at an external checkout for a digital subscription.
+Store builds always enable `KALL_MOBILE_PURCHASES_ENABLED` -- it is set on the
+shared `production` profile and asserted by both store preflights. Paid tiers
+gate real features (the free plan's AI allowance is zero, and growth plans,
+skills analysis, resume strategy, and interview prep require Plus), so a store
+build that cannot sell those plans ships upgrade walls with no way through, and
+App Review reads that as a broken app.
+
+The server decides whether purchasing is actually offered: the billing screen
+shows packages only when the client flag and the API's `native_enabled` are both
+true, so while `EnableRevenueCatNative=false` the screen stays read-only, showing
+the plan and usage the account already has. It deliberately does not link out to
+web billing either way, because Google Play and the App Store both prohibit
+pointing an app at an external checkout for a digital subscription. That split is
+what lets the client ship ready while provider setup finishes: turn the stack
+parameter on when the store products, imports, and offering are complete, with no
+new build.
+
+## iOS purchase activation
+
+Before a purchases-enabled iOS build goes to review:
+
+1. Give RevenueCat a dedicated App Store Connect API key so it can import the
+   products and track prices, then import both Apple products, map them to the
+   `plus` and `premium` entitlements, and publish an offering containing both.
+2. Complete the App Store Connect paid-app prerequisites the subscriptions
+   depend on -- banking, tax, and trader information -- and add the required
+   review screenshot to each subscription.
+3. Submit both subscriptions in the same submission as the build. Apple expects
+   in-app purchases to be reviewed alongside the app; products left in Prepare
+   for Submission are not reviewed, and a build whose gated features cannot be
+   unlocked is rejected.
+4. Set `EnableRevenueCatNative=true` with both Apple product IDs on the
+   production stack (the template requires the two Apple products to be
+   configured together or not at all).
+5. Verify in a sandbox build: purchase both tiers, confirm the entitlement the
+   API reports and the `app_store` source, restore purchases on a second device,
+   and confirm cancellation leaves access until expiry. Apple refunds are never
+   issued by Kall; the staff portal shows the customer-facing steps instead.
+
+## Going live on both platforms
+
+`EnableRevenueCatNative` is one switch for both stores, and the template requires
+the two Apple products to be configured together or not at all. So the flip is a
+single moment for Android and iOS, not two independent launches, and a platform
+whose RevenueCat offering is not yet published shows "No mobile subscription
+options are available right now" rather than staying read-only. Sequence it:
+
+1. Finish both stores' provider setup (the Android order above, then the iOS
+   order). Each platform needs its products imported, mapped to the `plus` and
+   `premium` entitlements, and a published offering containing both packages.
+2. Submit the Apple subscriptions in the same App Store submission as the build.
+   Play products are already active, so Android needs no equivalent step.
+3. Flip `EnableRevenueCatNative=true` with all four product IDs -- the Google
+   pair in the colon form RevenueCat reports (`kall_plus_monthly:monthly`), the
+   Apple pair as their bundle-style identifiers. A bare Google subscription ID
+   maps every purchase to `free`. `scripts/enable_native_billing.py` builds that
+   change set from these identifiers, keeps every other parameter at its current
+   value, and deliberately stops short of executing it:
+
+       python scripts/enable_native_billing.py --stack <name> --sandbox --dry-run
+       python scripts/enable_native_billing.py --stack <name> --sandbox
+
+   Read the change set, then execute it yourself. Drop `--sandbox` to narrow
+   accepted environments back to `PRODUCTION` once verification passes.
+4. Verify per platform against the live stack, with a license tester on Play and
+   a sandbox account on Apple: purchase both tiers, confirm the plan and the
+   expected source (`play_store` or `app_store`) without inspecting receipts,
+   restore on a second device, and confirm cancellation leaves access until
+   expiry. `tests/test_native_billing.py` covers the server's side of this --
+   both stores' catalogs, the store/product pairing, and two active stores
+   resolving to the higher plan -- so a failure here is provider configuration,
+   not mapping logic.
+5. Record the result as its own go/no-go, as `PRODUCTION_READINESS.md` requires
+   for live billing.
+
+If one platform's offering is not ready when the other is, hold the flip: a
+published offering on both sides is what makes the single switch safe.
 
 ## Provider checkpoint: 10 September 2026
 
 - Stripe web billing is live with the Kall-only Plus and Premium monthly catalog
-  at USD 5 and USD 15.
+  at USD 9 and USD 25.
 - Google Play contains the `kall_plus_monthly` and `kall_premium_monthly`
   subscription records and reviewed customer-facing metadata. Both `monthly`
   base plans are saved and active, available in the United States and Canada
-  only for launch: Plus at USD 4.99 / CAD 6.99 and Premium at USD 14.99 /
-  CAD 20.99. Each is monthly auto-renewing with a 7-day grace period and the
+  only for launch: Plus at USD 9 and Premium at USD 25, with CAD prices set
+  per region in Play Console (read the current CAD amounts there rather than
+  from this entry). Each is monthly auto-renewing with a 7-day grace period and the
   automatically calculated account hold. The earlier generic save failure was
   caused by saving before any regional price existed; set prices first, then
   save, then activate. Plus retains stored prices for the other regions so they
   can be re-added without re-entry when availability widens.
 - App Store Connect subscription group `22370361` contains
-  `com.skaldandstone.kall.plus.monthly` at USD 4.99 and
-  `com.skaldandstone.kall.premium.monthly` at USD 14.99. Both are in Prepare for
+  `com.skaldandstone.kall.plus.monthly` at USD 9 and
+  `com.skaldandstone.kall.premium.monthly` at USD 25. Both are in Prepare for
   Submission. Paid-app banking, tax, and trader information and review
   screenshots remain incomplete.
 - RevenueCat project `b4b5bad9` contains Android and App Store app records and

@@ -4,92 +4,77 @@
   "visualReview": "passed",
   "files": [
     {
-      "path": "apps/mobile/store-assets/android/screenshots/1-sign-in.png",
-      "bytes": 68494,
-      "sha256": "1786989870cccc283f92759e7491bd542a2d7f2e7e4399dee40d7adc5368f2b0"
-    },
-    {
-      "path": "apps/mobile/store-assets/android/screenshots/2-applications.png",
+      "path": "apps/mobile/store-assets/android/screenshots/1-applications.png",
       "bytes": 100560,
       "sha256": "85de17c2d50e285c184393ce8de7ceb9496765bcd216a2272ba12fbf1931a964"
     },
     {
-      "path": "apps/mobile/store-assets/android/screenshots/3-application-review.png",
+      "path": "apps/mobile/store-assets/android/screenshots/2-application-review.png",
       "bytes": 162207,
       "sha256": "4c0fe5a338c7c68d28544fe543a0452a1682cf58a474566feeb2d2a3898ef345"
     },
     {
-      "path": "apps/mobile/store-assets/android/screenshots/4-morning-brief.png",
+      "path": "apps/mobile/store-assets/android/screenshots/3-morning-brief.png",
       "bytes": 143099,
       "sha256": "f19c40945a14d276415b1bc0ae0c218ea26f11a9cb718da94f27a37ac5f353f6"
     },
     {
-      "path": "apps/mobile/store-assets/android/screenshots/5-opportunities.png",
+      "path": "apps/mobile/store-assets/android/screenshots/4-opportunities.png",
       "bytes": 144324,
       "sha256": "20d8fbfe644d2037c48f202deb013445c7d95bc892065612b388547985307c44"
     },
     {
-      "path": "apps/mobile/store-assets/android/screenshots/6-growth.png",
+      "path": "apps/mobile/store-assets/android/screenshots/5-growth.png",
       "bytes": 103962,
       "sha256": "4550064b4ed1d2a55fcd1b71068c6de4643bf4671bd6c5be12f36f015ea61c43"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/1-sign-in.png",
-      "bytes": 73915,
-      "sha256": "9fa58bd2981210043900f56344db1f320fef08c66733c242349fddc71e4800f6"
-    },
-    {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/2-applications.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/iphone/1-applications.png",
       "bytes": 103861,
       "sha256": "c62f022aaa84aa6a85eb9b399f2bfe8b48d25f9c827a2a6e6e479ebc60bbe057"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/3-application-review.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/iphone/2-application-review.png",
       "bytes": 213325,
       "sha256": "4943e862fae2c28db9e159a4923358bf45b3b881acb82036c4bb1a71867ca8d7"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/4-morning-brief.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/iphone/3-morning-brief.png",
       "bytes": 188802,
       "sha256": "fc376c0ba5b0137caa448505fe4fa7e4c4cdad69e14c6bcb3895bfe424bd993f"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/5-opportunities.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/iphone/4-opportunities.png",
       "bytes": 150025,
       "sha256": "cbcb5959f03b44c8b0121ee24ed7ed17db6df1f907dbc97fd9d18907ac3045e6"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/iphone/6-growth.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/iphone/5-growth.png",
       "bytes": 105241,
       "sha256": "e6b64451cc24bf53b1346032e483c2012e110fde19dbda77b02ecb8d4b2dc6aa"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/1-sign-in.png",
-      "bytes": 62473,
-      "sha256": "2b84696ac89150f16a9401d30e5e63414eec0069bd89f1032d5af1b4dbb8ab57"
-    },
-    {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/2-applications.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/ipad/1-applications.png",
       "bytes": 86514,
       "sha256": "4657a33773fc5fc8880a57ba431462a1a485dcf786461902098352cc44c9f207"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/3-application-review.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/ipad/2-application-review.png",
       "bytes": 206085,
       "sha256": "05c6935ae0953fb79d291e79583df1a54bfd9c2a750cabd25dcc6f9819640865"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/4-morning-brief.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/ipad/3-morning-brief.png",
       "bytes": 146790,
       "sha256": "fc4784327fb3dbdb31eeb8c5c97bcd9d8b2b98f49ea89a3289da8bc5d24de633"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/5-opportunities.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/ipad/4-opportunities.png",
       "bytes": 117488,
       "sha256": "ae07fd1dc8c6728cd6b10a9ae11811b11e5077ad3776bf4f772935c26e34526c"
     },
     {
-      "path": "apps/mobile/store-assets/ios/screenshots/ipad/6-growth.png",
+      "path": "apps/mobile/store-assets/ios/screenshots/ipad/5-growth.png",
       "bytes": 84383,
       "sha256": "f8aeaa56b71a2f0d6d7721b899ee00c50b6d3d1187dcfe30a159afee3a67a660"
     }

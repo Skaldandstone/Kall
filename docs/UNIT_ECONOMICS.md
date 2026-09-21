@@ -1,9 +1,11 @@
 # What a user costs, and what a plan is worth
 
-The $5 and $15 prices were chosen from a cost model that lived only in a chat
-window. This is that model written down, recomputed against current prices,
-so the next pricing decision starts from something checkable rather than from
-memory.
+The original $5 and $15 prices were chosen from a cost model that lived only in
+a chat window. This is that model written down, recomputed against current
+prices, so the next pricing decision starts from something checkable rather
+than from memory. Plus and Premium are now $9 and $25 (SSE-206, which also cut
+Free's AI surface to zero); the cost side below is unchanged by that, so every
+margin here is wider than it was when the prices were half this.
 
 **Every number below is per month and in USD.** Where a figure rests on an
 assumption rather than a measurement, it says so. Nothing here is measured
@@ -35,13 +37,13 @@ every period:
 | Storage ceiling | 25 MB | 500 MB | 5 GB |
 | Worst-case storage | ~$0.001 | ~$0.01 | ~$0.12 |
 | **Worst case total** | **~$0.04** | **~$0.19** | **~$1.24** |
-| Revenue | $0 | $5 | $15 |
+| Revenue | $0 | $9 | $25 |
 
 **The assumption doing the work here** is roughly 8,000 input and 1,000 output
 tokens per AI action -- a resume truncated to 30,000 characters plus a
 structured JSON reply. At `gpt-5.6-luna` ($0.20 in / $1.20 out per million)
 that is about $0.0028 an action. If the real average is double that, Premium's
-worst case is still under $2.50 against $15.
+worst case is still under $2.50 against $25.
 
 Storage is S3 at $0.023/GB-month and is a rounding error at every tier. It is
 in the product as an anti-abuse ceiling, not a revenue lever -- `quota.py`
