@@ -72,10 +72,20 @@ def test_model_classification_is_used_when_configured(monkeypatch) -> None:
     monkeypatch.setattr(email_ingest, "ask_for_json", lambda *a, **k: {
         "is_job_related": True, "event_type": "interview", "confidence": 0.9, "company_name_guess": "Acme",
     })
-    result = classify_message(_message())
+    result = classify_message(_message(), ai_allowed=True)
     assert result["event_type"] == "interview"
     assert result["_source"] == "model"
     assert result["confidence"] == 0.9
+
+
+def test_classifier_does_not_call_the_model_without_an_explicit_allowance(monkeypatch) -> None:
+    def unexpected_model_call(*_args, **_kwargs):
+        raise AssertionError("Free/background classification reached OpenAI")
+
+    monkeypatch.setattr(email_ingest, "ask_for_json", unexpected_model_call)
+    result = classify_message(_message())
+    assert result["event_type"] == "confirmation"
+    assert result.get("_source") != "model"
 
 
 def test_extract_url_finds_the_first_link() -> None:
@@ -168,6 +178,57 @@ async def test_ingest_connection_creates_one_event_for_a_confirmation_and_none_f
         session.refresh(connection)
         assert connection.last_synced_at is not None
         assert connection.sync_cursor is not None
+
+
+@pytest.mark.asyncio
+async def test_free_mailbox_sync_uses_rules_and_never_calls_openai(engine, monkeypatch) -> None:
+    def unexpected_model_call(*_args, **_kwargs):
+        raise AssertionError("Free mailbox sync reached OpenAI")
+
+    monkeypatch.setattr(email_ingest, "ask_for_json", unexpected_model_call)
+    with Session(engine) as session:
+        user, _application, _job = _seed_application(session)
+        user.plan = "free"
+        session.add(user)
+        session.commit()
+        connection = _connection(session, user.id)
+
+        created = await ingest_connection(
+            session,
+            connection,
+            _FakeMailboxClient([_message(external_id="free-confirmation")]),
+        )
+
+        assert len(created) == 1
+        assert created[0].source == "rules"
+
+
+@pytest.mark.asyncio
+async def test_paid_mailbox_model_classification_consumes_ai_allowance(engine, monkeypatch) -> None:
+    monkeypatch.setattr(email_ingest, "ask_for_json", lambda *_args, **_kwargs: {
+        "is_job_related": True,
+        "event_type": "interview",
+        "confidence": 0.9,
+        "company_name_guess": "Acme",
+    })
+    with Session(engine) as session:
+        from kall.services import quota
+
+        user, _application, _job = _seed_application(session)
+        user.plan = "plus"
+        session.add(user)
+        session.commit()
+        connection = _connection(session, user.id)
+
+        created = await ingest_connection(
+            session,
+            connection,
+            _FakeMailboxClient([_message(external_id="plus-interview")]),
+        )
+
+        assert len(created) == 1
+        assert created[0].source == "model"
+        assert quota.used(session, user, "ai_actions") == 1
 
 
 @pytest.mark.asyncio

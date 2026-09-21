@@ -27,12 +27,13 @@ from typing import Protocol
 
 import httpx
 from kall.clock import utcnow
-from kall.models import Application, EmailConnection, EmailDetectedEvent, Job
+from kall.models import Application, EmailConnection, EmailDetectedEvent, Job, User
 from kall.security import decrypt_sensitive
 from kall.services import work_claims
 from kall.services.applications import application_stage, find_existing_application
 from kall.services.ats_web_search import ATS_DOMAINS
 from kall.services.openai_json import ask_for_json
+from kall.services.quota import ai_actions_available, record_ai_action
 from sqlmodel import Session, select
 
 #: Sender domains that pre-qualify a message for classification without
@@ -99,11 +100,14 @@ def _rules_classify(message: RawEmailMessage) -> dict:
     return {"is_job_related": False, "event_type": "other", "confidence": 0.0, "company_name_guess": ""}
 
 
-def classify_message(message: RawEmailMessage) -> dict:
+def classify_message(message: RawEmailMessage, *, ai_allowed: bool = False) -> dict:
     """Model-then-rules, the same shape role_gaps.py's suggest_role_gaps
     uses: a schema-constrained model call when a key is configured, the
     deterministic keyword fallback otherwise -- "silence is not an option"
     per openai_json.py's own documented contract."""
+    if not ai_allowed:
+        return _rules_classify(message)
+
     prompt = (
         "An email arrived in someone's job-search-labeled inbox folder. Classify it.\n\n"
         f"From: {message.sender}\nSubject: {message.subject}\nBody excerpt: {message.snippet[:1000]}"
@@ -174,7 +178,13 @@ async def ingest_connection(session: Session, connection: EmailConnection, clien
             ).first()
             if already:
                 continue
-            classification = classify_message(message)
+            user = session.get(User, connection.user_id)
+            classification = classify_message(
+                message,
+                ai_allowed=bool(user) and ai_actions_available(session, user),
+            )
+            if classification.get("_source") == "model" and user:
+                record_ai_action(session, user)
             if not classification.get("is_job_related"):
                 continue
             url = extract_url(message.body)
