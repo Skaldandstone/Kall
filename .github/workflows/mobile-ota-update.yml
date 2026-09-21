@@ -52,7 +52,7 @@ jobs:
       - run: npm ci
       - name: Publish update
         run: |
-          eas update --channel "${{ inputs.channel }}" --non-interactive \
+          eas update --channel "${{ inputs.channel }}" --environment production --non-interactive \
             ${{ inputs.message != '' && format('--message "{0}"', inputs.message) || '' }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

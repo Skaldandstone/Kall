@@ -55,8 +55,8 @@
     "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs",
     "validate:android-play": "node scripts/validate-android-play.mjs",
     "validate:android-native": "node scripts/validate-android-native.mjs",
-    "update:preview": "eas update --channel preview",
-    "update:production": "eas update --channel production"
+    "update:preview": "eas update --channel preview --environment production",
+    "update:production": "eas update --channel production --environment production"
   },
   "private": true
 }

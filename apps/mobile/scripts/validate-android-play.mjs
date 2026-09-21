@@ -228,8 +228,10 @@ assert.ok(
   'Android must check the public mobile release manifest when the app loads.',
 );
 assert.ok(
-  updateSource.includes('https://play.google.com/apps/testing/com.skaldandstone.kall'),
-  'The update prompt must use the account-aware Play testing page.',
+  updateSource.includes('https://play.google.com/apps/testing/com.skaldandstone.kall') &&
+    updateSource.includes('https://play.google.com/store/apps/details?id=com.skaldandstone.kall') &&
+    updateSource.includes('TRUSTED_UPDATE_URLS.has(release.updateUrl)'),
+  'The update prompt must allowlist both the legacy tester page and public Play listing.',
 );
 assert.ok(
   updateSource.includes("Platform.OS !== 'android'"),

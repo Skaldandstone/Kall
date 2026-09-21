@@ -7,6 +7,8 @@ const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   'http://10.0.2.2:8000/api';
 const PLAY_TEST_URL = 'https://play.google.com/apps/testing/com.skaldandstone.kall';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.skaldandstone.kall';
+const TRUSTED_UPDATE_URLS = new Set([PLAY_TEST_URL, PLAY_STORE_URL]);
 
 type MobileRelease = {
   platform: 'android';
@@ -33,7 +35,8 @@ function isRelease(value: unknown): value is MobileRelease {
     release.platform === 'android' &&
     typeof release.latestVersion === 'string' &&
     /^\d+\.\d+\.\d+$/.test(release.latestVersion) &&
-    release.updateUrl === PLAY_TEST_URL
+    typeof release.updateUrl === 'string' &&
+    TRUSTED_UPDATE_URLS.has(release.updateUrl)
   );
 }
 

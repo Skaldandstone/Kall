@@ -225,6 +225,9 @@ npm run update:preview      # or: npm run update:production
 
 This ships to everyone on that channel's installed build within the app's
 next foreground check -- no store review, typically live in minutes.
+Both scripts pass `--environment production`, which Expo SDK 55 and later
+requires for EAS Update. The preview and production native profiles both use
+that EAS environment; the channel controls who receives the bundle.
 
 **What this does NOT cover.** Anything that changes the native fingerprint --
 a new native module, a changed permission, an `app.json`/`expo-build-properties`
