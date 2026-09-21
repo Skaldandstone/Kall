@@ -422,8 +422,8 @@ These are external gates and cannot be marked complete by source tests:
    `b4b5bad9`, the Android app shell, Plus/Premium entitlements, and the
    production webhook are configured; its two webhook credentials are stored
    only in the dedicated production secret. Apple Plus and Premium monthly
-   subscriptions exist in subscription group `22370361` at USD 4.99 and USD
-   14.99 respectively. Native billing remains fail-closed. Activation still
+   subscriptions exist in subscription group `22370361` at USD 9 and USD 25
+   respectively. Native billing remains fail-closed. Activation still
    requires valid Google base plans, completion of the dedicated Play
    service-account connection, product import/offering publication, a
    purchases-enabled rebuild, and physical-device license-test acceptance. Both

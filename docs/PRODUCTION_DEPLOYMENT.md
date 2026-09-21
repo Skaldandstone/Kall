@@ -40,8 +40,8 @@ Use the current nonsecret values from
 Keep `STRIPE_ENABLED=false` until the verified HTTPS origin, signed webhook and
 sandbox acceptance checks below have passed.
 
-The approved commercial model has two paid plans: Plus at USD 5/month and
-Premium at USD 15/month. Use the current nonsecret sandbox Product, Price and
+The approved commercial model has two paid plans: Plus at USD 9/month and
+Premium at USD 25/month (repriced from USD 5 and USD 15 in SSE-206). Use the current nonsecret sandbox Product, Price and
 portal identifiers from [`deploy/kall-development.env.example`](../deploy/kall-development.env.example).
 The Stripe secret key and webhook signing secret must come from the same
 test-mode business and mode as every configured object.

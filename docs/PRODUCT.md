@@ -21,7 +21,7 @@ decision. Everything below is what's actually live today.
 - 3 AI actions a week
 - 25 MB of resume storage
 
-## Plus ($5/month)
+## Plus ($9/month)
 - Everything in Free, plus:
 - 25 applications a week
 - 15 AI actions a week
@@ -30,7 +30,7 @@ decision. Everything below is what's actually live today.
 - Career page without the Kall footer
 - The apply extension
 
-## Premium ($15/month)
+## Premium ($25/month)
 - Everything in Plus, plus:
 - Unlimited applications
 - 400 AI actions a month

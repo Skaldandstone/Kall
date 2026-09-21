@@ -165,19 +165,20 @@ published offering on both sides is what makes the single switch safe.
 ## Provider checkpoint: 10 September 2026
 
 - Stripe web billing is live with the Kall-only Plus and Premium monthly catalog
-  at USD 5 and USD 15.
+  at USD 9 and USD 25.
 - Google Play contains the `kall_plus_monthly` and `kall_premium_monthly`
   subscription records and reviewed customer-facing metadata. Both `monthly`
   base plans are saved and active, available in the United States and Canada
-  only for launch: Plus at USD 4.99 / CAD 6.99 and Premium at USD 14.99 /
-  CAD 20.99. Each is monthly auto-renewing with a 7-day grace period and the
+  only for launch: Plus at USD 9 and Premium at USD 25, with CAD prices set
+  per region in Play Console (read the current CAD amounts there rather than
+  from this entry). Each is monthly auto-renewing with a 7-day grace period and the
   automatically calculated account hold. The earlier generic save failure was
   caused by saving before any regional price existed; set prices first, then
   save, then activate. Plus retains stored prices for the other regions so they
   can be re-added without re-entry when availability widens.
 - App Store Connect subscription group `22370361` contains
-  `com.skaldandstone.kall.plus.monthly` at USD 4.99 and
-  `com.skaldandstone.kall.premium.monthly` at USD 14.99. Both are in Prepare for
+  `com.skaldandstone.kall.plus.monthly` at USD 9 and
+  `com.skaldandstone.kall.premium.monthly` at USD 25. Both are in Prepare for
   Submission. Paid-app banking, tax, and trader information and review
   screenshots remain incomplete.
 - RevenueCat project `b4b5bad9` contains Android and App Store app records and
