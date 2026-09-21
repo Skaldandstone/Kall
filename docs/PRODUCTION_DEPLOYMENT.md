@@ -82,6 +82,16 @@ send anything.
 - **To enable in production:** pass the two DSN parameters in the next
   reviewed change set. Verify by triggering one deliberate server error and
   confirming an issue appears under environment `production` in each project.
+- **The Chrome extension** reports to a third project, `kall-extension`, from
+  the popup only (never from the content script, which runs inside the
+  employer's page). Its DSN is compiled into `src/popup.bundle.js` by
+  `SENTRY_DSN=... npm run build` in `apps/extension` - there is no runtime
+  configuration - so enabling it means rebuilding the bundle with the
+  variable set and re-uploading the package. `apps/extension/src/sentry.js`
+  applies the same scrubbing as the web tier. No manifest permission is
+  needed: Sentry's ingest host answers with CORS headers, and the manifest
+  declares no `content_security_policy`, so MV3's default extension-page
+  policy does not restrict `connect-src`.
 
 ## 3b. Confirm the AI model answers
 
