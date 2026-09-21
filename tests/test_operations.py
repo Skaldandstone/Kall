@@ -27,13 +27,13 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_mobile_release_endpoint_does_not_advertise_an_unavailable_build() -> None:
+def test_mobile_release_endpoint_advertises_the_public_release() -> None:
     response = TestClient(app).get("/api/mobile-release")
     assert response.status_code == 200
     assert response.json() == {
         "platform": "android",
-        "latestVersion": "1.1.6",
-        "updateUrl": "https://play.google.com/apps/testing/com.skaldandstone.kall",
+        "latestVersion": "1.2.0",
+        "updateUrl": "https://play.google.com/store/apps/details?id=com.skaldandstone.kall",
     }
 
     app_config = json.loads((Path(__file__).parents[1] / "apps/mobile/app.json").read_text())
@@ -41,6 +41,20 @@ def test_mobile_release_endpoint_does_not_advertise_an_unavailable_build() -> No
     available_version = tuple(int(part) for part in LATEST_ANDROID_VERSION.split("."))
     assert packaged_version >= available_version
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_mobile_release_preserves_the_test_link_for_legacy_builds() -> None:
+    legacy = TestClient(app).get("/api/mobile-release?installed=1.1.6")
+    assert legacy.status_code == 200
+    assert legacy.json()["updateUrl"] == "https://play.google.com/apps/testing/com.skaldandstone.kall"
+
+    current = TestClient(app).get("/api/mobile-release?installed=1.2.0")
+    assert current.status_code == 200
+    assert current.json()["updateUrl"] == "https://play.google.com/store/apps/details?id=com.skaldandstone.kall"
+
+    malformed = TestClient(app).get("/api/mobile-release?installed=not-a-version")
+    assert malformed.status_code == 200
+    assert malformed.json()["updateUrl"] == "https://play.google.com/store/apps/details?id=com.skaldandstone.kall"
 
 
 def test_readiness_endpoint_checks_the_database() -> None:

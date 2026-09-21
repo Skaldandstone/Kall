@@ -1,19 +1,24 @@
-# Google Play Store listing copy
+# Apple App Store listing copy
 
-## Short description (max 80 characters)
+## Subtitle (max 30 characters)
 
 ```
-Your career search assistant for jobs, consulting, resumes, and follow-through.
+Career search, organized
 ```
-(79 characters)
 
-## Full description (max 4000 characters)
+## Promotional text (max 170 characters)
+
+```
+Build a career direction, find jobs and consulting leads, prepare stronger applications, and keep every next step organized across mobile and web.
+```
+
+## Description
 
 ```
 Kall is a career-search assistant for people pursuing full-time roles,
 consulting work, or both. It helps you turn your experience into clear career
 directions, find opportunities, prepare stronger applications, and keep the
-work moving from your phone or the web.
+work moving from your iPhone, iPad, or the web.
 
 WHAT YOU CAN DO
 - Build guided career profiles from your resume and review every suggestion.
@@ -32,14 +37,20 @@ Kall never submits an application or publishes your information without your
 review. Some detailed document editing is more comfortable on the web, and
 your account stays in sync across both experiences.
 ```
-(1320 characters including wrapped newlines as spaces)
 
-## Notes for whoever fills in the Play Console form
+## Keywords (max 100 characters)
 
-- Category: Business, or Productivity -- pick whichever the console offers
-  first; neither is a functional claim that needs revisiting later.
-- Contact email / privacy policy URL: use whatever is already live for the
-  web app (same product, same data handling).
-- Content rating questionnaire: no ads. The app offers optional auto-renewing
-  subscriptions through Google Play. User-entered career content stays private
-  unless the user deliberately publishes a career page from the web app.
+```
+job search,resume,career,applications,consulting,interview,opportunities,professional
+```
+
+## Review notes
+
+- Use the dedicated reviewer account stored in App Store Connect. Never place
+  its credentials in this repository or in review-note source files.
+- Registration, login, Google sign-in, Apple sign-in, and account deletion are
+  demonstrated in the attached review video.
+- Native Plus and Premium purchases use Apple's sandbox during review. Kall
+  does not submit job applications or publish a career page automatically.
+- The five listing screenshots show normal authenticated product use. Separate
+  subscription screenshots show the actual native purchase screen and price.

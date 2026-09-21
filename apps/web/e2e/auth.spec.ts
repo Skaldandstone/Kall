@@ -31,7 +31,13 @@ test.describe('authentication boundary', () => {
     expect(mobileRelease.ok()).toBeTruthy();
     expect(await mobileRelease.json()).toEqual({
       platform: 'android',
-      latestVersion: '1.1.6',
+      latestVersion: '1.2.0',
+      updateUrl: 'https://play.google.com/store/apps/details?id=com.skaldandstone.kall',
+    });
+
+    const legacyRelease = await page.request.get('/api/mobile-release?installed=1.1.6');
+    expect(await legacyRelease.json()).toMatchObject({
+      latestVersion: '1.2.0',
       updateUrl: 'https://play.google.com/apps/testing/com.skaldandstone.kall',
     });
 
