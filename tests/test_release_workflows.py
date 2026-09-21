@@ -84,3 +84,11 @@ def test_installed_update_resets_private_cache_and_rechecks_on_resume() -> None:
     assert "'Cache-Control': 'no-cache'" in update_prompt
     assert "&t=${Date.now()}" in update_prompt
     assert "Application.nativeApplicationVersion" in update_prompt
+
+
+def test_mobile_ota_updates_use_the_production_eas_environment() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "mobile-ota-update.yml").read_text()
+    package = (ROOT / "apps" / "mobile" / "package.json").read_text()
+    assert 'eas update --channel "${{ inputs.channel }}" --environment production' in workflow
+    assert 'eas update --channel preview --environment production' in package
+    assert 'eas update --channel production --environment production' in package
