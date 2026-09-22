@@ -2,7 +2,7 @@
 
 > **Account migration 2026-09-07:** Kall production now runs in the Skald and Stone management account `051722405355` (stack `kall-production`, cluster `skaldandstone-production`, ECR `kall-api`/`kall-web`, CloudFront `E2HHZUTE7F4UDE`). Account `734702670689` is retired. Any `734702670689` reference below is historical.
 
-Updated 8 September 2026. This is the release contract for the first Kall
+Updated 22 September 2026. This is the release contract for the first Kall
 production candidate. Production Clerk and the isolated live Stripe catalog are
 configured and live. SES production sending and scheduled notification delivery
 are enabled. Native Apple/Google billing, automatic tax, and application
@@ -16,6 +16,44 @@ signup is enabled and remains an explicit deployment parameter.
 Multi-AZ. CloudFront-to-ALB and web-to-API TLS paths pass hosted smoke checks.
 Live Stripe uses the Kall-only catalog, restricted key, portal configuration,
 and webhook destination. No controlled live charge or refund has been performed.
+
+> **22 September 2026, launch-gate release and mobile update repair:** source
+> commit `4dd08705319d0051b88de1622ebd88272fb55ca7` was archived as a reviewed
+> source snapshot with manifest SHA-256
+> `e741ad24b373959b9c700f31bf86a55858d46433fc2d36ddaf05e4b7a0e4645a`.
+> The production API image is
+> `sha256:384487140589b702e2fc314cc97ee504673cc39dd1518ed728c6c31be32b1ac4`
+> and the production web image is
+> `sha256:339c353fa97779e5ea25d2d2f89ee1892a8d0bfc6aa9a1e17508aa1226f86b3d`;
+> both ECR Basic scans completed with zero findings. CloudFormation change set
+> `release-4dd0870` modified only the web/API services, their task definitions,
+> the bootstrap/migration/job-runner task definitions, schedules, and scheduler
+> role. The stack reached `UPDATE_COMPLETE`; API and web each reached 1/1 with
+> completed deployments and migration head `20260917_0039`. Hosted smoke checks
+> returned 200 for `/`, `/api/health`, and `/api/kall/health`; direct signed-out
+> `/api/kall/me` remained protected with the web 404 boundary.
+>
+> `/api/mobile-release` now advertises 1.2.0. Legacy 1.1.6 clients retain the
+> closed-test URL while current and future clients receive the public Google Play
+> listing. Compatible 1.2.0 installs received production-channel EAS updates:
+> Android group `ea03ff47-442f-4798-9bd4-edfcef64dd80`, update
+> `01a0c7e0-4f19-7616-b02d-4017865c79e4`; iOS group
+> `77a6f411-f23f-4f1c-969f-fe39d3dda659`, update
+> `01a0c7e4-2494-71b9-83cd-bbbd2d9d9221`.
+>
+> Store copy and five current screenshots per platform are prepared. App Store
+> Connect accepted the corrected 1284 x 2778 iPhone files and the 2064 x 2752
+> iPad files. Provider drafts still require an explicit save, superseded Apple
+> screenshots still require deletion, and neither draft has been submitted for
+> review. Native Apple billing, Sign in with Apple, reviewer acceptance, physical
+> device push, and controlled live billing acceptance remain open.
+>
+> After the screenshot pull request opened, SQLModel 0.0.45 was published and
+> fresh CI environments began rejecting Kall's deliberately naive-UTC storage
+> fields. Main `540829dbdeec241f330fb928b5539c10946ff963` pins SQLModel below 0.0.45
+> until that schema contract is migrated intentionally. Exact-head CI passed,
+> including backend, browser E2E, and the protected Clerk mobile E2E lane; local
+> validation recorded 986 backend tests, Ruff, TypeScript, and the iOS validator.
 
 > **19 September 2026, mobile 1.2.0 store release + Play Console pre-launch
 > follow-up:** shipped mobile 1.2.0 to both stores. Android (versionCode 37)
