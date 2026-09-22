@@ -29,6 +29,25 @@ assert.equal(icon.readUInt32BE(16), 1024, 'iOS icon must be 1024 pixels wide.');
 assert.equal(icon.readUInt32BE(20), 1024, 'iOS icon must be 1024 pixels high.');
 assert.ok(![4, 6].includes(icon[25]), 'iOS App Store icon cannot contain an alpha channel.');
 
+for (const [displayClass, expectedWidth, expectedHeight] of [
+  ['iphone', 1284, 2778],
+  ['ipad', 2064, 2752],
+]) {
+  const screenshotDirectory = path.join(mobileRoot, 'store-assets', 'ios', 'screenshots', displayClass);
+  const screenshots = fs.readdirSync(screenshotDirectory).filter((name) => name.endsWith('.png')).sort();
+  assert.equal(screenshots.length, 5, `${displayClass} App Store assets must contain exactly five PNG screenshots.`);
+  for (const screenshotName of screenshots) {
+    const screenshot = fs.readFileSync(path.join(screenshotDirectory, screenshotName));
+    assert.deepEqual(
+      [...screenshot.subarray(0, 8)],
+      [137, 80, 78, 71, 13, 10, 26, 10],
+      `${screenshotName} must be a PNG.`,
+    );
+    assert.equal(screenshot.readUInt32BE(16), expectedWidth, `${screenshotName} has the wrong App Store width.`);
+    assert.equal(screenshot.readUInt32BE(20), expectedHeight, `${screenshotName} has the wrong App Store height.`);
+  }
+}
+
 for (const [profileName, simulator] of [
   ['ios-simulator-alpha', true],
   ['ios-device-alpha', false],
