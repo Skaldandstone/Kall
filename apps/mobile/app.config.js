@@ -3,6 +3,7 @@
 // non-production backend without hand-editing app.json each time (the
 // previous approach, error-prone and easy to accidentally commit).
 module.exports = ({ config }) => {
+  const otaRuntimeVersion = process.env.KALL_OTA_RUNTIME_VERSION;
   const apiBaseUrl = process.env.API_BASE_URL || config.extra.apiBaseUrl;
   const clerkPublishableKey =
     process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || config.extra.clerkPublishableKey;
@@ -64,6 +65,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    runtimeVersion: otaRuntimeVersion || config.runtimeVersion,
     version: nativeE2EVersion || config.version,
     plugins: [
       ...(config.plugins ?? []),
