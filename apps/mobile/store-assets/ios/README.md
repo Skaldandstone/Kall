@@ -1,10 +1,14 @@
 # Kall App Store screenshots
 
 Run the manual `Mobile Store Screenshots` workflow after any material mobile UI
-change. Its `iphone/` artifact contains five 1290x2796 screenshots for the
-6.7-inch iPhone display class, and its `ipad/` artifact contains five 2064x2752
-screenshots for the 13-inch iPad display class. Both are captured from the same
-authenticated Kall mobile flow as the Android listing set.
+change. Its `iphone/` artifact contains five 1284x2778 screenshots accepted by
+the 6.5-inch and 6.7-inch iPhone display slots, and its `ipad/` artifact
+contains five 2064x2752 screenshots for the 13-inch iPad display class. Both
+are captured from the same authenticated Kall mobile flow as the Android
+listing set.
+
+`npm run validate:ios-alpha` rejects a stored screenshot that drifts from
+either exact App Store size.
 
 These listing screenshots demonstrate applications, application review, the
 morning brief, opportunities, and growth. The sign-in screen is deliberately

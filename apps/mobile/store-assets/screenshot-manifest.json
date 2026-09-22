@@ -30,28 +30,28 @@
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/iphone/1-applications.png",
-      "bytes": 103861,
-      "sha256": "c62f022aaa84aa6a85eb9b399f2bfe8b48d25f9c827a2a6e6e479ebc60bbe057"
+      "bytes": 101461,
+      "sha256": "86af21ed28f9c4e62a66ccd00c8df030c59595e2eabff7dd80a6ce36c4fafd40"
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/iphone/2-application-review.png",
-      "bytes": 213325,
-      "sha256": "4943e862fae2c28db9e159a4923358bf45b3b881acb82036c4bb1a71867ca8d7"
+      "bytes": 210400,
+      "sha256": "6ea06cb80bce3597ea2e5ea3ad9347bc6d4528fa09ad5412f8b5bf1e230cee59"
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/iphone/3-morning-brief.png",
-      "bytes": 188802,
-      "sha256": "fc376c0ba5b0137caa448505fe4fa7e4c4cdad69e14c6bcb3895bfe424bd993f"
+      "bytes": 185362,
+      "sha256": "edfe0268a1c121cd04539178a723eb782d1cf21a8e9c812c54ec80e626d70873"
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/iphone/4-opportunities.png",
-      "bytes": 150025,
-      "sha256": "cbcb5959f03b44c8b0121ee24ed7ed17db6df1f907dbc97fd9d18907ac3045e6"
+      "bytes": 146091,
+      "sha256": "349fa3801654d147311a7c8164d09f4bad0eb80ec14f0d46f69df9783b042015"
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/iphone/5-growth.png",
-      "bytes": 105241,
-      "sha256": "e6b64451cc24bf53b1346032e483c2012e110fde19dbda77b02ecb8d4b2dc6aa"
+      "bytes": 101138,
+      "sha256": "bd51a89ebd59be687f17e638cfb844430fc95723521b3a8741d0c8dc510c5f1c"
     },
     {
       "path": "apps/mobile/store-assets/ios/screenshots/ipad/1-applications.png",
