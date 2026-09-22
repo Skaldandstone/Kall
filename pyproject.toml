@@ -10,7 +10,10 @@ requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.116,<1",
   "uvicorn[standard]>=0.35,<1",
-  "sqlmodel>=0.0.24,<1",
+  # 0.0.45 changes bare datetime columns to require timezone-aware values.
+  # Kall's existing schema deliberately stores naive UTC, so stay on the
+  # compatible line until that storage contract is migrated explicitly.
+  "sqlmodel>=0.0.24,<0.0.45",
   "alembic>=1.16,<2",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.10,<3",
