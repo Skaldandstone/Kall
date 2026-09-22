@@ -43,10 +43,19 @@ and webhook destination. No controlled live charge or refund has been performed.
 >
 > Store copy and five current screenshots per platform are prepared. App Store
 > Connect accepted the corrected 1284 x 2778 iPhone files and the 2064 x 2752
-> iPad files. Provider drafts still require an explicit save, superseded Apple
-> screenshots still require deletion, and neither draft has been submitted for
-> review. Native Apple billing, Sign in with Apple, reviewer acceptance, physical
-> device push, and controlled live billing acceptance remain open.
+> iPad files. The Google Play listing draft is saved with the current copy and
+> five screenshots. The App Store 1.2.0 draft is saved with the current copy,
+> exactly five iPhone screenshots, and exactly five iPad screenshots; the four
+> superseded screenshots were removed from each device class. Neither draft was
+> submitted for review. A dedicated App Store Connect API key validates in
+> RevenueCat, and the Apple Plus and Premium products are attached to their
+> matching entitlements and packages in the default offering. Native Apple
+> billing remains disabled in the deployed runtime until a replacement build,
+> subscription-review screenshots, and sandbox acceptance are complete. Sign in
+> with Apple, reviewer acceptance, physical-device push, and controlled live
+> billing acceptance remain open. Apple's secure DSA uploader reached 100% for
+> the requested document but did not return a receipt, so no completion claim
+> was sent and the provider case remains open.
 >
 > After the screenshot pull request opened, SQLModel 0.0.45 was published and
 > fresh CI environments began rejecting Kall's deliberately naive-UTC storage
@@ -54,6 +63,27 @@ and webhook destination. No controlled live charge or refund has been performed.
 > until that schema contract is migrated intentionally. Exact-head CI passed,
 > including backend, browser E2E, and the protected Clerk mobile E2E lane; local
 > validation recorded 986 backend tests, Ruff, TypeScript, and the iOS validator.
+
+> **22 September 2026, scheduled-job compatibility follow-up:** the required
+> operational read-back found that the deployed `4dd0870` job-runner image was
+> starting from EventBridge Scheduler but `billing_grace_period` and
+> `notifications` crashed under SQLModel 0.0.45's timezone validation. Exact
+> current main `be08969e220f9fd59e0a6ead51f69fb1a35e42d5` was sealed into a
+> deterministic reviewed snapshot with manifest SHA-256
+> `e682e66d850746bee72ed892a89b49d030c72ac7cb219cbfde4c8d16ad8b0134`.
+> CodeBuild produced API image
+> `sha256:71fbd6005acc2221013b92600af73e8236108427d7a3895c563a108eeff5a20a`
+> and web image
+> `sha256:2ce54ea27df927e11d5a6adfe47a14a4c1a2ddcd485d4bcb0598b637f92b1784`;
+> both ECR Basic scans completed with zero findings. Change set
+> `release-be08969` had no adds or deletes and changed only the expected service,
+> task-definition, scheduler, and scheduler-role references. It completed as
+> `UPDATE_COMPLETE`; API and web each reached 1/1 with completed primary
+> rollouts. The first real hourly Scheduler run on the new job-runner task
+> definition exited 0: billing grace reported nothing overdue, notifications
+> reported nothing due, and discovery, briefs, and email sync completed without
+> errors. Public root, API health, BFF health, and mobile-release checks returned
+> 200; signed-out `/api/kall/me` retained the web 404 boundary.
 
 > **19 September 2026, mobile 1.2.0 store release + Play Console pre-launch
 > follow-up:** shipped mobile 1.2.0 to both stores. Android (versionCode 37)
