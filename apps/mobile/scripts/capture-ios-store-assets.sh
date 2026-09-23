@@ -73,8 +73,6 @@ xcrun simctl status_bar "${DEVICE_UDID}" override \
   --cellularBars 4
 xcrun simctl install "${DEVICE_UDID}" "${APP_PATH}"
 
-curl -Ls "https://get.maestro.mobile.dev" | bash
-export PATH="${HOME}/.maestro/bin:${PATH}"
 maestro --version
 
 VIDEO_PATH="${OUTPUT_DIR}/kall-ios-review-flow.mp4"

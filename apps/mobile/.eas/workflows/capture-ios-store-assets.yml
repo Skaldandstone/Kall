@@ -43,5 +43,4 @@ jobs:
         with:
           type: other
           name: kall-ios-store-capture
-          path: |
-            store-capture-output/**/*
+          path: store-capture-output
