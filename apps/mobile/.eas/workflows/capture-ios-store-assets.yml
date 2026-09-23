@@ -1,0 +1,47 @@
+name: Capture iOS store assets
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  get_ios_simulator_build:
+    name: Reuse iOS 1.2.0 simulator build
+    type: get-build
+    params:
+      platform: ios
+      profile: ios-e2e
+      app_identifier: com.skaldandstone.kall
+      app_version: 1.2.0
+      app_build_version: "21"
+      fingerprint_hash: 712099030c85cde887387add3d047262556ba674
+      simulator: true
+      wait_for_in_progress: true
+
+  capture_ios_store_assets:
+    name: Record App Store-sized simulator media
+    needs: [get_ios_simulator_build]
+    runs_on: macos-medium
+    steps:
+      - uses: eas/checkout
+      - id: download_build
+        uses: eas/download_build
+        with:
+          build_id: ${{ needs.get_ios_simulator_build.outputs.build_id }}
+          extensions: [app]
+      - name: Capture native iOS screenshot and recording
+        env:
+          KALL_IOS_APP_PATH: ${{ steps.download_build.outputs.artifact_path }}
+          KALL_EAS_BUILD_ID: ${{ needs.get_ios_simulator_build.outputs.build_id }}
+          KALL_APP_VERSION: ${{ needs.get_ios_simulator_build.outputs.app_version }}
+          KALL_APP_BUILD_VERSION: ${{ needs.get_ios_simulator_build.outputs.app_build_version }}
+          KALL_BUILD_FINGERPRINT: ${{ needs.get_ios_simulator_build.outputs.fingerprint_hash }}
+          KALL_BUILD_GIT_COMMIT: ${{ needs.get_ios_simulator_build.outputs.git_commit_hash }}
+        run: bash scripts/capture-ios-store-assets.sh
+      - name: Upload iOS capture bundle
+        if: ${{ always() }}
+        uses: eas/upload_artifact
+        with:
+          type: other
+          name: kall-ios-store-capture
+          path: |
+            store-capture-output/**/*

@@ -20,3 +20,23 @@ substitute
 for the separate Plus and Premium subscription review screenshots. Capture
 those only after RevenueCat products and offerings are live in a sandbox build,
 so the submitted artwork shows the actual native purchase screen and price.
+
+## Native simulator capture through Expo
+
+Run the manual `Capture iOS store assets` EAS workflow when App Review needs a
+native launch recording or an App Store-sized sign-in screenshot:
+
+```sh
+npx eas-cli@latest workflow:run .eas/workflows/capture-ios-store-assets.yml --wait
+```
+
+The workflow reuses the approved iOS 1.2.0 (21) simulator build instead of
+spending another iOS build credit. It uses a custom `macos-medium` job and the
+open-source Maestro CLI, so it does not require Expo's paid packaged Maestro
+job. The resulting `kall-ios-store-capture` artifact contains a H.264 MP4, an
+Apple-accepted 6.9-inch PNG, and a nonsecret provenance manifest.
+
+This media is simulator evidence. It demonstrates native launch and the
+signed-out sign-in screen; it does not prove physical-device behavior,
+authentication completion, account deletion, or native purchases. Keep using
+the authenticated listing screenshots above for the public App Store gallery.

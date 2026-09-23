@@ -92,3 +92,29 @@ def test_mobile_ota_updates_use_the_production_eas_environment() -> None:
     assert 'eas update --channel "${{ inputs.channel }}" --environment production' in workflow
     assert 'eas update --channel preview --environment production' in package
     assert 'eas update --channel production --environment production' in package
+
+
+def test_ios_store_capture_reuses_a_build_on_a_free_custom_workflow() -> None:
+    workflow = (
+        ROOT
+        / "apps"
+        / "mobile"
+        / ".eas"
+        / "workflows"
+        / "capture-ios-store-assets.yml"
+    ).read_text()
+    script = (
+        ROOT / "apps" / "mobile" / "scripts" / "capture-ios-store-assets.sh"
+    ).read_text()
+
+    assert "workflow_dispatch" in workflow
+    assert "type: get-build" in workflow
+    assert "profile: ios-e2e" in workflow
+    assert "runs_on: macos-medium" in workflow
+    assert "uses: eas/download_build" in workflow
+    assert "uses: eas/upload_artifact" in workflow
+    assert "type: maestro" not in workflow
+    assert "xcrun simctl" in script
+    assert 'maestro --device "${DEVICE_UDID}" test' in script
+    assert "1320x2868|1290x2796|1260x2736" in script
+    assert "physical-device evidence" in script
