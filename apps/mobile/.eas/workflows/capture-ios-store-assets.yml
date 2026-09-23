@@ -29,14 +29,14 @@ jobs:
           build_id: ${{ needs.get_ios_simulator_build.outputs.build_id }}
           extensions: [app]
       - name: Capture native iOS screenshot and recording
-        env:
-          KALL_IOS_APP_PATH: ${{ steps.download_build.outputs.artifact_path }}
-          KALL_EAS_BUILD_ID: ${{ needs.get_ios_simulator_build.outputs.build_id }}
-          KALL_APP_VERSION: ${{ needs.get_ios_simulator_build.outputs.app_version }}
-          KALL_APP_BUILD_VERSION: ${{ needs.get_ios_simulator_build.outputs.app_build_version }}
-          KALL_BUILD_FINGERPRINT: ${{ needs.get_ios_simulator_build.outputs.fingerprint_hash }}
-          KALL_BUILD_GIT_COMMIT: ${{ needs.get_ios_simulator_build.outputs.git_commit_hash }}
-        run: bash scripts/capture-ios-store-assets.sh
+        run: |
+          export KALL_IOS_APP_PATH="${{ steps.download_build.outputs.artifact_path }}"
+          export KALL_EAS_BUILD_ID="${{ needs.get_ios_simulator_build.outputs.build_id }}"
+          export KALL_APP_VERSION="${{ needs.get_ios_simulator_build.outputs.app_version }}"
+          export KALL_APP_BUILD_VERSION="${{ needs.get_ios_simulator_build.outputs.app_build_version }}"
+          export KALL_BUILD_FINGERPRINT="${{ needs.get_ios_simulator_build.outputs.fingerprint_hash }}"
+          export KALL_BUILD_GIT_COMMIT="${{ needs.get_ios_simulator_build.outputs.git_commit_hash }}"
+          bash scripts/capture-ios-store-assets.sh
       - name: Upload iOS capture bundle
         if: ${{ always() }}
         uses: eas/upload_artifact
