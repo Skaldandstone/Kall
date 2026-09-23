@@ -11,7 +11,7 @@
     "cookies"
   ],
   "host_permissions": [
-    "https://d7wb2yokfqcku.cloudfront.net/*",
+    "https://kall.skaldandstone.com/*",
     "https://*.clerk.accounts.dev/*",
     "https://*.clerk.com/*"
   ],

@@ -24,7 +24,7 @@ global.chrome = {
 const { captureJob, listApplications, resumeDataUrl, NotSignedInError, deps } = await import('../src/api.js');
 
 beforeEach(() => {
-  deps.origin = async () => 'https://d7wb2yokfqcku.cloudfront.net';
+  deps.origin = async () => 'https://kall.skaldandstone.com';
   deps.getSessionToken = null; // each test sets its own, or leaves it unconfigured on purpose
 });
 
@@ -48,7 +48,7 @@ test('a token is sent as a bearer header against the real /api path, not /api/ka
 
   const result = await listApplications();
 
-  assert.equal(seenUrl, 'https://d7wb2yokfqcku.cloudfront.net/api/applications');
+  assert.equal(seenUrl, 'https://kall.skaldandstone.com/api/applications');
   assert.equal(seenHeaders.Authorization, 'Bearer test-token-123');
   assert.deepEqual(result, [{ id: 1 }]);
 });
@@ -83,7 +83,7 @@ test('resumeDataUrl requests the download_url path as-is -- it is already /api/.
 
   const { dataUrl } = await resumeDataUrl('/api/me/resumes/7/download');
 
-  assert.equal(seenUrl, 'https://d7wb2yokfqcku.cloudfront.net/api/me/resumes/7/download');
+  assert.equal(seenUrl, 'https://kall.skaldandstone.com/api/me/resumes/7/download');
   assert.equal(dataUrl, 'data:application/pdf;base64,AAAA');
 });
 
@@ -99,7 +99,7 @@ test('captureJob posts the scraped job as JSON to /jobs/capture', async () => {
   const job = { url: 'https://example.com/jobs/1', title: 'Engineer', professional_profile_id: 5 };
   const result = await captureJob(job);
 
-  assert.equal(seenUrl, 'https://d7wb2yokfqcku.cloudfront.net/api/jobs/capture');
+  assert.equal(seenUrl, 'https://kall.skaldandstone.com/api/jobs/capture');
   assert.equal(seenInit.method, 'POST');
   assert.deepEqual(JSON.parse(seenInit.body), job);
   assert.deepEqual(result, { id: 1, state: 'new' });
