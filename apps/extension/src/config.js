@@ -4,7 +4,7 @@
  * Clerk sync host would silently disagree if each kept its own copy.
  */
 
-const DEFAULT_ORIGIN = 'https://d7wb2yokfqcku.cloudfront.net';
+const DEFAULT_ORIGIN = 'https://kall.skaldandstone.com';
 
 export async function origin() {
   const stored = await chrome.storage.sync.get('origin');
