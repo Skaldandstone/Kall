@@ -113,6 +113,7 @@ def test_ios_store_capture_reuses_a_build_on_a_free_custom_workflow() -> None:
     assert "runs_on: macos-medium" in workflow
     assert "uses: eas/download_build" in workflow
     assert "uses: eas/upload_artifact" in workflow
+    assert "path: apps/mobile/store-capture-output" in workflow
     assert "type: maestro" not in workflow
     assert "xcrun simctl" in script
     assert 'maestro --device "${DEVICE_UDID}" test' in script
