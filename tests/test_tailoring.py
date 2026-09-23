@@ -1,6 +1,7 @@
 import pytest
 from kall.models import (
     Achievement,
+    CareerProfile,
     Employment,
     Job,
     JobRequirementAnalysis,
@@ -207,6 +208,52 @@ def test_created_proposal_survives_session_close() -> None:
     assert proposal.id == proposal_id
     assert proposal.status == "review_required"
     assert proposal.job_id == job_id
+
+
+def test_profile_default_resume_seeds_the_job_selection() -> None:
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(email="profile-default@example.com", full_name="Default Resume User")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        resume = ResumeDocument(
+            user_id=user.id,
+            name="default.txt",
+            file_path="uploads/default.txt",
+            mime_type="text/plain",
+            extracted_text="Improved service workflows and documented operating processes.",
+        )
+        session.add(resume)
+        session.commit()
+        session.refresh(resume)
+        profile = CareerProfile(user_id=user.id, name="Operations", default_resume_id=resume.id)
+        job = Job(
+            source="test",
+            company="Example",
+            title="Operations Manager",
+            description="Improve service workflows and document processes.",
+            url="https://example.com/jobs/operations",
+        )
+        session.add(profile)
+        session.add(job)
+        session.commit()
+        session.refresh(profile)
+        session.refresh(job)
+
+        proposal = create_tailoring_proposal(session, user.id, job, profile.id)
+
+        selection = session.exec(
+            select(ResumeSelection).where(
+                ResumeSelection.user_id == user.id,
+                ResumeSelection.job_id == job.id,
+                ResumeSelection.professional_profile_id == profile.id,
+            )
+        ).one()
+        assert proposal.resume_id == resume.id
+        assert selection.selected_resume_id == resume.id
+        assert selection.recommended_resume_id == resume.id
 
 
 def test_summary_paragraph_reflows_word_per_line_extraction_and_drops_the_contact_header() -> None:

@@ -4,6 +4,7 @@ from kall.clock import utcnow
 from kall.config import get_settings
 from kall.models import (
     Achievement,
+    CareerProfile,
     Employment,
     Job,
     JobRequirementAnalysis,
@@ -374,6 +375,20 @@ def create_tailoring_proposal(
     resume_id = selection.selected_resume_id if selection else None
     if not resume_id and selection:
         resume_id = selection.recommended_resume_id
+    profile = session.get(CareerProfile, professional_profile_id)
+    if not resume_id and profile and profile.user_id == user_id and profile.default_resume_id:
+        resume_id = profile.default_resume_id
+        if selection is None:
+            selection = ResumeSelection(
+                user_id=user_id,
+                job_id=job.id,
+                professional_profile_id=professional_profile_id,
+                recommended_resume_id=resume_id,
+                selected_resume_id=resume_id,
+            )
+            session.add(selection)
+        else:
+            selection.selected_resume_id = resume_id
     resume = session.get(ResumeDocument, resume_id) if resume_id else None
     if not resume or resume.user_id != user_id:
         raise ValueError("A user-owned selected or recommended resume is required")
