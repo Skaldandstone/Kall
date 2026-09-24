@@ -1,0 +1,13 @@
+{
+  "verifiedDate": "2026-09-24",
+  "appVersion": "1.2.0",
+  "appBuildVersion": "21",
+  "finalized": false,
+  "reviewedAgainstSubmittedBuild": false,
+  "pendingParagraphRemoved": false,
+  "verificationNote": "The notes remain a draft because reviewer access, physical evidence, native subscription screenshots, and provider uploads are incomplete. Update this file only after reviewing the final notes against the exact submitted build and provider evidence.",
+  "limitations": [
+    "This nonsecret snapshot records final-note review status only.",
+    "It does not prove reviewer access, provider upload state, App Review, or acceptance."
+  ]
+}

@@ -15,6 +15,7 @@ const assetFiles = [
   'review-evidence-status.json',
   'simulator-review-evidence-status.json',
   'physical-review-evidence-status.json',
+  'final-review-notes-status.json',
   'review-notes-draft.md',
 ];
 
@@ -105,7 +106,19 @@ test('complete snapshots still require final notes and retain evidence limitatio
   let result = run(mobileRoot);
   assert.deepEqual(reportFrom(result).blockers, ['review-notes-finalization']);
 
-  fs.writeFileSync(path.join(assets, 'review-notes-draft.md'), '# Final review notes\n\nNo credentials are stored in source.\n');
+  const finalNotesPath = path.join(assets, 'final-review-notes-status.json');
+  const finalNotes = JSON.parse(fs.readFileSync(finalNotesPath, 'utf8'));
+  finalNotes.finalized = true;
+  finalNotes.reviewedAgainstSubmittedBuild = true;
+  finalNotes.pendingParagraphRemoved = true;
+  fs.writeFileSync(finalNotesPath, `${JSON.stringify(finalNotes, null, 2)}\n`);
+  fs.writeFileSync(path.join(assets, 'review-notes-draft.md'), `# App Review notes for Kall 1.2.0 (21)
+
+Kall never submits a job application without the user's action.
+Open Profile, then Plan to see Kall Plus and Premium with localized prices and Restore purchases.
+Use Apple's sandbox for any completed review purchase.
+Account deletion is available from Profile after a confirmation step.
+`);
   result = run(mobileRoot, ['--require-source-complete']);
   assert.equal(result.status, 0, result.stderr);
   const report = reportFrom(result);

@@ -61,6 +61,8 @@
     "test:ios-iap-review": "node --test scripts/validate-ios-iap-review-config.test.mjs",
     "validate:ios-review-access": "node scripts/validate-ios-review-access.mjs",
     "test:ios-review-access": "node --test scripts/validate-ios-review-access.test.mjs",
+    "validate:ios-final-review-notes": "node scripts/validate-ios-final-review-notes.mjs",
+    "test:ios-final-review-notes": "node --test scripts/validate-ios-final-review-notes.test.mjs",
     "report:ios-review-readiness": "node scripts/build-ios-review-readiness-report.mjs",
     "test:ios-review-readiness": "node --test scripts/build-ios-review-readiness-report.test.mjs",
     "validate:android-play": "node scripts/validate-android-play.mjs",

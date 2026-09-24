@@ -22,6 +22,7 @@ const access = readJson('review-access-status.json');
 const evidence = readJson('review-evidence-status.json');
 const simulator = readJson('simulator-review-evidence-status.json');
 const physical = readJson('physical-review-evidence-status.json');
+const finalNotes = readJson('final-review-notes-status.json');
 const notes = fs.readFileSync(path.join(assetsRoot, 'review-notes-draft.md'), 'utf8');
 
 assert.equal(contract.appVersion, app.version, 'IAP contract version must match the mobile app.');
@@ -31,6 +32,8 @@ assert.equal(contract.appVersion, simulator.appVersion, 'IAP and simulator evide
 assert.equal(contract.appBuildVersion, simulator.appBuildVersion, 'IAP and simulator evidence builds must agree.');
 assert.equal(contract.appVersion, physical.appVersion, 'IAP and physical evidence versions must agree.');
 assert.equal(contract.appBuildVersion, physical.appBuildVersion, 'IAP and physical evidence builds must agree.');
+assert.equal(contract.appVersion, finalNotes.appVersion, 'IAP and final-note versions must agree.');
+assert.equal(contract.appBuildVersion, finalNotes.appBuildVersion, 'IAP and final-note builds must agree.');
 assert.equal(simulator.captureType, 'iOS Simulator', 'Review capture must be identified as emulated-device evidence.');
 assert.match(simulator.workflowRunId ?? '', /^[a-f0-9-]{36}$/i, 'Simulator evidence must identify its EAS workflow run.');
 assert.match(simulator.sourceCommit ?? '', /^[a-f0-9]{40}$/i, 'Simulator evidence must identify its source commit.');
@@ -73,10 +76,27 @@ assert.equal(
   access.easReviewPasswordPresent,
   'EAS reviewer email/password status is internally inconsistent.',
 );
+for (const field of ['finalized', 'reviewedAgainstSubmittedBuild', 'pendingParagraphRemoved']) {
+  assert.equal(typeof finalNotes[field], 'boolean', `${field} must be boolean.`);
+}
+assert.equal(
+  finalNotes.finalized,
+  finalNotes.reviewedAgainstSubmittedBuild && finalNotes.pendingParagraphRemoved,
+  'Finalized notes require submitted-build review and pending-paragraph removal.',
+);
 
 const blockers = [];
 const appStoreCredentialsComplete = access.appStoreReviewUsernamePresent && access.appStoreReviewPasswordPresent;
 const easCaptureCredentialsComplete = access.easReviewEmailPresent && access.easReviewPasswordPresent;
+if (finalNotes.finalized) {
+  assert.equal(appStoreCredentialsComplete, true, 'Final notes require App Store reviewer credentials.');
+  assert.equal(access.clerkReviewerIdentityPresent, true, 'Final notes require the production Clerk reviewer identity.');
+  assert.equal(easCaptureCredentialsComplete, true, 'Final notes require EAS reviewer credentials.');
+  assert.equal(physical.packageValidated, true, 'Final notes require the validated physical-device package.');
+  assert.equal(evidence.appReviewAttachmentPresent, true, 'Final notes require the App Review recording upload.');
+  assert.equal(evidence.plusReviewScreenshotPresent, true, 'Final notes require the Plus screenshot upload.');
+  assert.equal(evidence.premiumReviewScreenshotPresent, true, 'Final notes require the Premium screenshot upload.');
+}
 if (!appStoreCredentialsComplete) blockers.push('app-store-review-credentials');
 if (!access.clerkReviewerIdentityPresent) blockers.push('clerk-reviewer-identity');
 if (!easCaptureCredentialsComplete) blockers.push('eas-review-capture-credentials');
@@ -85,7 +105,22 @@ if (!evidence.appReviewAttachmentPresent) blockers.push('app-review-recording-up
 if (!evidence.plusReviewScreenshotPresent) blockers.push('plus-subscription-review-screenshot');
 if (!evidence.premiumReviewScreenshotPresent) blockers.push('premium-subscription-review-screenshot');
 
-const notesFinalized = !/remain submission prerequisites|Reviewer access remains a submission prerequisite|Do not state that access or media is ready/i.test(notes);
+const pendingNotesPattern = /remain submission prerequisites|Reviewer access remains a submission prerequisite|Do not state that access or media is ready/i;
+const notesFinalized = finalNotes.finalized;
+if (notesFinalized) {
+  assert.doesNotMatch(notes, pendingNotesPattern, 'Finalized notes cannot retain pending-evidence language.');
+  assert.doesNotMatch(notes, /Simulator|emulated-device/i, 'Finalized notes cannot present simulator evidence as the review package.');
+  for (const [pattern, message] of [
+    [/Kall 1\.2\.0 \(21\)/i, 'Final notes must identify the submitted version and build.'],
+    [/Profile.+Plan/is, 'Final notes must explain how to reach native plans.'],
+    [/Plus and Premium/i, 'Final notes must identify both native products.'],
+    [/localized prices/i, 'Final notes must explain localized store pricing.'],
+    [/Restore purchases/i, 'Final notes must identify the restore control.'],
+    [/Apple's sandbox/i, 'Final notes must direct completed review purchases to Apple sandbox.'],
+    [/Account deletion.+Profile/is, 'Final notes must explain where account deletion is available.'],
+    [/never submits a job application/is, 'Final notes must state the no-automatic-submission boundary.'],
+  ]) assert.match(notes, pattern, message);
+} else assert.match(notes, pendingNotesPattern, 'Unfinalized notes must retain pending-evidence language.');
 if (!notesFinalized) blockers.push('review-notes-finalization');
 
 const report = {

@@ -85,6 +85,7 @@ Run the deterministic source preflight before every submission:
 npm run validate:ios-review
 npm run validate:ios-iap-review
 npm run validate:ios-review-access
+npm run validate:ios-final-review-notes
 ```
 
 The IAP review preflight checks the source-only contract in
@@ -101,6 +102,14 @@ that absent credentials are already stored, credentials or email addresses in
 review drafts, and copy that implies an uncreated reviewer identity is ready.
 It does not store credentials or prove they work; update the snapshot only after
 directly rechecking App Store Connect, production Clerk, and EAS.
+
+The final-note preflight reads `final-review-notes-status.json` and fails closed
+if notes are marked final before reviewer access, the validated physical-device
+package, both native subscription screenshots, and all three App Store Connect
+evidence fields are present. Final notes must identify the submitted build,
+native plan path, both products, localized prices, restore, sandbox purchase
+handling, account deletion, and the no-automatic-submission boundary. Simulator
+language is rejected from finalized review notes.
 
 Generate one deterministic, nonsecret summary of all local review blockers with:
 
