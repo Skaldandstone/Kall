@@ -48,9 +48,17 @@ job search,resume,career,applications,consulting,interview,opportunities,profess
 
 - Use the dedicated reviewer account stored in App Store Connect. Never place
   its credentials in this repository or in review-note source files.
-- Registration, login, Google sign-in, Apple sign-in, and account deletion are
-  demonstrated in the attached review video.
-- Native Plus and Premium purchases use Apple's sandbox during review. Kall
-  does not submit job applications or publish a career page automatically.
-- The five listing screenshots show normal authenticated product use. Separate
-  subscription screenshots show the actual native purchase screen and price.
+- Kall supports email, Google, and Apple sign-in. Review each path only when the
+  matching provider is enabled in the submitted build and verified with the
+  dedicated reviewer account.
+- Native Plus and Premium purchases use Apple's sandbox during review. The
+  reviewer can open Profile, choose Plan, inspect both native products, cancel
+  an Apple purchase sheet without buying, and use Restore purchases.
+- Kall does not submit job applications or publish a career page automatically.
+  Account deletion is available from Profile and requires confirmation.
+- The five listing screenshots show normal authenticated product use. Before
+  submission, add separate Plus and Premium subscription-review screenshots
+  that show the actual native product name and localized price.
+- Attach the requested physical-device recording before submission and describe
+  only the flows visible in that recording. Simulator media is internal QA
+  evidence and must not be described as physical-device evidence.

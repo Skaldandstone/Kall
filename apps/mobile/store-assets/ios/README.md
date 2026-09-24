@@ -54,3 +54,11 @@ The workflow never records the password as an artifact, confirms no purchase,
 and does not delete the reusable reviewer account. Its manifest labels the
 result as simulator evidence. Do not describe it to Apple as a physical-device
 recording.
+
+## Submission evidence gate
+
+Use `review-notes-draft.md` as the truthful App Review notes source and
+`review-evidence-shot-list.md` for the recording and subscription screenshot
+sequence. The notes deliberately do not claim an attachment exists. Replace the
+pending-evidence sentence only after the physical-device recording and both
+subscription screenshots are present in App Store Connect and visually checked.
