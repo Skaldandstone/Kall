@@ -1,7 +1,7 @@
 {
   "verifiedDate": "2026-09-24",
   "captureType": "iOS Simulator",
-  "workflowRunId": "01a0d099-dcac-74f7-8352-4f0725c5123e",
+  "workflowRunId": "01a0d257-7732-7664-9e74-41ca23667839",
   "workflowSucceeded": true,
   "appVersion": "1.2.0",
   "appBuildVersion": "21",
@@ -19,8 +19,8 @@
   },
   "recording": {
     "file": "kall-ios-review-flow.mp4",
-    "bytes": 10510594,
-    "sha256": "bd01f013c7726dd27855fdb109f2e9e75579be369c99b54fed02eeb1dd42463f"
+    "bytes": 11352729,
+    "sha256": "dddcda930b7004c7d543d954f82763f5f593b4b966c063b08a27da51b39c0a0b"
   },
   "limitations": [
     "This is emulated-device evidence from an iOS Simulator.",
