@@ -310,6 +310,8 @@ jobs:
         working-directory: apps/mobile
       - run: npm run test:ios-review-access
         working-directory: apps/mobile
+      - run: npm run test:ios-review-readiness
+        working-directory: apps/mobile
       - name: Cache Playwright browsers
         uses: actions/cache@v6
         id: playwright-cache

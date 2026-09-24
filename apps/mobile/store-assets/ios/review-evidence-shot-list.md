@@ -1,12 +1,13 @@
 # App Review evidence shot list
 
 This checklist maps the remaining media directly to Apple's request. Record and
-capture the submitted Kall 1.2.0 build 21. Do not substitute responsive web or
-iOS Simulator media for the physical-device recording.
+capture the submitted Kall 1.2.0 build 21 through the Expo-managed iOS
+Simulator. Do not substitute responsive web media or describe the result as a
+physical-device recording.
 
-## One continuous physical-device recording
+## One continuous emulated-device recording
 
-Record an iPhone screen in one uninterrupted take. Keep credentials, email
+Record the iPhone Simulator in one uninterrupted take. Keep credentials, email
 notifications, purchase receipts, device identifiers, and unrelated apps out of
 frame.
 
@@ -73,7 +74,8 @@ Before choosing Add for Review or Resubmit:
 
 - Enter the dedicated reviewer username and password in App Store Connect and
   verify a native sign-in without MFA or a device-trust challenge.
-- Upload the physical-device recording to App Review Information.
+- Upload the authenticated iOS Simulator recording to App Review Information
+  and identify it as emulated-device evidence.
 - Upload the Plus screenshot to the Plus subscription review field.
 - Upload the Premium screenshot to the Premium subscription review field.
 - Preview all three uploads after processing.

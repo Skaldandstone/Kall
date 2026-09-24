@@ -1,0 +1,30 @@
+{
+  "verifiedDate": "2026-09-24",
+  "captureType": "iOS Simulator",
+  "workflowRunId": "01a0d099-dcac-74f7-8352-4f0725c5123e",
+  "workflowSucceeded": true,
+  "appVersion": "1.2.0",
+  "appBuildVersion": "21",
+  "sourceCommit": "3ec806a2a872644c3e881bb1b899351a770b6a30",
+  "easBuildId": "f5dc3c2a-95c8-4bf1-b2bf-1656ff5d8668",
+  "buildFingerprint": "712099030c85cde887387add3d047262556ba674",
+  "captureValidated": true,
+  "authenticatedJourneyPresent": false,
+  "coverage": "native-launch-and-signed-out-sign-in-rendering-only",
+  "screenshot": {
+    "file": "01-kall-sign-in.png",
+    "dimensions": "1320x2868",
+    "bytes": 513839,
+    "sha256": "6741db6916e39d05895fdc6aee7ff9a63de9aaf2a0e590bb323403fa16bbbd04"
+  },
+  "recording": {
+    "file": "kall-ios-review-flow.mp4",
+    "bytes": 10510594,
+    "sha256": "bd01f013c7726dd27855fdb109f2e9e75579be369c99b54fed02eeb1dd42463f"
+  },
+  "limitations": [
+    "This is emulated-device evidence from an iOS Simulator.",
+    "It proves native launch and signed-out sign-in rendering only.",
+    "It does not prove authentication, purchases, account deletion, provider upload, App Review, or acceptance."
+  ]
+}

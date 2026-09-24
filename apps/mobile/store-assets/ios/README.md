@@ -47,8 +47,8 @@ The validator checks the submitted version and build, EAS build identity,
 simulator device/runtime labels, App Store screenshot dimensions, MP4
 container, byte counts, and SHA-256 hashes. It also requires the manifest to
 state that the media is simulator-only and writes a separate hashed validation
-report. This gate cannot satisfy or be substituted for the physical-device
-validator below.
+report. The signed-out package does not satisfy the authenticated review gate
+below.
 
 This media is simulator evidence. It demonstrates native launch and the
 signed-out sign-in screen; it does not prove physical-device behavior,
@@ -74,8 +74,9 @@ recording.
 Use `review-notes-draft.md` as the truthful App Review notes source and
 `review-evidence-shot-list.md` for the recording and subscription screenshot
 sequence. The notes deliberately do not claim an attachment exists. Replace the
-pending-evidence sentence only after the physical-device recording and both
-subscription screenshots are present in App Store Connect and visually checked.
+pending-evidence sentence only after the authenticated simulator recording and
+both subscription screenshots are present in App Store Connect and visually
+checked.
 
 Run the deterministic source preflight before every submission:
 
@@ -100,16 +101,28 @@ review drafts, and copy that implies an uncreated reviewer identity is ready.
 It does not store credentials or prove they work; update the snapshot only after
 directly rechecking App Store Connect, production Clerk, and EAS.
 
-After collecting real physical-device media, place the three files and a copy
-of `capture-metadata.example.json` in an ignored evidence directory, rename the
-metadata copy to `capture-metadata.json`, fill in the capture facts, and run:
+Generate one deterministic, nonsecret summary of all local review blockers with:
+
+```sh
+npm run report:ios-review-readiness -- --output .local/review-readiness.json
+```
+
+The report aggregates the IAP contract, reviewer-access snapshot, review-media
+snapshot, and draft-notes state. Release automation may add
+`--require-source-complete` to fail closed. A source-complete result still does
+not prove credentials, physical-device behavior, sandbox purchases, provider
+uploads, App Review, or acceptance.
+
+After downloading the authenticated Expo simulator artifact, run:
 
 ```sh
 node scripts/validate-ios-review-evidence.mjs --evidence-dir <directory>
 ```
 
-The validator rejects simulator metadata, a version/build mismatch, unsupported
-iPhone screenshot dimensions, missing files, an invalid MP4 container, and notes
-that claim absent App Store Connect attachments. It writes a hashed nonsecret
-manifest beside the validated media. Passing this local check does not prove an
-upload or Apple acceptance.
+The validator requires the authenticated workflow's recording, Plus screenshot,
+Premium screenshot, and provenance manifest. It rejects physical-device claims,
+a version/build mismatch, unsupported iPhone screenshot dimensions, missing or
+changed files, an invalid MP4 container, and notes that claim absent App Store
+Connect attachments. It writes a hashed nonsecret manifest beside the validated
+media. Passing this local check does not prove an upload, a completed sandbox
+purchase, physical-device behavior, or Apple acceptance.
