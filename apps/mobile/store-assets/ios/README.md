@@ -81,7 +81,16 @@ Run the deterministic source preflight before every submission:
 
 ```sh
 npm run validate:ios-review
+npm run validate:ios-iap-review
 ```
+
+The IAP review preflight checks the source-only contract in
+`subscription-review-contract.json`: submitted version/build, bundle ID, both
+Apple product IDs, entitlement and offering package names, localized-price
+rendering, StoreKit purchase and restore controls, Clerk-to-RevenueCat identity,
+server parameter wiring, and the current missing-media flags. It deliberately
+does not call RevenueCat or App Store Connect and cannot prove provider state,
+a sandbox purchase, an upload, review, or acceptance.
 
 After collecting real physical-device media, place the three files and a copy
 of `capture-metadata.example.json` in an ignored evidence directory, rename the

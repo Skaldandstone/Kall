@@ -1,0 +1,35 @@
+{
+  "evidenceScope": "source-contract-only",
+  "appVersion": "1.2.0",
+  "appBuildVersion": "21",
+  "bundleIdentifier": "com.skaldandstone.kall",
+  "offeringIdentifier": "default",
+  "products": [
+    {
+      "plan": "plus",
+      "entitlementIdentifier": "plus",
+      "packageIdentifier": "plus",
+      "appleProductIdentifier": "com.skaldandstone.kall.plus.monthly",
+      "displayName": "Kall Plus",
+      "billingPeriod": "monthly"
+    },
+    {
+      "plan": "premium",
+      "entitlementIdentifier": "premium",
+      "packageIdentifier": "premium",
+      "appleProductIdentifier": "com.skaldandstone.kall.premium.monthly",
+      "displayName": "Kall Premium",
+      "billingPeriod": "monthly"
+    }
+  ],
+  "reviewEvidence": {
+    "appReviewRecordingRequired": true,
+    "plusScreenshotRequired": true,
+    "premiumScreenshotRequired": true
+  },
+  "limitations": [
+    "This file validates source consistency only.",
+    "It does not prove RevenueCat or App Store Connect state.",
+    "It does not prove a sandbox purchase, upload, review, or acceptance."
+  ]
+}
