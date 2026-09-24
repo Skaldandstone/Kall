@@ -299,6 +299,8 @@ jobs:
       - run: npm ci
         working-directory: apps/mobile
       - run: npm run validate:ios-alpha
+      - run: npm run validate:ios-review
+      - run: npm run test:ios-review-evidence
         working-directory: apps/mobile
       - name: Cache Playwright browsers
         uses: actions/cache@v6

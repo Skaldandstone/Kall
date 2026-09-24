@@ -62,3 +62,23 @@ Use `review-notes-draft.md` as the truthful App Review notes source and
 sequence. The notes deliberately do not claim an attachment exists. Replace the
 pending-evidence sentence only after the physical-device recording and both
 subscription screenshots are present in App Store Connect and visually checked.
+
+Run the deterministic source preflight before every submission:
+
+```sh
+npm run validate:ios-review
+```
+
+After collecting real physical-device media, place the three files and a copy
+of `capture-metadata.example.json` in an ignored evidence directory, rename the
+metadata copy to `capture-metadata.json`, fill in the capture facts, and run:
+
+```sh
+node scripts/validate-ios-review-evidence.mjs --evidence-dir <directory>
+```
+
+The validator rejects simulator metadata, a version/build mismatch, unsupported
+iPhone screenshot dimensions, missing files, an invalid MP4 container, and notes
+that claim absent App Store Connect attachments. It writes a hashed nonsecret
+manifest beside the validated media. Passing this local check does not prove an
+upload or Apple acceptance.
