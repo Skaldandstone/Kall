@@ -24,6 +24,8 @@
   ],
   "reviewEvidence": {
     "appReviewRecordingRequired": true,
+    "appReviewRecordingCaptureType": "physical-device",
+    "simulatorEvidenceScope": "internal-qa-only",
     "plusScreenshotRequired": true,
     "premiumScreenshotRequired": true
   },

@@ -30,8 +30,9 @@ account before submission so the primary product areas can be inspected without
 first creating career data. Account deletion is available from Profile and
 requires a confirmation step.
 
-The reviewer identity and App Store Connect username/password, authenticated
-iOS Simulator recording, and separate Plus and Premium subscription-review
-screenshots remain submission prerequisites. Do not state that access or media
-is ready until every field is populated and visually verified in App Store
-Connect. The recording must be described accurately as emulated-device media.
+The reviewer identity and App Store Connect username/password, requested
+physical-device recording, and separate native Plus and Premium
+subscription-review screenshots remain submission prerequisites. Do not state
+that access or media is ready until every field is populated and visually
+verified in App Store Connect. Simulator captures are internal QA evidence only
+and cannot satisfy the physical-device App Review gate.

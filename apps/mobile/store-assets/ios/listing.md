@@ -60,6 +60,6 @@ job search,resume,career,applications,consulting,interview,opportunities,profess
 - The five listing screenshots show normal authenticated product use. Before
   submission, add separate Plus and Premium subscription-review screenshots
   that show the actual native product name and localized price.
-- Attach the authenticated iOS Simulator recording before submission and
-  describe only the flows visible in that recording. Identify it accurately as
-  emulated-device evidence and do not claim physical-device testing.
+- Attach the requested physical-device recording before submission and describe
+  only the flows visible in that recording. Simulator media is internal QA
+  evidence and must never be represented as physical-device App Review proof.

@@ -14,6 +14,7 @@ const assetFiles = [
   'review-access-status.json',
   'review-evidence-status.json',
   'simulator-review-evidence-status.json',
+  'physical-review-evidence-status.json',
   'review-notes-draft.md',
 ];
 
@@ -46,7 +47,7 @@ test('current report lists every truthful source blocker without secrets', () =>
     'app-store-review-credentials',
     'clerk-reviewer-identity',
     'eas-review-capture-credentials',
-    'authenticated-simulator-review-package',
+    'physical-device-review-package',
     'app-review-recording-upload',
     'plus-subscription-review-screenshot',
     'premium-subscription-review-screenshot',
@@ -93,10 +94,13 @@ test('complete snapshots still require final notes and retain evidence limitatio
   evidence.premiumReviewScreenshotPresent = true;
   fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
 
-  const simulatorPath = path.join(assets, 'simulator-review-evidence-status.json');
-  const simulator = JSON.parse(fs.readFileSync(simulatorPath, 'utf8'));
-  simulator.authenticatedJourneyPresent = true;
-  fs.writeFileSync(simulatorPath, `${JSON.stringify(simulator, null, 2)}\n`);
+  const physicalPath = path.join(assets, 'physical-review-evidence-status.json');
+  const physical = JSON.parse(fs.readFileSync(physicalPath, 'utf8'));
+  physical.packageValidated = true;
+  physical.physicalDeviceRecordingPresent = true;
+  physical.plusNativeScreenshotPresent = true;
+  physical.premiumNativeScreenshotPresent = true;
+  fs.writeFileSync(physicalPath, `${JSON.stringify(physical, null, 2)}\n`);
 
   let result = run(mobileRoot);
   assert.deepEqual(reportFrom(result).blockers, ['review-notes-finalization']);
@@ -107,5 +111,5 @@ test('complete snapshots still require final notes and retain evidence limitatio
   const report = reportFrom(result);
   assert.equal(report.status, 'source-checklist-complete');
   assert.equal(report.sourceChecklistComplete, true);
-  assert.ok(report.limitations.every((value) => /does not prove|source snapshots only/i.test(value)));
+  assert.ok(report.limitations.every((value) => /does not prove|source snapshots only|internal QA only/i.test(value)));
 });

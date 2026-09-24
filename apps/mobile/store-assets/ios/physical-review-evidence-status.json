@@ -1,0 +1,15 @@
+{
+  "verifiedDate": "2026-09-24",
+  "appVersion": "1.2.0",
+  "appBuildVersion": "21",
+  "packageValidated": false,
+  "physicalDeviceRecordingPresent": false,
+  "plusNativeScreenshotPresent": false,
+  "premiumNativeScreenshotPresent": false,
+  "verificationNote": "No local physical-device App Review package has been validated. Update this file only after validating the exact package without storing credentials.",
+  "limitations": [
+    "This nonsecret snapshot records local package-validation status only.",
+    "Simulator evidence cannot satisfy this physical-device gate.",
+    "A validated package does not prove provider upload, sandbox purchase, App Review, or acceptance."
+  ]
+}

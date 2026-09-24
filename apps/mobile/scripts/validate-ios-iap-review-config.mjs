@@ -86,6 +86,16 @@ assert.equal(
   'Recording requirement must match the directly inspected attachment status.',
 );
 assert.equal(
+  contract.reviewEvidence.appReviewRecordingCaptureType,
+  'physical-device',
+  'App Review recording evidence must require a physical device.',
+);
+assert.equal(
+  contract.reviewEvidence.simulatorEvidenceScope,
+  'internal-qa-only',
+  'Simulator evidence must remain scoped to internal QA only.',
+);
+assert.equal(
   contract.reviewEvidence.plusScreenshotRequired,
   !evidence.plusReviewScreenshotPresent,
   'Plus screenshot requirement must match the directly inspected provider status.',
@@ -100,6 +110,7 @@ assert.match(notes, /Apple's sandbox/i);
 assert.match(listing, /separate Plus and Premium subscription-review screenshots/i);
 assert.match(shotList, /existing product identifiers/i);
 assert.match(shotList, /localized App Store price/i);
+assert.match(shotList, /Do not\s+substitute responsive web or\s+iOS Simulator media for the physical-device\s+recording/i);
 assert.ok(contract.limitations.some((value) => /does not prove RevenueCat or App Store Connect state/i.test(value)));
 assert.ok(contract.limitations.some((value) => /does not prove a sandbox purchase, upload, review, or acceptance/i.test(value)));
 

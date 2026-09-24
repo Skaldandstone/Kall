@@ -47,8 +47,8 @@ The validator checks the submitted version and build, EAS build identity,
 simulator device/runtime labels, App Store screenshot dimensions, MP4
 container, byte counts, and SHA-256 hashes. It also requires the manifest to
 state that the media is simulator-only and writes a separate hashed validation
-report. The signed-out package does not satisfy the authenticated review gate
-below.
+report. This internal QA report cannot satisfy or be substituted for the
+physical-device validator below.
 
 This media is simulator evidence. It demonstrates native launch and the
 signed-out sign-in screen; it does not prove physical-device behavior,
@@ -57,7 +57,8 @@ the authenticated listing screenshots above for the public App Store gallery.
 
 ## Authenticated App Review capture
 
-Run `.eas/workflows/capture-ios-review-evidence.yml` after storing
+The `.eas/workflows/capture-ios-review-evidence.yml` workflow can collect
+additional authenticated simulator QA evidence after storing
 `KALL_REVIEW_EMAIL` and the sensitive `KALL_REVIEW_PASSWORD` in the EAS
 production environment. It reuses the submitted 1.2.0 (21) simulator build
 and records the reviewer journey through Today, job and consulting search,
@@ -66,17 +67,17 @@ deletion screen.
 
 The workflow never records the password as an artifact, confirms no purchase,
 and does not delete the reusable reviewer account. Its manifest labels the
-result as simulator evidence. Do not describe it to Apple as a physical-device
-recording.
+result as simulator evidence. This is internal QA only and does not satisfy the
+physical-device App Review gate.
 
 ## Submission evidence gate
 
 Use `review-notes-draft.md` as the truthful App Review notes source and
 `review-evidence-shot-list.md` for the recording and subscription screenshot
 sequence. The notes deliberately do not claim an attachment exists. Replace the
-pending-evidence sentence only after the authenticated simulator recording and
-both subscription screenshots are present in App Store Connect and visually
-checked.
+pending-evidence sentence only after the authenticated physical-device
+recording and both native subscription screenshots are present in App Store
+Connect and visually checked.
 
 Run the deterministic source preflight before every submission:
 
@@ -107,22 +108,26 @@ Generate one deterministic, nonsecret summary of all local review blockers with:
 npm run report:ios-review-readiness -- --output .local/review-readiness.json
 ```
 
-The report aggregates the IAP contract, reviewer-access snapshot, review-media
-snapshot, and draft-notes state. Release automation may add
+The report aggregates the IAP contract, reviewer-access snapshot, simulator QA
+snapshot, physical review-package snapshot, provider media snapshot, and
+draft-notes state. Release automation may add
 `--require-source-complete` to fail closed. A source-complete result still does
 not prove credentials, physical-device behavior, sandbox purchases, provider
 uploads, App Review, or acceptance.
 
-After downloading the authenticated Expo simulator artifact, run:
+After recording the physical-device review package, copy
+`capture-metadata.example.json` to `capture-metadata.json`, fill in only
+nonsecret capture facts, and place it beside the recording and native Plus and
+Premium screenshots. Then run:
 
 ```sh
 node scripts/validate-ios-review-evidence.mjs --evidence-dir <directory>
 ```
 
-The validator requires the authenticated workflow's recording, Plus screenshot,
-Premium screenshot, and provenance manifest. It rejects physical-device claims,
-a version/build mismatch, unsupported iPhone screenshot dimensions, missing or
-changed files, an invalid MP4 container, and notes that claim absent App Store
+The validator requires `kall-ios-physical-review.mp4`, separate native Plus and
+Premium screenshots, and physical-device capture metadata. It rejects simulator
+metadata, a version/build mismatch, unsupported iPhone screenshot dimensions,
+missing files, an invalid MP4 container, and notes that claim absent App Store
 Connect attachments. It writes a hashed nonsecret manifest beside the validated
-media. Passing this local check does not prove an upload, a completed sandbox
-purchase, physical-device behavior, or Apple acceptance.
+media. Passing this local check proves only package structure and hashes. It
+does not prove an upload, completed sandbox purchase, App Review, or acceptance.

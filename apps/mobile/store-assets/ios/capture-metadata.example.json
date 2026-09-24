@@ -1,0 +1,14 @@
+{
+  "captureType": "physical-device",
+  "deviceModel": "iPhone model used for capture",
+  "iosVersion": "iOS version used for capture",
+  "appVersion": "1.2.0",
+  "appBuildVersion": "21",
+  "sourceCommit": "40-character source commit from the submitted build",
+  "capturedAt": "ISO-8601 timestamp",
+  "oneContinuousTake": true,
+  "credentialsVisible": false,
+  "purchaseCompleted": false,
+  "accountDeleted": false,
+  "reviewedByOwner": true
+}

@@ -79,3 +79,15 @@ test('claiming review media is no longer required fails closed while provider st
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Plus screenshot requirement must match/);
 });
+
+test('simulator evidence cannot be reclassified as App Review proof', () => {
+  const mobileRoot = fixture();
+  const contractPath = path.join(mobileRoot, 'store-assets/ios/subscription-review-contract.json');
+  const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
+  contract.reviewEvidence.appReviewRecordingCaptureType = 'iOS Simulator';
+  contract.reviewEvidence.simulatorEvidenceScope = 'submission-ready';
+  fs.writeFileSync(contractPath, `${JSON.stringify(contract, null, 2)}\n`);
+  const result = run(mobileRoot);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /App Review recording evidence must require a physical device/);
+});

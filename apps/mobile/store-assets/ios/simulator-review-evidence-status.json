@@ -23,8 +23,9 @@
     "sha256": "dddcda930b7004c7d543d954f82763f5f593b4b966c063b08a27da51b39c0a0b"
   },
   "limitations": [
-    "This is emulated-device evidence from an iOS Simulator.",
+    "This is internal QA evidence from an iOS Simulator.",
     "It proves native launch and signed-out sign-in rendering only.",
+    "It cannot satisfy the App Review recording or resubmission gate.",
     "It does not prove authentication, purchases, account deletion, provider upload, App Review, or acceptance."
   ]
 }

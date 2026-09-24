@@ -21,6 +21,7 @@ const contract = readJson('subscription-review-contract.json');
 const access = readJson('review-access-status.json');
 const evidence = readJson('review-evidence-status.json');
 const simulator = readJson('simulator-review-evidence-status.json');
+const physical = readJson('physical-review-evidence-status.json');
 const notes = fs.readFileSync(path.join(assetsRoot, 'review-notes-draft.md'), 'utf8');
 
 assert.equal(contract.appVersion, app.version, 'IAP contract version must match the mobile app.');
@@ -28,6 +29,8 @@ assert.equal(contract.appVersion, evidence.appVersion, 'IAP and evidence version
 assert.equal(contract.appBuildVersion, evidence.appBuildVersion, 'IAP and evidence build numbers must agree.');
 assert.equal(contract.appVersion, simulator.appVersion, 'IAP and simulator evidence versions must agree.');
 assert.equal(contract.appBuildVersion, simulator.appBuildVersion, 'IAP and simulator evidence builds must agree.');
+assert.equal(contract.appVersion, physical.appVersion, 'IAP and physical evidence versions must agree.');
+assert.equal(contract.appBuildVersion, physical.appBuildVersion, 'IAP and physical evidence builds must agree.');
 assert.equal(simulator.captureType, 'iOS Simulator', 'Review capture must be identified as emulated-device evidence.');
 assert.match(simulator.workflowRunId ?? '', /^[a-f0-9-]{36}$/i, 'Simulator evidence must identify its EAS workflow run.');
 assert.match(simulator.sourceCommit ?? '', /^[a-f0-9]{40}$/i, 'Simulator evidence must identify its source commit.');
@@ -44,6 +47,22 @@ assert.ok(simulator.recording?.bytes >= 1024 * 1024, 'Simulator recording is une
 const simulatorLimitations = Array.isArray(simulator.limitations) ? simulator.limitations.join(' ') : '';
 assert.match(simulatorLimitations, /signed-out sign-in rendering only/i);
 assert.match(simulatorLimitations, /does not prove authentication/i);
+assert.match(simulatorLimitations, /internal QA evidence/i);
+assert.match(simulatorLimitations, /cannot satisfy the App Review recording or resubmission gate/i);
+assert.equal(contract.reviewEvidence.appReviewRecordingCaptureType, 'physical-device');
+assert.equal(contract.reviewEvidence.simulatorEvidenceScope, 'internal-qa-only');
+for (const field of [
+  'packageValidated',
+  'physicalDeviceRecordingPresent',
+  'plusNativeScreenshotPresent',
+  'premiumNativeScreenshotPresent',
+]) assert.equal(typeof physical[field], 'boolean', `${field} must be boolean.`);
+assert.equal(
+  physical.packageValidated,
+  physical.physicalDeviceRecordingPresent && physical.plusNativeScreenshotPresent && physical.premiumNativeScreenshotPresent,
+  'Physical package validation must match the presence of all three required assets.',
+);
+assert.match((physical.limitations ?? []).join(' '), /Simulator evidence cannot satisfy/i);
 assert.equal(
   access.appStoreReviewUsernamePresent,
   access.appStoreReviewPasswordPresent,
@@ -61,8 +80,7 @@ const easCaptureCredentialsComplete = access.easReviewEmailPresent && access.eas
 if (!appStoreCredentialsComplete) blockers.push('app-store-review-credentials');
 if (!access.clerkReviewerIdentityPresent) blockers.push('clerk-reviewer-identity');
 if (!easCaptureCredentialsComplete) blockers.push('eas-review-capture-credentials');
-if (!simulator.captureValidated) blockers.push('validated-simulator-capture');
-if (!simulator.authenticatedJourneyPresent) blockers.push('authenticated-simulator-review-package');
+if (!physical.packageValidated) blockers.push('physical-device-review-package');
 if (!evidence.appReviewAttachmentPresent) blockers.push('app-review-recording-upload');
 if (!evidence.plusReviewScreenshotPresent) blockers.push('plus-subscription-review-screenshot');
 if (!evidence.premiumReviewScreenshotPresent) blockers.push('premium-subscription-review-screenshot');
@@ -82,7 +100,9 @@ const report = {
     clerkReviewerIdentityPresent: access.clerkReviewerIdentityPresent,
     easCaptureCredentialsComplete,
     simulatorCaptureValidated: simulator.captureValidated,
-    authenticatedSimulatorJourneyPresent: simulator.authenticatedJourneyPresent,
+    simulatorEvidenceScope: contract.reviewEvidence.simulatorEvidenceScope,
+    simulatorCoverage: simulator.coverage,
+    physicalReviewPackageValidated: physical.packageValidated,
     appReviewAttachmentPresent: evidence.appReviewAttachmentPresent,
     plusReviewScreenshotPresent: evidence.plusReviewScreenshotPresent,
     premiumReviewScreenshotPresent: evidence.premiumReviewScreenshotPresent,
@@ -100,7 +120,7 @@ const report = {
   limitations: [
     'This report aggregates nonsecret source snapshots only.',
     'Source checklist completion does not prove credential validity or a native sign-in.',
-    'Emulated-device evidence does not prove physical-device behavior or a sandbox purchase.',
+    'Simulator evidence is internal QA only and cannot satisfy the physical-device App Review gate.',
     'Source checklist completion does not prove provider upload state, App Review, or acceptance.',
   ],
 };
