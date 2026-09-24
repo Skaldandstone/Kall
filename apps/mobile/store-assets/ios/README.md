@@ -82,6 +82,7 @@ Run the deterministic source preflight before every submission:
 ```sh
 npm run validate:ios-review
 npm run validate:ios-iap-review
+npm run validate:ios-review-access
 ```
 
 The IAP review preflight checks the source-only contract in
@@ -91,6 +92,13 @@ rendering, StoreKit purchase and restore controls, Clerk-to-RevenueCat identity,
 server parameter wiring, and the current missing-media flags. It deliberately
 does not call RevenueCat or App Store Connect and cannot prove provider state,
 a sandbox purchase, an upload, review, or acceptance.
+
+The reviewer-access preflight reads the nonsecret field-presence snapshot in
+`review-access-status.json`. It rejects partial username/password setup, claims
+that absent credentials are already stored, credentials or email addresses in
+review drafts, and copy that implies an uncreated reviewer identity is ready.
+It does not store credentials or prove they work; update the snapshot only after
+directly rechecking App Store Connect, production Clerk, and EAS.
 
 After collecting real physical-device media, place the three files and a copy
 of `capture-metadata.example.json` in an ignored evidence directory, rename the

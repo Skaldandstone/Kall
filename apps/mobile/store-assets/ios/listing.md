@@ -46,8 +46,9 @@ job search,resume,career,applications,consulting,interview,opportunities,profess
 
 ## Review notes
 
-- Use the dedicated reviewer account stored in App Store Connect. Never place
-  its credentials in this repository or in review-note source files.
+- Before submission, enter the dedicated reviewer username and password in App
+  Store Connect and verify that the matching production identity can sign in.
+  Never place credentials in this repository or in review-note source files.
 - Kall supports email, Google, and Apple sign-in. Review each path only when the
   matching provider is enabled in the submitted build and verified with the
   dedicated reviewer account.

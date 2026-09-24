@@ -1,6 +1,8 @@
 # App Review notes draft for Kall 1.2.0 (21)
 
-Use the dedicated review credentials stored in App Store Connect. Do not paste
+Reviewer access remains a submission prerequisite. Before submission, enter the
+dedicated reviewer username and password in App Store Connect, confirm the same
+identity exists in production Clerk, and verify a native sign-in. Do not paste
 credentials into this file or the free-form notes field.
 
 Kall is a career-search assistant for people pursuing full-time roles,
@@ -23,12 +25,13 @@ products and their localized prices. A reviewer can open either Apple purchase
 sheet and cancel without completing a transaction. Restore purchases is on the
 same screen. Apple's sandbox should be used for any completed review purchase.
 
-Kall supports email, Google, and Apple sign-in. The dedicated review account is
-already populated so the primary product areas can be inspected without first
-creating career data. Account deletion is available from Profile and requires a
-confirmation step.
+Kall supports email, Google, and Apple sign-in. Populate the dedicated review
+account before submission so the primary product areas can be inspected without
+first creating career data. Account deletion is available from Profile and
+requires a confirmation step.
 
-The requested physical-device recording and the separate Plus and Premium
-subscription-review screenshots remain submission prerequisites. Do not state
-that they are attached until all three fields are populated and visually
-verified in App Store Connect. Simulator captures are internal QA evidence only.
+The reviewer identity and App Store Connect username/password, requested
+physical-device recording, and separate Plus and Premium subscription-review
+screenshots remain submission prerequisites. Do not state that access or media
+is ready until every field is populated and visually verified in App Store
+Connect. Simulator captures are internal QA evidence only.

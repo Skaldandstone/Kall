@@ -1,0 +1,14 @@
+{
+  "verifiedDate": "2026-09-24",
+  "appStoreReviewUsernamePresent": false,
+  "appStoreReviewPasswordPresent": false,
+  "clerkReviewerIdentityPresent": false,
+  "easReviewEmailPresent": false,
+  "easReviewPasswordPresent": false,
+  "verificationNote": "App Store Connect, production Clerk, and the EAS production environment were inspected directly. Reviewer access is incomplete. Update this file only after rechecking all three providers without recording credential values.",
+  "limitations": [
+    "This nonsecret status records field presence only.",
+    "It does not contain or prove a reviewer credential.",
+    "It does not prove a successful native sign-in or App Review acceptance."
+  ]
+}

@@ -12,8 +12,9 @@ frame.
 
 1. Start on the iPhone Home Screen and launch the Kall app from its established
    icon. This proves a normal installed-binary launch.
-2. Show the Kall sign-in screen, then sign in with the dedicated App Review
-   account stored in App Store Connect. Do not reveal the password.
+2. After the dedicated reviewer identity and App Store Connect credentials are
+   verified, show the Kall sign-in screen and sign in. Do not reveal the
+   password.
 3. Show Today with populated review data and one visible next action.
 4. Open Work, show job search, then switch to the consulting track. This proves
    both tracks are parallel parts of the product.
@@ -70,6 +71,8 @@ evidence.
 
 Before choosing Add for Review or Resubmit:
 
+- Enter the dedicated reviewer username and password in App Store Connect and
+  verify a native sign-in without MFA or a device-trust challenge.
 - Upload the physical-device recording to App Review Information.
 - Upload the Plus screenshot to the Plus subscription review field.
 - Upload the Premium screenshot to the Premium subscription review field.
