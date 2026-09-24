@@ -1,0 +1,47 @@
+name: Capture authenticated iOS review evidence
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  get_ios_simulator_build:
+    name: Reuse submitted iOS 1.2.0 simulator build
+    type: get-build
+    params:
+      platform: ios
+      profile: ios-e2e
+      app_identifier: com.skaldandstone.kall
+      app_version: 1.2.0
+      app_build_version: "21"
+      fingerprint_hash: 712099030c85cde887387add3d047262556ba674
+      simulator: true
+      wait_for_in_progress: true
+
+  capture_authenticated_review_evidence:
+    name: Record authenticated reviewer journey
+    needs: [get_ios_simulator_build]
+    runs_on: macos-medium
+    environment: production
+    steps:
+      - uses: eas/checkout
+      - id: download_build
+        uses: eas/download_build
+        with:
+          build_id: ${{ needs.get_ios_simulator_build.outputs.build_id }}
+          extensions: [app]
+      - name: Capture authenticated review media
+        run: |
+          export KALL_IOS_APP_PATH="${{ steps.download_build.outputs.artifact_path }}"
+          export KALL_EAS_BUILD_ID="${{ needs.get_ios_simulator_build.outputs.build_id }}"
+          export KALL_APP_VERSION="${{ needs.get_ios_simulator_build.outputs.app_version }}"
+          export KALL_APP_BUILD_VERSION="${{ needs.get_ios_simulator_build.outputs.app_build_version }}"
+          export KALL_BUILD_FINGERPRINT="${{ needs.get_ios_simulator_build.outputs.fingerprint_hash }}"
+          export KALL_BUILD_GIT_COMMIT="${{ needs.get_ios_simulator_build.outputs.git_commit_hash }}"
+          bash scripts/capture-ios-review-evidence.sh
+      - name: Upload authenticated iOS review bundle
+        if: ${{ always() }}
+        uses: eas/upload_artifact
+        with:
+          type: other
+          name: kall-ios-authenticated-review-evidence
+          path: apps/mobile/review-capture-output

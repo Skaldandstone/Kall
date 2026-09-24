@@ -19,6 +19,12 @@
     "android": {
       "package": "com.skaldandstone.kall",
       "versionCode": 3,
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0c1420",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -37,13 +43,19 @@
       "url": "https://u.expo.dev/fc23feb0-611d-40d5-bb41-a02b69ba24cb"
     },
     "plugins": [
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
       [
         "expo-build-properties",
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "usesCleartextTraffic": false,
             "extraProguardRules": "-dontwarn kotlin.MustUseReturnValues"
           }
         }

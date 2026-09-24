@@ -1,0 +1,15 @@
+appId: com.skaldandstone.kall
+---
+- tapOn: Profile
+- extendedWaitUntil:
+    visible: Manage your workspace
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: Plan and billing
+    direction: DOWN
+- tapOn: Plan and billing
+- extendedWaitUntil:
+    visible: Your access
+    timeout: 20000
+- assertVisible: Restore purchases

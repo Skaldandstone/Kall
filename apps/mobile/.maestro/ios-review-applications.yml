@@ -1,0 +1,6 @@
+appId: com.skaldandstone.kall
+---
+- tapOn: Applications
+- extendedWaitUntil:
+    visible: Applications
+    timeout: 20000

@@ -1,0 +1,12 @@
+appId: com.skaldandstone.kall
+---
+- back
+- scrollUntilVisible:
+    element:
+      text: Delete my account
+    direction: DOWN
+- tapOn: Delete my account
+- extendedWaitUntil:
+    visible: This cannot be undone
+    timeout: 20000
+- assertVisible: Permanently delete my account

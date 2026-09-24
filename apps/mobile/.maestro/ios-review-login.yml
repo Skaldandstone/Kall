@@ -1,0 +1,14 @@
+appId: com.skaldandstone.kall
+---
+- launchApp:
+    clearState: true
+- assertVisible: Welcome back
+- tapOn: Email address
+- inputText: ${KALL_REVIEW_EMAIL}
+- tapOn: Password
+- inputText: ${KALL_REVIEW_PASSWORD}
+- tapOn: Sign in to Kall
+- extendedWaitUntil:
+    visible: "Good morning.*"
+    timeout: 30000
+- assertVisible: Today

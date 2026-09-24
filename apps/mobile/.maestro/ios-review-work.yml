@@ -1,0 +1,6 @@
+appId: com.skaldandstone.kall
+---
+- tapOn: Job search and consulting
+- extendedWaitUntil:
+    visible: Find your next role
+    timeout: 20000

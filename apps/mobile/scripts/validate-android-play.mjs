@@ -17,6 +17,21 @@ const profileName = 'android-production';
 
 assert.equal(app.android?.package, expectedPackage, 'Unexpected Android package name.');
 assert.equal(
+  app.android?.allowBackup,
+  false,
+  'Android release configuration must disable app data backup.',
+);
+for (const permission of [
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.SYSTEM_ALERT_WINDOW',
+]) {
+  assert.ok(
+    app.android?.blockedPermissions?.includes(permission),
+    `Android release configuration must block ${permission}.`,
+  );
+}
+assert.equal(
   app.orientation,
   'default',
   'Android must let the system choose orientation so phones, foldables, tablets, and multi-window layouts can resize.',
@@ -92,6 +107,20 @@ assert.equal(
   buildPropertiesPlugin[1]?.android?.enableShrinkResourcesInReleaseBuilds,
   true,
   'Android release builds must remove unused resources after R8.',
+);
+assert.equal(
+  buildPropertiesPlugin[1]?.android?.usesCleartextTraffic,
+  false,
+  'Android release builds must reject cleartext HTTP traffic.',
+);
+const secureStorePlugin = app.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-secure-store',
+);
+assert.ok(secureStorePlugin, 'Missing explicit expo-secure-store configuration.');
+assert.equal(
+  secureStorePlugin[1]?.configureAndroidBackup,
+  false,
+  'SecureStore must not add backup rules when application backup is disabled.',
 );
 
 const brandAssetNames = ['brand-mark.png', 'brand-mark@2x.png', 'brand-mark@3x.png'];

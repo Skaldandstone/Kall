@@ -30,10 +30,58 @@ const android = config._internal?.modResults?.android;
 assert.ok(android, 'Expo did not produce Android native configuration.');
 
 const application = android.manifest.manifest.application[0];
+assert.equal(
+  application.$['android:allowBackup'],
+  'false',
+  'Release builds must not back up app data, authentication state, or cached private files.',
+);
+assert.equal(
+  application.$['android:usesCleartextTraffic'],
+  'false',
+  'Release builds must reject cleartext HTTP traffic.',
+);
+assert.notEqual(
+  application.$['android:debuggable'],
+  'true',
+  'Release configuration must not mark the application debuggable.',
+);
+
+const permissionEntries = android.manifest.manifest['uses-permission'] ?? [];
+for (const permission of [
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.SYSTEM_ALERT_WINDOW',
+]) {
+  const entries = permissionEntries.filter(
+    (entry) => entry.$?.['android:name'] === permission,
+  );
+  assert.ok(entries.length > 0, `Generated Android manifest is missing the removal rule for ${permission}.`);
+  assert.ok(
+    entries.every((entry) => entry.$?.['tools:node'] === 'remove'),
+    `Generated Android manifest must remove ${permission} during manifest merge.`,
+  );
+}
+
 const mainActivity = application.activity.find(
   (activity) => activity.$['android:name'] === '.MainActivity',
 );
 assert.ok(mainActivity, 'Generated Android manifest is missing MainActivity.');
+assert.equal(
+  mainActivity.$['android:exported'],
+  'true',
+  'MainActivity must remain exported for launcher and verified authentication deep links.',
+);
+
+for (const componentType of ['activity', 'activity-alias', 'service', 'receiver', 'provider']) {
+  for (const component of application[componentType] ?? []) {
+    if (component.$?.['android:exported'] !== 'true') continue;
+    assert.equal(
+      component.$?.['android:name'],
+      '.MainActivity',
+      `Only MainActivity may be explicitly exported; found exported ${componentType} ${component.$?.['android:name'] ?? '<unnamed>'}.`,
+    );
+  }
+}
 assert.ok(
   !['portrait', 'landscape', 'sensorPortrait', 'sensorLandscape'].includes(
     mainActivity.$['android:screenOrientation'],
@@ -81,4 +129,5 @@ assert.equal(
 
 console.log('Generated Android configuration passed.');
 console.log(`orientation=${mainActivity.$['android:screenOrientation'] ?? 'not-set'}`);
+console.log('backup=false, cleartext=false, broad-storage=false, overlay=false');
 console.log('resizable=true, edge-to-edge=true, R8=true, resource-shrinking=true');

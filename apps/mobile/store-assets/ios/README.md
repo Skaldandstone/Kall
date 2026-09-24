@@ -40,3 +40,17 @@ This media is simulator evidence. It demonstrates native launch and the
 signed-out sign-in screen; it does not prove physical-device behavior,
 authentication completion, account deletion, or native purchases. Keep using
 the authenticated listing screenshots above for the public App Store gallery.
+
+## Authenticated App Review capture
+
+Run `.eas/workflows/capture-ios-review-evidence.yml` after storing
+`KALL_REVIEW_EMAIL` and the sensitive `KALL_REVIEW_PASSWORD` in the EAS
+production environment. It reuses the submitted 1.2.0 (21) simulator build
+and records the reviewer journey through Today, job and consulting search,
+applications, live Apple-backed plans, restore controls, and the account
+deletion screen.
+
+The workflow never records the password as an artifact, confirms no purchase,
+and does not delete the reusable reviewer account. Its manifest labels the
+result as simulator evidence. Do not describe it to Apple as a physical-device
+recording.

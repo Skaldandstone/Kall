@@ -1,0 +1,7 @@
+appId: com.skaldandstone.kall
+---
+- scrollUntilVisible:
+    element:
+      text: ".*Premium.*"
+    direction: DOWN
+- assertVisible: ".*Premium.*"
