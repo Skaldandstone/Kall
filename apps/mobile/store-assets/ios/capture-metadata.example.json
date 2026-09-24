@@ -10,5 +10,29 @@
   "credentialsVisible": false,
   "purchaseCompleted": false,
   "accountDeleted": false,
-  "reviewedByOwner": true
+  "reviewedByOwner": true,
+  "subscriptionScreenshots": {
+    "plus": {
+      "filename": "plus-subscription-review.png",
+      "captureSurface": "native-app",
+      "appleProductIdentifier": "com.skaldandstone.kall.plus.monthly",
+      "displayNameVisible": "Kall Plus",
+      "localizedPriceVisible": true,
+      "nativePurchaseActionVisible": true,
+      "surroundingKallUiVisible": true,
+      "accountDetailsVisible": false,
+      "visuallyReviewedByOwner": true
+    },
+    "premium": {
+      "filename": "premium-subscription-review.png",
+      "captureSurface": "native-app",
+      "appleProductIdentifier": "com.skaldandstone.kall.premium.monthly",
+      "displayNameVisible": "Kall Premium",
+      "localizedPriceVisible": true,
+      "nativePurchaseActionVisible": true,
+      "surroundingKallUiVisible": true,
+      "accountDetailsVisible": false,
+      "visuallyReviewedByOwner": true
+    }
+  }
 }

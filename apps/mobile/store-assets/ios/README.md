@@ -134,9 +134,13 @@ node scripts/validate-ios-review-evidence.mjs --evidence-dir <directory>
 ```
 
 The validator requires `kall-ios-physical-review.mp4`, separate native Plus and
-Premium screenshots, and physical-device capture metadata. It rejects simulator
-metadata, a version/build mismatch, unsupported iPhone screenshot dimensions,
-missing files, an invalid MP4 container, and notes that claim absent App Store
-Connect attachments. It writes a hashed nonsecret manifest beside the validated
-media. Passing this local check proves only package structure and hashes. It
+Premium screenshots, and physical-device capture metadata. The metadata records
+an owner visual review for each product: native-app origin, exact Apple product
+ID and display name, localized price, purchase action, surrounding Kall UI, and
+absence of account details. It rejects simulator metadata, a version/build
+mismatch, unsupported iPhone screenshot dimensions, duplicate product images,
+reused public-listing artwork, missing files, an invalid MP4 container, and
+notes that claim absent App Store Connect attachments. It writes a hashed
+nonsecret manifest beside the validated media. Passing this local check proves
+only package structure, hashes, and the recorded visual-review assertions. It
 does not prove an upload, completed sandbox purchase, App Review, or acceptance.

@@ -8,6 +8,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const mobileRoot = path.resolve(scriptDirectory, '..');
 const iosAssets = path.join(mobileRoot, 'store-assets', 'ios');
 const status = JSON.parse(fs.readFileSync(path.join(iosAssets, 'review-evidence-status.json'), 'utf8'));
+const contract = JSON.parse(fs.readFileSync(path.join(iosAssets, 'subscription-review-contract.json'), 'utf8'));
 const listing = fs.readFileSync(path.join(iosAssets, 'listing.md'), 'utf8');
 const notes = fs.readFileSync(path.join(iosAssets, 'review-notes-draft.md'), 'utf8');
 const shotList = fs.readFileSync(path.join(iosAssets, 'review-evidence-shot-list.md'), 'utf8');
@@ -65,6 +66,40 @@ for (const [field, expected] of [
   ['reviewedByOwner', true],
 ]) assert.equal(metadata[field], expected, `${field} must be ${expected}.`);
 
+const productsByPlan = new Map(contract.products.map((product) => [product.plan, product]));
+const screenshotReviews = metadata.subscriptionScreenshots;
+assert.equal(typeof screenshotReviews, 'object', 'subscriptionScreenshots review metadata is required.');
+assert.deepEqual(Object.keys(screenshotReviews ?? {}).sort(), ['plus', 'premium'], 'subscriptionScreenshots must contain exactly plus and premium.');
+for (const [plan, filename] of [['plus', requiredFiles.plus], ['premium', requiredFiles.premium]]) {
+  const product = productsByPlan.get(plan);
+  assert.ok(product, `The IAP contract must define ${plan}.`);
+  const review = screenshotReviews?.[plan];
+  assert.equal(typeof review, 'object', `${plan} screenshot review metadata is required.`);
+  assert.deepEqual(
+    Object.keys(review ?? {}).sort(),
+    [
+      'accountDetailsVisible',
+      'appleProductIdentifier',
+      'captureSurface',
+      'displayNameVisible',
+      'filename',
+      'localizedPriceVisible',
+      'nativePurchaseActionVisible',
+      'surroundingKallUiVisible',
+      'visuallyReviewedByOwner',
+    ],
+    `${plan} screenshot review metadata contains unsupported fields.`,
+  );
+  assert.equal(review.filename, filename, `${plan} screenshot filename must be ${filename}.`);
+  assert.equal(review.captureSurface, 'native-app', `${plan} screenshot must be captured from the native app.`);
+  assert.equal(review.appleProductIdentifier, product.appleProductIdentifier, `${plan} screenshot product ID must match the IAP contract.`);
+  assert.equal(review.displayNameVisible, product.displayName, `${plan} screenshot must show ${product.displayName}.`);
+  for (const field of ['localizedPriceVisible', 'nativePurchaseActionVisible', 'surroundingKallUiVisible', 'visuallyReviewedByOwner']) {
+    assert.equal(review[field], true, `${plan}.${field} must be true.`);
+  }
+  assert.equal(review.accountDetailsVisible, false, `${plan}.accountDetailsVisible must be false.`);
+}
+
 const allowedIphoneDimensions = new Set(['1179x2556', '1242x2688', '1284x2778', '1290x2796', '1320x2868']);
 function pngDimensions(filePath) {
   const bytes = fs.readFileSync(filePath);
@@ -75,6 +110,21 @@ for (const screenshotName of [requiredFiles.plus, requiredFiles.premium]) {
   const dimensions = pngDimensions(path.join(evidenceDirectory, screenshotName));
   assert.ok(allowedIphoneDimensions.has(dimensions), `${screenshotName} has unsupported dimensions ${dimensions}.`);
 }
+function sha256(filePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+const plusHash = sha256(path.join(evidenceDirectory, requiredFiles.plus));
+const premiumHash = sha256(path.join(evidenceDirectory, requiredFiles.premium));
+assert.notEqual(plusHash, premiumHash, 'Plus and Premium review screenshots must be distinct images.');
+const listingScreenshotHashes = new Set(
+  ['iphone', 'ipad'].flatMap((deviceClass) =>
+    fs.readdirSync(path.join(iosAssets, 'screenshots', deviceClass))
+      .filter((filename) => filename.endsWith('.png'))
+      .map((filename) => sha256(path.join(iosAssets, 'screenshots', deviceClass, filename))),
+  ),
+);
+assert.ok(!listingScreenshotHashes.has(plusHash), 'Plus review screenshot cannot reuse public listing artwork.');
+assert.ok(!listingScreenshotHashes.has(premiumHash), 'Premium review screenshot cannot reuse public listing artwork.');
 const videoPath = path.join(evidenceDirectory, requiredFiles.video);
 const video = fs.readFileSync(videoPath);
 assert.ok(video.length >= 1024 * 1024, 'Physical-device review video is unexpectedly small.');
@@ -88,6 +138,15 @@ const manifest = {
   sourceCommit: metadata.sourceCommit,
   capturedAt: metadata.capturedAt,
   limitations: ['Package validation does not prove App Store Connect upload or Apple acceptance.'],
+  subscriptionScreenshots: Object.fromEntries(
+    ['plus', 'premium'].map((plan) => {
+      const review = screenshotReviews[plan];
+      return [plan, {
+        ...review,
+        sha256: sha256(path.join(evidenceDirectory, review.filename)),
+      }];
+    }),
+  ),
   assets: Object.values(requiredFiles).map((filename) => {
     const filePath = path.join(evidenceDirectory, filename);
     const bytes = fs.readFileSync(filePath);
