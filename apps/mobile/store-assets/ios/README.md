@@ -36,6 +36,20 @@ open-source Maestro CLI, so it does not require Expo's paid packaged Maestro
 job. The resulting `kall-ios-store-capture` artifact contains a H.264 MP4, an
 Apple-accepted 6.9-inch PNG, and a nonsecret provenance manifest.
 
+After downloading the artifact, validate its exact contents before using it in
+the submission package:
+
+```sh
+npm run validate:ios-simulator-evidence -- --evidence-dir <store-capture-output>
+```
+
+The validator checks the submitted version and build, EAS build identity,
+simulator device/runtime labels, App Store screenshot dimensions, MP4
+container, byte counts, and SHA-256 hashes. It also requires the manifest to
+state that the media is simulator-only and writes a separate hashed validation
+report. This gate cannot satisfy or be substituted for the physical-device
+validator below.
+
 This media is simulator evidence. It demonstrates native launch and the
 signed-out sign-in screen; it does not prove physical-device behavior,
 authentication completion, account deletion, or native purchases. Keep using

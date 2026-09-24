@@ -55,6 +55,8 @@
     "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs",
     "validate:ios-review": "node scripts/validate-ios-review-evidence.mjs",
     "test:ios-review-evidence": "node --test scripts/validate-ios-review-evidence.test.mjs",
+    "validate:ios-simulator-evidence": "node scripts/validate-ios-simulator-review-evidence.mjs",
+    "test:ios-simulator-evidence": "node --test scripts/validate-ios-simulator-review-evidence.test.mjs",
     "validate:android-play": "node scripts/validate-android-play.mjs",
     "validate:android-native": "node scripts/validate-android-native.mjs",
     "update:preview": "eas update --channel preview --environment production",
