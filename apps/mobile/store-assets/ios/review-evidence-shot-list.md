@@ -1,17 +1,18 @@
 # App Review evidence shot list
 
 This checklist maps the remaining media directly to Apple's request. Record and
-capture the submitted Kall 1.2.0 build 21 on a physical iPhone. Do not
+capture the submitted Kall 1.2.0 build 21 on a physical iPhone or iPad. Follow
+`physical-review-capture-script.md` for the exact source-validated sequence. Do not
 substitute responsive web or iOS Simulator media for the physical-device
 recording.
 
 ## One continuous physical-device recording
 
-Record an iPhone screen in one uninterrupted take. Keep credentials, email
+Record the physical device screen in one uninterrupted take. Keep credentials, email
 notifications, purchase receipts, device identifiers, and unrelated apps out of
 frame.
 
-1. Start on the iPhone Home Screen and launch the Kall app from its established
+1. Start on the device Home Screen and launch the Kall app from its established
    icon. This proves a normal installed-binary launch.
 2. After the dedicated reviewer identity and App Store Connect credentials are
    verified, show the Kall sign-in screen and sign in. Do not reveal the
@@ -43,7 +44,7 @@ Acceptance checks:
 
 ## Plus subscription-review screenshot
 
-Capture the native Plan screen at an App Store-supported iPhone resolution with
+Capture the native Plan screen at an App Store-supported iPhone or iPad resolution with
 the Plus product fully visible. It must show:
 
 - Kall Plus and the monthly billing period.

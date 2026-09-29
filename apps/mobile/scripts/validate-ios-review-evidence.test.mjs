@@ -84,6 +84,16 @@ test('complete physical-device fixture produces a hashed evidence manifest', () 
   for (const asset of manifest.assets) assert.match(asset.sha256, /^[a-f0-9]{64}$/);
 });
 
+test('Apple-supported iPad screenshots pass the physical evidence dimension gate', () => {
+  const directory = makeEvidence();
+  fs.copyFileSync(path.join(mobileRoot, 'store-assets', 'ios', 'screenshots', 'ipad', '1-applications.png'), path.join(directory, 'plus-subscription-review.png'));
+  fs.copyFileSync(path.join(mobileRoot, 'store-assets', 'ios', 'screenshots', 'ipad', '2-application-review.png'), path.join(directory, 'premium-subscription-review.png'));
+  fs.appendFileSync(path.join(directory, 'plus-subscription-review.png'), 'physical-plus-ipad-fixture');
+  fs.appendFileSync(path.join(directory, 'premium-subscription-review.png'), 'physical-premium-ipad-fixture');
+  const result = run(['--evidence-dir', directory]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('product-specific screenshot review metadata must match the IAP contract', () => {
   const directory = makeEvidence({ screenshotReviews: { plus: { appleProductIdentifier: 'wrong.product' } } });
   const result = run(['--evidence-dir', directory]);

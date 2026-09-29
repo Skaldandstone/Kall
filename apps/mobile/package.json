@@ -54,6 +54,7 @@
     "test:e2e": "playwright test",
     "validate:ios-alpha": "node scripts/validate-ios-alpha.mjs",
     "validate:ios-review": "node scripts/validate-ios-review-evidence.mjs",
+    "validate:ios-physical-capture-script": "node scripts/validate-ios-physical-capture-script.mjs",
     "test:ios-review-evidence": "node --test scripts/validate-ios-review-evidence.test.mjs",
     "validate:ios-simulator-evidence": "node scripts/validate-ios-simulator-review-evidence.mjs",
     "test:ios-simulator-evidence": "node --test scripts/validate-ios-simulator-review-evidence.test.mjs",

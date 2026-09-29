@@ -1,7 +1,7 @@
 {
   "captureType": "physical-device",
-  "deviceModel": "iPhone model used for capture",
-  "iosVersion": "iOS version used for capture",
+  "deviceModel": "Physical iPhone or iPad model used for capture",
+  "iosVersion": "iOS or iPadOS version used for capture",
   "appVersion": "1.2.0",
   "appBuildVersion": "21",
   "sourceCommit": "40-character source commit from the submitted build",

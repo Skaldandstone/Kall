@@ -74,7 +74,10 @@ physical-device App Review gate.
 
 Use `review-notes-draft.md` as the truthful App Review notes source and
 `review-evidence-shot-list.md` for the recording and subscription screenshot
-sequence. The notes deliberately do not claim an attachment exists. Replace the
+sequence. `physical-review-capture-script.md` is the exact physical iPhone/iPad
+operator runbook; validate its source labels and routes with
+`npm run validate:ios-physical-capture-script` before recording. The notes
+deliberately do not claim an attachment exists. Replace the
 pending-evidence sentence only after the authenticated physical-device
 recording and both native subscription screenshots are present in App Store
 Connect and visually checked.
@@ -134,11 +137,12 @@ node scripts/validate-ios-review-evidence.mjs --evidence-dir <directory>
 ```
 
 The validator requires `kall-ios-physical-review.mp4`, separate native Plus and
-Premium screenshots, and physical-device capture metadata. The metadata records
+Premium screenshots at a supported iPhone or iPad screenshot size, and
+physical-device capture metadata. The metadata records
 an owner visual review for each product: native-app origin, exact Apple product
 ID and display name, localized price, purchase action, surrounding Kall UI, and
 absence of account details. It rejects simulator metadata, a version/build
-mismatch, unsupported iPhone screenshot dimensions, duplicate product images,
+mismatch, unsupported device screenshot dimensions, duplicate product images,
 reused public-listing artwork, missing files, an invalid MP4 container, and
 notes that claim absent App Store Connect attachments. It writes a hashed
 nonsecret manifest beside the validated media. Passing this local check proves

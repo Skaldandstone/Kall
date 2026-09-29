@@ -52,8 +52,8 @@ for (const filename of Object.values(requiredFiles)) {
 const metadata = JSON.parse(fs.readFileSync(path.join(evidenceDirectory, requiredFiles.metadata), 'utf8'));
 assert.equal(metadata.captureType, 'physical-device', 'Simulator capture metadata is not accepted.');
 assert.doesNotMatch(metadata.deviceModel ?? '', /simulator/i, 'Device model cannot identify a simulator.');
-assert.match(metadata.deviceModel ?? '', /\S/, 'A physical iPhone model is required.');
-assert.match(metadata.iosVersion ?? '', /\S/, 'The physical-device iOS version is required.');
+assert.match(metadata.deviceModel ?? '', /\S/, 'A physical iPhone or iPad model is required.');
+assert.match(metadata.iosVersion ?? '', /\S/, 'The physical-device iOS or iPadOS version is required.');
 assert.equal(metadata.appVersion, status.appVersion, 'Capture app version does not match the submitted version.');
 assert.equal(metadata.appBuildVersion, status.appBuildVersion, 'Capture build does not match the submitted build.');
 assert.match(metadata.sourceCommit ?? '', /^[a-f0-9]{40}$/i, 'Capture sourceCommit must be a full Git SHA.');
@@ -100,7 +100,11 @@ for (const [plan, filename] of [['plus', requiredFiles.plus], ['premium', requir
   assert.equal(review.accountDetailsVisible, false, `${plan}.accountDetailsVisible must be false.`);
 }
 
-const allowedIphoneDimensions = new Set(['1179x2556', '1242x2688', '1284x2778', '1290x2796', '1320x2868']);
+const allowedScreenshotDimensions = new Set([
+  '1179x2556', '1242x2688', '1284x2778', '1290x2796', '1320x2868',
+  '2064x2752', '2048x2732', '1488x2266', '1668x2420', '1668x2388',
+  '1640x2360', '1668x2224', '1536x2008', '1536x2048', '768x1004', '768x1024',
+]);
 function pngDimensions(filePath) {
   const bytes = fs.readFileSync(filePath);
   assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${path.basename(filePath)} must be a PNG.`);
@@ -108,7 +112,7 @@ function pngDimensions(filePath) {
 }
 for (const screenshotName of [requiredFiles.plus, requiredFiles.premium]) {
   const dimensions = pngDimensions(path.join(evidenceDirectory, screenshotName));
-  assert.ok(allowedIphoneDimensions.has(dimensions), `${screenshotName} has unsupported dimensions ${dimensions}.`);
+  assert.ok(allowedScreenshotDimensions.has(dimensions), `${screenshotName} has unsupported dimensions ${dimensions}.`);
 }
 function sha256(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');

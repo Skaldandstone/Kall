@@ -302,6 +302,8 @@ jobs:
         working-directory: apps/mobile
       - run: npm run validate:ios-review
         working-directory: apps/mobile
+      - run: npm run validate:ios-physical-capture-script
+        working-directory: apps/mobile
       - run: npm run test:ios-review-evidence
         working-directory: apps/mobile
       - run: npm run test:ios-simulator-evidence
