@@ -114,7 +114,21 @@ def reflow_extracted_text(text: str) -> str:
 
 def extract_resume_text(data: bytes, mime_type: str) -> str:
     if mime_type == "application/pdf":
-        raw = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(data)).pages)
+        # pypdf's default extraction follows PDF content-stream order. A
+        # visually simple resume can therefore come back as one word per line
+        # or one page-long line, which destroys headings, role rows, and
+        # bullets before the resume assembler ever sees them. Layout mode
+        # reconstructs lines from their positions and preserves the same
+        # reading shape a person sees. Fall back page-by-page for unusual PDFs
+        # whose content cannot be handled by layout mode.
+        pages = []
+        for page in PdfReader(io.BytesIO(data)).pages:
+            try:
+                extracted = page.extract_text(extraction_mode="layout")
+            except (TypeError, ValueError):
+                extracted = page.extract_text()
+            pages.append(extracted or "")
+        raw = "\n".join(pages)
     elif mime_type.endswith("wordprocessingml.document"):
         raw = "\n".join(p.text for p in Document(io.BytesIO(data)).paragraphs)
     else:

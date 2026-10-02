@@ -98,6 +98,52 @@ def test_layout_falls_back_to_the_parsed_resume_when_the_record_is_empty() -> No
     assert "QA Lead at Acme 2015 - 2020" in experience["paragraphs"]
 
 
+def test_layout_structures_extracted_role_rows_bullets_notes_and_skill_groups() -> None:
+    """A layout-preserving PDF extraction must remain a resume, not become
+    the single dense paragraph previously visible in the mobile preview."""
+    with _session() as session:
+        user = User(email="layout@example.com", full_name="Layout Person")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        resume = ResumeDocument(
+            user_id=user.id, name="r.pdf", file_path="missing", mime_type="application/pdf", byte_size=1,
+            extracted_text=(
+                "Professional Experience:\n"
+                "Flock Safety - Director of Quality Engineering April 2024 – Present\n"
+                "Company Acquired by Example Corp\n"
+                "● Built a global quality organization supporting embedded, cloud, and aviation\n"
+                "systems during rapid company growth.\n"
+                "● Improved release quality by 40%.\n"
+                "Skills:\n"
+                "Automation Frameworks: Selenium, Appium, Cypress, Playwright\n"
+                "DevOps & Cloud: AWS, Terraform, Docker\n"
+            ),
+        )
+        session.add(resume)
+        session.commit()
+        layout = assemble_resume(session, user.id, [], resume)
+
+    experience = next(section for section in layout["sections"] if section["key"] == "experience")
+    assert "paragraphs" not in experience
+    assert experience["entries"] == [{
+        "title": "Director of Quality Engineering",
+        "organization": "Flock Safety",
+        "location": "",
+        "dates": "April 2024 – Present",
+        "notes": ["Company Acquired by Example Corp"],
+        "bullets": [
+            "Built a global quality organization supporting embedded, cloud, and aviation systems during rapid company growth.",
+            "Improved release quality by 40%.",
+        ],
+    }]
+    skills = next(section for section in layout["sections"] if section["key"] == "skills")
+    assert skills["groups"] == [
+        {"label": "Automation Frameworks", "items": ["Selenium", "Appium", "Cypress", "Playwright"]},
+        {"label": "DevOps & Cloud", "items": ["AWS", "Terraform", "Docker"]},
+    ]
+
+
 def test_layout_replaces_an_accepted_experience_bullet_wording_in_place() -> None:
     """An accepted "experience_bullet" change has no addressable slot to go
     in the way an accepted "role:<id>" bullet has a real Employment row to

@@ -31,7 +31,8 @@ from kall.models import (
 )
 from kall.security import decrypt_sensitive
 from kall.services.intelligence import parse_resume
-from kall.services.resume import reflow_extracted_text
+from kall.services.resume import extract_resume_text, reflow_extracted_text
+from kall.services.storage import get_storage
 from sqlmodel import Session, select
 
 Layout = dict[str, object]
@@ -49,6 +50,13 @@ _SECTION_TITLES = {
     "languages": "Languages",
     "projects": "Projects",
 }
+
+_BULLET_PREFIX = re.compile(r"^\s*[•●▪‣○◦\-*]\s*")
+_MONTH = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+_DATE_RANGE = re.compile(
+    rf"\b(?P<dates>{_MONTH}\s+(?:19|20)\d{{2}}\s*[-–—]\s*(?:Present|{_MONTH}\s+(?:19|20)\d{{2}}))\s*$",
+    re.IGNORECASE,
+)
 
 
 def _month_year(value: date | None) -> str:
@@ -116,8 +124,140 @@ def _parsed_fallback(resume: ResumeDocument | None) -> dict[str, list[str]]:
     # Reflowing here on every read means an old upload renders correctly
     # without a migration, the same way the tailoring proposal GET repairs
     # stale TailoringChange rows.
-    parsed, _ = parse_resume(reflow_extracted_text(resume.extracted_text or ""))
+    source_text = reflow_extracted_text(resume.extracted_text or "")
+    parsed, _ = parse_resume(source_text)
+    sections = parsed.get("sections", {})
+    # Older uploads were extracted with pypdf's content-stream order. When
+    # that flattened a designed resume, every visible heading and bullet can
+    # be buried in `unclassified`, and changing the renderer cannot repair the
+    # already-stored text. Re-read only those damaged uploads from their
+    # retained source file using the current layout-preserving extractor.
+    recognized_experience = sections.get("experience") or sections.get("professional experience") or sections.get("employment")
+    if not recognized_experience and resume.file_path:
+        try:
+            storage = get_storage()
+            if storage.exists(resume.file_path):
+                repaired = extract_resume_text(storage.read(resume.file_path), resume.mime_type)
+                if repaired.strip():
+                    parsed, _ = parse_resume(repaired)
+        except Exception:  # noqa: BLE001 - a stale source must not block an otherwise renderable stored record
+            pass
     return parsed.get("sections", {})
+
+
+def _normalized_line(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _fallback_bullets(lines: list[str]) -> list[str]:
+    """Rejoin wrapped PDF lines while preserving visible bullet boundaries."""
+    bullets: list[str] = []
+    for raw in lines:
+        line = _normalized_line(raw)
+        if not line:
+            continue
+        starts_bullet = bool(_BULLET_PREFIX.match(line))
+        text = _BULLET_PREFIX.sub("", line).strip()
+        if starts_bullet or not bullets:
+            bullets.append(text)
+        else:
+            bullets[-1] = f"{bullets[-1]} {text}".strip()
+    return [item for item in bullets if item]
+
+
+def _experience_header(line: str) -> dict[str, object] | None:
+    match = _DATE_RANGE.search(line)
+    if not match:
+        return None
+    heading = line[:match.start()].strip(" -–—|")
+    parts = re.split(r"\s+[-–—]\s+", heading, maxsplit=1)
+    if len(parts) != 2 or not all(parts):
+        return None
+    organization, title = parts
+    return {
+        "title": title.strip(),
+        "organization": organization.strip(),
+        "location": "",
+        "dates": match.group("dates").strip(),
+        "notes": [],
+        "bullets": [],
+    }
+
+
+def _fallback_experience(lines: list[str]) -> tuple[list[dict[str, object]], list[str]]:
+    """Turn an extracted Experience section into role rows and real bullets.
+
+    PDF extraction wraps long bullets across several physical lines. Rendering
+    those lines as independent paragraphs produced the dense wall of text seen
+    on mobile. Role rows carry a date range; bullet glyphs start achievements;
+    all other lines continue the current note or bullet.
+    """
+    entries: list[dict[str, object]] = []
+    unstructured: list[str] = []
+    current: dict[str, object] | None = None
+    for raw in lines:
+        line = _normalized_line(raw)
+        if not line:
+            continue
+        starts_bullet = bool(_BULLET_PREFIX.match(line))
+        text = _BULLET_PREFIX.sub("", line).strip()
+        header = None if starts_bullet else _experience_header(text)
+        if header:
+            entries.append(header)
+            current = header
+            continue
+        if current is None:
+            if starts_bullet or not unstructured:
+                unstructured.append(text)
+            else:
+                unstructured[-1] = f"{unstructured[-1]} {text}".strip()
+            continue
+        bullets = current["bullets"]
+        notes = current["notes"]
+        if starts_bullet:
+            bullets.append(text)
+        elif bullets:
+            bullets[-1] = f"{bullets[-1]} {text}".strip()
+        elif notes:
+            notes[-1] = f"{notes[-1]} {text}".strip()
+        else:
+            notes.append(text)
+    return entries, unstructured
+
+
+def _fallback_skill_groups(lines: list[str]) -> list[dict[str, object]]:
+    grouped: list[tuple[str, str]] = []
+    for raw in lines:
+        line = _normalized_line(raw)
+        label, separator, values = line.partition(":")
+        if separator and 1 < len(label) <= 40 and values.strip():
+            grouped.append((label.strip(), values.strip()))
+        elif grouped:
+            old_label, old_values = grouped[-1]
+            grouped[-1] = (old_label, f"{old_values} {line}".strip())
+        elif line:
+            grouped.append(("Core", line))
+    return [
+        {"label": label, "items": [item.strip() for item in values.split(",") if item.strip()]}
+        for label, values in grouped
+    ]
+
+
+def _fallback_summary(lines: list[str]) -> list[str]:
+    normalized = [_normalized_line(line) for line in lines if _normalized_line(line)]
+    if not normalized:
+        return []
+    # The unclassified prefix of an uploaded resume is commonly name,
+    # contact line, then a wrapped professional summary. Keep the prose and
+    # discard only high-confidence header rows.
+    if len(normalized[0].split()) <= 6 and not normalized[0].endswith((".", "!", "?")):
+        normalized = normalized[1:]
+    normalized = [
+        line for line in normalized
+        if not re.search(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", line)
+        and not re.search(r"\b\d{3}[-.) ]\d{3}[- ]\d{4}\b", line)
+    ]
+    return [" ".join(normalized)] if normalized else []
 
 
 def assemble_resume(
@@ -160,6 +300,8 @@ def assemble_resume(
         summary_paragraphs = [profile.professional_summary.strip()]
     elif fallback.get("summary"):
         summary_paragraphs = [" ".join(fallback["summary"])]
+    elif fallback.get("unclassified"):
+        summary_paragraphs = _fallback_summary(fallback["unclassified"])
     else:
         summary_paragraphs = []
     if summary_paragraphs:
@@ -196,9 +338,17 @@ def assemble_resume(
             if item["section"] == "experience_bullet" and item.get("original") and item["text"].strip():
                 lines = [line.replace(item["original"], item["text"].strip(), 1) for line in lines]
         if lines:
-            sections.append({"key": "experience", "title": _SECTION_TITLES["experience"], "paragraphs": lines})
+            entries, unstructured = _fallback_experience(lines)
+            section: dict[str, object] = {"key": "experience", "title": _SECTION_TITLES["experience"]}
+            if unstructured:
+                section["paragraphs"] = unstructured
+            if entries:
+                section["entries"] = entries
+            sections.append(section)
 
     achievements = _tailored(tailored_sections, "achievement", "result", "project", "portfolio")
+    if not achievements and fallback.get("career highlights"):
+        achievements = _fallback_bullets(fallback["career highlights"])
     if achievements:
         sections.append({"key": "achievements", "title": _SECTION_TITLES["achievements"], "bullets": achievements})
 
@@ -209,7 +359,8 @@ def assemble_resume(
             groups.setdefault(row.category or "Core", []).append(row.name)
         sections.append({"key": "skills", "title": _SECTION_TITLES["skills"], "groups": [{"label": label, "items": items} for label, items in groups.items()]})
     elif fallback.get("skills"):
-        sections.append({"key": "skills", "title": _SECTION_TITLES["skills"], "paragraphs": [", ".join(fallback["skills"])]})
+        groups = _fallback_skill_groups(fallback["skills"])
+        sections.append({"key": "skills", "title": _SECTION_TITLES["skills"], "groups": groups})
 
     if education:
         entries = []
@@ -280,9 +431,11 @@ def layout_text(layout: Layout) -> str:
         for group in section.get("groups", []):
             lines.append(f"{group['label']}: {', '.join(group['items'])}")
         for entry in section.get("entries", []):
-            head = " — ".join(value for value in (entry.get("title"), entry.get("organization")) if value)
+            head = " — ".join(value for value in (entry.get("organization"), entry.get("title")) if value)
             tail = " · ".join(value for value in (entry.get("location"), entry.get("dates")) if value)
             lines.append(f"{head}" + (f" ({tail})" if tail else ""))
+            for note in entry.get("notes", []):
+                lines.append(str(note))
             for bullet in entry.get("bullets", []):
                 lines.append(f"• {bullet}")
     return "\n".join(lines).strip()
