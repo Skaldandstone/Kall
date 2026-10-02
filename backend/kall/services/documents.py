@@ -23,6 +23,7 @@ from kall.models import (
     TailoringProposal,
     User,
 )
+from kall.services.ats_check import run_ats_checks
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import assert_ai_allowed, record_ai_action
 from kall.services.resume_assembly import assemble_resume, layout_text
@@ -34,7 +35,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from sqlmodel import Session, select
 
-GENERATION_VERSION = "documents-v1"
+GENERATION_VERSION = "documents-v2"
 
 RESUME_TEMPLATE_KEYS = {
     "standard",
@@ -226,6 +227,44 @@ def keyword_report(
     )
 
 
+def alignment_snapshot(analysis: JobRequirementAnalysis | None, content: str) -> dict:
+    """Calculate an explainable posting-language alignment score."""
+    required = list(dict.fromkeys(analysis.required_skills if analysis else []))
+    preferred = list(dict.fromkeys(analysis.preferred_skills if analysis else []))
+    lowered = content.casefold()
+    required_covered = [term for term in required if term.casefold() in lowered]
+    preferred_covered = [term for term in preferred if term.casefold() in lowered]
+    required_percent = round(100 * len(required_covered) / len(required)) if required else 100
+    preferred_percent = round(100 * len(preferred_covered) / len(preferred)) if preferred else 100
+    if required and preferred:
+        score = round(required_percent * 0.7 + preferred_percent * 0.3)
+    elif required:
+        score = required_percent
+    elif preferred:
+        score = preferred_percent
+    else:
+        score = 100
+    return {
+        "score": score,
+        "required_percent": required_percent,
+        "preferred_percent": preferred_percent,
+        "covered": list(dict.fromkeys([*required_covered, *preferred_covered])),
+        "missing": [term for term in [*required, *preferred] if term.casefold() not in lowered],
+    }
+
+
+def alignment_comparison(analysis: JobRequirementAnalysis | None, before: str, after: str) -> dict:
+    baseline = alignment_snapshot(analysis, before)
+    tailored = alignment_snapshot(analysis, after)
+    return {
+        "before": baseline,
+        "after": tailored,
+        "improved_by": tailored["score"] - baseline["score"],
+        "added_terms": [term for term in tailored["covered"] if term not in baseline["covered"]],
+        "explanation": "Alignment measures explicit required and preferred posting terms found in the resume; it does not judge overall candidate quality.",
+    }
+
+
 #: A fixed timestamp for everything that would otherwise record "now".
 #:
 #: Rendering has to be reproducible: the product shows a checksum and calls
@@ -302,7 +341,23 @@ def generate_resume_documents(
     # the document a person actually sends.
     layout = assemble_resume(session, proposal.user_id, sections, session.get(ResumeDocument, proposal.resume_id))
     content_text = "\n\n".join([layout_text(layout), *(item["text"] for item in sections)])
-    canonical = json.dumps({"sections": sections, "layout": layout}, sort_keys=True).encode()
+    baseline_layout = assemble_resume(session, proposal.user_id, [], session.get(ResumeDocument, proposal.resume_id))
+    analysis = session.exec(select(JobRequirementAnalysis).where(JobRequirementAnalysis.job_id == proposal.job_id)).first()
+    alignment = alignment_comparison(analysis, layout_text(baseline_layout), content_text)
+    # Never hand someone a generated file with a renderer-created ATS
+    # problem. Missing profile data remains a guided user action, but a
+    # flattened reading order, lost heading, unusual font, image-only
+    # content, or corrupt extracted text is Kall's responsibility.
+    candidate_pdf = render_pdf(layout, template_key)
+    internal_keys = {"name", "headings", "reading_order", "fonts", "no_images", "clean_text"}
+    internal_failures = [
+        check for check in run_ats_checks(layout, candidate_pdf)
+        if check.key in internal_keys and not check.passed
+    ]
+    if internal_failures:
+        labels = ", ".join(check.label for check in internal_failures)
+        raise ValueError(f"Kall could not produce an ATS-readable document in this look ({labels}). Choose another look or try again.")
+    canonical = json.dumps({"sections": sections, "layout": layout, "alignment": alignment}, sort_keys=True).encode()
     generated = GeneratedDocument(
         user_id=proposal.user_id,
         proposal_id=proposal.id,
@@ -310,7 +365,7 @@ def generate_resume_documents(
         resume_id=proposal.resume_id,
         document_type="resume",
         template_key=template_key,
-        content_json={"sections": sections, "layout": layout},
+        content_json={"sections": sections, "layout": layout, "alignment": alignment},
         checksum=_sha(canonical),
         # finalized_at was already set here; status defaulted to "generated"
         # and nothing anywhere ever advanced it. build_preview() (in

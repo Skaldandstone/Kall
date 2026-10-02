@@ -51,7 +51,18 @@ type ResumeLayout = {
 type GeneratedDocument = {
   document: { id: number; template_key: string; checksum: string; content_json: { sections: Array<{ section: string; text: string }>; layout?: ResumeLayout } };
   artifacts: Artifact[];
+  alignment?: AlignmentComparison | null;
 };
+
+type AlignmentComparison = {
+  before: { score: number; required_percent: number; preferred_percent: number };
+  after: { score: number; required_percent: number; preferred_percent: number };
+  improved_by: number;
+  added_terms: string[];
+  explanation: string;
+};
+type AtsItem = { key: string; label: string; passed: boolean; detail: string; fix_href?: string | null; resolution?: string | null };
+type AtsReport = { passed: number; total: number; checks: AtsItem[]; before?: { passed: number; total: number; checks: AtsItem[] }; after?: { passed: number; total: number; checks: AtsItem[] }; resolved?: AtsItem[]; remaining?: AtsItem[]; improved_by?: number };
 
 function ResumePreview({ layout }: { layout: ResumeLayout }) {
   return <div className="resume-preview" style={{ marginTop: 12, padding: '20px 24px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
@@ -117,7 +128,7 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [savedName, setSavedName] = useState<string | null>(null);
-  const [ats, setAts] = useState<{ passed: number; total: number; checks: Array<{ key: string; label: string; passed: boolean; detail: string; fix_href?: string | null }> } | null>(null);
+  const [ats, setAts] = useState<AtsReport | null>(null);
   const [showAnswered, setShowAnswered] = useState(false);
 
   // React 18 Strict Mode (development only) double-invokes this effect on
@@ -497,10 +508,16 @@ export default function DocumentsReviewPanel({ applicationId, onReady }: { appli
           <>
             <h2 style={{ marginTop: 16 }}>Read exactly what will be sent.</h2>
             {finalPreview && <img src={finalPreview} alt="First page of your new resume" style={{ width: '100%', maxWidth: 560, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', display: 'block', marginTop: 12 }} />}
+            {document_.alignment && <section aria-label="Resume alignment improvement" style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
+              <strong>Posting alignment · {document_.alignment.before.score}% before → {document_.alignment.after.score}% after</strong>
+              <p className="notice" style={{ margin: '4px 0' }}>{document_.alignment.explanation}</p>
+              {document_.alignment.added_terms.length > 0 && <p style={{ margin: '8px 0 0' }}>Newly surfaced: {document_.alignment.added_terms.join(', ')}</p>}
+            </section>}
             {ats && <section aria-label={`ATS check: ${ats.passed} of ${ats.total} passed`} style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-raised)' }}>
-              <strong style={{ color: ats.passed === ats.total ? 'var(--success, inherit)' : 'var(--warning, inherit)' }}>ATS check · {ats.passed} of {ats.total} passed</strong>
+              <strong style={{ color: ats.passed === ats.total ? 'var(--success, inherit)' : 'var(--warning, inherit)' }}>ATS checklist · {ats.before ? `${ats.before.passed}/${ats.before.total} before → ` : ''}{ats.passed}/{ats.total} after Kall</strong>
               <p className="notice" style={{ margin: '4px 0 8px' }}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</p>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>{ats.checks.map((check) => <li key={check.key}>{check.passed ? '✓' : '!'} {check.label}{!check.passed && <span className="notice"> — {check.detail} {check.fix_href && <a href={check.fix_href} target="_blank" rel="noreferrer">Fix this</a>}</span>}</li>)}</ul>
+              {!!ats.resolved?.length && <p style={{ margin: '0 0 8px' }}>Resolved: {ats.resolved.map((item) => item.label).join(', ')}</p>}
+              <ul style={{ margin: 0, paddingLeft: 18 }}>{ats.checks.map((check) => <li key={check.key}>{check.passed ? '✓' : '!'} {check.label}{!check.passed && <span className="notice"> — {check.detail} {check.resolution} {check.fix_href && <a href={check.fix_href} target="_blank" rel="noreferrer">Fix this</a>} {check.key === 'length' && <button className="button ghost" style={{ marginLeft: 6 }} onClick={() => { setTemplateKey('compact'); setDocument_(null); }}>Try Compact</button>}</span>}</li>)}</ul>
             </section>}
             {document_.document.content_json.layout ? <ResumePreview layout={document_.document.content_json.layout} /> : (
               <div className="stack" style={{ marginTop: 12 }}>

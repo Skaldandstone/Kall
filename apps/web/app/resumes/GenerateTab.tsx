@@ -15,6 +15,13 @@ type DocumentResult = {
   document: { id: number; template_key: string; checksum: string };
   artifacts: Artifact[];
   coverage?: Coverage;
+  alignment?: {
+    before: { score: number };
+    after: { score: number };
+    improved_by: number;
+    added_terms: string[];
+    explanation: string;
+  };
 };
 
 type CoverLetterResult = {
@@ -364,6 +371,12 @@ export default function GenerateTab() {
               <article className="card"><h3>Unsupported</h3><p>{documentResult.coverage.unsupported.join(', ') || 'None'}</p></article>
             </div>
           )}
+          {documentResult.alignment && <article className="card" style={{ marginTop: 16 }}>
+            <h3>Alignment improvement</h3>
+            <p><strong>{documentResult.alignment.before.score}% before → {documentResult.alignment.after.score}% after Kall</strong></p>
+            <p>{documentResult.alignment.explanation}</p>
+            {documentResult.alignment.added_terms.length > 0 && <p>Newly surfaced: {documentResult.alignment.added_terms.join(', ')}</p>}
+          </article>}
         </section>
       )}
 

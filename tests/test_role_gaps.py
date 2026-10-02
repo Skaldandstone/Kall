@@ -144,6 +144,12 @@ def test_review_all_and_preview_and_save_to_profile_over_the_api(client) -> None
     document_id = generated.json()["id"]
 
     assert client.get(f"/api/documents/{document_id}/preview.png").headers["content-type"] == "image/png"
+    detail = client.get(f"/api/documents/{document_id}").json()
+    assert detail["alignment"]["before"]["score"] <= detail["alignment"]["after"]["score"]
+    ats = client.get(f"/api/documents/{document_id}/ats-check")
+    assert ats.status_code == 200, ats.text
+    assert ats.json()["after"]["passed"] == ats.json()["passed"]
+    assert "before" in ats.json() and "remaining" in ats.json()
     saved = client.post(f"/api/documents/{document_id}/save-to-profile")
     assert saved.status_code == 200, saved.text
     assert saved.json()["resume"]["name"] == "North – Director of QA (tailored).pdf"

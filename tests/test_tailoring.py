@@ -433,7 +433,10 @@ def test_achievement_changes_reword_to_the_postings_language_when_a_model_is_con
     get_settings.cache_clear()
 
 
-def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structured_employment(monkeypatch) -> None:
+@pytest.mark.parametrize("has_structured_employment", [False, True])
+def test_experience_bullets_get_alignment_suggestions_from_the_current_resume(
+    monkeypatch, has_structured_employment: bool,
+) -> None:
     """Regression test: _role_gap_changes requires at least one Employment
     row and bails out before ever looking at the resume text -- someone
     relying on a resume upload rather than manually filled-in structured
@@ -453,6 +456,7 @@ def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structure
             "rewrite": "Shipped CI/CD pipelines that cut deploy time by 40%.",
         }]},
     )
+    monkeypatch.setattr(tailoring, "_role_gap_changes", lambda *args, **kwargs: [])
 
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)
@@ -488,6 +492,8 @@ def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structure
         session.add(resume)
         session.commit()
         session.refresh(resume)
+        if has_structured_employment:
+            session.add(Employment(user_id=user.id, employer="Acme Corp", job_title="Engineer", is_current=True))
         session.add(ResumeSelection(user_id=user.id, job_id=job.id, professional_profile_id=1, selected_resume_id=resume.id))
         session.commit()
 
@@ -498,6 +504,7 @@ def test_experience_bullets_get_alignment_suggestions_when_there_is_no_structure
 
     assert change.original_text == "Reduced deploy time by 40% through manual scripting."
     assert change.proposed_text == "Shipped CI/CD pipelines that cut deploy time by 40%."
+    assert change.evidence[0]["alignment_terms_added"] == ["ci/cd"]
     get_settings.cache_clear()
 
 

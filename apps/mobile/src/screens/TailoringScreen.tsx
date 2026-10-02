@@ -480,19 +480,32 @@ export default function TailoringScreen({ route }: Props) {
                       {RESUME_TEMPLATES.find((template) => template.key === document.document.template_key)?.label ?? label(document.document.template_key)} layout.
                       {document.coverage ? ` Covers ${document.coverage.required_percent}% of required and ${document.coverage.preferred_percent}% of preferred requirements.` : ""}
                     </Text>
+                    {document.alignment ? (
+                      <View style={styles.atsBox} accessible accessibilityLabel={`Posting alignment improved from ${document.alignment.before.score} to ${document.alignment.after.score} percent`}>
+                        <Text style={styles.atsTitle}>Posting alignment · {document.alignment.before.score}% before → {document.alignment.after.score}% after</Text>
+                        <Text style={styles.evidence}>{document.alignment.explanation}</Text>
+                        {document.alignment.added_terms.length > 0 ? <Text style={styles.atsDetail}>Newly surfaced: {document.alignment.added_terms.join(", ")}</Text> : null}
+                      </View>
+                    ) : null}
                     {finalPreview ? (
                       <Image source={{ uri: finalPreview }} style={styles.finalPreview} resizeMode="contain" accessibilityLabel="First page of your new resume" accessibilityIgnoresInvertColors />
                     ) : null}
                     {ats ? (
                       <View style={styles.atsBox} accessible accessibilityLabel={`ATS check: ${ats.passed} of ${ats.total} passed`}>
-                        <Text style={[styles.atsTitle, ats.passed === ats.total ? styles.statusAccepted : styles.atsWarn]}>ATS check · {ats.passed} of {ats.total} passed</Text>
+                        <Text style={[styles.atsTitle, ats.passed === ats.total ? styles.statusAccepted : styles.atsWarn]}>ATS checklist · {ats.before ? `${ats.before.passed}/${ats.before.total} before → ` : ""}{ats.passed}/{ats.total} after Kall</Text>
                         <Text style={styles.evidence}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</Text>
+                        {ats.resolved?.length ? <Text style={styles.atsDetail}>Resolved: {ats.resolved.map((item) => item.label).join(", ")}</Text> : null}
                         {ats.checks.map((check) => (
                           <View key={check.key} style={styles.atsRow}>
                             <Text style={[styles.atsMark, check.passed ? styles.statusAccepted : styles.atsWarn]}>{check.passed ? "✓" : "!"}</Text>
                             <View style={styles.atsCopy}>
                               <Text style={styles.atsLabel}>{check.label}</Text>
-                              {!check.passed ? <Text style={styles.atsDetail}>{check.detail}</Text> : null}
+                              {!check.passed ? <Text style={styles.atsDetail}>{check.detail} {check.resolution}</Text> : null}
+                              {!check.passed && check.key === "length" ? (
+                                <Pressable accessibilityRole="button" style={styles.textButton} onPress={() => { setTemplateKey("compact"); setDocument(null); setSavedResume(null); }}>
+                                  <Text style={styles.textButtonText}>Try Compact two-page</Text>
+                                </Pressable>
+                              ) : null}
                             </View>
                           </View>
                         ))}

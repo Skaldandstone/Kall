@@ -145,6 +145,11 @@ def _parsed_fallback(resume: ResumeDocument | None) -> dict[str, list[str]]:
     return parsed.get("sections", {})
 
 
+def parsed_resume_sections(resume: ResumeDocument | None) -> dict[str, list[str]]:
+    """Return repaired source sections for analysis as well as rendering."""
+    return _parsed_fallback(resume)
+
+
 def _normalized_line(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 

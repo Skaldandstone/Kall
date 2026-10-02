@@ -15,10 +15,10 @@ from kall.models import (
     TailoringProposal,
     User,
 )
-from kall.services.intelligence import parse_resume
 from kall.services.openai_json import ask_for_json
 from kall.services.quota import ai_actions_available, record_ai_action
 from kall.services.resume import reflow_extracted_text
+from kall.services.resume_assembly import parsed_resume_sections
 from kall.services.role_gaps import RoleContext, find_gaps, suggest_role_gaps
 from sqlmodel import Session, select
 
@@ -270,17 +270,14 @@ _EXPERIENCE_ALIGNMENT_SCHEMA = {
 
 
 def _fallback_experience_alignment_changes(
-    proposal_id: int, experience_text: str, job: Job, focus: str, ai_allowed: bool = True,
+    proposal_id: int, experience_text: str, job: Job, requirements: list[str], ai_allowed: bool = True,
 ) -> list[TailoringChange]:
-    """When there is no structured Employment record, _role_gap_changes
-    below bails out before it ever looks at the resume itself -- role-gap
-    and achievement customization only ever read Kall's own Employment/
-    Achievement tables, never the uploaded resume's text. Anyone relying on
-    a resume upload rather than manually filled-in structured history got a
-    tailored resume with nothing customized but the summary, no matter how
-    well their real experience actually matched the posting.
+    """Evaluate existing source-resume bullets against the posting.
 
-    Asks the model to find a handful of existing bullets, as extracted from
+    This runs even when a structured Employment record exists: role-gap
+    questions identify missing evidence, while this pass improves how real,
+    already-written experience is presented. It asks the model to find a
+    handful of existing bullets, as extracted from
     the resume, whose wording could better echo the posting's own language,
     and a rewrite of each that preserves every fact. The model does its own
     bullet segmentation rather than a regex trying to find bullet
@@ -291,6 +288,7 @@ def _fallback_experience_alignment_changes(
     """
     if not ai_allowed or not get_settings().openai_api_key or not experience_text.strip():
         return []
+    focus = ", ".join(requirements[:5]) or "the role's documented requirements"
     prompt = (
         "Below is someone's work experience, extracted from their resume. Identify up to 6 existing bullet "
         f"points whose wording could better echo language a hiring manager for '{job.title}' at {job.company} "
@@ -316,14 +314,20 @@ def _fallback_experience_alignment_changes(
             continue
         if not preserves_immutable_facts(original, rewrite):
             continue
+        added_terms = [
+            term for term in requirements
+            if term.casefold() not in original.casefold() and term.casefold() in rewrite.casefold()
+        ]
         changes.append(
             TailoringChange(
                 proposal_id=proposal_id,
                 section="experience_bullet",
                 original_text=original,
                 proposed_text=rewrite,
-                reason="This bullet's wording could better match the posting's own language.",
-                evidence=[{"type": "experience_bullet", "text": focus, "source": "model"}],
+                reason=("This keeps the original facts while making the relevant experience easier to recognize."
+                        + (f" Adds alignment for: {', '.join(added_terms)}." if added_terms else "")),
+                evidence=[{"type": "experience_bullet", "text": focus, "source": "model",
+                           "alignment_terms_added": added_terms}],
                 immutable_tokens=immutable_tokens(original),
             )
         )
@@ -458,19 +462,12 @@ def create_tailoring_proposal(
             )
         )
     changes[0].proposal_id = proposal.id
-    employment_exists = session.exec(select(Employment.id).where(Employment.user_id == user_id)).first() is not None
     changes.extend(_role_gap_changes(session, proposal, job, user_id, requirement_terms, verified, resume.extracted_text or "", ai_allowed))
-    if not employment_exists and requirement_terms:
-        # _role_gap_changes above requires at least one Employment row and
-        # never looks at the resume text at all -- someone relying on a
-        # resume upload rather than manually filled-in structured history
-        # otherwise gets nothing customized but the summary, no matter how
-        # well their real experience matches the posting. The parsed
-        # fallback experience text (what the final document actually
-        # renders for these accounts -- see resume_assembly.py) is the only
-        # source of real work history available here.
-        parsed, _ = parse_resume(reflow_extracted_text(resume.extracted_text or ""))
-        fallback_sections = parsed.get("sections", {})
+    if requirement_terms:
+        # Always inspect the uploaded resume's own role bullets. Structured
+        # Work history may be complete while its wording still undersells
+        # relevant experience for this particular posting.
+        fallback_sections = parsed_resume_sections(resume)
         experience_text = " ".join(
             fallback_sections.get("experience")
             or fallback_sections.get("professional experience")
@@ -478,8 +475,7 @@ def create_tailoring_proposal(
             or []
         )
         if experience_text:
-            focus = ", ".join(requirement_terms[:5]) or "the role's documented requirements"
-            changes.extend(_fallback_experience_alignment_changes(proposal.id, experience_text, job, focus, ai_allowed))
+            changes.extend(_fallback_experience_alignment_changes(proposal.id, experience_text, job, requirement_terms, ai_allowed))
     used_ai = any(
         evidence.get("source") == "model"
         for change in changes

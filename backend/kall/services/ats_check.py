@@ -30,6 +30,7 @@ class AtsCheck:
     passed: bool
     detail: str
     fix_href: str | None = None
+    resolution: str | None = None
 
 
 def _extract(pdf: bytes) -> tuple[list[str], int, list[str], int]:
@@ -53,6 +54,7 @@ def run_ats_checks(layout: dict, pdf: bytes) -> list[AtsCheck]:
     pages, page_count, fonts, images = _extract(pdf)
     text = "\n".join(pages)
     flat = re.sub(r"\s+", " ", text)
+    folded_text = text.casefold()
     checks: list[AtsCheck] = []
 
     name = str(layout.get("name") or "")
@@ -62,16 +64,26 @@ def run_ats_checks(layout: dict, pdf: bytes) -> list[AtsCheck]:
     phone = _PHONE.search(flat)
     checks.append(AtsCheck("contact", "Email and phone can be read from the header", bool(email and phone),
                            "Email and phone both extract." if email and phone else ("Email found, phone missing." if email else "No email address found in the header."),
-                           fix_href=None if email and phone else "/settings/identity#identity-phone"))
+                           fix_href=None if email and phone else "/settings/identity#identity-phone",
+                           resolution=None if email and phone else "Add the missing contact detail in Identity, then rebuild this resume."))
 
-    headings_present = [s for s in layout.get("sections", []) if str(s.get("title", "")).casefold() in STANDARD_HEADINGS]
     nonstandard = [str(s.get("title")) for s in layout.get("sections", []) if str(s.get("title", "")).casefold() not in STANDARD_HEADINGS]
-    checks.append(AtsCheck("headings", "Section headings use standard names", not nonstandard,
-                           "All headings are ones parsers recognise." if not nonstandard else f"Non-standard heading(s): {', '.join(nonstandard)}."))
+    missing_headings = [str(s.get("title")) for s in layout.get("sections", []) if str(s.get("title") or "").casefold() not in folded_text]
+    headings_ok = not nonstandard and not missing_headings
+    heading_detail = "All headings use standard names and extract from the PDF."
+    if nonstandard:
+        heading_detail = f"Non-standard heading(s): {', '.join(nonstandard)}."
+    elif missing_headings:
+        heading_detail = f"Heading(s) did not extract: {', '.join(missing_headings)}."
+    checks.append(AtsCheck("headings", "Section headings use standard names", headings_ok, heading_detail,
+                           resolution=None if headings_ok else "Kall will rebuild this document with standard, extractable section headings."))
     core_sections_ok = any(str(s.get("key")) == "experience" for s in layout.get("sections", [])) and any(str(s.get("key")) == "skills" for s in layout.get("sections", []))
+    core_titles = [str(s.get("title") or "") for s in layout.get("sections", []) if str(s.get("key")) in {"experience", "skills"}]
+    core_sections_ok = core_sections_ok and all(title.casefold() in folded_text for title in core_titles)
     checks.append(AtsCheck("core_sections", "Experience and skills sections are present", core_sections_ok,
-                           "Both present." if headings_present else "Add work history and skills to the professional record.",
-                           fix_href=None if core_sections_ok else "/profiles"))
+                           "Both are present and extractable." if core_sections_ok else "Add work history and skills to the professional record.",
+                           fix_href=None if core_sections_ok else "/profiles",
+                           resolution=None if core_sections_ok else "Complete Experience and Skills in your professional record, then rebuild."))
 
     # Reading order: within each section, entries must extract in the order
     # they are listed -- a multi-column or table-mangled PDF scrambles this.
@@ -92,14 +104,19 @@ def run_ats_checks(layout: dict, pdf: bytes) -> list[AtsCheck]:
     dates = [str(e.get("dates")) for s in layout.get("sections", []) for e in s.get("entries", []) if e.get("dates")]
     dates_ok = all(_DATE.search(d) and (d in flat) for d in dates)
     checks.append(AtsCheck("dates", "Dates are consistent and extractable", dates_ok,
-                           "Every date range extracts as written." if dates_ok else "A date range did not extract cleanly."))
+                           "Every date range extracts as written." if dates_ok else "A date range did not extract cleanly.",
+                           fix_href=None if dates_ok else "/profiles",
+                           resolution=None if dates_ok else "Correct the affected role dates in Work history, then rebuild."))
 
     bad_fonts = [f for f in fonts if not any(f.startswith(std) or std in f for std in _STANDARD_FONTS)]
     checks.append(AtsCheck("fonts", "Standard fonts only", not bad_fonts, f"Fonts: {', '.join(fonts) or 'none'}." if not bad_fonts else f"Unusual font(s): {', '.join(bad_fonts)}."))
     checks.append(AtsCheck("no_images", "No images or graphics carry content", images == 0, "Text only." if images == 0 else f"{images} embedded object(s) found."))
-    checks.append(AtsCheck("length", "One or two pages", 1 <= page_count <= 2, f"{page_count} page(s)."))
+    checks.append(AtsCheck("length", "One or two pages", 1 <= page_count <= 2, f"{page_count} page(s).",
+                           resolution=None if 1 <= page_count <= 2 else "Try the Compact two-page look, then trim lower-priority bullets if needed."))
     words = len(flat.split())
-    checks.append(AtsCheck("substance", "Enough content to score against a posting", words >= 120, f"{words} words."))
+    checks.append(AtsCheck("substance", "Enough content to score against a posting", words >= 120, f"{words} words.",
+                           fix_href=None if words >= 120 else "/profiles",
+                           resolution=None if words >= 120 else "Add specific responsibilities and measurable outcomes to Work history."))
     unreadable = sum(1 for ch in text if ch in "\x7f�" or (ord(ch) < 32 and ch not in "\n\t"))
     checks.append(AtsCheck("clean_text", "Every character extracts as readable text", unreadable == 0,
                            "No unreadable characters." if unreadable == 0 else f"{unreadable} character(s) came out as garbage -- usually a bullet or symbol the font cannot map."))
@@ -110,3 +127,14 @@ def ats_report(layout: dict, pdf: bytes) -> dict:
     checks = run_ats_checks(layout, pdf)
     passed = sum(1 for check in checks if check.passed)
     return {"passed": passed, "total": len(checks), "checks": [asdict(check) for check in checks]}
+
+
+def ats_comparison(before_layout: dict, before_pdf: bytes, after_layout: dict, after_pdf: bytes) -> dict:
+    """Compare the starting resume to the exact generated PDF."""
+    before = ats_report(before_layout, before_pdf)
+    after = ats_report(after_layout, after_pdf)
+    before_by_key = {item["key"]: item for item in before["checks"]}
+    resolved = [item for item in after["checks"] if item["passed"] and not before_by_key.get(item["key"], {}).get("passed", False)]
+    remaining = [item for item in after["checks"] if not item["passed"]]
+    return {**after, "before": before, "after": after, "resolved": resolved, "remaining": remaining,
+            "improved_by": after["passed"] - before["passed"]}

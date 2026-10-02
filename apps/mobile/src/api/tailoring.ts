@@ -82,6 +82,15 @@ export type DocumentDetail = {
   };
   artifacts: Artifact[];
   coverage: Coverage | null;
+  alignment: AlignmentComparison | null;
+};
+
+export type AlignmentComparison = {
+  before: { score: number; required_percent: number; preferred_percent: number };
+  after: { score: number; required_percent: number; preferred_percent: number };
+  improved_by: number;
+  added_terms: string[];
+  explanation: string;
 };
 
 export type CoverLetterProposal = {
@@ -136,8 +145,8 @@ export const fetchTemplatePreview = (proposalId: number, templateKey: string) =>
 
 export const fetchDocumentPreview = (documentId: number) => apiDownload(`/documents/${documentId}/preview.png`);
 
-export type AtsCheckItem = { key: string; label: string; passed: boolean; detail: string };
-export type AtsReport = { passed: number; total: number; checks: AtsCheckItem[] };
+export type AtsCheckItem = { key: string; label: string; passed: boolean; detail: string; resolution?: string | null; fix_href?: string | null };
+export type AtsReport = { passed: number; total: number; checks: AtsCheckItem[]; before?: { passed: number; total: number; checks: AtsCheckItem[] }; after?: { passed: number; total: number; checks: AtsCheckItem[] }; resolved?: AtsCheckItem[]; remaining?: AtsCheckItem[]; improved_by?: number };
 /** Pass/fail checks run against the rendered PDF itself. */
 export const fetchAtsCheck = (documentId: number) => apiRequest<AtsReport>(`/documents/${documentId}/ats-check`);
 

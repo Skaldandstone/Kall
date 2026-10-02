@@ -4,10 +4,18 @@ from pathlib import Path
 
 import pytest
 from kall.clock import utcnow
-from kall.models import GeneratedDocument, Job, TailoringChange, TailoringProposal, User
+from kall.models import (
+    GeneratedDocument,
+    Job,
+    JobRequirementAnalysis,
+    TailoringChange,
+    TailoringProposal,
+    User,
+)
 from kall.services import documents
 from kall.services.documents import (
     ARTIFACT_RETENTION_DAYS,
+    alignment_comparison,
     ensure_artifact,
     expire_artifacts,
     finalized_resume_content,
@@ -16,6 +24,24 @@ from kall.services.documents import (
     render_artifact,
 )
 from sqlmodel import Session, SQLModel, create_engine
+
+
+def test_alignment_comparison_explains_before_after_gain() -> None:
+    analysis = JobRequirementAnalysis(
+        job_id=1,
+        required_skills=["CI/CD", "Python"],
+        preferred_skills=["AWS"],
+    )
+    result = alignment_comparison(
+        analysis,
+        "Built Python services.",
+        "Built Python services and CI/CD delivery on AWS.",
+    )
+    assert result["before"]["score"] == 35
+    assert result["after"]["score"] == 100
+    assert result["improved_by"] == 65
+    assert result["added_terms"] == ["CI/CD", "AWS"]
+    assert "does not judge overall candidate quality" in result["explanation"]
 
 
 def test_finalized_content_excludes_rejected_changes() -> None:

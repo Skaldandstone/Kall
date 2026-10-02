@@ -12,11 +12,12 @@ from kall.models import (
     GeneratedDocument,
     Job,
     KeywordCoverageReport,
+    ResumeDocument,
     TailoringProposal,
     User,
 )
 from kall.services import quota
-from kall.services.ats_check import ats_report
+from kall.services.ats_check import ats_comparison
 from kall.services.documents import (
     ARTIFACT_FORMATS,
     RESUME_TEMPLATE_KEYS,
@@ -30,6 +31,8 @@ from kall.services.documents import (
     review_cover_letter_change,
     save_document_to_profile,
 )
+from kall.services.resume_assembly import assemble_resume
+from kall.services.resume_render import render_pdf
 from kall.services.storage import get_storage
 
 router = APIRouter(tags=["documents"])
@@ -117,7 +120,28 @@ def ats_check(
     if not layout:
         raise HTTPException(404, "This document has no layout to check")
     pdf = ensure_artifact(session, document, "pdf")
-    return ats_report(layout, get_storage().read(pdf.file_path))
+    storage = get_storage()
+    resume = session.get(ResumeDocument, document.resume_id) if document.resume_id else None
+    before_layout = assemble_resume(session, document.user_id, [], resume)
+    before_pdf = render_pdf(before_layout, document.template_key)
+    using_source_pdf = False
+    # A PDF upload is the exact artifact the applicant started with. For
+    # other formats, compare a neutral render of its parsed content because
+    # the ATS checker intentionally operates on PDF bytes.
+    if resume and resume.mime_type == "application/pdf" and resume.file_path:
+        try:
+            if storage.exists(resume.file_path):
+                before_pdf = storage.read(resume.file_path)
+                using_source_pdf = True
+        except Exception:  # noqa: BLE001 - retained source failure falls back to the parsed baseline
+            pass
+    after_pdf = storage.read(pdf.file_path)
+    try:
+        return ats_comparison(before_layout, before_pdf, layout, after_pdf)
+    except Exception:  # noqa: BLE001 - a damaged/encrypted source PDF must not hide the generated document's score
+        if not using_source_pdf:
+            raise
+        return ats_comparison(before_layout, render_pdf(before_layout, document.template_key), layout, after_pdf)
 
 
 @router.post("/documents/{document_id}/save-to-profile")
@@ -195,7 +219,8 @@ def get_document(
             KeywordCoverageReport.generated_document_id == document.id
         )
     ).first()
-    return {"document": document, "artifacts": artifacts, "coverage": coverage}
+    return {"document": document, "artifacts": artifacts, "coverage": coverage,
+            "alignment": document.content_json.get("alignment")}
 
 
 @router.get("/documents/{document_id}/download/{file_format}")
