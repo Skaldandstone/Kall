@@ -126,7 +126,9 @@ def run_ats_checks(layout: dict, pdf: bytes) -> list[AtsCheck]:
 def ats_report(layout: dict, pdf: bytes) -> dict:
     checks = run_ats_checks(layout, pdf)
     passed = sum(1 for check in checks if check.passed)
-    return {"passed": passed, "total": len(checks), "checks": [asdict(check) for check in checks]}
+    total = len(checks)
+    return {"score": round(100 * passed / total) if total else 100, "passed": passed, "total": total,
+            "checks": [asdict(check) for check in checks]}
 
 
 def ats_comparison(before_layout: dict, before_pdf: bytes, after_layout: dict, after_pdf: bytes) -> dict:

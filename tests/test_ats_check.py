@@ -69,6 +69,8 @@ def test_comparison_preserves_final_shape_and_explains_remaining_work() -> None:
     )
     assert result["passed"] == result["after"]["passed"]
     assert result["checks"] == result["after"]["checks"]
+    assert result["score"] == round(100 * result["passed"] / result["total"])
+    assert result["before"]["score"] == round(100 * result["before"]["passed"] / result["before"]["total"])
     contact = next(item for item in result["remaining"] if item["key"] == "contact")
     assert contact["resolution"]
     assert contact["fix_href"] == "/settings/identity#identity-phone"

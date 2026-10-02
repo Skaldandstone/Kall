@@ -146,7 +146,8 @@ export const fetchTemplatePreview = (proposalId: number, templateKey: string) =>
 export const fetchDocumentPreview = (documentId: number) => apiDownload(`/documents/${documentId}/preview.png`);
 
 export type AtsCheckItem = { key: string; label: string; passed: boolean; detail: string; resolution?: string | null; fix_href?: string | null };
-export type AtsReport = { passed: number; total: number; checks: AtsCheckItem[]; before?: { passed: number; total: number; checks: AtsCheckItem[] }; after?: { passed: number; total: number; checks: AtsCheckItem[] }; resolved?: AtsCheckItem[]; remaining?: AtsCheckItem[]; improved_by?: number };
+export type AtsScore = { score: number; passed: number; total: number; checks: AtsCheckItem[] };
+export type AtsReport = AtsScore & { before?: AtsScore; after?: AtsScore; resolved?: AtsCheckItem[]; remaining?: AtsCheckItem[]; improved_by?: number };
 /** Pass/fail checks run against the rendered PDF itself. */
 export const fetchAtsCheck = (documentId: number) => apiRequest<AtsReport>(`/documents/${documentId}/ats-check`);
 

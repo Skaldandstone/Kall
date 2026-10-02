@@ -492,7 +492,8 @@ export default function TailoringScreen({ route }: Props) {
                     ) : null}
                     {ats ? (
                       <View style={styles.atsBox} accessible accessibilityLabel={`ATS check: ${ats.passed} of ${ats.total} passed`}>
-                        <Text style={[styles.atsTitle, ats.passed === ats.total ? styles.statusAccepted : styles.atsWarn]}>ATS checklist · {ats.before ? `${ats.before.passed}/${ats.before.total} before → ` : ""}{ats.passed}/{ats.total} after Kall</Text>
+                        <Text style={[styles.atsTitle, ats.passed === ats.total ? styles.statusAccepted : styles.atsWarn]}>ATS checklist score · {ats.before ? `${ats.before.score}% before → ` : ""}{ats.score}% after Kall</Text>
+                        <Text style={styles.evidence}>{ats.passed} of {ats.total} final checks passed.</Text>
                         <Text style={styles.evidence}>Run against the PDF itself: the text is extracted back out the way an applicant tracking system reads it.</Text>
                         {ats.resolved?.length ? <Text style={styles.atsDetail}>Resolved: {ats.resolved.map((item) => item.label).join(", ")}</Text> : null}
                         {ats.checks.map((check) => (
