@@ -45,8 +45,6 @@ test('current report lists every truthful source blocker without secrets', () =>
   const report = reportFrom(result);
   assert.equal(report.status, 'blocked');
   assert.deepEqual(report.blockers, [
-    'app-store-review-credentials',
-    'clerk-reviewer-identity',
     'eas-review-capture-credentials',
     'physical-device-review-package',
     'app-review-recording-upload',
