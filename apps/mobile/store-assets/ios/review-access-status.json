@@ -1,11 +1,11 @@
 {
-  "verifiedDate": "2026-09-24",
-  "appStoreReviewUsernamePresent": false,
-  "appStoreReviewPasswordPresent": false,
-  "clerkReviewerIdentityPresent": false,
+  "verifiedDate": "2026-10-07",
+  "appStoreReviewUsernamePresent": true,
+  "appStoreReviewPasswordPresent": true,
+  "clerkReviewerIdentityPresent": true,
   "easReviewEmailPresent": false,
   "easReviewPasswordPresent": false,
-  "verificationNote": "App Store Connect, production Clerk, and the EAS production environment were inspected directly. Reviewer access is incomplete. Update this file only after rechecking all three providers without recording credential values.",
+  "verificationNote": "App Store Connect and production Clerk were inspected directly after the October 7 rejection. The dedicated identity was recreated with the submitted credential, password-only production web sign-in passed, Premium and quota-exempt access were audited, Apple OAuth was restored to authenticatable, and build 21 was resubmitted. EAS capture credentials remain absent and native sign-in remains a separate evidence gate.",
   "limitations": [
     "This nonsecret status records field presence only.",
     "It does not contain or prove a reviewer credential.",

@@ -52,6 +52,7 @@ test('partial App Store credential status fails closed', () => {
   const statusPath = path.join(mobileRoot, 'store-assets', 'ios', 'review-access-status.json');
   const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
   status.appStoreReviewUsernamePresent = true;
+  status.appStoreReviewPasswordPresent = false;
   fs.writeFileSync(statusPath, `${JSON.stringify(status, null, 2)}\n`);
   const result = run(mobileRoot);
   assert.notEqual(result.status, 0);
