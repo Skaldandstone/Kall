@@ -26,6 +26,8 @@ const notes = read('store-assets/ios/review-notes-draft.md');
 const listing = read('store-assets/ios/listing.md');
 const shotList = read('store-assets/ios/review-evidence-shot-list.md');
 const billing = read('src/screens/BillingScreen.tsx');
+const iosLegal = read('src/components/StoreLegalNotice.ios.tsx');
+const iosUpdate = read('src/components/UpdatePrompt.ios.tsx');
 const bootstrap = read('src/components/PurchaseBootstrap.tsx');
 const appConfig = read('app.config.js');
 const nativeBilling = fs.readFileSync(path.join(repositoryRoot, 'docs', 'NATIVE_BILLING.md'), 'utf8');
@@ -73,6 +75,11 @@ assert.ok(billing.includes('Purchases.purchasePackage(aPackage)'));
 assert.ok(billing.includes('Purchases.restorePurchases()'));
 assert.doesNotMatch(billing, /https?:\/\//, 'Native billing cannot link to an external checkout.');
 assert.doesNotMatch(billing, /(?:\$|USD\s*)(?:9|25)(?:\.00)?\b/, 'Native billing cannot hard-code US prices.');
+assert.match(iosLegal, /https:\/\/kall\.skaldandstone\.com\/privacy-policy/);
+assert.match(iosLegal, /https:\/\/kall\.skaldandstone\.com\/terms/);
+assert.match(iosLegal, /accessibilityRole="link"/);
+assert.match(iosLegal, /Linking\.openURL/);
+assert.doesNotMatch(`${billing}\n${iosLegal}\n${iosUpdate}`, /Google Play|play\.google\.com/i);
 
 for (const parameter of ['RevenueCatApplePlusProductId', 'RevenueCatApplePremiumProductId']) {
   assert.ok(infrastructure.includes(`${parameter}:`), `Infrastructure is missing ${parameter}.`);

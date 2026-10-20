@@ -20,6 +20,8 @@ const mobileFiles = [
   'store-assets/ios/listing.md',
   'store-assets/ios/review-evidence-shot-list.md',
   'src/screens/BillingScreen.tsx',
+  'src/components/StoreLegalNotice.ios.tsx',
+  'src/components/UpdatePrompt.ios.tsx',
   'src/components/PurchaseBootstrap.tsx',
 ];
 
@@ -67,6 +69,28 @@ test('hard-coded native price fails closed', () => {
   const result = run(mobileRoot);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /cannot hard-code US prices/);
+});
+
+test('Google Play references in the iOS module graph fail closed', () => {
+  const mobileRoot = fixture();
+  const noticePath = path.join(mobileRoot, 'src/components/StoreLegalNotice.ios.tsx');
+  fs.appendFileSync(noticePath, '\n// Google Play\n');
+  const result = run(mobileRoot);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Google Play/);
+});
+
+test('removing the in-app Terms link fails closed', () => {
+  const mobileRoot = fixture();
+  const noticePath = path.join(mobileRoot, 'src/components/StoreLegalNotice.ios.tsx');
+  const notice = fs.readFileSync(noticePath, 'utf8').replace(
+    'https://kall.skaldandstone.com/terms',
+    'https://kall.skaldandstone.com/missing-terms',
+  );
+  fs.writeFileSync(noticePath, notice);
+  const result = run(mobileRoot);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /terms/);
 });
 
 test('claiming review media is no longer required fails closed while provider status is empty', () => {

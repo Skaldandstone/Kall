@@ -176,7 +176,15 @@ const billingSource = fs.readFileSync(
   'utf8',
 );
 const updateSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.android.tsx'),
+  'utf8',
+);
+const sharedUpdateSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.tsx'),
+  'utf8',
+);
+const iosUpdateSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.ios.tsx'),
   'utf8',
 );
 const releaseResetSource = fs.readFileSync(
@@ -263,8 +271,8 @@ assert.ok(
   'The update prompt must allowlist both the legacy tester page and public Play listing.',
 );
 assert.ok(
-  updateSource.includes("Platform.OS !== 'android'"),
-  'The Play update prompt must never appear on iOS or web builds.',
+  !/Google Play|play\.google\.com/i.test(`${sharedUpdateSource}\n${iosUpdateSource}`),
+  'The Play update prompt must remain isolated to the Android platform module.',
 );
 assert.ok(
   updateSource.includes('if (!response.ok) return;') && updateSource.includes('catch'),

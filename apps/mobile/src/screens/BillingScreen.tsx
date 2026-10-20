@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 import { fetchBillingStatus, fetchUsage, type BillingStatus, type MeterState, type Usage } from '../api/billing';
 import { mobilePurchasesEnabled } from '../components/PurchaseBootstrap';
+import StoreLegalNotice from '../components/StoreLegalNotice';
 import { theme } from '../theme';
 
 const MB = 1024 * 1024;
@@ -164,19 +165,13 @@ export default function BillingScreen() {
           </Pressable>
         </View>
       ) : (
-        // Deliberately no link out. Google Play and the App Store both
-        // prohibit pointing an app at an external checkout for a digital
-        // subscription; until native purchases are provisioned this screen
-        // is read-only and only reports the plan the account already has.
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Plan changes are not available in the app yet</Text>
           <Text style={styles.copy}>Your current plan is shown above and applies everywhere you sign in to Kall.</Text>
         </View>
       )}
       {purchasesEnabled && status?.native_enabled ? (
-        <Text style={styles.terms}>
-          Payment is charged by Apple or Google when you confirm. Subscriptions renew automatically unless cancelled through your store account before renewal. Restoring purchases never creates a new charge.
-        </Text>
+        <StoreLegalNotice />
       ) : null}
     </ScrollView>
   );
@@ -199,7 +194,6 @@ const styles = StyleSheet.create({
   secondary: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderColor: theme.border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 16 },
   secondaryText: { color: theme.text, fontSize: 16, fontWeight: '700' },
   pressed: { opacity: 0.72 },
-  terms: { color: theme.textMuted, fontSize: 12, lineHeight: 18, marginTop: 24 },
   meter: { marginTop: 14 },
   meterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   meterLabel: { color: theme.text, fontSize: 14, fontWeight: '600' },

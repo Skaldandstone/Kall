@@ -1,4 +1,4 @@
-# App Review notes draft for Kall 1.2.0 (21)
+# App Review notes draft for the Kall 1.2.0 replacement build
 
 Reviewer access remains a submission prerequisite. Before submission, enter the
 dedicated reviewer username and password in App Store Connect, confirm the same
@@ -26,8 +26,13 @@ native purchase flow in this iOS build. From Profile, choose Plan and billing to
 see both products and their localized prices from the App Store. The purchase actions are
 Choose Kall Plus and Choose Kall Premium. A reviewer can open either Apple
 purchase sheet and cancel without completing a transaction. Restore purchases
-is on the same screen. Apple's sandbox should be used for any completed review
-purchase.
+is on the same screen. The screen includes functional Privacy Policy and Terms
+of Use links below the native purchase controls. Apple's sandbox should be used
+for any completed review purchase.
+
+The iOS build contains Apple-specific purchase language and does not present
+Google Play links or Google Play update instructions. Android update delivery
+is isolated to the Android platform module and is not bundled into iOS.
 
 The submitted build presents email, Google, and Apple sign-in controls. Verify
 the dedicated review identity against production before submission so the

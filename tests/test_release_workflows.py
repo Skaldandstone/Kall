@@ -76,7 +76,7 @@ def test_store_releases_wait_for_compiled_native_smoke_tests() -> None:
 
 def test_installed_update_resets_private_cache_and_rechecks_on_resume() -> None:
     reset_gate = (ROOT / "apps" / "mobile" / "src" / "components" / "ReleaseResetGate.tsx").read_text()
-    update_prompt = (ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.tsx").read_text()
+    update_prompt = (ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.android.tsx").read_text()
     assert "new Directory(Paths.cache)" in reset_gate
     assert "cache.list()" in reset_gate
     assert "await clerk.signOut()" in reset_gate

@@ -102,6 +102,14 @@ const billingSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'screens', 'BillingScreen.tsx'),
   'utf8',
 );
+const iosLegalSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'StoreLegalNotice.ios.tsx'),
+  'utf8',
+);
+const iosUpdateSource = fs.readFileSync(
+  path.join(mobileRoot, 'src', 'components', 'UpdatePrompt.ios.tsx'),
+  'utf8',
+);
 const releaseResetSource = fs.readFileSync(
   path.join(mobileRoot, 'src', 'components', 'ReleaseResetGate.tsx'),
   'utf8',
@@ -122,6 +130,18 @@ assert.ok(
 assert.ok(
   billingSource.includes('Purchases.purchasePackage') && billingSource.includes('Purchases.restorePurchases()'),
   'iOS billing must support StoreKit purchase and explicit restore flows.',
+);
+assert.ok(
+  iosLegalSource.includes('Privacy Policy') &&
+    iosLegalSource.includes('Terms of Use') &&
+    iosLegalSource.includes('Linking.openURL'),
+  'iOS billing must expose functional privacy and terms links in the purchase flow.',
+);
+assert.ok(iosLegalSource.includes('Apple ID'), 'iOS billing must use Apple-specific purchase disclosure copy.');
+assert.doesNotMatch(
+  `${billingSource}\n${iosLegalSource}\n${iosUpdateSource}`,
+  /Google Play|play\.google\.com/i,
+  'The iOS module graph cannot contain Google Play references.',
 );
 // Paid tiers gate real features -- the free plan's AI allowance is zero and
 // growth plans, skills analysis, resume strategy, and interview prep require

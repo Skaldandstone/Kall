@@ -36,6 +36,10 @@ applications, tailored documents, and progress stay in sync across both.
 Kall never submits an application or publishes your information without your
 review. Some detailed document editing is more comfortable on the web, and
 your account stays in sync across both experiences.
+
+Privacy Policy: https://kall.skaldandstone.com/privacy-policy
+Terms of Use: https://kall.skaldandstone.com/terms
+Apple Standard EULA: https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 ```
 
 ## Keywords (max 100 characters)
