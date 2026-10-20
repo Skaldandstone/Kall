@@ -66,6 +66,10 @@ def test_store_releases_wait_for_compiled_native_smoke_tests() -> None:
     ios = (ROOT / ".github" / "workflows" / "mobile-ios-submit.yml").read_text()
     assert android.index("native-e2e-android.yml") < android.index("release:android")
     assert ios.index("native-e2e-ios.yml") < ios.index("release:ios -- --non-interactive")
+    assert (
+        'eas env:exec production "npm run release:ios -- --non-interactive --no-wait" '
+        "--non-interactive"
+    ) in ios
     for body in (android, ios):
         assert "--non-interactive --wait" in body
         # Store builds are manual-only (#207): they queue real EAS builds and

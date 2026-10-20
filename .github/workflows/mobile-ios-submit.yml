@@ -40,6 +40,9 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       - name: Build and automatically submit to TestFlight
-        run: npm run release:ios -- --non-interactive --no-wait
+        # Dynamic Expo config validates the platform RevenueCat key before EAS
+        # uploads the archive. Load the named EAS environment on the runner so
+        # that validation sees the same production variables as the cloud build.
+        run: eas env:exec production "npm run release:ios -- --non-interactive --no-wait" --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
