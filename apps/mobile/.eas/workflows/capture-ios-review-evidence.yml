@@ -13,7 +13,7 @@ jobs:
       app_identifier: com.skaldandstone.kall
       app_version: 1.2.0
       app_build_version: "21"
-      fingerprint_hash: 712099030c85cde887387add3d047262556ba674
+      fingerprint_hash: e4e0faf7f29314b0060864270e70109e6bda6e40
       simulator: true
       wait_for_in_progress: true
 
