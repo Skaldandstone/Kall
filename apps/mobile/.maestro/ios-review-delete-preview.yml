@@ -1,6 +1,10 @@
 appId: com.skaldandstone.kall
 ---
 - back
+- tapOn: Profile
+- extendedWaitUntil:
+    visible: Manage your workspace
+    timeout: 20000
 - scrollUntilVisible:
     element:
       text: "Delete my account.*"
