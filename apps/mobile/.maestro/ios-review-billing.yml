@@ -8,6 +8,10 @@ appId: com.skaldandstone.kall
     element:
       text: Plan and billing
     direction: DOWN
+    visibilityPercentage: 50
+    centerElement: true
+    speed: 60
+    timeout: 30000
 - tapOn: Plan and billing
 - extendedWaitUntil:
     visible: Your access
