@@ -123,3 +123,13 @@ def test_ios_store_capture_reuses_a_build_on_a_free_custom_workflow() -> None:
     assert 'maestro --device "${DEVICE_UDID}" test' in script
     assert "1320x2868|1290x2796|1260x2736" in script
     assert "physical-device evidence" in script
+
+
+def test_ios_review_capture_injects_reviewer_secrets_as_maestro_parameters() -> None:
+    script = (
+        ROOT / "apps" / "mobile" / "scripts" / "capture-ios-review-evidence.sh"
+    ).read_text()
+
+    assert '-e "KALL_REVIEW_EMAIL=${KALL_REVIEW_EMAIL}"' in script
+    assert '-e "KALL_REVIEW_PASSWORD=${KALL_REVIEW_PASSWORD}"' in script
+    assert "KALL_REVIEW_EMAIL=" not in (ROOT / "apps" / "mobile" / ".maestro" / "ios-review-login.yml").read_text()

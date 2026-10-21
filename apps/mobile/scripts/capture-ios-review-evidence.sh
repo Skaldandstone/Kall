@@ -75,7 +75,13 @@ capture() {
 
 # EAS masks sensitive environment values in logs. No Maestro report containing
 # the entered password is retained or uploaded.
-maestro --device "${DEVICE_UDID}" test .maestro/ios-review-login.yml
+# Maestro does not import arbitrary shell variables into a flow. Pass the
+# reviewer credentials explicitly as flow parameters; the flow still refers to
+# their variable names, so neither value is written to source or test output.
+maestro --device "${DEVICE_UDID}" test \
+  -e "KALL_REVIEW_EMAIL=${KALL_REVIEW_EMAIL}" \
+  -e "KALL_REVIEW_PASSWORD=${KALL_REVIEW_PASSWORD}" \
+  .maestro/ios-review-login.yml
 capture 01-today
 maestro --device "${DEVICE_UDID}" test .maestro/ios-review-work.yml
 capture 02-job-and-consulting-search
