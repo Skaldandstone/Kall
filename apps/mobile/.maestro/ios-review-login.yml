@@ -12,3 +12,6 @@ appId: com.skaldandstone.kall
     visible: "Good morning.*"
     timeout: 30000
 - assertVisible: Today
+- tapOn:
+    text: Not Now
+    optional: true

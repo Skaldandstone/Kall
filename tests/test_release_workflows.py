@@ -144,3 +144,4 @@ def test_ios_review_capture_injects_reviewer_secrets_as_maestro_parameters() -> 
     assert "00-login-failure" in script
     assert "maestro-login-debug" in script
     assert "KALL_REVIEW_EMAIL=" not in (ROOT / "apps" / "mobile" / ".maestro" / "ios-review-login.yml").read_text()
+    assert "optional: true" in (ROOT / "apps" / "mobile" / ".maestro" / "ios-review-login.yml").read_text()
