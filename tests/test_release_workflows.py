@@ -126,10 +126,21 @@ def test_ios_store_capture_reuses_a_build_on_a_free_custom_workflow() -> None:
 
 
 def test_ios_review_capture_injects_reviewer_secrets_as_maestro_parameters() -> None:
+    workflow = (
+        ROOT
+        / "apps"
+        / "mobile"
+        / ".eas"
+        / "workflows"
+        / "capture-ios-review-evidence.yml"
+    ).read_text()
     script = (
         ROOT / "apps" / "mobile" / "scripts" / "capture-ios-review-evidence.sh"
     ).read_text()
 
+    assert "path: apps/mobile/review-capture-output" in workflow
     assert '-e "KALL_REVIEW_EMAIL=${KALL_REVIEW_EMAIL}"' in script
     assert '-e "KALL_REVIEW_PASSWORD=${KALL_REVIEW_PASSWORD}"' in script
+    assert "00-login-failure" in script
+    assert "maestro-login-debug" in script
     assert "KALL_REVIEW_EMAIL=" not in (ROOT / "apps" / "mobile" / ".maestro" / "ios-review-login.yml").read_text()

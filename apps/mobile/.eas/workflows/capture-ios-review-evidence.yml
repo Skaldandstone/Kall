@@ -44,4 +44,4 @@ jobs:
         with:
           type: other
           name: kall-ios-authenticated-review-evidence
-          path: review-capture-output
+          path: apps/mobile/review-capture-output
