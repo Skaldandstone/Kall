@@ -16,4 +16,8 @@ appId: com.skaldandstone.kall
 - extendedWaitUntil:
     visible: Your access
     timeout: 20000
-- assertVisible: Restore purchases
+- scrollUntilVisible:
+    element:
+      text: ".*Plus.*"
+    direction: DOWN
+- assertVisible: ".*Plus.*"
