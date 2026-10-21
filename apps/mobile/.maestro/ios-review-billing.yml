@@ -6,13 +6,13 @@ appId: com.skaldandstone.kall
     timeout: 20000
 - scrollUntilVisible:
     element:
-      text: Plan and billing
+      text: "Plan and billing.*"
     direction: DOWN
     visibilityPercentage: 50
     centerElement: true
     speed: 60
     timeout: 30000
-- tapOn: Plan and billing
+- tapOn: "Plan and billing.*"
 - extendedWaitUntil:
     visible: Your access
     timeout: 20000
