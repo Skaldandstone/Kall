@@ -18,6 +18,8 @@ appId: com.skaldandstone.kall
     timeout: 20000
 - scrollUntilVisible:
     element:
-      text: ".*Plus.*"
+      text: "Choose Kall Plus"
     direction: DOWN
-- assertVisible: ".*Plus.*"
+    visibilityPercentage: 90
+    centerElement: true
+- assertVisible: "Choose Kall Plus"
