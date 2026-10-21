@@ -95,8 +95,6 @@ maestro --device "${DEVICE_UDID}" test .maestro/ios-review-billing.yml
 capture 04-native-plans
 maestro --device "${DEVICE_UDID}" test .maestro/ios-review-premium.yml
 capture 05-native-premium
-maestro --device "${DEVICE_UDID}" test .maestro/ios-review-delete-preview.yml
-capture 06-delete-account
 
 kill -INT "${VIDEO_PID}"
 wait "${VIDEO_PID}" || true
@@ -130,7 +128,7 @@ manifest = {
     "captureType": "iOS Simulator",
     "limitations": [
         "This is simulated-device media and must not be described as physical-device evidence.",
-        "The deletion screen is demonstrated without deleting the reusable reviewer account.",
+        "Account deletion is not exercised in this capture so the reusable reviewer account remains intact.",
         "The native plan and restore controls are shown without confirming a purchase.",
     ],
     "sourceCommit": os.environ.get("KALL_BUILD_GIT_COMMIT"),

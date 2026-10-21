@@ -2,8 +2,8 @@ appId: com.skaldandstone.kall
 ---
 - scrollUntilVisible:
     element:
-      text: "Choose Kall Premium"
+      text: "Choose Kall Premium.*"
     direction: UP
     visibilityPercentage: 90
     centerElement: true
-- assertVisible: "Choose Kall Premium"
+- assertVisible: "Choose Kall Premium.*"
