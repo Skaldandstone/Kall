@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from kall.api_ops import LATEST_ANDROID_VERSION
+from kall.api_ops import LATEST_ANDROID_VERSION, LATEST_IOS_VERSION
 from kall.main import app
 
 
@@ -55,6 +55,22 @@ def test_mobile_release_preserves_the_test_link_for_legacy_builds() -> None:
     malformed = TestClient(app).get("/api/mobile-release?installed=not-a-version")
     assert malformed.status_code == 200
     assert malformed.json()["updateUrl"] == "https://play.google.com/store/apps/details?id=com.skaldandstone.kall"
+
+
+def test_mobile_release_endpoint_advertises_the_ios_app_store_release() -> None:
+    response = TestClient(app).get("/api/mobile-release?platform=ios&installed=1.2.0")
+    assert response.status_code == 200
+    assert response.json() == {
+        "platform": "ios",
+        "latestVersion": "1.2.0",
+        "updateUrl": "https://apps.apple.com/app/id6809954928",
+    }
+
+    app_config = json.loads((Path(__file__).parents[1] / "apps/mobile/app.json").read_text())
+    packaged_version = tuple(int(part) for part in app_config["expo"]["version"].split("."))
+    available_version = tuple(int(part) for part in LATEST_IOS_VERSION.split("."))
+    assert packaged_version >= available_version
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_readiness_endpoint_checks_the_database() -> None:

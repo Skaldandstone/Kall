@@ -41,6 +41,13 @@ test.describe('authentication boundary', () => {
       updateUrl: 'https://play.google.com/apps/testing/com.skaldandstone.kall',
     });
 
+    const iosRelease = await page.request.get('/api/mobile-release?platform=ios&installed=1.2.0');
+    expect(await iosRelease.json()).toEqual({
+      platform: 'ios',
+      latestVersion: '1.2.0',
+      updateUrl: 'https://apps.apple.com/app/id6809954928',
+    });
+
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Know what you can do next.' })).toBeVisible();
 

@@ -79,15 +79,25 @@ def test_store_releases_wait_for_compiled_native_smoke_tests() -> None:
 
 
 def test_installed_update_resets_private_cache_and_rechecks_on_resume() -> None:
-    reset_gate = (ROOT / "apps" / "mobile" / "src" / "components" / "ReleaseResetGate.tsx").read_text()
-    update_prompt = (ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.android.tsx").read_text()
+    reset_gate = (
+        ROOT / "apps" / "mobile" / "src" / "components" / "ReleaseResetGate.tsx"
+    ).read_text()
+    android_prompt = (
+        ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.android.tsx"
+    ).read_text()
+    ios_prompt = (
+        ROOT / "apps" / "mobile" / "src" / "components" / "UpdatePrompt.ios.tsx"
+    ).read_text()
     assert "new Directory(Paths.cache)" in reset_gate
     assert "cache.list()" in reset_gate
     assert "await clerk.signOut()" in reset_gate
-    assert "AppState.addEventListener" in update_prompt
-    assert "'Cache-Control': 'no-cache'" in update_prompt
-    assert "&t=${Date.now()}" in update_prompt
-    assert "Application.nativeApplicationVersion" in update_prompt
+    for update_prompt in (android_prompt, ios_prompt):
+        assert "AppState.addEventListener" in update_prompt
+        assert "'Cache-Control': 'no-cache'" in update_prompt
+        assert "&t=${Date.now()}" in update_prompt
+        assert "Application.nativeApplicationVersion" in update_prompt
+    assert "platform=ios" in ios_prompt
+    assert "https://apps.apple.com/app/id6809954928" in ios_prompt
 
 
 def test_mobile_ota_updates_use_the_production_eas_environment() -> None:

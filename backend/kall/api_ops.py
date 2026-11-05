@@ -9,9 +9,11 @@ from kall.db import get_session
 router = APIRouter(tags=["operations"])
 
 LATEST_ANDROID_VERSION = "1.2.0"
+LATEST_IOS_VERSION = "1.2.0"
 LEGACY_TESTER_VERSION = "1.1.6"
 PLAY_TEST_URL = "https://play.google.com/apps/testing/com.skaldandstone.kall"
 PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.skaldandstone.kall"
+APP_STORE_URL = "https://apps.apple.com/app/id6809954928"
 
 
 def _version_at_most(value: str, ceiling: str) -> bool:
@@ -27,13 +29,24 @@ def health() -> dict[str, str]:
 
 
 @router.get("/api/mobile-release", include_in_schema=False)
-def mobile_release(response: Response, installed: str | None = None) -> dict[str, str]:
-    """Tell Android builds which release should be installed.
+def mobile_release(
+    response: Response,
+    installed: str | None = None,
+    platform: str = "android",
+) -> dict[str, str]:
+    """Tell mobile builds which store release should be installed.
 
-    The closed-test link remains for legacy builds that only trust that exact
-    URL. Current builds and direct requests receive the public Play listing.
+    The closed-test link remains for legacy Android builds that only trust that
+    exact URL. Current Android builds and iOS builds receive their public store
+    listings.
     """
     response.headers["Cache-Control"] = "no-store"
+    if platform == "ios":
+        return {
+            "platform": "ios",
+            "latestVersion": LATEST_IOS_VERSION,
+            "updateUrl": APP_STORE_URL,
+        }
     update_url = (
         PLAY_TEST_URL
         if installed and _version_at_most(installed, LEGACY_TESTER_VERSION)
