@@ -30,9 +30,8 @@ is on the same screen. The screen includes functional Privacy Policy and Terms
 of Use links below the native purchase controls. Apple's sandbox should be used
 for any completed review purchase.
 
-The iOS build contains Apple-specific purchase language and does not present
-Google Play links or Google Play update instructions. Android update delivery
-is isolated to the Android platform module and is not bundled into iOS.
+The iOS build contains Apple-specific purchase language and update instructions.
+It does not present or describe third-party storefronts or platforms.
 
 The submitted build presents email, Google, and Apple sign-in controls. Verify
 the dedicated review identity against production before submission so the

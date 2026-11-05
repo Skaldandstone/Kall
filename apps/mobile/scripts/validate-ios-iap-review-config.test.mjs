@@ -20,6 +20,7 @@ const mobileFiles = [
   'store-assets/ios/listing.md',
   'store-assets/ios/review-evidence-shot-list.md',
   'src/screens/BillingScreen.tsx',
+  'src/notifications/registerPush.ts',
   'src/components/StoreLegalNotice.ios.tsx',
   'src/components/UpdatePrompt.ios.tsx',
   'src/components/PurchaseBootstrap.tsx',
@@ -78,6 +79,24 @@ test('Google Play references in the iOS module graph fail closed', () => {
   const result = run(mobileRoot);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Google Play/);
+});
+
+test('generic Android references in shared user-visible copy fail closed', () => {
+  const mobileRoot = fixture();
+  const billingPath = path.join(mobileRoot, 'src/screens/BillingScreen.tsx');
+  fs.appendFileSync(billingPath, '\n// Available on Android too.\n');
+  const result = run(mobileRoot);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /third-party platform references/);
+});
+
+test('generic Android references in shared runtime errors fail closed', () => {
+  const mobileRoot = fixture();
+  const pushPath = path.join(mobileRoot, 'src/notifications/registerPush.ts');
+  fs.appendFileSync(pushPath, '\nthrow new Error("Available on Android too.");\n');
+  const result = run(mobileRoot);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Shared runtime errors/);
 });
 
 test('removing the in-app Terms link fails closed', () => {

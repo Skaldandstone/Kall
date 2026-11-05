@@ -26,6 +26,7 @@ const notes = read('store-assets/ios/review-notes-draft.md');
 const listing = read('store-assets/ios/listing.md');
 const shotList = read('store-assets/ios/review-evidence-shot-list.md');
 const billing = read('src/screens/BillingScreen.tsx');
+const pushRegistration = read('src/notifications/registerPush.ts');
 const iosLegal = read('src/components/StoreLegalNotice.ios.tsx');
 const iosUpdate = read('src/components/UpdatePrompt.ios.tsx');
 const bootstrap = read('src/components/PurchaseBootstrap.tsx');
@@ -79,7 +80,16 @@ assert.match(iosLegal, /https:\/\/kall\.skaldandstone\.com\/privacy-policy/);
 assert.match(iosLegal, /https:\/\/kall\.skaldandstone\.com\/terms/);
 assert.match(iosLegal, /accessibilityRole="link"/);
 assert.match(iosLegal, /Linking\.openURL/);
-assert.doesNotMatch(`${billing}\n${iosLegal}\n${iosUpdate}`, /Google Play|play\.google\.com/i);
+assert.doesNotMatch(
+  `${billing}\n${iosLegal}\n${iosUpdate}\n${notes}\n${listing}`,
+  /Android|Google Play|Play Store|play\.google\.com/i,
+  'The iOS experience and review metadata cannot contain third-party platform references.',
+);
+assert.doesNotMatch(
+  pushRegistration,
+  /(?:throw new Error|setMessage)\([^)]*(?:Android|Google Play|Play Store)/i,
+  'Shared runtime errors cannot expose third-party platform references to iOS users.',
+);
 
 for (const parameter of ['RevenueCatApplePlusProductId', 'RevenueCatApplePremiumProductId']) {
   assert.ok(infrastructure.includes(`${parameter}:`), `Infrastructure is missing ${parameter}.`);

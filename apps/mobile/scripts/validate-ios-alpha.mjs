@@ -140,8 +140,8 @@ assert.ok(
 assert.ok(iosLegalSource.includes('Apple ID'), 'iOS billing must use Apple-specific purchase disclosure copy.');
 assert.doesNotMatch(
   `${billingSource}\n${iosLegalSource}\n${iosUpdateSource}`,
-  /Google Play|play\.google\.com/i,
-  'The iOS module graph cannot contain Google Play references.',
+  /Android|Google Play|Play Store|play\.google\.com/i,
+  'The iOS user experience cannot contain third-party platform references.',
 );
 // Paid tiers gate real features -- the free plan's AI allowance is zero and
 // growth plans, skills analysis, resume strategy, and interview prep require

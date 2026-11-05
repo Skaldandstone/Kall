@@ -9,7 +9,7 @@ export async function ensurePushRegistration(): Promise<void> {
     throw new Error("Push notifications require a physical phone or tablet.");
   }
   if (Platform.OS !== "android" && Platform.OS !== "ios") {
-    throw new Error("Push notifications are available in the Android and iOS apps.");
+    throw new Error("Push notifications are available in supported mobile apps.");
   }
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {

@@ -106,7 +106,7 @@ export default function BillingScreen() {
       <Text style={styles.eyebrow}>Your access</Text>
       <Text style={styles.title}>{status?.plan ? `${status.plan[0].toUpperCase()}${status.plan.slice(1)}` : 'Loading…'}</Text>
       <Text style={styles.copy}>
-        Your plan follows your Kall account across web, Android, and iOS.
+        Your plan follows your Kall account wherever you use Kall.
       </Text>
       {message ? <Text accessibilityRole="alert" style={styles.message}>{message}</Text> : null}
       {busy && !status ? <ActivityIndicator color={theme.accent} style={styles.spinner} /> : null}
