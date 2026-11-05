@@ -17,6 +17,16 @@ Metadata:
       - docs/PRODUCTION_DEPLOYMENT.md
 
 Parameters:
+  SharedCloudflareAlbSecurityGroupId:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^sg-[0-9a-f]+$"
+    Description: Existing Cloudflare-only shared ALB group owned by portfolio-shared-alb-routing-v2.
+  SharedCloudFrontAlbSecurityGroupId:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^sg-[0-9a-f]+$"
+    Description: Existing CloudFront HTTP-only shared ALB group owned by portfolio-shared-alb-routing-v2.
   VpcId:
     Type: AWS::EC2::VPC::Id
   PublicSubnetIds:
@@ -241,6 +251,8 @@ Rules:
         AssertDescription: Native billing Apple products must either both be configured or both remain disabled.
 
 Conditions:
+  HasSharedCloudflareAlbSecurityGroup: !Not [!Equals [!Ref SharedCloudflareAlbSecurityGroupId, ""]]
+  HasSharedCloudFrontAlbSecurityGroup: !Not [!Equals [!Ref SharedCloudFrontAlbSecurityGroupId, ""]]
   HasOpenAISecret: !Not [!Equals [!Ref OpenAISecretArn, '']]
   HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, '']]
   HasAdminSecret: !Not [!Equals [!Ref AdminSecretArn, '']]
@@ -937,8 +949,8 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Metadata:
       com.aws.cloudformation.Context:
-        why: TLS origin shared by CloudFront and the authenticated web BFF path.
-        must: [CloudFront prefix-list ingress only, Web task may reach it without broad public ingress, Deletion protection]
+        why: Shared portfolio origin; separate routing stack owns Savortome and Vaettir listeners, host rules and target groups.
+        must: [Provider prefix-list ingress only, Preserve Kall HTTPS and web BFF access, Keep shared routing stack dependencies before retirement, Deletion protection]
         mutable: change-with-constraints
     Properties:
       Scheme: internet-facing
@@ -946,6 +958,8 @@ Resources:
       IpAddressType: ipv4
       SecurityGroups:
         - !Ref AlbSecurityGroup
+        - !If [HasSharedCloudflareAlbSecurityGroup, !Ref SharedCloudflareAlbSecurityGroupId, !Ref "AWS::NoValue"]
+        - !If [HasSharedCloudFrontAlbSecurityGroup, !Ref SharedCloudFrontAlbSecurityGroupId, !Ref "AWS::NoValue"]
       Subnets: !Ref PublicSubnetIds
       LoadBalancerAttributes:
         - Key: routing.http.drop_invalid_header_fields.enabled
