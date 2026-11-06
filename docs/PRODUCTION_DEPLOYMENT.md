@@ -188,3 +188,10 @@ Before cutover:
   runtime change;
 - perform one low-risk real transaction and refund it from the Stripe Dashboard;
 - monitor API logs and webhook deliveries.
+
+
+## Shared IPv6 ingress, November 5, 2026
+
+The shared ALB uses `dualstack-without-public-ipv4`, with CloudFront origins set to `ipv6`. Public clients continue using CloudFront or Cloudflare over either address family. Stack `portfolio-ipv6-ingress` owns the shared VPC IPv6 allocation, three subnet CIDRs, internet-gateway route, two CloudFront managed-prefix security groups and Cloudflare IPv6 HTTPS rules. Preserve both new security-group parameters as well as the earlier shared ingress parameters. ECS task IP assignment, IPv4 target groups, database subnets and application versions are unchanged.
+
+The pilot retained ALB IPv4 while testing both CloudFront distributions and a Cloudflare origin with an IPv6-source-only ALB probe rule. The temporary probe rule and static origin address were removed afterward. All task revisions now use Retain policies; independent digest-pinned x86 rollback definitions and tagged images remain available. To roll back ingress, first restore ALB `dualstack`, wait for public IPv4 DNS and provider health, then change CloudFront origin IP types if needed. Never remove IPv6 routing while origins require it. AWS may retain old interfaces while existing connections drain for the original one-hour keepalive; DNS and configured mode alone do not prove address billing has ended.
