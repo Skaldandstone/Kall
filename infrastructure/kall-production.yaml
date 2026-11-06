@@ -27,6 +27,14 @@ Parameters:
     Default: ""
     AllowedPattern: "^$|^sg-[0-9a-f]+$"
     Description: Existing CloudFront HTTP-only shared ALB group owned by portfolio-shared-alb-routing-v2.
+  SharedCloudFrontIpv6HttpSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-097ed76e50926ec3e
+    Description: Provider-restricted IPv6 ingress group managed by portfolio-ipv6-ingress.
+  SharedCloudFrontIpv6HttpsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-0d4ec3cfa67ffa55e
+    Description: Provider-restricted IPv6 ingress group managed by portfolio-ipv6-ingress.
   VpcId:
     Type: AWS::EC2::VPC::Id
   PublicSubnetIds:
@@ -955,11 +963,15 @@ Resources:
     Properties:
       Scheme: internet-facing
       Type: application
-      IpAddressType: ipv4
+      # CloudFront and Cloudflare retain dualstack public client access.
+      # IPv6 ends at this ALB; ECS tasks and database networking stay IPv4.
+      IpAddressType: dualstack-without-public-ipv4
       SecurityGroups:
         - !Ref AlbSecurityGroup
         - !If [HasSharedCloudflareAlbSecurityGroup, !Ref SharedCloudflareAlbSecurityGroupId, !Ref "AWS::NoValue"]
         - !If [HasSharedCloudFrontAlbSecurityGroup, !Ref SharedCloudFrontAlbSecurityGroupId, !Ref "AWS::NoValue"]
+        - !Ref SharedCloudFrontIpv6HttpSecurityGroupId
+        - !Ref SharedCloudFrontIpv6HttpsSecurityGroupId
       Subnets: !Ref PublicSubnetIds
       LoadBalancerAttributes:
         - Key: routing.http.drop_invalid_header_fields.enabled
@@ -1089,6 +1101,7 @@ Resources:
             CustomOriginConfig:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
+              IpAddressType: ipv6
               OriginSSLProtocols: [TLSv1.2]
               OriginReadTimeout: 60
               OriginKeepaliveTimeout: 5
@@ -1108,6 +1121,8 @@ Resources:
 
   ApiTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       com.aws.cloudformation.Context:
         why: Non-root read-only FastAPI runtime with durable documents and least-privilege database credentials.
@@ -1281,6 +1296,8 @@ Resources:
 
   BootstrapTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       com.aws.cloudformation.Context:
         why: One-shot task creates or rotates exact runtime and migrator roles through the RDS-managed master.
@@ -1341,6 +1358,8 @@ Resources:
 
   MigrationTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       com.aws.cloudformation.Context:
         why: One-shot Alembic task applies and verifies the reviewed production schema head.
@@ -1421,6 +1440,8 @@ Resources:
 
   JobRunnerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       com.aws.cloudformation.Context:
         why: One task-definition family for every periodic kall.jobs.* script, run as a scheduled one-shot ECS task rather than a long-running service. Not yet targeted by any EventBridge rule -- each future schedule overrides Command at the rule's target rather than needing a new task definition per job.
@@ -1583,6 +1604,8 @@ Resources:
 
   WebTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Metadata:
       com.aws.cloudformation.Context:
         why: Production Next.js frontend and authenticated BFF built with the production Clerk publishable key.
