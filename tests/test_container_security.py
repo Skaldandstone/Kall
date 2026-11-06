@@ -11,8 +11,8 @@ PYTHON_BASE = (
     "sha256:d81968c559557b881aa557ff6d1200acec8e72a2c85fcb4ad1806e8d13e09f0b"
 )
 NODE_BASE = (
-    "alpine:3.24.1@"
-    "sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
+    "alpine:3.24.4@"
+    "sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4"
 )
 
 
@@ -134,20 +134,20 @@ def test_web_uses_distribution_node_with_reviewed_openssl_packages() -> None:
     assert base_stage.count("apk add --no-cache") == 1
     assert "edge" not in base_stage
     for package in (
-        "nodejs=24.18.1-r0",
+        "nodejs=24.22.1-r1",
         "npm=11.12.1-r0",
-        "libssl3=3.5.8-r0",
-        "libcrypto3=3.5.8-r0",
+        "libssl3=3.5.9-r0",
+        "libcrypto3=3.5.9-r0",
     ):
         assert package in base_stage
-    assert 'test "$(node -p process.versions.node)" = "24.18.1"' in dockerfile
+    assert 'test "$(node -p process.versions.node)" = "24.22.1"' in dockerfile
     assert 'test "$(npm --version)" = "11.12.1"' in dockerfile
-    assert 'test "$(node -p process.versions.openssl)" = "3.5.8"' in dockerfile
+    assert 'test "$(node -p process.versions.openssl)" = "3.5.9"' in dockerfile
     assert '! apk info --exists "libssl3=3.5.7-r0"' in dockerfile
     assert '! apk info --exists "libcrypto3=3.5.7-r0"' in dockerfile
-    assert 'apk info --exists "libssl3=3.5.8-r0"' in dockerfile
-    assert 'apk info --exists "libcrypto3=3.5.8-r0"' in dockerfile
-    assert 'apk info --who-owns /usr/bin/node | grep -F "nodejs-24.18.1-r0"' in dockerfile
+    assert 'apk info --exists "libssl3=3.5.9-r0"' in dockerfile
+    assert 'apk info --exists "libcrypto3=3.5.9-r0"' in dockerfile
+    assert 'apk info --who-owns /usr/bin/node | grep -F "nodejs-24.22.1-r1"' in dockerfile
     assert 'ldd /usr/bin/node | grep -F "/usr/lib/libssl.so.3"' in dockerfile
     assert 'ldd /usr/bin/node | grep -F "/usr/lib/libcrypto.so.3"' in dockerfile
     assert "! command -v curl >/dev/null 2>&1" in dockerfile
