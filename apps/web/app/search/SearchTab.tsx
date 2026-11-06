@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
 import SearchProgress from '../components/SearchProgress';
 import GoogleJobSearchResults, { soloQuery, type SiteQuery } from '../components/GoogleJobSearchResults';
@@ -81,6 +81,10 @@ export default function SearchTab() {
   const [loading, setLoading] = useState(false);
   const [hiddenCount, setHiddenCount] = useState(0);
   const [deadCount, setDeadCount] = useState(0);
+  // Profile changes, result clearing, and a newer search all invalidate older
+  // async work. Without this guard, a slow response for profile A can arrive
+  // after profile B is selected and be rendered as though it belongs to B.
+  const searchSequence = useRef(0);
 
   useEffect(() => {
     document.documentElement.classList.add('search-page-active');
@@ -93,9 +97,16 @@ export default function SearchTab() {
       const parsed = parseQuery(selectedQuery);
       setGroups(parsed);
       if (selectedProfile) {
+        const requestId = ++searchSequence.current;
         fetchProfilePlan(selectedProfile)
-          .then(({ domains }) => { setSiteDomains(domains); setSiteQueries(siteQueriesFor(domains, selectedQuery)); })
-          .catch(() => setSiteQueries(soloQuery(selectedQuery)));
+          .then(({ domains }) => {
+            if (requestId !== searchSequence.current) return;
+            setSiteDomains(domains);
+            setSiteQueries(siteQueriesFor(domains, selectedQuery));
+          })
+          .catch(() => {
+            if (requestId === searchSequence.current) setSiteQueries(soloQuery(selectedQuery));
+          });
       } else {
         setSiteQueries(soloQuery(selectedQuery));
       }
@@ -107,6 +118,7 @@ export default function SearchTab() {
     void loadSuppressedResults();
     window.addEventListener('kall:search-results-changed', updateHiddenCount);
     return () => {
+      searchSequence.current += 1;
       document.documentElement.classList.remove('search-page-active');
       document.body.classList.remove('search-page-active');
       window.removeEventListener('kall:search-results-changed', updateHiddenCount);
@@ -115,6 +127,9 @@ export default function SearchTab() {
 
   async function searchJobs(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const requestId = ++searchSequence.current;
+    const isCurrent = () => requestId === searchSequence.current;
+    const submittedInput = queryInput;
     setLoading(true);
     setMessage('Preparing your search…');
     try {
@@ -123,6 +138,7 @@ export default function SearchTab() {
       if (profileId) {
         if (!nextGroups.length || !domains.length) {
           const plan = await fetchProfilePlan(profileId);
+          if (!isCurrent()) return;
           if (!nextGroups.length) nextGroups = parseQuery(plan.intent);
           domains = plan.domains;
           setSiteDomains(domains);
@@ -131,20 +147,27 @@ export default function SearchTab() {
         domains = [];
         setSiteDomains([]);
       }
-      const additions = splitNewTerms(queryInput);
+      const additions = splitNewTerms(submittedInput);
       if (additions.length) nextGroups = [...nextGroups, { id: `custom-${Date.now()}`, label: 'Added terms', terms: additions }];
       const finalQuery = buildQuery(nextGroups);
       if (!finalQuery) { setMessage('Enter a job title or select a professional profile.'); showToast('Enter a job title or select a professional profile.', 'error'); return; }
       setGroups(nextGroups);
-      setQueryInput('');
+      // Do not erase text the user typed while the profile plan was loading.
+      setQueryInput((current) => current === submittedInput ? '' : current);
       const url = new URL(window.location.href);
       url.searchParams.set('q', finalQuery);
       if (profileId) url.searchParams.set('profile', profileId); else url.searchParams.delete('profile');
       window.history.replaceState({}, '', url);
 
       const aggregated = profileId && domains.length
-        ? await runAggregatedSearch(profileId, finalQuery, setAggregatedResults, setAggregatedMeta)
+        ? await runAggregatedSearch(
+          profileId,
+          finalQuery,
+          (results) => { if (isCurrent()) setAggregatedResults(results); },
+          (meta) => { if (isCurrent()) setAggregatedMeta(meta); },
+        )
         : false;
+      if (!isCurrent()) return;
       if (aggregated) {
         setSiteQueries([]);
         setMessage('Search complete.');
@@ -156,13 +179,20 @@ export default function SearchTab() {
           : 'Showing Google job results in the results column.');
       }
     } catch (error) {
+      if (!isCurrent()) return;
       const detail = error instanceof Error ? error.message : 'Unable to start the job search.';
       setMessage(detail);
       showToast(detail, 'error');
-    } finally { setLoading(false); }
+    } finally { if (isCurrent()) setLoading(false); }
   }
 
   async function removeTerm(groupId: string, term: string) {
+    const requestId = ++searchSequence.current;
+    const isCurrent = () => requestId === searchSequence.current;
+    // A chip can be removed while the original search is still pending. That
+    // invalidates the old request, whose guarded finally must no longer own
+    // loading; release it here so the page cannot remain stuck in progress.
+    setLoading(false);
     const next = groups.map((group) => group.id === groupId ? { ...group, terms: group.terms.filter((item) => item !== term) } : group).filter((group) => group.terms.length);
     setGroups(next);
     const regenerated = buildQuery(next);
@@ -175,8 +205,14 @@ export default function SearchTab() {
     // mode the last full search used.
     const wasAggregated = aggregatedResults !== null;
     const aggregated = wasAggregated && profileId && regenerated
-      ? await runAggregatedSearch(profileId, regenerated, setAggregatedResults, setAggregatedMeta)
+      ? await runAggregatedSearch(
+        profileId,
+        regenerated,
+        (results) => { if (isCurrent()) setAggregatedResults(results); },
+        (meta) => { if (isCurrent()) setAggregatedMeta(meta); },
+      )
       : false;
+    if (!isCurrent()) return;
     if (aggregated) {
       setSiteQueries([]);
     } else {
@@ -186,6 +222,8 @@ export default function SearchTab() {
   }
 
   function clearResults() {
+    searchSequence.current += 1;
+    setLoading(false);
     setGroups([]); setQueryInput(''); setSiteQueries([]); setAggregatedResults(null);
     const url = new URL(window.location.href); url.searchParams.delete('q'); window.history.replaceState({}, '', url);
     setMessage('Search results cleared.');
@@ -225,6 +263,9 @@ export default function SearchTab() {
           <ProfessionalProfileSelect
             value={profileId}
             onChange={(value) => {
+              searchSequence.current += 1;
+              setLoading(false);
+              setMessage('');
               setProfileId(value);
               setGroups([]); setSiteDomains([]); setSiteQueries([]); setAggregatedResults(null);
               const url = new URL(window.location.href);

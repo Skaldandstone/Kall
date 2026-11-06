@@ -104,3 +104,66 @@ test('the generate tab points a new account at tailoring instead of asking for a
   await expect(page).toHaveURL(/tab=tailoring/);
   await expect(page.getByRole('heading', { name: 'Evidence-grounded tailoring' })).toBeVisible();
 });
+
+test('editing the job while intelligence loads discards the obsolete result', async ({ page }) => {
+  await signInAsNewUser(page, 'Intelligence Recovery Test');
+
+  const profileResponse = await page.request.post('/api/kall/me/professional-profiles', {
+    data: { name: 'Leadership Direction', target_titles: ['Operations Director'] },
+  });
+  expect(profileResponse.ok()).toBeTruthy();
+  const profile = await profileResponse.json() as { id: number };
+
+  await page.route('**/api/kall/intelligence/jobs/101/analyze', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+
+  let releaseResult: (() => void) | undefined;
+  let markResultStarted: (() => void) | undefined;
+  const heldResult = new Promise<void>((resolve) => { releaseResult = resolve; });
+  const resultStarted = new Promise<void>((resolve) => { markResultStarted = resolve; });
+  await page.route(`**/api/kall/jobs/101/intelligence/${profile.id}`, async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      return;
+    }
+    markResultStarted?.();
+    await heldResult;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        scores: [{ resume_id: 7, total_score: 88, explanation: ['Old job evidence'], gaps: [] }],
+        coverage: { required: { covered: 1, total: 1 } },
+        achievement_matches: [],
+      }),
+    });
+  });
+
+  await page.goto('/job-intelligence');
+  await page.getByLabel('Professional profile').selectOption(String(profile.id));
+  const jobInput = page.locator('input[name="job_id"]');
+  await jobInput.fill('101');
+  await page.getByRole('button', { name: 'Compare role' }).click();
+  await resultStarted;
+  await expect(page.getByText('Preparing match intelligence…')).toBeVisible();
+
+  await jobInput.fill('202');
+  const obsoleteResponsePromise = page.waitForResponse((response) =>
+    response.url().includes(`/api/kall/jobs/101/intelligence/${profile.id}`) &&
+    response.request().method() === 'GET',
+  );
+  releaseResult?.();
+  const obsoleteResponse = await obsoleteResponsePromise;
+  await obsoleteResponse.finished();
+  // Network arrival alone is not an application-continuation barrier. Cross
+  // two render frames after the body finishes so the old fetch/json promise
+  // and any React work it queued have had an opportunity to run.
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
+  await expect(page.getByRole('button', { name: 'Compare role' })).toBeEnabled();
+  await expect(page.getByText('Analysis complete.')).toHaveCount(0);
+  await expect(page.getByText('88%')).toHaveCount(0);
+});
