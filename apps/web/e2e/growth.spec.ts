@@ -22,7 +22,7 @@ test('creating a career goal produces a plan, and resources can be saved and pin
   await signInAsNewUser(adminPage, 'Growth Test Admin', 'skaldandstone.com');
   await adminPage.goto('/admin');
   await adminPage.locator('input[name="q"]').fill(email);
-  await adminPage.getByRole('button', { name: 'Search' }).click();
+  await adminPage.getByRole('button', { name: 'Search', exact: true }).click();
   await adminPage.getByText(email).click();
   await adminPage.getByRole('button', { name: 'Set plus' }).click();
   await expect(adminPage.getByRole('button', { name: 'Set plus' })).toBeDisabled();

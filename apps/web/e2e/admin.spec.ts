@@ -48,7 +48,7 @@ test('an admin can change a plan, exempt an account, and see it logged', async (
 
   await test.step('find the account', async () => {
     await page.locator('input[name="q"]').fill(targetEmail);
-    await page.getByRole('button', { name: 'Search' }).click();
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     await page.getByText(targetEmail).click();
     await expect(page.getByRole('heading', { name: 'Target Account' })).toBeVisible();
   });
