@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, Epilogue, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import '@fontsource-variable/cormorant-garamond';
+import '@fontsource-variable/epilogue';
+import '@fontsource-variable/syne';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
 import { SENTRY_DSN_META_NAME, SENTRY_ENVIRONMENT_META_NAME } from '../lib/sentry-shared';
 import OpportunitiesAtsSearch from './components/OpportunitiesAtsSearch';
 import SiteFooter from './components/SiteFooter';
@@ -12,36 +16,6 @@ import './search-apply.css';
 import './search-tracking.css';
 import './toast.css';
 import './inscription.css';
-
-const inscription = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['500', '600'],
-  variable: '--font-inscription',
-  display: 'swap',
-});
-
-// Self-hosted at build time rather than linked from fonts.googleapis.com,
-// which the CSP in next.config.mjs does not permit for styles or fonts.
-const syne = Syne({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-syne',
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-epilogue',
-  display: 'swap',
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-plex-mono',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: {
@@ -81,7 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   const sentryDsn = process.env.SENTRY_DSN;
   const sentryEnvironment = process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV;
   return (
-    <html lang="en" data-kall-theme={process.env.KALL_UI_THEME === 'legacy' ? 'legacy' : 'inscription'} className={`${inscription.variable} ${syne.variable} ${epilogue.variable} ${plexMono.variable}`}>
+    <html lang="en" data-kall-theme={process.env.KALL_UI_THEME === 'legacy' ? 'legacy' : 'inscription'}>
       <head>
         {sentryDsn ? <meta name={SENTRY_DSN_META_NAME} content={sentryDsn} /> : null}
         {sentryDsn && sentryEnvironment ? (
