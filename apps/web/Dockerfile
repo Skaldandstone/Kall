@@ -1,22 +1,22 @@
-FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS base
+FROM alpine:3.24.4@sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4 AS base
 
 # Alpine's LTS Node package links to the distribution OpenSSL libraries. Pin
 # the image and every security-relevant package so Node cannot silently fall
 # back to the vulnerable bundled or 3.5.7-r0 library paths.
 RUN set -eu; \
     apk add --no-cache \
-        nodejs=24.18.1-r0 \
+        nodejs=24.22.1-r1 \
         npm=11.12.1-r0 \
-        libssl3=3.5.8-r0 \
-        libcrypto3=3.5.8-r0; \
-    test "$(node -p process.versions.node)" = "24.18.1"; \
+        libssl3=3.5.9-r0 \
+        libcrypto3=3.5.9-r0; \
+    test "$(node -p process.versions.node)" = "24.22.1"; \
     test "$(npm --version)" = "11.12.1"; \
-    test "$(node -p process.versions.openssl)" = "3.5.8"; \
+    test "$(node -p process.versions.openssl)" = "3.5.9"; \
     ! apk info --exists "libssl3=3.5.7-r0"; \
     ! apk info --exists "libcrypto3=3.5.7-r0"; \
-    apk info --exists "libssl3=3.5.8-r0"; \
-    apk info --exists "libcrypto3=3.5.8-r0"; \
-    apk info --who-owns /usr/bin/node | grep -F "nodejs-24.18.1-r0"; \
+    apk info --exists "libssl3=3.5.9-r0"; \
+    apk info --exists "libcrypto3=3.5.9-r0"; \
+    apk info --who-owns /usr/bin/node | grep -F "nodejs-24.22.1-r1"; \
     ldd /usr/bin/node | grep -F "/usr/lib/libssl.so.3"; \
     ldd /usr/bin/node | grep -F "/usr/lib/libcrypto.so.3"; \
     ! command -v curl >/dev/null 2>&1

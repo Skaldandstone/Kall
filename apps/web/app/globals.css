@@ -25,9 +25,15 @@
   --warning: #d9a441;
   --danger: #d97362;
   --danger-ink: #21100e;
-  /* Families come from next/font/google (see layout.tsx), which self-hosts
-     them at build time. A <link> to fonts.googleapis.com would be blocked --
-     the CSP's style-src and font-src only allow 'self'. */
+  /* Fontsource packages bundle these families into the application. This
+     preserves the established typography without a build-time Google Fonts
+     request, and the CSP can continue to allow fonts from 'self' only. */
+  --font-inscription: "Cormorant Garamond Variable", Georgia, serif;
+  --font-syne: "Syne Variable";
+  --font-epilogue: "Epilogue Variable";
+  --font-plex-mono: "IBM Plex Mono";
+  --font-fraunces: "Fraunces Variable";
+  --font-plex-sans: "IBM Plex Sans Variable";
   --font-display: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-epilogue), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
