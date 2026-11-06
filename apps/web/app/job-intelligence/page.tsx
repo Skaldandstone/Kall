@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AppNav from '../components/AppNav';
 import ProfessionalProfileSelect from '../components/ProfessionalProfileSelect';
@@ -66,6 +66,14 @@ function JobIntelligenceContent() {
   const [result, setResult] = useState<Result | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const requestSequence = useRef(0);
+
+  function invalidateComparison() {
+    requestSequence.current += 1;
+    setIsLoading(false);
+    setResult(null);
+    setMessage('');
+  }
 
   useEffect(() => {
     // Arriving from a job's detail view already carries both IDs -- run the
@@ -87,6 +95,9 @@ function JobIntelligenceContent() {
       return;
     }
 
+    const requestId = ++requestSequence.current;
+    const isCurrent = () => requestId === requestSequence.current;
+    const selectedProfileId = profileId;
     setIsLoading(true);
     setResult(null);
     setMessage('Preparing match intelligence…');
@@ -105,12 +116,14 @@ function JobIntelligenceContent() {
         window.location.replace('/sign-in');
         return;
       }
+      if (!isCurrent()) return;
       if (!analyze.ok) {
-        setMessage(await responseMessage(analyze, 'Unable to analyze the job requirements.'));
+        const detail = await responseMessage(analyze, 'Unable to analyze the job requirements.');
+        if (isCurrent()) setMessage(detail);
         return;
       }
 
-      const run = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`, {
+      const run = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${selectedProfileId}`, {
         method: 'POST'
       });
 
@@ -118,23 +131,28 @@ function JobIntelligenceContent() {
         window.location.replace('/sign-in');
         return;
       }
+      if (!isCurrent()) return;
       if (!run.ok) {
-        setMessage(await responseMessage(run, 'Unable to build intelligence.'));
+        const detail = await responseMessage(run, 'Unable to build intelligence.');
+        if (isCurrent()) setMessage(detail);
         return;
       }
 
-      const response = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${profileId}`);
+      const response = await fetch(`${API}/jobs/${normalizedJobId}/intelligence/${selectedProfileId}`);
 
       if (response.status === 401) {
         window.location.replace('/sign-in');
         return;
       }
+      if (!isCurrent()) return;
       if (!response.ok) {
-        setMessage(await responseMessage(response, 'The analysis ran, but the results could not be loaded.'));
+        const detail = await responseMessage(response, 'The analysis ran, but the results could not be loaded.');
+        if (isCurrent()) setMessage(detail);
         return;
       }
 
       const payload = await response.json();
+      if (!isCurrent()) return;
       if (!payload || !Array.isArray(payload.scores) || typeof payload.coverage !== 'object') {
         setMessage('The API returned an incomplete intelligence result.');
         return;
@@ -142,14 +160,17 @@ function JobIntelligenceContent() {
       setResult(payload);
       setMessage('Analysis complete.');
     } catch {
-      setMessage('Kall could not reach the API. Check your connection and try again.');
+      if (isCurrent()) setMessage('Kall could not reach the API. Check your connection and try again.');
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }
 
   async function selectResume(resumeId: number) {
-    const response = await fetch(`${API}/jobs/${jobId.trim()}/intelligence/${profileId}/selection`, {
+    const requestId = requestSequence.current;
+    const selectedJobId = jobId.trim();
+    const selectedProfileId = profileId;
+    const response = await fetch(`${API}/jobs/${selectedJobId}/intelligence/${selectedProfileId}/selection`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -157,7 +178,10 @@ function JobIntelligenceContent() {
       body: JSON.stringify({ resume_id: resumeId }),
     });
 
-    setMessage(response.ok ? `Resume ${resumeId} is now selected for this opportunity.` : await responseMessage(response, 'Kall could not save the resume selection.'));
+    const detail = response.ok
+      ? `Resume ${resumeId} is now selected for this opportunity.`
+      : await responseMessage(response, 'Kall could not save the resume selection.');
+    if (requestId === requestSequence.current) setMessage(detail);
   }
 
   return (
@@ -177,9 +201,9 @@ function JobIntelligenceContent() {
           <div className="two">
             <label>
               <span className="muted">Job ID</span>
-              <input className="input" name="job_id" inputMode="numeric" pattern="[0-9]+" min="1" value={jobId} onChange={(event) => setJobId(event.target.value)} placeholder="e.g. 128" required />
+              <input className="input" name="job_id" inputMode="numeric" pattern="[0-9]+" min="1" value={jobId} onChange={(event) => { invalidateComparison(); setJobId(event.target.value); }} placeholder="e.g. 128" required />
             </label>
-            <ProfessionalProfileSelect value={profileId} onChange={setProfileId} />
+            <ProfessionalProfileSelect value={profileId} onChange={(value) => { invalidateComparison(); setProfileId(value); }} />
           </div>
           <button className="button" disabled={isLoading || !profileId}>{isLoading ? 'Comparing role…' : 'Compare role'}</button>
         </form>

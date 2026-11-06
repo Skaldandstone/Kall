@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     ), { headers: { 'Content-Type': 'image/png' } });
   }
   if (path === '/search/suppressed' || path === '/submissions') return NextResponse.json([]);
+  if (path === '/me/applications/existing') return NextResponse.json({ exists: false, application: null });
   if (path === '/me/applications') return NextResponse.json({ stages: [{ items: [{ id: 41, stage: 'review', company: 'Northstar Robotics', role: 'Director of Quality Engineering', location: 'Remote', match_score: 86 }] }] });
   if (path === '/applications/41/review') return NextResponse.json({ review: { status: 'needs_review', readiness_issues: ['Confirm your documents and answers.'] }, questions: [{ id: 7, prompt: 'Describe your quality leadership experience.', category: 'Experience', sensitive: false, required: true }], answers: [{ id: 9, question_id: 7, value: 'I lead quality engineering teams and build reliable release practices.', status: 'suggested' }] });
   if (path.startsWith('/discovery/ats-search/')) return NextResponse.json({

@@ -18,6 +18,34 @@ type Application = {
   prepared_payload?: { customize_resume?: boolean; generate_cover_letter?: boolean; tailoring_proposal_id?: number | null };
 };
 
+type ExistingApplication = {
+  id: number;
+  stage: string;
+  completed: boolean;
+  created_at: string | null;
+  submitted_at: string | null;
+};
+
+type ExistingApplicationCheck =
+  | { exists: false; application: null }
+  | { exists: true; application: ExistingApplication };
+
+const duplicateCheckFailure = 'Kall could not confirm whether you already started this application. No new application was created. Try again.';
+
+function isExistingApplicationCheck(value: unknown): value is ExistingApplicationCheck {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  if (result.exists === false) return result.application === null;
+  if (result.exists !== true || !result.application || typeof result.application !== 'object') return false;
+  const application = result.application as Record<string, unknown>;
+  return Number.isInteger(application.id)
+    && Number(application.id) > 0
+    && typeof application.stage === 'string'
+    && typeof application.completed === 'boolean'
+    && (application.created_at === null || typeof application.created_at === 'string')
+    && (application.submitted_at === null || typeof application.submitted_at === 'string');
+}
+
 async function errorMessage(response: Response, fallback: string) {
   try {
     const payload = await response.json();
@@ -116,18 +144,23 @@ function NewApplicationForm() {
       // Never start a second application for the same link: if one exists,
       // send the person back to it (to finish it, or to see what was sent).
       const check = await fetchKall(`/me/applications/existing?job_id=${jobId}${externalUrl ? `&url=${encodeURIComponent(externalUrl)}` : ''}`);
-      if (check.ok) {
-        const { application: existing } = await check.json() as { exists: boolean; application: { id: number; stage: string; completed: boolean; created_at: string | null; submitted_at: string | null } | null };
-        if (existing) {
-          const when = existing.submitted_at ?? existing.created_at;
-          const date = when ? new Date(when).toLocaleDateString() : 'earlier';
-          const text = existing.completed
-            ? `You applied to this role on ${date}. Opening that application.`
-            : `You already started this application on ${date} (${existing.stage.replace(/_/g, ' ')}). Picking it up where you left off.`;
-          showToast(text, 'success');
-          router.push(`/applications/${existing.id}`);
-          return;
-        }
+      if (check.status === 401) return;
+      if (!check.ok) {
+        const detail = await errorMessage(check, 'Kall could not confirm whether you already started this application.');
+        throw new Error(`${detail} No new application was created. Try again.`);
+      }
+      const duplicateCheck: unknown = await check.json().catch(() => null);
+      if (!isExistingApplicationCheck(duplicateCheck)) throw new Error(duplicateCheckFailure);
+      const existing = duplicateCheck.application;
+      if (existing) {
+        const when = existing.submitted_at ?? existing.created_at;
+        const date = when ? new Date(when).toLocaleDateString() : 'earlier';
+        const text = existing.completed
+          ? `You applied to this role on ${date}. Opening that application.`
+          : `You already started this application on ${date} (${existing.stage.replace(/_/g, ' ')}). Picking it up where you left off.`;
+        showToast(text, 'success');
+        router.push(`/applications/${existing.id}`);
+        return;
       }
       const response = await fetchKall(`/applications/prepare-options`, {
         method: 'POST',

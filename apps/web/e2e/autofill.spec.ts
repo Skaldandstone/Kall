@@ -99,3 +99,57 @@ test('the autofill panel fills consented fields and withholds the rest', async (
     await expect(page.getByText(/will be attached/)).toBeVisible();
   });
 });
+
+for (const duplicateCheckCase of [
+  {
+    name: 'unavailable',
+    status: 503,
+    body: { detail: 'Duplicate detection is temporarily unavailable.' },
+    message: 'Duplicate detection is temporarily unavailable. No new application was created. Try again.',
+  },
+  {
+    name: 'missing status',
+    status: 200,
+    body: {},
+    message: 'Kall could not confirm whether you already started this application. No new application was created. Try again.',
+  },
+  {
+    name: 'contradictory status',
+    status: 200,
+    body: { exists: true, application: null },
+    message: 'Kall could not confirm whether you already started this application. No new application was created. Try again.',
+  },
+]) {
+  test(`application preparation stops when duplicate detection is ${duplicateCheckCase.name}`, async ({ page }) => {
+    await signInAsNewUser(page, `Duplicate Recovery Test ${duplicateCheckCase.name}`);
+    await completeOnboarding(page);
+
+    const profileId = await firstProfileId(page);
+    const job = await seedJob(page);
+    let prepareCalled = false;
+
+    await page.route('**/api/kall/me/applications/existing?**', async (route) => {
+      await route.fulfill({
+        status: duplicateCheckCase.status,
+        contentType: 'application/json',
+        body: JSON.stringify(duplicateCheckCase.body),
+      });
+    });
+    await page.route('**/api/kall/applications/prepare-options', async (route) => {
+      prepareCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 999, status: 'reviewing', unanswered_questions: [], sensitive_fields_present: false }),
+      });
+    });
+
+    await page.goto(`/applications/new?job=${job.id}&profile=${profileId}`);
+    await expect(page.getByRole('button', { name: 'Prepare application' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Prepare application' }).click();
+
+    await expect(page.getByRole('main').getByText(duplicateCheckCase.message)).toBeVisible();
+    expect(prepareCalled).toBe(false);
+    await expect(page).toHaveURL(new RegExp(`/applications/new\\?job=${job.id}`));
+  });
+}
